@@ -1,0 +1,52 @@
+﻿# --- Node.js / Web / API ---
+node_modules/
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- Environment variables ---
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env.local
+
+# --- Prisma ---
+apps/api/prisma/migrations/dev.db
+
+# --- Android / Mobile ---
+apps/mobile/**/build/
+apps/mobile/.gradle/
+apps/mobile/local.properties
+apps/mobile/.idea/
+apps/mobile/*.iml
+apps/mobile/captures/
+apps/mobile/.cxx/
+apps/mobile/app/release/
+apps/mobile/app/debug/
+
+# --- IDE / Editor ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.iml
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Docker volumes ---
+infra/docker/data/

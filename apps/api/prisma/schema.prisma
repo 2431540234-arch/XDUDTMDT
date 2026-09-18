@@ -1,0 +1,36 @@
+// Định nghĩa schema cơ sở dữ liệu PostgreSQL bằng Prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("customer")
+  createdAt DateTime @default(now())
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String
+  price       Decimal
+  images      String[]
+  model3dUrl  String?
+  createdAt   DateTime @default(now())
+}
+
+model Space {
+  id           String   @id @default(uuid())
+  name         String
+  panoramaUrl  String
+  createdAt    DateTime @default(now())
+}
