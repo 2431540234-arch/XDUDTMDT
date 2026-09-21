@@ -9,28 +9,312 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum ModelFormat {
+  GLB
+  USDZ
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPING
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum PaymentMethod {
+  COD
+  BANK_TRANSFER
+  VNPAY
+  MOMO
+  STRIPE
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+// ---------- Người dùng ----------
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
   name      String
-  role      String   @default("customer")
+  phone     String?
+  avatarUrl String?
+  role      Role     @default(CUSTOMER)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses Address[]
+  cart      Cart?
+  orders    Order[]
+  reviews   Review[]
+  wishlist  Wishlist[]
+}
+
+model Address {
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipientName String
+  phone         String
+  province      String
+  district      String
+  ward          String
+  addressLine   String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  orders Order[]
+
+  @@index([userId])
+}
+
+// ---------- Danh mục & Sản phẩm ----------
+
+model Category {
+  id          String     @id @default(uuid())
+  name        String
+  slug        String     @unique
+  description String?
+  imageUrl    String?
+  parentId    String?
+  parent      Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryToChildren")
+  products    Product[]
+
+  @@index([parentId])
 }
 
 model Product {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   name        String
+  slug        String  @unique
+  sku         String  @unique
   description String
-  price       Decimal
-  images      String[]
-  model3dUrl  String?
-  createdAt   DateTime @default(now())
+  basePrice   Decimal @db.Decimal(12, 2)
+  isActive    Boolean @default(true)
+
+  // Kích thước thực (cm) - bắt buộc để đặt đúng tỉ lệ khi AR
+  widthCm  Decimal @db.Decimal(6, 1)
+  heightCm Decimal @db.Decimal(6, 1)
+  depthCm  Decimal @db.Decimal(6, 1)
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images     ProductImage[]
+  variants   ProductVariant[]
+  models3d   Product3DModel[]
+  reviews    Review[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+  wishlist   Wishlist[]
+
+  @@index([categoryId])
 }
 
-model Space {
+model ProductImage {
+  id        String  @id @default(uuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  sortOrder Int     @default(0)
+  isPrimary Boolean @default(false)
+
+  @@index([productId])
+}
+
+// Biến thể: màu sắc / chất liệu / kích cỡ
+model ProductVariant {
+  id            String  @id @default(uuid())
+  productId     String
+  product       Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  sku           String  @unique
+  color         String?
+  material      String?
+  size          String?
+  priceModifier Decimal @default(0) @db.Decimal(12, 2)
+  stockQuantity Int     @default(0)
+  imageUrl      String?
+
+  models3d   Product3DModel[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+// File 3D dùng cho viewer + AR (nhiều định dạng cho từng nền tảng)
+model Product3DModel {
+  id             String          @id @default(uuid())
+  productId      String
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId      String?
+  variant        ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  format         ModelFormat
+  url            String
+  posterImageUrl String?
+  fileSizeKb     Int?
+  createdAt      DateTime        @default(now())
+
+  @@index([productId])
+  @@index([variantId])
+}
+
+// Phòng mẫu 360° để xem tổng quan (khác với AR camera trực tiếp)
+model Showroom {
   id           String   @id @default(uuid())
   name         String
   panoramaUrl  String
+  thumbnailUrl String?
   createdAt    DateTime @default(now())
+}
+
+// ---------- Giỏ hàng ----------
+
+model Cart {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id        String          @id @default(uuid())
+  cartId    String
+  cart      Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product         @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+  quantity  Int             @default(1)
+
+  @@unique([cartId, productId, variantId])
+}
+
+// ---------- Đơn hàng ----------
+
+model Order {
+  id          String  @id @default(uuid())
+  orderNumber String  @unique
+  userId      String
+  user        User    @relation(fields: [userId], references: [id])
+  addressId   String
+  address     Address @relation(fields: [addressId], references: [id])
+
+  status        OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(UNPAID)
+
+  subtotal    Decimal @db.Decimal(12, 2)
+  shippingFee Decimal @default(0) @db.Decimal(12, 2)
+  discount    Decimal @default(0) @db.Decimal(12, 2)
+  total       Decimal @db.Decimal(12, 2)
+
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items    OrderItem[]
+  payments Payment[]
+
+  @@index([userId])
+}
+
+model OrderItem {
+  id        String          @id @default(uuid())
+  orderId   String
+  order     Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product         @relation(fields: [productId], references: [id])
+  variantId String?
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  // snapshot tại thời điểm đặt hàng - không phụ thuộc giá hiện tại của sản phẩm
+  productName String
+  unitPrice   Decimal @db.Decimal(12, 2)
+  quantity    Int
+  subtotal    Decimal @db.Decimal(12, 2)
+
+  @@index([orderId])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  provider      String
+  transactionId String?
+  amount        Decimal       @db.Decimal(12, 2)
+  status        PaymentStatus @default(UNPAID)
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@index([orderId])
+}
+
+// ---------- Đánh giá & Yêu thích ----------
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String?
+  images    String[]
+  createdAt DateTime @default(now())
+
+  @@unique([productId, userId])
+  @@index([productId])
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+// ---------- Khuyến mãi ----------
+
+model Coupon {
+  id            String       @id @default(uuid())
+  code          String       @unique
+  type          DiscountType
+  value         Decimal      @db.Decimal(12, 2)
+  minOrderValue Decimal?     @db.Decimal(12, 2)
+  maxUses       Int?
+  usedCount     Int          @default(0)
+  startsAt      DateTime?
+  expiresAt     DateTime?
+  isActive      Boolean      @default(true)
 }

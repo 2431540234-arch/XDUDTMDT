@@ -1,3 +1,5 @@
-// Các hàm định dạng dữ liệu (tiền tệ, ngày tháng...)
+// Các hàm định dạng dùng chung cho web
 
-export {};
+export function formatCurrency(value: number): string {
+  return `${new Intl.NumberFormat("vi-VN").format(value)}đ`;
+}

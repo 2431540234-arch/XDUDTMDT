@@ -1,8 +1,11 @@
-// Định nghĩa theme (màu sắc, kích thước) dùng chung cho giao diện web
-
+// Bảng token màu trung tâm - đồng bộ theo bộ nhận diện Aurelia Living (đỏ đô + kem)
 export const theme = {
   colors: {
-    primary: "#8B5E3C",
-    secondary: "#F4EBE0",
+    primary: "#B90000",
+    primaryDark: "#990000",
+    accent: "#C40000",
+    heading: "#E00000",
+    cream: "#F7F0E9",
+    ink: "#222222",
   },
 };
