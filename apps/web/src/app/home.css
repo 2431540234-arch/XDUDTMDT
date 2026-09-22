@@ -604,3 +604,8 @@ body {
 @media (max-width: 1200px) {
   .al-banner__photo { width: 280px; height: 280px; }
 }
+/* Mục menu đang được mở */
+.al-nav__list a.active {
+  background: var(--al-red-dark);
+}
+a.al-mini, a.al-pcard { text-decoration: none; color: inherit; }
