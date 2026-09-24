@@ -20,6 +20,7 @@ export const mockCategoryGroups: CategoryGroup[] = [
       { slug: "tu-ruou", name: "Tủ rượu" },
       { slug: "tu-giay", name: "Tủ giày" },
       { slug: "ke-trang-tri", name: "Kệ trang trí" },
+      { slug: "ban-ghe", name: "Bàn ghế" },
     ],
   },
   {

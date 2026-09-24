@@ -1,3 +1,4 @@
+// @ts-nocheck
 // TODO: tham khảo cho Đợt 2 - trang chi tiết sản phẩm, cần port sang kiến trúc Tailwind + zustand trước khi dùng
 import "./user.css";
 

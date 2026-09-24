@@ -103,13 +103,14 @@ model Category {
 }
 
 model Product {
-  id          String  @id @default(uuid())
-  name        String
-  slug        String  @unique
-  sku         String  @unique
-  description String
-  basePrice   Decimal @db.Decimal(12, 2)
-  isActive    Boolean @default(true)
+  id             String   @id @default(uuid())
+  name           String
+  slug           String   @unique
+  sku            String   @unique
+  description    String
+  basePrice      Decimal  @db.Decimal(12, 2)
+  compareAtPrice Decimal? @db.Decimal(12, 2)
+  isActive       Boolean  @default(true)
 
   // Kích thước thực (cm) - bắt buộc để đặt đúng tỉ lệ khi AR
   widthCm  Decimal @db.Decimal(6, 1)

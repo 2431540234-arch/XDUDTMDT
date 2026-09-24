@@ -9,7 +9,9 @@ export interface Product {
   price: number;
   oldPrice?: number;
   image: string;
-  section: ProductSection;
+  section?: ProductSection;
+  categorySlug?: string;
+  categoryTitle?: string;
 }
 
 export interface CategoryLink {
