@@ -1,0 +1,43 @@
+/* TODO: tham khảo cho Đợt 2 - trang chi tiết sản phẩm, cần port sang kiến trúc Tailwind + zustand trước khi dùng */
+.cat-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: var(--al-text);
+  font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.cat-wrap {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 28px 24px 60px;
+}
+
+.cat-breadcrumb { font-size: 14px; color: #6b5138; margin-bottom: 16px; }
+.cat-breadcrumb a { color: var(--al-red); text-decoration: none; }
+.cat-breadcrumb a:hover { text-decoration: underline; }
+
+.cat-title {
+  text-align: center;
+  color: var(--al-red);
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.cat-desc { text-align: center; color: #6b5138; margin: 10px 0 24px; }
+
+.cat-empty { text-align: center; padding: 100px 20px; }
+.cat-empty h1 { color: var(--al-red); margin-bottom: 20px; }
+
+.cat-empty__btn {
+  display: inline-block;
+  background: var(--al-red);
+  color: #fff;
+  text-decoration: none;
+  padding: 12px 26px;
+  border-radius: 8px;
+  font-weight: 700;
+}

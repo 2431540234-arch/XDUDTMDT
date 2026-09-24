@@ -1,0 +1,173 @@
+/* TODO: tham khảo cho Đợt 2 - trang chi tiết sản phẩm, cần port sang kiến trúc Tailwind + zustand trước khi dùng */
+/* ===== MÀU THƯƠNG HIỆU AURELIA ===== */
+:root {
+  --aurelia-cream: #f7f1e3;
+  --aurelia-red: #c8102e;
+  --aurelia-red-dark: #8e0b1f;
+  --aurelia-gold: #c9a227;
+  --aurelia-text: #3d2b1f;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.user-page {
+  min-height: 100vh;
+  background: var(--aurelia-cream);
+  color: var(--aurelia-text);
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+/* ===== HEADER ===== */
+.aurelia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 40px;
+  background: #fff;
+  border-bottom: 2px solid var(--aurelia-gold);
+}
+
+.aurelia-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.aurelia-header__logo {
+  height: 52px;
+  width: auto;
+}
+
+.aurelia-header__name {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--aurelia-red);
+  letter-spacing: 3px;
+}
+
+.aurelia-header__nav a {
+  margin-left: 24px;
+  text-decoration: none;
+  color: var(--aurelia-text);
+  font-size: 15px;
+}
+
+.aurelia-header__nav a:hover { color: var(--aurelia-gold); }
+
+.aurelia-header__nav a.active {
+  color: var(--aurelia-red);
+  font-weight: 600;
+}
+
+/* ===== BỐ CỤC CHÍNH ===== */
+.user-page__container {
+  display: flex;
+  gap: 32px;
+  max-width: 1100px;
+  margin: 32px auto;
+  padding: 0 24px;
+}
+
+/* ===== SIDEBAR ===== */
+.user-page__sidebar {
+  width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 20px;
+  border-top: 4px solid var(--aurelia-red);
+  text-align: center;
+  height: fit-content;
+}
+
+.user-page__avatar {
+  width: 88px;
+  height: 88px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--aurelia-red);
+  color: #fff;
+  font-size: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--aurelia-gold);
+}
+
+.user-page__sidebar h2 { font-size: 20px; }
+
+.user-page__member {
+  color: var(--aurelia-gold);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.user-page__sidebar ul {
+  list-style: none;
+  margin-top: 20px;
+  text-align: left;
+}
+
+.user-page__sidebar li {
+  padding: 10px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.user-page__sidebar li:hover { background: #f5e9d0; }
+
+.user-page__sidebar li.active {
+  background: var(--aurelia-red);
+  color: #fff;
+}
+
+/* ===== FORM ===== */
+.user-page__content {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 36px;
+}
+
+.user-page__content h1 {
+  color: var(--aurelia-red);
+  font-size: 26px;
+  margin-bottom: 24px;
+}
+
+.user-page__form label {
+  display: block;
+  margin-bottom: 18px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.user-page__form input {
+  width: 100%;
+  padding: 10px 14px;
+  margin-top: 6px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+}
+
+.user-page__form input:focus {
+  outline: none;
+  border-color: var(--aurelia-gold);
+}
+
+.user-page__form button {
+  background: var(--aurelia-red);
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.user-page__form button:hover {
+  background: var(--aurelia-red-dark);
+}
