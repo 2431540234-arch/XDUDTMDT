@@ -6,7 +6,7 @@ Aurelia Living: website thương mại điện tử nội thất, tích hợp xe
 
 ### 1.1. Mục đích và phạm vi
 
-Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng vai trò, làm căn cứ cho Giai đoạn 2 (mô hình hoạt động, mô hình tuần tự, ERD hướng đối tượng) và cho việc viết code. Phạm vi: web (`apps/web`, Next.js) và API (`apps/api`, NestJS + Prisma + PostgreSQL). Ứng dụng Android (`apps/mobile`) và hai module phụ `ai`, `ar-overlay` của API nằm ngoài danh sách chức năng này (mục 12).
+Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng vai trò, làm căn cứ cho Giai đoạn 2 (mô hình hoạt động, mô hình tuần tự, ERD hướng đối tượng) và cho việc viết code. Phạm vi: web (`apps/web`, Next.js) và API (`apps/api`, NestJS + Prisma + PostgreSQL). Ứng dụng Android (`apps/mobile`) và hai module phụ `ai`, `ar-overlay` của API nằm ngoài danh sách chức năng này (xem "Hướng phát triển", mục 13).
 
 ### 1.2. Nguồn
 
@@ -41,12 +41,12 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 **Quy tắc kế thừa quyền:** User ⊃ Khách (user làm được mọi việc của khách). Admin là vai trò quản trị riêng: đăng nhập như user nhưng dùng khu vực `/dashboard`, `/admin/*` và API `/api/admin/*`; admin cũng xem được mọi nội dung công khai. Không có vai trò `staff`, `editor`, `customer`, `guest` trong CSDL.
 
-**Quyền chi tiết của admin** (`Permission (permissions)`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Mỗi UC quản trị ghi quyền cần có. Guard cần có: `JwtAuthGuard`, `RolesGuard` (đã có khung), `PermissionsGuard` [CẦN TẠO MỚI] (đọc `role_permissions`), `OptionalJwtAuthGuard` [CẦN TẠO MỚI] (cho API thống kê ẩn danh).
+**Quyền chi tiết của admin** (`Permission (permissions)`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Mỗi UC quản trị ghi quyền cần có. Guard cần có: `JwtAuthGuard`, `RolesGuard` (đã có khung), `PermissionsGuard` [CẦN TẠO MỚI] (đọc `role_permissions`), `OptionalJwtAuthGuard` [CẦN TẠO MỚI] (cho API ghi phiên 3D/AR ẩn danh).
 
 
 ## 3. Danh sách use case
 
-Tổng: **75 UC** (29 Bắt buộc, 31 Nên có, 15 Mở rộng).
+Tổng: **76 UC** (29 Bắt buộc, 32 Nên có, 15 Mở rộng).
 
 | Mã | Tên | Nhóm | Vai trò | Ưu tiên | Model liên quan | Nguồn |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -69,6 +69,7 @@ Tổng: **75 UC** (29 Bắt buộc, 31 Nên có, 15 Mở rộng).
 | UC-CAT-03 | Tìm kiếm sản phẩm | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Product, ProductImage | CSDL (products, index trigram idx_products_name_trgm) |
 | UC-CAT-04 | Xem chi tiết sản phẩm | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Product, ProductVariant, VariantAttributeValue, AttributeValue, Attribute, ProductImage, Media, Brand, Category, Product3DModel, Review | CSDL (products, product_variants, product_images, reviews) |
 | UC-CAT-05 | Xem trang tĩnh | Danh mục & sản phẩm | Khách, User, Admin | Nên có | Page | CSDL (pages) |
+| UC-CAT-06 | Tìm kiếm sản phẩm không dấu | Danh mục & sản phẩm | Khách, User, Admin | Nên có | Product, ProductImage | [ĐỀ XUẤT] (products; cần migration index mới) |
 | UC-CART-01 | Thêm sản phẩm vào giỏ hàng | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Cart, CartItem, ProductVariant | CSDL (carts, cart_items) |
 | UC-CART-02 | Xem giỏ hàng | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Cart, CartItem, ProductVariant, Product, ProductImage | CSDL (carts, cart_items) |
 | UC-CART-03 | Cập nhật số lượng / xóa dòng trong giỏ | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | CartItem, Cart | CSDL (cart_items) |
@@ -91,10 +92,10 @@ Tổng: **75 UC** (29 Bắt buộc, 31 Nên có, 15 Mở rộng).
 | UC-3D-07 | Ghi nhận thống kê phiên 3D/AR (ẩn danh) | 3D & AR | Khách, User, Admin | Mở rộng | ArSession | CSDL (ar_sessions) |
 | UC-SPACE-01 | Duyệt và tìm kiếm không gian mẫu | Không gian mẫu | Khách, User, Admin | Nên có | Space, Media, Category | CSDL (spaces, index idx_spaces_title_unaccent_trgm) |
 | UC-SPACE-02 | Xem không gian mẫu 360° | Không gian mẫu | Khách, User, Admin | Nên có | Space, SpacePanorama, SpaceHotspot, SpaceProductPlacement, Product, Product3DModel, ModelFile, Media, SpaceView | CSDL (spaces, space_panoramas, space_hotspots, space_product_placements, space_views) |
-| UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | Không gian mẫu | Khách, User, Admin | Nên có | SpaceHotspot, Product, ProductVariant, SpaceView | CSDL (space_hotspots, space_views) |
+| UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | Không gian mẫu | Khách, User, Admin | Nên có | SpaceHotspot, Product, ProductVariant | CSDL (space_hotspots, space_views) |
 | UC-SPACE-04 | Lưu / bỏ lưu không gian mẫu yêu thích | Không gian mẫu | Khách (phải đăng nhập), User (của mình) | Nên có | SpaceBookmark, Space | CSDL (space_bookmarks) |
 | UC-SPACE-05 | Thử đổi món đồ trong phòng mẫu | Không gian mẫu | Khách, User, Admin | Mở rộng | SpaceProductPlacement, Product, Product3DModel | [ĐỀ XUẤT] (space_product_placements) |
-| UC-SPACE-06 | Ghi nhận lượt xem không gian mẫu (ẩn danh) | Không gian mẫu | Khách, User, Admin | Mở rộng | SpaceView | CSDL (space_views) |
+| UC-SPACE-06 | Ghi nhận lượt xem không gian mẫu (một lần khi rời trang) | Không gian mẫu | Khách, User, Admin | Mở rộng | SpaceView | CSDL (space_views) |
 | UC-ADM-01 | Quản lý người dùng | Quản trị | Admin | Nên có | User, UserSession, Order | CSDL (users, user_sessions) |
 | UC-ADM-02 | Quản lý vai trò và phân quyền | Quản trị | Admin | Mở rộng | Role, Permission, RolePermission, UserRole | CSDL (roles, permissions, role_permissions, user_roles) |
 | UC-ADM-03 | Quản lý cài đặt hệ thống | Quản trị | Admin | Nên có | Setting | CSDL (settings) |
@@ -115,11 +116,11 @@ Tổng: **75 UC** (29 Bắt buộc, 31 Nên có, 15 Mở rộng).
 | UC-ADM-18 | Duyệt hoặc từ chối đánh giá | Quản trị | Admin | Nên có | Review, Product, User, Notification | CSDL (reviews) |
 | UC-ADM-19 | Quản lý mã giảm giá | Quản trị | Admin | Nên có | Coupon, CouponUsage | CSDL (coupons, coupon_usages) |
 | UC-ADM-20 | Xem danh sách và chi tiết đơn hàng | Quản trị | Admin | Bắt buộc | Order, OrderItem, OrderStatusHistory, Payment, Shipment, User | CSDL (orders, order_items, order_status_history, payments, shipments) |
-| UC-ADM-21 | Cập nhật trạng thái đơn hàng | Quản trị | Admin | Bắt buộc | Order, OrderItem, Product, Payment, Shipment, Notification, OrderStatusHistory | CSDL (orders, order_status_history) |
+| UC-ADM-21 | Cập nhật trạng thái đơn hàng | Quản trị | Admin | Bắt buộc | Order, OrderItem, Shipment, Notification, OrderStatusHistory | CSDL (orders, order_status_history) |
 | UC-ADM-22 | Hủy đơn hàng (quản trị) | Quản trị | Admin | Bắt buộc | Order, OrderItem, ProductVariant, InventoryMovement, Coupon, CouponUsage, Payment, Notification, OrderStatusHistory | CSDL (orders, inventory_movements, coupon_usages) |
 | UC-ADM-23 | Hoàn tiền thủ công | Quản trị | Admin | Nên có | Order, Payment, OrderItem, ProductVariant, InventoryMovement, Notification, OrderStatusHistory | CSDL (orders, payments) |
 | UC-ADM-24 | Quản lý thanh toán (xác nhận chuyển khoản) | Quản trị | Admin | Nên có | Payment, Order, Notification | CSDL (payments, orders) |
-| UC-ADM-25 | Quản lý vận chuyển | Quản trị | Admin | Bắt buộc | Shipment, Order, Notification | CSDL (shipments) |
+| UC-ADM-25 | Quản lý vận chuyển | Quản trị | Admin | Bắt buộc | Shipment, Order, OrderItem, Product, Payment, Notification, OrderStatusHistory | CSDL (shipments) |
 | UC-ADM-26 | Gửi thông báo cho người dùng | Quản trị | Admin | Mở rộng | Notification, User | [ĐỀ XUẤT] (notifications) |
 | UC-ADM-27 | Xem nhật ký hoạt động của quản trị viên | Quản trị | Admin | Mở rộng | ActivityLog, User | CSDL (activity_logs) |
 | UC-ADM-28 | Xem thống kê tổng quan | Quản trị | Admin | Mở rộng | Order, OrderItem, Product, User | [ĐỀ XUẤT] (orders, order_items, users) |
@@ -153,6 +154,7 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-CAT-03 | Tìm kiếm sản phẩm | ✔ | ✔ | ✔ |
 | UC-CAT-04 | Xem chi tiết sản phẩm | ✔ | ✔ | ✔ |
 | UC-CAT-05 | Xem trang tĩnh | ✔ | ✔ | ✔ |
+| UC-CAT-06 | Tìm kiếm sản phẩm không dấu | ✔ | ✔ | ✔ |
 | UC-CART-01 | Thêm sản phẩm vào giỏ hàng | cần đăng nhập | chỉ của mình | ✘ |
 | UC-CART-02 | Xem giỏ hàng | cần đăng nhập | chỉ của mình | ✘ |
 | UC-CART-03 | Cập nhật số lượng / xóa dòng trong giỏ | cần đăng nhập | chỉ của mình | ✘ |
@@ -178,7 +180,7 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | ✔ | ✔ | ✔ |
 | UC-SPACE-04 | Lưu / bỏ lưu không gian mẫu yêu thích | cần đăng nhập | chỉ của mình | ✘ |
 | UC-SPACE-05 | Thử đổi món đồ trong phòng mẫu | ✔ | ✔ | ✔ |
-| UC-SPACE-06 | Ghi nhận lượt xem không gian mẫu (ẩn danh) | ✔ | ✔ | ✔ |
+| UC-SPACE-06 | Ghi nhận lượt xem không gian mẫu (một lần khi rời trang) | ✔ | ✔ | ✔ |
 | UC-ADM-01 | Quản lý người dùng | ✘ | ✘ | ✔ |
 | UC-ADM-02 | Quản lý vai trò và phân quyền | ✘ | ✘ | ✔ |
 | UC-ADM-03 | Quản lý cài đặt hệ thống | ✘ | ✘ | ✔ |
@@ -234,7 +236,7 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | 18 | AttributeValue (attribute_values) | R | R | C R U D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
 | 19 | ProductVariant (product_variants) | R† | R† | C R U D | UC-CAT-02, UC-CAT-04, UC-CART-01, UC-CART-02… |
 | 20 | VariantAttributeValue (variant_attribute_values) | R† | R† | C R D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
-| 21 | ProductImage (product_images) | R† | R† | C R U D | UC-CAT-02, UC-CAT-03, UC-CAT-04, UC-CART-02… |
+| 21 | ProductImage (product_images) | R† | R† | C R U D | UC-CAT-02, UC-CAT-03, UC-CAT-04, UC-CAT-06… |
 | 22 | InventoryMovement (inventory_movements) | — | — (Service ghi khi đặt/hủy đơn) | C R | UC-ORD-01, UC-ORD-03, UC-ADM-12, UC-ADM-22… |
 | 23 | Review (reviews) | R† | C* R† U* D* | R U D | UC-CAT-04, UC-REV-01, UC-REV-02, UC-REV-03… |
 | 24 | Wishlist (wishlists) | — | C R D * | R | UC-ACC-06 |
@@ -257,7 +259,7 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | 41 | SpaceHotspot (space_hotspots) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-03, UC-ADM-16 |
 | 42 | SpaceProductPlacement (space_product_placements) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-05, UC-ADM-17 |
 | 43 | SpaceBookmark (space_bookmarks) | — | C R D * | R | UC-SPACE-04 |
-| 44 | SpaceView (space_views) | C (kèm visitorId) | C* | R | UC-SPACE-02, UC-SPACE-03, UC-SPACE-06, UC-ADM-29 |
+| 44 | SpaceView (space_views) | C (kèm visitorId) | C* | R | UC-SPACE-02, UC-SPACE-06, UC-ADM-29 |
 
 ## 5. Sơ đồ use case
 
@@ -276,7 +278,7 @@ flowchart LR
     N -. "kế thừa quyền" .-> K
     G_AUTH(["Xác thực (7 UC)"])
     G_ACC(["Tài khoản (7 UC)"])
-    G_CAT(["Danh mục & sản phẩm (5 UC)"])
+    G_CAT(["Danh mục & sản phẩm (6 UC)"])
     G_CART(["Giỏ hàng (4 UC)"])
     G_ORD(["Đơn hàng (3 UC)"])
     G_PAY(["Thanh toán (3 UC)"])
@@ -330,6 +332,7 @@ flowchart LR
         UC_CAT_03(["UC-CAT-03 Tìm kiếm sản phẩm"])
         UC_CAT_04(["UC-CAT-04 Xem chi tiết sản phẩm"])
         UC_CAT_05(["UC-CAT-05 Xem trang tĩnh"])
+        UC_CAT_06(["UC-CAT-06 Tìm kiếm sản phẩm không dấu"])
     end
     subgraph SG_REV["Đánh giá"]
         UC_REV_01(["UC-REV-01 Xem đánh giá sản phẩm"])
@@ -346,7 +349,7 @@ flowchart LR
         UC_SPACE_02(["UC-SPACE-02 Xem không gian mẫu 360°"])
         UC_SPACE_03(["UC-SPACE-03 Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng)"])
         UC_SPACE_05(["UC-SPACE-05 Thử đổi món đồ trong phòng mẫu"])
-        UC_SPACE_06(["UC-SPACE-06 Ghi nhận lượt xem không gian mẫu (ẩn danh)"])
+        UC_SPACE_06(["UC-SPACE-06 Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)"])
     end
     K --- UC_AUTH_01
     K --- UC_AUTH_02
@@ -357,6 +360,7 @@ flowchart LR
     K --- UC_CAT_03
     K --- UC_CAT_04
     K --- UC_CAT_05
+    K --- UC_CAT_06
     K --- UC_REV_01
     K --- UC_3D_01
     K --- UC_3D_02
@@ -370,6 +374,7 @@ flowchart LR
     K --- UC_SPACE_06
     UC_AUTH_01 --- EM
     UC_AUTH_05 --- EM
+    UC_CAT_06 -. "«extend»" .-> UC_CAT_03
     UC_3D_01 -. "«include»" .-> UC_3D_07
     UC_3D_02 -. "«include»" .-> UC_3D_07
     UC_SPACE_02 -. "«include»" .-> UC_SPACE_06
@@ -689,7 +694,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Luồng chính** | 1. Khách: Gõ từ khóa vào ô tìm kiếm trên Header.<br>2. Hệ thống: Sau 300 ms (debounce) gọi `GET /api/products/search?q=...&limit=5` (gợi ý).<br>3. Hệ thống: `ProductsService.search(q)` chạy `$queryRaw` dùng `ILIKE`/`similarity` trên `products.name` (index GIN trigram), chỉ lấy `published`, `deletedAt IS NULL`.<br>4. Khách: Nhấn Enter → trang `/products?q=...` với `GET /api/products/search?q=&page=`.<br>5. Hệ thống: Trả danh sách sắp theo độ giống. |
 | **Luồng thay thế** | 3a. Từ khóa < 2 ký tự → 400 hoặc trả rỗng.<br>3b. Không có kết quả → danh sách rỗng, gợi ý danh mục phổ biến. |
 | **Ngoại lệ** | • Ký tự đặc biệt (`%`, `_`) phải được escape khi dựng mẫu ILIKE (tránh truy vấn chậm/sai). |
-| **Quy tắc nghiệp vụ** | • Tìm theo tên có dấu (index trên `name`). Tìm không dấu chỉ áp dụng cho không gian mẫu (`immutable_unaccent(title)`), sản phẩm chưa hỗ trợ [CẦN XÁC NHẬN].<br>• Prisma không biểu diễn index GIN nên bắt buộc dùng `$queryRaw` (QUY_UOC, DATABASE_SCHEMA 8.3). |
+| **Quy tắc nghiệp vụ** | • UC này tìm theo tên có dấu (index trigram trên `name`). Tìm không dấu ('ban tra' ra 'Bàn trà') ở UC-CAT-06.<br>• Prisma không biểu diễn index GIN nên bắt buộc dùng `$queryRaw` (QUY_UOC, DATABASE_SCHEMA 8.3). |
 | **Dữ liệu vào** | • q (bắt buộc): 2–100 ký tự<br>• page, limit (tuỳ chọn): số nguyên dương |
 | **Dữ liệu ra** | • 200: `{ items[], total }` |
 | **Model + C/R/U/D** | Product (products): R<br>ProductImage (product_images): R |
@@ -707,7 +712,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Luồng chính** | 1. Khách: Bấm thẻ sản phẩm → `/products/[slug]`.<br>2. Hệ thống: `GET /api/products/:slug`.<br>3. Hệ thống: `ProductsService.findBySlug` trả sản phẩm kèm ảnh (theo `sortOrder`), danh sách biến thể `isActive` với giá và thuộc tính, thương hiệu, danh mục, cờ `has3dModel`/`hasAr`, `ratingAvg`/`ratingCount`.<br>4. Khách: Chọn biến thể (màu/chất liệu) → giao diện cập nhật giá, ảnh của biến thể và `stockQuantity` (hiển thị "Còn hàng"/"Hết hàng").<br>5. Khách: Bấm "Xem 3D/AR" → UC-3D-01/UC-3D-02; cuộn xuống xem đánh giá → UC-REV-01; bấm "Thêm vào giỏ" → UC-CART-01. |
 | **Luồng thay thế** | 3a. Không tìm thấy hoặc đã ẩn/xóa mềm → 404.<br>4a. Biến thể hết hàng → vô hiệu nút thêm vào giỏ. |
 | **Ngoại lệ** | • Lỗi mạng → trang báo lỗi, cho thử lại. |
-| **Quy tắc nghiệp vụ** | • Ảnh đại diện duy nhất `ProductImage.isPrimary` (partial unique index).<br>• Chỉ hiển thị cờ AR khi `hasAr = true` (đã có đủ file GLB và USDZ ở mô hình `ready`). |
+| **Quy tắc nghiệp vụ** | • Ảnh đại diện duy nhất `ProductImage.isPrimary` (partial unique index).<br>• Chỉ hiển thị cờ AR khi `hasAr = true` (đã có đủ file GLB và USDZ ở mô hình `ready`).<br>• URL công khai dùng slug: route web hiện là `(shop)/products/[id]/page.tsx` → cần đổi thành `products/[slug]` [CẦN SỬA]. |
 | **Dữ liệu vào** | • slug (bắt buộc): chuỗi slug |
 | **Dữ liệu ra** | • 200: chi tiết sản phẩm (tiền dạng number) |
 | **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>VariantAttributeValue (variant_attribute_values): R<br>AttributeValue (attribute_values): R<br>Attribute (attributes): R<br>ProductImage (product_images): R<br>Media (media): R<br>Brand (brands): R<br>Category (categories): R<br>Product3DModel (product_3d_models): R<br>Review (reviews): R |
@@ -731,6 +736,25 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Model + C/R/U/D** | Page (pages): R |
 | **DB trigger / việc Service tự làm** | • Không có. |
 
+#### UC-CAT-06 – Tìm kiếm sản phẩm không dấu
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (products; cần migration index mới) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
+| **Mô tả** | Gõ không dấu ("ban tra", "sofa oslo") vẫn tìm ra "Bàn trà", "Sofa Oslo". |
+| **Tiền điều kiện** | Đã có index không dấu trên `products.name` (xem quy tắc). |
+| **Hậu điều kiện** | Không thay đổi dữ liệu. |
+| **Luồng chính** | 1. Khách: Gõ từ khóa không dấu vào ô tìm kiếm (hoặc có dấu: kết quả như nhau).<br>2. Hệ thống: `GET /api/products/search?q=...` (cùng endpoint UC-CAT-03).<br>3. Hệ thống: `ProductsService.search(q)` chạy `$queryRaw`: `immutable_unaccent(name) ILIKE '%' \|\| immutable_unaccent(:q) \|\| '%'`, kèm sắp xếp theo `similarity(immutable_unaccent(name), immutable_unaccent(:q))`, chỉ `published`, `deletedAt IS NULL`.<br>4. Hệ thống: Trả danh sách như UC-CAT-03. |
+| **Luồng thay thế** | 3a. Từ khóa rỗng/quá ngắn → 400. |
+| **Ngoại lệ** | • Ký tự `%`, `_` phải được escape trước khi ghép vào mẫu ILIKE. |
+| **Quy tắc nghiệp vụ** | • Cần MỘT migration mới (tạo bằng `prisma migrate dev --create-only`, làm khi code): `CREATE INDEX idx_products_name_unaccent_trgm ON products USING gin (immutable_unaccent(name) gin_trgm_ops);` (hàm `immutable_unaccent` đã có trong CSDL). Cập nhật `docs/DATABASE_SCHEMA.md` và ghi chú trên model `Product` sau khi thêm.<br>• Prisma không biểu diễn index biểu thức nên bắt buộc `$queryRaw`. |
+| **Dữ liệu vào** | • q (bắt buộc): 2–100 ký tự<br>• page, limit (tuỳ chọn): số nguyên dương |
+| **Dữ liệu ra** | • 200: `{ items[], total }` |
+| **Model + C/R/U/D** | Product (products): R<br>ProductImage (product_images): R |
+| **DB trigger / việc Service tự làm** | • Không có. |
+| **Quan hệ UC** | extend: UC-CAT-03 |
+
 #### UC-REV-01 – Xem đánh giá sản phẩm
 
 | Mục | Nội dung |
@@ -740,7 +764,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Xem điểm trung bình, phân bố sao và danh sách đánh giá đã duyệt của sản phẩm. |
 | **Tiền điều kiện** | Sản phẩm đang bán. |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
-| **Luồng chính** | 1. Khách: Cuộn tới mục "Đánh giá" ở trang chi tiết.<br>2. Hệ thống: `GET /api/products/:id/reviews?page=&rating=`.<br>3. Hệ thống: `ReviewsService.listByProduct` chỉ trả `status = approved`, kèm tên người đánh giá (rút gọn).<br>4. Hệ thống: Trả danh sách phân trang, `ratingAvg`, `ratingCount` (đọc từ `Product`). |
+| **Luồng chính** | 1. Khách: Cuộn tới mục "Đánh giá" ở trang chi tiết.<br>2. Hệ thống: `GET /api/products/:slug/reviews?page=&rating=`.<br>3. Hệ thống: `ReviewsService.listByProduct` chỉ trả `status = approved`, kèm tên người đánh giá (rút gọn).<br>4. Hệ thống: Trả danh sách phân trang, `ratingAvg`, `ratingCount` (đọc từ `Product`). |
 | **Luồng thay thế** | 3a. Chưa có đánh giá → hiển thị "Chưa có đánh giá". |
 | **Ngoại lệ** | • Sản phẩm không tồn tại → 404. |
 | **Quy tắc nghiệp vụ** | • `ratingAvg`/`ratingCount` do DB trigger tính từ review `approved`; không tính lại trong code. |
@@ -758,7 +782,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Xem và xoay mô hình 3D tương tác của sản phẩm trên web (React Three Fiber / model-viewer). |
 | **Tiền điều kiện** | Sản phẩm có mô hình `status = ready` (`has3dModel = true`). |
 | **Hậu điều kiện** | Ghi một `ArSession` mode `view_3d` (ẩn danh nếu là khách). |
-| **Luồng chính** | 1. Khách: Ở trang chi tiết bấm tab "Xem 3D".<br>2. Hệ thống: `GET /api/products/:id/model`.<br>3. Hệ thống: `ProductModelsService.getPublicModel(productId, variantId?)` trả mô hình chính (`isPrimary`, `status = ready`), danh sách `ModelFile` (GLB theo LOD), kích thước thật, `viewerConfig`, ảnh chờ `posterMediaId`.<br>4. Hệ thống: Trình xem hiển thị ảnh chờ, tải tệp GLB theo LOD phù hợp thiết bị (`ModelLoader`), áp `viewerConfig` (góc camera, tự xoay, ánh sáng).<br>5. Hệ thống: Ghi nhận phiên (UC-3D-07).<br>6. Khách: Xoay/phóng to; chọn biến thể màu/chất liệu → UC-3D-03. |
+| **Luồng chính** | 1. Khách: Ở trang chi tiết bấm tab "Xem 3D".<br>2. Hệ thống: `GET /api/products/:slug/model`.<br>3. Hệ thống: `ProductModelsService.getPublicModel(slug, variantId?)` trả mô hình chính (`isPrimary`, `status = ready`), danh sách `ModelFile` (GLB theo LOD), kích thước thật, `viewerConfig`, ảnh chờ `posterMediaId`.<br>4. Hệ thống: Trình xem hiển thị ảnh chờ, tải tệp GLB theo LOD phù hợp thiết bị (`ModelLoader`), áp `viewerConfig` (góc camera, tự xoay, ánh sáng).<br>5. Hệ thống: Ghi nhận phiên (UC-3D-07).<br>6. Khách: Xoay/phóng to; chọn biến thể màu/chất liệu → UC-3D-03. |
 | **Luồng thay thế** | 3a. Sản phẩm không có mô hình `ready` → ẩn nút "Xem 3D".<br>4a. Thiết bị yếu/mạng chậm → dùng LOD `low`/`medium`.<br>4b. Tải lỗi → hiển thị ảnh chờ và thông báo. |
 | **Ngoại lệ** | • Mô hình đang `processing`/`failed` → không công khai. |
 | **Quy tắc nghiệp vụ** | • Chỉ mô hình `ready` được công khai; mỗi sản phẩm tối đa một mô hình chính (`uq_product_3d_models_primary`).<br>• Tệp lấy qua URL của `Media` (MinIO/S3). |
@@ -777,7 +801,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Đặt sản phẩm đúng kích thước thật lên sàn/tường/mặt bàn bằng camera điện thoại (WebXR/Scene Viewer trên Android dùng GLB; Quick Look trên iPhone dùng USDZ). |
 | **Tiền điều kiện** | `hasAr = true` (mô hình `ready` có đủ GLB và USDZ); thiết bị hỗ trợ AR. |
 | **Hậu điều kiện** | Có `ArSession` mode `ar` với các cờ `placed`, `captured`, `addedToCart`. |
-| **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:id/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
+| **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:slug/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
 | **Luồng thay thế** | 2a. Thiết bị không hỗ trợ AR → hiển thị hướng dẫn và chuyển sang xem 3D (UC-3D-01).<br>3a. Thiếu một trong hai định dạng → `hasAr = false`, ẩn nút AR. |
 | **Ngoại lệ** | • Người dùng từ chối quyền camera → thông báo hướng dẫn cấp quyền. |
 | **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên mobile app, dữ liệu overlay AR do module `ar-overlay` cung cấp (ngoài phạm vi UC này). |
@@ -852,11 +876,11 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Tham quan phòng mẫu bằng ảnh 360°: xoay xem, chuyển sang ảnh khác trong tour, bấm điểm tương tác, thấy sản phẩm 3D đặt đúng phối cảnh. |
 | **Tiền điều kiện** | Không gian `published`. |
-| **Hậu điều kiện** | Có một `SpaceView` (ẩn danh nếu là khách); `Space.viewCount` tăng. |
-| **Luồng chính** | 1. Khách: Bấm một không gian ở `/spaces`, mở `/spaces/[id]`.<br>2. Hệ thống: `GET /api/spaces/:slug` trả không gian, danh sách `SpacePanorama` (theo `sortOrder`), `SpaceHotspot` (kèm thông tin sản phẩm cho loại `product`), `SpaceProductPlacement` (kèm tệp GLB của mô hình).<br>3. Hệ thống: `SpacePanorama` component mở ảnh có `isStart = true` với góc nhìn mặc định (`defaultYaw`, `defaultPitch`, `defaultFov`).<br>4. Hệ thống: Ghi lượt xem (UC-SPACE-06).<br>5. Khách: Xoay ảnh; bấm hotspot `navigation` → chuyển sang `targetPanoramaId`; hotspot `info` → hiện ghi chú; hotspot `product` → UC-SPACE-03.<br>6. Hệ thống: Hiển thị mô hình 3D của sản phẩm đã đặt (placement) đúng vị trí `yaw/pitch`, `distance`, `rotation`, `scale`. |
+| **Hậu điều kiện** | Khi người xem rời trang, có một `SpaceView` (ẩn danh nếu là khách) và `Space.viewCount` tăng. |
+| **Luồng chính** | 1. Khách: Bấm một không gian ở `/spaces`, mở `/spaces/[id]`.<br>2. Hệ thống: `GET /api/spaces/:slug` trả không gian, danh sách `SpacePanorama` (theo `sortOrder`), `SpaceHotspot` (kèm thông tin sản phẩm cho loại `product`), `SpaceProductPlacement` (kèm tệp GLB của mô hình).<br>3. Hệ thống: `SpacePanorama` component mở ảnh có `isStart = true` với góc nhìn mặc định (`defaultYaw`, `defaultPitch`, `defaultFov`).<br>4. Hệ thống: Client bắt đầu đếm cục bộ (số lần bấm hotspot, đã thêm giỏ); lượt xem được ghi MỘT lần khi người xem rời trang (UC-SPACE-06).<br>5. Khách: Xoay ảnh; bấm hotspot `navigation` → chuyển sang `targetPanoramaId`; hotspot `info` → hiện ghi chú; hotspot `product` → UC-SPACE-03.<br>6. Hệ thống: Hiển thị mô hình 3D của sản phẩm đã đặt (placement) đúng vị trí `yaw/pitch`, `distance`, `rotation`, `scale`. |
 | **Luồng thay thế** | 2a. Không gian không `published` hoặc không có → 404.<br>3a. Không có ảnh `isStart` → dùng ảnh có `sortOrder` nhỏ nhất. |
 | **Ngoại lệ** | • Ảnh 360° tải lỗi → thông báo, cho thử lại. |
-| **Quy tắc nghiệp vụ** | • Mỗi không gian tối đa một ảnh mở đầu (`uq_space_panoramas_start`).<br>• Hotspot hợp lệ theo loại (CHECK): `product` có `productId`, `navigation` có `targetPanoramaId`, `info` có `content`.<br>• `Space.viewCount` do DB trigger tăng khi INSERT `SpaceView`, KHÔNG tăng trong code. |
+| **Quy tắc nghiệp vụ** | • Mỗi không gian tối đa một ảnh mở đầu (`uq_space_panoramas_start`).<br>• Hotspot hợp lệ theo loại (CHECK): `product` có `productId`, `navigation` có `targetPanoramaId`, `info` có `content`.<br>• `Space.viewCount` do DB trigger tăng khi INSERT `SpaceView`, KHÔNG tăng trong code.<br>• URL công khai dùng slug: route web hiện là `(shop)/spaces/[id]/page.tsx` → cần đổi thành `spaces/[slug]` [CẦN SỬA]. |
 | **Dữ liệu vào** | • slug (bắt buộc): slug không gian |
 | **Dữ liệu ra** | • 200: `{ space, panoramas[], hotspots[], placements[] }` |
 | **Model + C/R/U/D** | Space (spaces): R<br>SpacePanorama (space_panoramas): R<br>SpaceHotspot (space_hotspots): R<br>SpaceProductPlacement (space_product_placements): R<br>Product (products): R<br>Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>Media (media): R<br>SpaceView (space_views): C |
@@ -872,13 +896,13 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Bấm hotspot loại sản phẩm để xem nhanh sản phẩm, chọn biến thể, thêm vào giỏ (user) hoặc mở trang chi tiết. |
 | **Tiền điều kiện** |  |
 | **Hậu điều kiện** |  |
-| **Luồng chính** | 1. Khách: Bấm hotspot loại `product`.<br>2. Hệ thống: Hiển thị thẻ sản phẩm (ảnh, giá, biến thể) từ dữ liệu đã tải ở UC-SPACE-02; tăng bộ đếm `hotspotClickCount` cục bộ.<br>3. Khách: Bấm "Xem chi tiết" → UC-CAT-04, hoặc "Thêm vào giỏ" → UC-CART-01 (khách bị yêu cầu đăng nhập).<br>4. Hệ thống: Khi kết thúc phiên xem, cập nhật `SpaceView` (`hotspotClickCount`, `addedToCart`) — UC-SPACE-06. |
+| **Luồng chính** | 1. Khách: Bấm hotspot loại `product`.<br>2. Hệ thống: Hiển thị thẻ sản phẩm (ảnh, giá, biến thể) từ dữ liệu đã tải ở UC-SPACE-02; tăng bộ đếm `hotspotClickCount` cục bộ (không gọi API).<br>3. Khách: Bấm "Xem chi tiết" → UC-CAT-04, hoặc "Thêm vào giỏ" → UC-CART-01 (khách bị yêu cầu đăng nhập).<br>4. Hệ thống: Khi rời trang, `hotspotClickCount` và `addedToCart` được gửi kèm lượt xem (UC-SPACE-06). |
 | **Luồng thay thế** |  |
 | **Ngoại lệ** |  |
 | **Quy tắc nghiệp vụ** | • Phễu: xem phòng → bấm điểm tương tác → thêm vào giỏ, dùng cho thống kê (UC-ADM-29). |
 | **Dữ liệu vào** |  |
 | **Dữ liệu ra** |  |
-| **Model + C/R/U/D** | SpaceHotspot (space_hotspots): R<br>Product (products): R<br>ProductVariant (product_variants): R<br>SpaceView (space_views): U |
+| **Model + C/R/U/D** | SpaceHotspot (space_hotspots): R<br>Product (products): R<br>ProductVariant (product_variants): R |
 | **DB trigger / việc Service tự làm** |  |
 | **Quan hệ UC** | extend: UC-SPACE-02 |
 
@@ -889,19 +913,19 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (space_product_placements) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Thay một món đồ đã đặt bằng sản phẩm khác cùng danh mục ngay trong phòng 360°, chỉ trên giao diện (không lưu vào CSDL). |
-| **Luồng chính** | 1. Khách: Bấm vào món đồ 3D trong phòng, chọn "Đổi món".<br>2. Hệ thống: `GET /api/spaces/:id/placements/:placementId/alternatives` trả sản phẩm cùng danh mục có mô hình `ready`.<br>3. Hệ thống: Client thay mô hình, giữ `yaw/pitch/distance/rotation/scale` của placement. |
+| **Luồng chính** | 1. Khách: Bấm vào món đồ 3D trong phòng, chọn "Đổi món".<br>2. Hệ thống: `GET /api/spaces/:slug/placements/:placementId/alternatives` trả sản phẩm cùng danh mục có mô hình `ready`.<br>3. Hệ thống: Client thay mô hình, giữ `yaw/pitch/distance/rotation/scale` của placement. |
 | **Model + C/R/U/D** | SpaceProductPlacement (space_product_placements): R<br>Product (products): R<br>Product3DModel (product_3d_models): R |
 
-#### UC-SPACE-06 – Ghi nhận lượt xem không gian mẫu (ẩn danh)
+#### UC-SPACE-06 – Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)
 
 | Mục | Nội dung |
 | --- | --- |
 | **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (space_views) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
-| **Mô tả** | Mỗi lượt xem không gian được ghi (sản phẩm nguồn, số lần bấm hotspot, có thêm vào giỏ không); khách dùng `visitorId`. |
-| **Luồng chính** | 1. Hệ thống: Khi mở không gian, client gọi `POST /api/spaces/:id/views` (`visitorId`, `sourceProductId`) — `OptionalJwtAuthGuard` [CẦN TẠO MỚI].<br>2. Hệ thống: Có token → `userId`; không → bắt buộc `visitorId` (CHECK `ck_space_views_actor`). Trả `viewToken` ký ngắn hạn.<br>3. Hệ thống: Khi rời trang, client gọi `PATCH /api/spaces/views/:viewId` kèm `viewToken` để cập nhật `hotspotClickCount`, `addedToCart`. |
-| **Quy tắc nghiệp vụ** | • `Space.viewCount` do trigger DB tăng khi INSERT; không đụng trong code.<br>• `SpaceView` không có `updated_at`/uuid, nên cần `viewToken` để chống sửa lượt xem của người khác [CẦN XÁC NHẬN]. |
-| **Model + C/R/U/D** | SpaceView (space_views): C,U |
+| **Mô tả** | Mỗi lượt xem không gian được ghi MỘT lần khi người xem rời trang, kèm sản phẩm nguồn, số lần bấm hotspot, có thêm vào giỏ không. Khách dùng `visitorId` ẩn danh. |
+| **Luồng chính** | 1. Hệ thống: Trong lúc xem, client giữ cục bộ: `visitorId` (UUID lưu ở localStorage), `sourceProductId` (từ tham số `?from=<slug sản phẩm>`), `hotspotClickCount`, `addedToCart`.<br>2. Hệ thống: Khi người xem rời trang (`visibilitychange` sang hidden hoặc `pagehide`), client gọi `navigator.sendBeacon('/api/spaces/<slug>/views', body)` với `body = { visitorId, sourceProductId, hotspotClickCount, addedToCart, accessToken? }`.<br>3. Hệ thống: `SpacesController.recordView` (route công khai, không `JwtAuthGuard`) kiểm tra DTO `RecordSpaceViewDto`; nếu `accessToken` hợp lệ thì gán `userId`, ngược lại `userId = NULL`.<br>4. Hệ thống: `SpacesService.recordView` INSERT đúng một `SpaceView`; trả 204.<br>5. CSDL: Trigger tăng `Space.viewCount`. |
+| **Quy tắc nghiệp vụ** | • Chỉ INSERT một lần: không có PATCH, không có token phụ (đã quyết định, thay cho `viewToken`).<br>• `navigator.sendBeacon` không đặt được header `Authorization` nên `userId` lấy từ `accessToken` trong body (tuỳ chọn); không có thì ghi ẩn danh [CẦN XÁC NHẬN: hoặc luôn ghi ẩn danh].<br>• CHECK `ck_space_views_actor`: phải có `userId` hoặc `visitorId`; luôn bắt buộc `visitorId` trong DTO.<br>• Chống ghi rác: giới hạn tốc độ theo IP và `visitorId`; chặn `hotspotClickCount` bất thường (> 1000) [ĐỀ XUẤT].<br>• `Space.viewCount` do DB trigger tăng khi INSERT; Service không đụng. Hệ quả: lượt xem chỉ tính khi người xem rời trang; tab bị tắt đột ngột có thể không gửi được beacon. |
+| **Model + C/R/U/D** | SpaceView (space_views): C |
 
 ## 7. Khách vãng lai
 
@@ -949,7 +973,7 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Luồng chính** | 1. Người dùng: Bấm liên kết trong email xác thực (hoặc "Gửi lại email xác thực" ở hồ sơ).<br>2. Hệ thống: Gửi `GET /api/auth/verify-email?token=...`.<br>3. Hệ thống: Kiểm tra chữ ký/thời hạn token (JWT riêng mục đích `verify_email`), đặt `emailVerifiedAt = now()`.<br>4. Hệ thống: Trả 200 và chuyển tới hồ sơ. |
 | **Luồng thay thế** | 3a. Token sai/hết hạn → 400; user bấm "Gửi lại" (`POST /api/auth/resend-verification`).<br>3b. Đã xác thực rồi → 200 (idempotent). |
 | **Ngoại lệ** | • Gửi lại quá nhiều lần → 429. |
-| **Quy tắc nghiệp vụ** | • Không bắt buộc xác thực để đặt hàng; bắt buộc để viết đánh giá (UC-REV-02) [có thể đổi].<br>• Schema chưa có bảng token xác thực email → dùng JWT ký riêng, không tạo bảng [CẦN XÁC NHẬN]. |
+| **Quy tắc nghiệp vụ** | • Không bắt buộc xác thực để đặt hàng; BẮT BUỘC để viết đánh giá (UC-REV-02).<br>• Schema không có bảng token xác thực email: dùng JWT ký riêng (mục đích `verify_email`), không tạo bảng (đã quyết định). |
 | **Dữ liệu vào** | • token (bắt buộc): JWT mục đích verify_email |
 | **Dữ liệu ra** | • 200 thông báo |
 | **Model + C/R/U/D** | User (users): R,U |
@@ -1046,11 +1070,11 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | Thêm/bỏ sản phẩm khỏi danh sách yêu thích và xem lại danh sách. |
 | **Tiền điều kiện** | Đã đăng nhập (khách bấm tim sẽ được yêu cầu đăng nhập). |
 | **Hậu điều kiện** | Có/không có bản ghi Wishlist của cặp (user, sản phẩm). |
-| **Luồng chính** | 1. Người dùng: Bấm biểu tượng tim trên thẻ sản phẩm hoặc trang chi tiết.<br>2. Hệ thống: `PUT /api/wishlist/:productId` (thêm) hoặc `DELETE /api/wishlist/:productId` (bỏ).<br>3. Hệ thống: Kiểm tra sản phẩm `published`, chưa xóa mềm; `upsert` theo `(userId, productId)`.<br>4. Hệ thống: Trả 204; giao diện đổi trạng thái tim.<br>5. Người dùng: Mở `/account/wishlist` → `GET /api/wishlist` trả danh sách sản phẩm yêu thích. |
+| **Luồng chính** | 1. Người dùng: Bấm biểu tượng tim trên thẻ sản phẩm hoặc trang chi tiết.<br>2. Hệ thống: `PUT /api/wishlist/:slug` (thêm) hoặc `DELETE /api/wishlist/:slug` (bỏ).<br>3. Hệ thống: Kiểm tra sản phẩm `published`, chưa xóa mềm; `upsert` theo `(userId, productId)`.<br>4. Hệ thống: Trả 204; giao diện đổi trạng thái tim.<br>5. Người dùng: Mở `/account/wishlist` → `GET /api/wishlist` trả danh sách sản phẩm yêu thích. |
 | **Luồng thay thế** | 1a. Khách chưa đăng nhập → frontend hiển thị yêu cầu đăng nhập, không gọi API ghi.<br>3a. Sản phẩm không tồn tại/đã ẩn → 404. |
 | **Ngoại lệ** | • Thêm trùng → coi như thành công (idempotent). |
 | **Quy tắc nghiệp vụ** | • UNIQUE `(userId, productId)`. |
-| **Dữ liệu vào** | • productId (bắt buộc): id sản phẩm đang bán |
+| **Dữ liệu vào** | • slug (bắt buộc): slug sản phẩm đang bán |
 | **Dữ liệu ra** | • 204 hoặc danh sách sản phẩm yêu thích (đã `serialize`) |
 | **Model + C/R/U/D** | Wishlist (wishlists): C,R,D<br>Product (products): R |
 | **DB trigger / việc Service tự làm** | • Không có DB trigger. |
@@ -1151,7 +1175,7 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Luồng chính** | 1. Người dùng: Ở `/checkout` chọn địa chỉ (hoặc nhập mới, UC-ACC-04), phương thức thanh toán (COD, chuyển khoản, MoMo, VNPay, ZaloPay, thẻ), mã giảm giá (UC-CART-04), ghi chú; bấm "Đặt hàng".<br>2. Hệ thống: `POST /api/orders` (CreateOrderDto).<br>3. Hệ thống: `OrdersService.create(userId, dto)` mở `prisma.$transaction`.<br>4. Hệ thống: Đọc giỏ; kiểm tra từng dòng (biến thể `isActive`, sản phẩm `published`, chưa xóa mềm); tính `subtotal` bằng `Prisma.Decimal` từ `salePrice ?? price`.<br>5. Hệ thống: Với mỗi dòng: `productVariant.updateMany({ id, stockQuantity ≥ qty }, decrement)`; nếu `count ≠ 1` → hủy transaction; ghi `InventoryMovement` (type `sale`, `quantityChange` âm, `referenceCode = orderCode`).<br>6. Hệ thống: Nếu có mã: kiểm tra lại điều kiện (như UC-CART-04), giữ lượt bằng `coupon.updateMany` có điều kiện `usedCount < usageLimit` rồi tăng `usedCount`; tính `discountAmount`.<br>7. Hệ thống: Tính `shippingFee` từ `Setting` (`default_shipping_fee`, `free_shipping_threshold`) và `total = subtotal - discountAmount + shippingFee`.<br>8. Hệ thống: Tạo `Order` (status `pending`, `paymentStatus = unpaid`, bản chụp người nhận và địa chỉ), `OrderItem` (bản chụp `productName`, `sku`, `unitPrice`, `quantity`), `CouponUsage`, `Payment` (method, amount = total, status `pending`).<br>9. Hệ thống: Xóa các dòng giỏ đã đặt; commit transaction.<br>10. CSDL: Trigger ghi dòng đầu của `OrderStatusHistory` (null → pending).<br>11. Hệ thống: Tạo `Notification` "Đơn hàng đã được tạo", gửi email xác nhận; trả 201 `OrderResponse`.<br>12. Người dùng: COD/chuyển khoản → trang "Đặt hàng thành công"; online → bước UC-PAY-01. |
 | **Luồng thay thế** | 2a. Giỏ rỗng → 400.<br>4a. Có dòng không còn bán → 409 kèm danh sách dòng; giỏ không đổi, không tạo đơn.<br>5a. Hết tồn kho giữa chừng → 409, rollback toàn bộ (tồn kho không bị trừ).<br>6a. Mã không hợp lệ ở thời điểm đặt → 400, rollback.<br>8a. Trùng `orderCode` (P2002) → sinh mã khác và thử lại tối đa 3 lần. |
 | **Ngoại lệ** | • Địa chỉ không thuộc user → 404.<br>• Lỗi CSDL → rollback, 500. |
-| **Quy tắc nghiệp vụ** | • Trừ tồn kho khi TẠO ĐƠN (không phải khi thanh toán), trong cùng transaction; không để tồn kho âm (CHECK `ck_product_variants_stock`).<br>• CHECK `ck_orders_total`: `total = subtotal - discount_amount + shipping_fee`.<br>• `OrderItem.lineTotal` là cột tự tính, KHÔNG gán (QUY_UOC §2).<br>• Đơn lưu bản chụp địa chỉ và giá; không tham chiếu `Address`.<br>• `sold_count` chưa tăng ở bước này; tăng khi đơn `completed` (UC-ADM-21).<br>• Mã đơn dạng `ALV-YYYYMMDD-NNNN`, duy nhất (`orderCode`). |
+| **Quy tắc nghiệp vụ** | • Trừ tồn kho khi TẠO ĐƠN (không phải khi thanh toán), trong cùng transaction; không để tồn kho âm (CHECK `ck_product_variants_stock`).<br>• CHECK `ck_orders_total`: `total = subtotal - discount_amount + shipping_fee`.<br>• `OrderItem.lineTotal` là cột tự tính, KHÔNG gán (QUY_UOC §2).<br>• Đơn lưu bản chụp địa chỉ và giá; không tham chiếu `Address`.<br>• `sold_count` chưa tăng ở bước này; tăng khi đơn `completed` (UC-ADM-25).<br>• Mã đơn dạng `ALV-YYYYMMDD-NNNN`, duy nhất (`orderCode`). |
 | **Dữ liệu vào** | • addressId (bắt buộc): địa chỉ của user<br>• paymentMethod (bắt buộc): `cod`, `bank_transfer`, `momo`, `vnpay`, `zalopay`, `card`<br>• couponCode (tuỳ chọn): mã hợp lệ<br>• note (tuỳ chọn): ≤ 500 ký tự |
 | **Dữ liệu ra** | • 201: `{ id, uuid, orderCode, status, subtotal, discountAmount, shippingFee, total, paymentMethod, items[] }` |
 | **Model + C/R/U/D** | Cart (carts): R,D<br>CartItem (cart_items): R,D<br>ProductVariant (product_variants): R,U<br>Product (products): R<br>Address (addresses): R<br>Coupon (coupons): R,U<br>CouponUsage (coupon_usages): C<br>Order (orders): C<br>OrderItem (order_items): C<br>Payment (payments): C<br>InventoryMovement (inventory_movements): C<br>OrderStatusHistory (order_status_history): C (trigger)<br>Notification (notifications): C<br>Setting (settings): R |
@@ -1237,9 +1261,9 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Thông tin chung** | Nhóm: Đánh giá · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (reviews) |
 | **Tác nhân chính / phụ** | Người dùng |
 | **Mô tả** | User đã mua và nhận sản phẩm viết đánh giá 1–5 sao; đánh giá chờ admin duyệt. |
-| **Tiền điều kiện** | Đã đăng nhập; email đã xác thực [có thể đổi]; có `OrderItem` của sản phẩm trong đơn `completed` của chính user; chưa đánh giá sản phẩm này cho đơn đó. |
+| **Tiền điều kiện** | Đã đăng nhập; email đã xác thực (bắt buộc); có `OrderItem` của sản phẩm trong đơn `completed` của chính user; chưa đánh giá sản phẩm này cho đơn đó. |
 | **Hậu điều kiện** | Có `Review` status `pending`. |
-| **Luồng chính** | 1. Người dùng: Ở chi tiết đơn đã hoàn tất (hoặc trang sản phẩm) bấm "Đánh giá", chọn số sao, nhập nội dung.<br>2. Hệ thống: `POST /api/products/:id/reviews` (CreateReviewDto).<br>3. Hệ thống: `ReviewsService.create(userId, productId, dto)` kiểm tra `emailVerifiedAt`.<br>4. Hệ thống: Kiểm tra "đã mua": `order.findFirst({ id: dto.orderId, userId, status: completed, items: { some: { variant: { productId } } } })`.<br>5. Hệ thống: Tạo `Review` (`status = pending`).<br>6. Hệ thống: Trả 201 "Đánh giá đang chờ duyệt". |
+| **Luồng chính** | 1. Người dùng: Ở chi tiết đơn đã hoàn tất (hoặc trang sản phẩm) bấm "Đánh giá", chọn số sao, nhập nội dung.<br>2. Hệ thống: `POST /api/products/:slug/reviews` (CreateReviewDto).<br>3. Hệ thống: `ReviewsService.create(userId, productId, dto)` kiểm tra `emailVerifiedAt`.<br>4. Hệ thống: Kiểm tra "đã mua": `order.findFirst({ id: dto.orderId, userId, status: completed, items: { some: { variant: { productId } } } })`.<br>5. Hệ thống: Tạo `Review` (`status = pending`).<br>6. Hệ thống: Trả 201 "Đánh giá đang chờ duyệt". |
 | **Luồng thay thế** | 3a. Email chưa xác thực → 403 kèm hướng dẫn (UC-AUTH-07).<br>4a. Chưa mua/đơn chưa hoàn tất/đơn của người khác → 403.<br>5a. Đã đánh giá sản phẩm này cho đơn đó (UNIQUE) → 409.<br>1a. Khách chưa đăng nhập → yêu cầu đăng nhập, không gọi API. |
 | **Ngoại lệ** | • `rating` ngoài 1–5 → 400 (CHECK `ck_reviews_rating`). |
 | **Quy tắc nghiệp vụ** | • Điều kiện "đã mua" do Service kiểm tra (không có trigger); không nhận `orderId` từ client mà không kiểm tra (QUY_UOC §5.4).<br>• UNIQUE `(userId, productId, orderId)`.<br>• Đánh giá `pending` chưa tính vào điểm trung bình (trigger chỉ tính `approved`). |
@@ -1305,11 +1329,11 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | User lưu không gian mẫu để xem lại và xem danh sách đã lưu. |
 | **Tiền điều kiện** | Đã đăng nhập (khách bấm lưu được yêu cầu đăng nhập). |
 | **Hậu điều kiện** | Có/không có `SpaceBookmark` của cặp (user, không gian). |
-| **Luồng chính** | 1. Người dùng: Bấm biểu tượng "Lưu" ở không gian.<br>2. Hệ thống: `PUT /api/spaces/:id/bookmark` hoặc `DELETE /api/spaces/:id/bookmark`.<br>3. Hệ thống: Kiểm tra không gian `published`; `upsert` theo `(userId, spaceId)`.<br>4. Hệ thống: Trả 204; giao diện đổi trạng thái.<br>5. Người dùng: Mở `/account/saved-spaces` → `GET /api/spaces/bookmarks/me`. |
+| **Luồng chính** | 1. Người dùng: Bấm biểu tượng "Lưu" ở không gian.<br>2. Hệ thống: `PUT /api/spaces/:slug/bookmark` hoặc `DELETE /api/spaces/:slug/bookmark`.<br>3. Hệ thống: Kiểm tra không gian `published`; `upsert` theo `(userId, spaceId)`.<br>4. Hệ thống: Trả 204; giao diện đổi trạng thái.<br>5. Người dùng: Mở `/account/saved-spaces` → `GET /api/spaces/bookmarks/me`. |
 | **Luồng thay thế** | 1a. Khách chưa đăng nhập → yêu cầu đăng nhập, không gọi API.<br>3a. Không gian không tồn tại/đã ẩn → 404. |
 | **Ngoại lệ** | • Lưu trùng → coi như thành công. |
 | **Quy tắc nghiệp vụ** | • UNIQUE `(userId, spaceId)`. |
-| **Dữ liệu vào** | • id (bắt buộc): id không gian đang `published` |
+| **Dữ liệu vào** | • slug (bắt buộc): slug không gian đang `published` |
 | **Dữ liệu ra** | • 204 hoặc danh sách không gian đã lưu |
 | **Model + C/R/U/D** | SpaceBookmark (space_bookmarks): C,R,D<br>Space (spaces): R |
 | **DB trigger / việc Service tự làm** | • Không có. |
@@ -1540,7 +1564,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Tải tệp GLB và USDZ (mỗi định dạng có thể có LOD high/medium/low).<br>4. Hệ thống: `POST /api/admin/models/:id/files` (multipart: `format`, `lod`) → `MediaService.upload` rồi tạo `ModelFile`.<br>5. Hệ thống: Khi đủ tệp, đặt `status = processing` và đưa job `optimize-3d-model` (rồi `generate-ar-metadata`) vào hàng đợi `media-processing`.<br>6. Worker (`modules/jobs`): Nén/tối ưu, sinh LOD, đo `polygonCount`, `textureResolution`, `checksum`, cập nhật `ModelFile` (`isCompressed = true`).<br>7. Worker: Thành công → `Product3DModel.status = ready`; lỗi → `failed` kèm log.<br>8. CSDL: Trigger cập nhật `Product.has3dModel`, `Product.hasAr`.<br>9. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; thử lại khi `failed`. |
 | **Luồng thay thế** | 4a. Định dạng/LOD đã tồn tại → 409 (UNIQUE `(modelId, format, lod)`).<br>7a. Xử lý lỗi → `failed`; admin bấm "Xử lý lại" (`POST /api/admin/models/:id/reprocess`) → `processing`. |
 | **Ngoại lệ** | • Tệp sai định dạng/quá lớn → 400/413.<br>• Kích thước ≤ 0 → 400 (CHECK `ck_product_3d_models_size`). |
-| **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Chưa có `apps/worker`: bộ xử lý nền nằm trong `apps/api/src/modules/jobs` (BullMQ + Redis). |
+| **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Xử lý nền chạy trong `apps/api/src/modules/jobs` bằng BullMQ + Redis (docker-compose đã có service `redis`). Service `worker` trong compose build `infra/docker/Dockerfile.worker` từ cùng mã `apps/api` và chạy `node dist/main.js` (cùng entrypoint với API; chưa có entry riêng). |
 | **Dữ liệu vào** | • lengthMm, widthMm, heightMm (bắt buộc): số nguyên > 0<br>• placement (bắt buộc): `floor`, `wall`, `table`<br>• allowScaling (tuỳ chọn): boolean<br>• viewerConfig (tuỳ chọn): JSON<br>• posterMediaId, variantId (tuỳ chọn): id hợp lệ (biến thể phải thuộc sản phẩm)<br>• format, lod, file (khi tải tệp) (bắt buộc): `glb |
 | **Dữ liệu ra** | • 201: `Product3DModel` kèm `files[]` và `status` |
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): C,R,U,D<br>ModelFile (model_files): C,R,U,D<br>Media (media): C,R<br>Product (products): R |
@@ -1662,17 +1686,17 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | --- | --- |
 | **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (orders, order_status_history) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `process_orders`) |
-| **Mô tả** | Chuyển đơn qua các bước xử lý: xác nhận → đang xử lý → đang giao → hoàn tất. |
+| **Mô tả** | Chuyển đơn qua các bước xử lý: xác nhận → đang xử lý → đang giao. Bước hoàn tất do UC-ADM-25 (vận đơn đã giao). |
 | **Tiền điều kiện** | Đơn ở trạng thái hợp lệ cho bước kế tiếp. |
 | **Hậu điều kiện** | Đơn sang trạng thái mới; lịch sử được ghi tự động; người dùng được thông báo. |
-| **Luồng chính** | 1. Admin: Ở chi tiết đơn chọn hành động ("Xác nhận", "Bắt đầu xử lý", "Giao hàng", "Hoàn tất") và (tuỳ chọn) ghi chú.<br>2. Hệ thống: `PATCH /api/admin/orders/:id/status` (UpdateOrderStatusDto: `status`, `note`).<br>3. Hệ thống: `OrdersService.updateStatus(adminId, id, dto)` mở `$transaction`, kiểm tra chuyển trạng thái hợp lệ.<br>4. Hệ thống: Đặt `SET LOCAL app.current_user_id` (và `app.status_note`) rồi cập nhật `Order.status`.<br>5. CSDL: Trigger ghi `OrderStatusHistory` (từ → đến, `changedBy`).<br>6. Hệ thống: Khi sang `shipping`: yêu cầu đã có `Shipment` (UC-ADM-25).<br>7. Hệ thống: Khi sang `completed`: tăng `Product.soldCount` theo số lượng từng dòng; nếu thanh toán COD thì `Payment` pending → `success` (`paidAt`) và `Order.paymentStatus = paid`.<br>8. Hệ thống: Tạo `Notification` cho user, gửi email; trả 200. |
-| **Luồng thay thế** | 3a. Chuyển trạng thái không hợp lệ (ví dụ `pending` → `completed`) → 409.<br>6a. Sang `shipping` khi chưa có vận đơn → 400. |
-| **Ngoại lệ** | • Đơn đã `cancelled`/`refunded` → không đổi được (409). |
-| **Quy tắc nghiệp vụ** | • Chuyển hợp lệ: `pending→confirmed→processing→shipping→completed`; hủy ở UC-ADM-22; hoàn tiền ở UC-ADM-23.<br>• `OrderStatusHistory` do DB trigger ghi; Service KHÔNG tự `create` (QUY_UOC §6). Người đổi lấy từ `app.current_user_id`.<br>• `soldCount` tăng trong cùng transaction với lúc `completed` (Service, QUY_UOC §5.2).<br>• Thanh toán online thành công không tự xác nhận đơn; admin xác nhận. |
-| **Dữ liệu vào** | • status (bắt buộc): một trong các trạng thái kế tiếp hợp lệ<br>• note (tuỳ chọn): ≤ 500 ký tự |
+| **Luồng chính** | 1. Admin: Ở chi tiết đơn chọn hành động ("Xác nhận", "Bắt đầu xử lý", "Giao hàng") và (tuỳ chọn) ghi chú.<br>2. Hệ thống: `PATCH /api/admin/orders/:id/status` (UpdateOrderStatusDto: `status`, `note`).<br>3. Hệ thống: `OrdersService.updateStatus(adminId, id, dto)` mở `$transaction`, kiểm tra chuyển trạng thái hợp lệ.<br>4. Hệ thống: Đặt `SET LOCAL app.current_user_id` (và `app.status_note`) rồi cập nhật `Order.status`.<br>5. CSDL: Trigger ghi `OrderStatusHistory` (từ → đến, `changedBy`).<br>6. Hệ thống: Khi sang `shipping`: yêu cầu đã có `Shipment` (UC-ADM-25).<br>7. Hệ thống: Tạo `Notification` cho user, gửi email; trả 200. |
+| **Luồng thay thế** | 3a. Chuyển trạng thái không hợp lệ (ví dụ `pending` → `shipping`) → 409.<br>3b. Yêu cầu `status = completed` → 409 "Hoàn tất khi vận đơn được đánh dấu đã giao (UC-ADM-25)".<br>6a. Sang `shipping` khi chưa có vận đơn → 400. |
+| **Ngoại lệ** | • Đơn đã `cancelled`/`refunded`/`completed` → không đổi được (409). |
+| **Quy tắc nghiệp vụ** | • Chuyển hợp lệ tại UC này: `pending→confirmed→processing→shipping`. `pending→confirmed` cũng xảy ra tự động khi thanh toán online thành công (UC-PAY-02, `changedBy = NULL`). `completed` do UC-ADM-25; hủy ở UC-ADM-22; hoàn tiền ở UC-ADM-23.<br>• `OrderStatusHistory` do DB trigger ghi; Service KHÔNG tự `create` (QUY_UOC §6). Người đổi lấy từ `app.current_user_id`. |
+| **Dữ liệu vào** | • status (bắt buộc): `confirmed`, `processing` hoặc `shipping` theo thứ tự<br>• note (tuỳ chọn): ≤ 500 ký tự |
 | **Dữ liệu ra** | • 200: đơn mới kèm lịch sử |
-| **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>Product (products): U<br>Payment (payments): U<br>Shipment (shipments): R<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_update`, `trg_orders_set_updated_at`.<br>• Service: `soldCount`, đồng bộ COD, thông báo (`$transaction`). |
+| **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>Shipment (shipments): R<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_update`, `trg_orders_set_updated_at`.<br>• Service: kiểm tra chuyển trạng thái, thông báo (`$transaction`). |
 
 #### UC-ADM-22 – Hủy đơn hàng (quản trị)
 
@@ -1719,10 +1743,10 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Xem giao dịch, xác nhận thủ công khoản chuyển khoản ngân hàng, đánh dấu thất bại. |
 | **Tiền điều kiện** | Có `Payment` pending (chuyển khoản). |
 | **Hậu điều kiện** | `Payment` success/failed; `Order.paymentStatus` tương ứng. |
-| **Luồng chính** | 1. Admin: Mở `/admin/payments`, lọc `pending`, `bank_transfer`.<br>2. Hệ thống: `GET /api/admin/payments?status=&method=&page=`.<br>3. Admin: Đối soát sao kê, bấm "Xác nhận đã nhận tiền" (nhập mã giao dịch).<br>4. Hệ thống: `PATCH /api/admin/payments/:id/confirm` ({ transactionCode }) trong `$transaction`: `Payment.status = success`, `paidAt`; `Order.paymentStatus = paid`.<br>5. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
+| **Luồng chính** | 1. Admin: Mở `/admin/payments`, lọc `pending`, `bank_transfer`.<br>2. Hệ thống: `GET /api/admin/payments?status=&method=&page=`.<br>3. Admin: Đối soát sao kê, bấm "Xác nhận đã nhận tiền" (nhập mã giao dịch).<br>4. Hệ thống: `PATCH /api/admin/payments/:id/confirm` ({ transactionCode }) trong `$transaction`: `Payment.status = success`, `paidAt`; `Order.paymentStatus = paid`; nếu đơn đang `pending` thì tự chuyển `confirmed` (`changedBy` = admin, ghi chú 'Xác nhận chuyển khoản') [ĐỀ XUẤT: áp dụng như thanh toán online].<br>5. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
 | **Luồng thay thế** | 4a. `transactionCode` trùng → 409 (UNIQUE).<br>4b. Chọn "Thất bại" → `Payment.failed`, `Order.paymentStatus = failed`. |
 | **Ngoại lệ** | • Giao dịch online do cổng quản lý → không xác nhận tay (chỉ xem). |
-| **Quy tắc nghiệp vụ** | • COD tự chuyển `success` khi đơn `completed` (UC-ADM-21). |
+| **Quy tắc nghiệp vụ** | • COD tự chuyển `success` khi vận đơn `delivered` và đơn `completed` (UC-ADM-25). |
 | **Dữ liệu vào** | • transactionCode (tuỳ chọn): ≤ 100, duy nhất |
 | **Dữ liệu ra** | • 200: `Payment` mới |
 | **Model + C/R/U/D** | Payment (payments): R,U<br>Order (orders): R,U<br>Notification (notifications): C |
@@ -1734,17 +1758,17 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | --- | --- |
 | **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (shipments) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `process_orders`) · phụ: Đơn vị vận chuyển (GHN, GHTK, Viettel Post) |
-| **Mô tả** | Tạo vận đơn cho đơn hàng, nhập mã vận đơn và cập nhật tiến trình giao hàng. |
+| **Mô tả** | Tạo vận đơn, nhập mã vận đơn, cập nhật tiến trình giao hàng. Khi vận đơn được đánh dấu đã giao, đơn tự chuyển hoàn tất. |
 | **Tiền điều kiện** | Đơn `processing` trở đi. |
-| **Hậu điều kiện** | `Shipment` tồn tại và cập nhật theo tiến trình. |
-| **Luồng chính** | 1. Admin: Ở chi tiết đơn bấm "Tạo vận đơn": chọn đơn vị (GHN/GHTK/Viettel Post/khác), mã vận đơn, phí.<br>2. Hệ thống: `POST /api/admin/orders/:id/shipments` (CreateShipmentDto) tạo `Shipment` `pending`.<br>3. Admin: Cập nhật trạng thái: `picked_up` → `in_transit` → `delivered` (hoặc `failed`/`returned`).<br>4. Hệ thống: `PATCH /api/admin/shipments/:id` (UpdateShipmentDto): đặt `shippedAt` khi `picked_up`, `deliveredAt` khi `delivered`.<br>5. Hệ thống: Thông báo user ở các mốc chính; ghi `ActivityLog`; trả 200. |
-| **Luồng thay thế** | 2a. Đơn chưa `processing` → 409.<br>4a. `deliveredAt < shippedAt` → 400 (CHECK `ck_shipments_dates`). |
-| **Ngoại lệ** | • Mã vận đơn trùng đơn vị khác → cảnh báo. |
-| **Quy tắc nghiệp vụ** | • Giai đoạn đầu nhập tay; đồng bộ tự động qua webhook đơn vị vận chuyển là mở rộng [ĐỀ XUẤT].<br>• `delivered` không tự chuyển đơn sang `completed`; admin xác nhận ở UC-ADM-21 [CẦN XÁC NHẬN]. |
+| **Hậu điều kiện** | `Shipment` cập nhật; khi `delivered`: đơn `completed`, COD được ghi nhận đã thanh toán. |
+| **Luồng chính** | 1. Admin: Ở chi tiết đơn bấm "Tạo vận đơn": chọn đơn vị (GHN/GHTK/Viettel Post/khác), mã vận đơn, phí.<br>2. Hệ thống: `POST /api/admin/orders/:id/shipments` (CreateShipmentDto) tạo `Shipment` `pending`.<br>3. Admin: Cập nhật trạng thái: `picked_up` → `in_transit` → `delivered` (hoặc `failed`/`returned`).<br>4. Hệ thống: `PATCH /api/admin/shipments/:id` (UpdateShipmentDto): đặt `shippedAt` khi `picked_up`, `deliveredAt` khi `delivered`.<br>5. Hệ thống: Khi `delivered`, `OrdersService.completeOrder(adminId, orderId)` chạy trong CÙNG `$transaction`: đặt `app.current_user_id` (và `app.status_note = 'Giao hàng thành công'`), `Order.status`: `shipping → completed`; tăng `Product.soldCount` theo số lượng từng dòng; nếu `paymentMethod = cod` và `Payment` đang `pending` thì `Payment.status = success` (`paidAt`) và `Order.paymentStatus = paid`.<br>6. CSDL: Trigger ghi `OrderStatusHistory` (`shipping → completed`).<br>7. Hệ thống: Thông báo user ở các mốc chính (đã giao); ghi `ActivityLog`; trả 200. |
+| **Luồng thay thế** | 2a. Đơn chưa `processing` → 409.<br>4a. `deliveredAt < shippedAt` → 400 (CHECK `ck_shipments_dates`).<br>5a. Đánh dấu `delivered` khi đơn không ở `shipping` (chưa chuyển giao hàng ở UC-ADM-21) → 409.<br>5b. Đơn đã thanh toán trước (không COD) → chỉ đổi trạng thái đơn và `soldCount`, `Payment` giữ nguyên. |
+| **Ngoại lệ** | • Mã vận đơn trùng đơn vị khác → cảnh báo.<br>• `failed`/`returned`: đơn giữ nguyên `shipping`; cách xử lý đơn bị giao thất bại/hoàn hàng chưa chốt (xem mục 12.2). |
+| **Quy tắc nghiệp vụ** | • Giai đoạn đầu nhập tay; đồng bộ tự động qua webhook đơn vị vận chuyển là hướng phát triển (mục 13).<br>• `delivered` TỰ chuyển đơn `completed` (đã quyết định); không còn thao tác "Hoàn tất" thủ công ở UC-ADM-21.<br>• `soldCount` tăng trong cùng transaction với `completed` (Service, QUY_UOC §5.2); `OrderStatusHistory` do DB trigger ghi. |
 | **Dữ liệu vào** | • carrier (bắt buộc): `ghn`, `ghtk`, `viettel_post`, `other`<br>• trackingCode (tuỳ chọn): ≤ 100<br>• fee (tuỳ chọn): ≥ 0<br>• status (bắt buộc (cập nhật)): `ShipmentStatus` |
-| **Dữ liệu ra** | • 200/201: `Shipment` |
-| **Model + C/R/U/D** | Shipment (shipments): C,R,U<br>Order (orders): R<br>Notification (notifications): C |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_shipments_set_updated_at`. |
+| **Dữ liệu ra** | • 200/201: `Shipment` (kèm trạng thái đơn mới khi `delivered`) |
+| **Model + C/R/U/D** | Shipment (shipments): C,R,U<br>Order (orders): R,U<br>OrderItem (order_items): R<br>Product (products): U<br>Payment (payments): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_shipments_set_updated_at`, `trg_orders_log_status_update`, `trg_orders_set_updated_at`.<br>• Service: `completeOrder` (`soldCount`, đồng bộ COD) trong `$transaction`. |
 
 #### UC-ADM-26 – Gửi thông báo cho người dùng
 
@@ -1824,13 +1848,13 @@ Tài khoản `Deleted` luôn kèm `status = banned` và `deletedAt` khác NULL; 
 ```mermaid
 stateDiagram-v2
     [*] --> pending: User đặt hàng (UC-ORD-01)
-    pending --> confirmed: Admin xác nhận (UC-ADM-21)
+    pending --> confirmed: Admin xác nhận (UC-ADM-21) hoặc hệ thống khi thanh toán online thành công (UC-PAY-02)
     pending --> cancelled: User hoặc Admin hủy (UC-ORD-03, UC-ADM-22)
     confirmed --> processing: Admin xử lý (UC-ADM-21)
     confirmed --> cancelled: User hoặc Admin hủy
     processing --> shipping: Admin giao hàng, cần có vận đơn (UC-ADM-21, UC-ADM-25)
     processing --> cancelled: Chỉ Admin hủy (UC-ADM-22)
-    shipping --> completed: Admin hoàn tất (UC-ADM-21)
+    shipping --> completed: Admin đánh dấu vận đơn delivered, đơn tự hoàn tất (UC-ADM-25)
     completed --> refunded: Admin ghi nhận hoàn tiền (UC-ADM-23)
     cancelled --> refunded: Admin hoàn tiền đơn đã thanh toán (UC-ADM-23)
     refunded --> [*]
@@ -1838,14 +1862,14 @@ stateDiagram-v2
     cancelled --> [*]
 ```
 
-Mỗi chuyển đổi (kể cả dòng khởi tạo) được DB trigger `trg_orders_log_status_*` ghi vào `OrderStatusHistory`. Hủy hoàn tồn kho và lượt dùng mã (Service). `soldCount` tăng khi sang `completed` (Service).
+Mỗi chuyển đổi (kể cả dòng khởi tạo) được DB trigger `trg_orders_log_status_*` ghi vào `OrderStatusHistory`; chuyển `pending → confirmed` do thanh toán online có `changedBy = NULL` và ghi chú "Thanh toán online thành công". Hủy hoàn tồn kho và lượt dùng mã (Service). `soldCount` tăng khi sang `completed` (Service). Đơn đã thanh toán bị hủy vẫn giữ `Payment.success` cho tới khi admin hoàn tiền (`cancelled → refunded`).
 
 ### 10.3. Payment (`PaymentTxnStatus`) và Order.paymentStatus (`OrderPaymentStatus`)
 
 ```mermaid
 stateDiagram-v2
     [*] --> pending: Tạo cùng đơn hàng hoặc thanh toán lại (UC-ORD-01, UC-PAY-03)
-    pending --> success: Cổng gọi IPN hợp lệ (UC-PAY-02) / Admin xác nhận chuyển khoản (UC-ADM-24) / COD khi đơn completed (UC-ADM-21)
+    pending --> success: Cổng gọi IPN hợp lệ (UC-PAY-02) / Admin xác nhận chuyển khoản (UC-ADM-24) / COD khi vận đơn delivered (UC-ADM-25)
     pending --> failed: IPN thất bại, hủy đơn hoặc thanh toán lại (UC-PAY-02, UC-ORD-03, UC-PAY-03)
     success --> refunded: Admin hoàn tiền thủ công (UC-ADM-23)
     failed --> [*]
@@ -1869,7 +1893,7 @@ stateDiagram-v2
     [*] --> pending: Admin tạo vận đơn (UC-ADM-25)
     pending --> picked_up: Đơn vị vận chuyển lấy hàng (Admin cập nhật)
     picked_up --> in_transit: Đang vận chuyển
-    in_transit --> delivered: Giao thành công
+    in_transit --> delivered: Giao thành công, đơn tự completed, COD thu tiền (UC-ADM-25)
     in_transit --> failed: Giao thất bại
     failed --> in_transit: Giao lại
     failed --> returned: Hoàn hàng về kho
@@ -1937,7 +1961,7 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | Chữ ký | VNPay: HMAC-SHA512 (`vnp_SecureHash`); MoMo, ZaloPay: HMAC-SHA256 [CẦN XÁC NHẬN theo tài liệu cổng khi tích hợp] |
 | Idempotent | Callback lặp không xử lý lại khi `Payment.status` đã `success` |
 | Biến môi trường | Chưa có trong `.env.example`: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY`, `ZALOPAY_APP_ID`, `ZALOPAY_KEY1`, `ZALOPAY_KEY2`, `PAYMENT_RETURN_URL`, `PAYMENT_IPN_BASE_URL` [CẦN TẠO MỚI] |
-| Phương thức `card` | Thanh toán thẻ qua cổng nào chưa xác định (đề xuất qua VNPay) [CẦN XÁC NHẬN] |
+| Phương thức `card` | Thanh toán thẻ đi qua cổng VNPay (đã quyết định) |
 | Hoàn tiền | Thủ công (UC-ADM-23); không gọi API hoàn tiền của cổng |
 | Module | `modules/payments` [CẦN TẠO MỚI] |
 
@@ -1950,15 +1974,15 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | **Tác nhân chính / phụ** | Cổng thanh toán (MoMo, VNPay, ZaloPay) |
 | **Mô tả** | Cổng gọi máy chủ để báo kết quả thanh toán; hệ thống xác thực chữ ký rồi cập nhật Payment và Order. |
 | **Tiền điều kiện** | Có `Payment` pending tương ứng. |
-| **Hậu điều kiện** | `Payment.status` = `success` hoặc `failed`; `Order.paymentStatus` tương ứng. |
-| **Luồng chính** | 1. Hệ thống ngoài: Cổng gửi `POST\|GET /api/payments/:gateway/ipn` kèm dữ liệu và chữ ký.<br>2. Hệ thống: Endpoint công khai (không JWT); `PaymentsService.handleCallback(gateway, payload)` xác thực chữ ký HMAC.<br>3. Hệ thống: Tìm `Payment` theo mã tham chiếu; đối chiếu `amount` với `Order.total`.<br>4. Hệ thống: Mở `$transaction`; nếu `Payment.status` đã `success` → bỏ qua (idempotent).<br>5. Hệ thống: Kết quả thành công → `Payment.status = success`, `transactionCode`, `gatewayResponse`, `paidAt`; `Order.paymentStatus = paid`.<br>6. Hệ thống: Kết quả thất bại → `Payment.status = failed`, `gatewayResponse`; `Order.paymentStatus = failed`; đơn vẫn `pending`.<br>7. Hệ thống: Tạo `Notification` cho user; trả cổng đúng định dạng quy định (ví dụ `{ RspCode: "00" }`). |
-| **Luồng thay thế** | 2a. Chữ ký sai → từ chối (400/`RspCode 97`), ghi log bảo mật, không đổi dữ liệu.<br>3a. Không tìm thấy giao dịch hoặc sai số tiền → từ chối (`RspCode 01/04`).<br>4a. Callback lặp lại → trả thành công nhưng không xử lý lại. |
+| **Hậu điều kiện** | `Payment.status` = `success` hoặc `failed`; `Order.paymentStatus` tương ứng; khi thành công và đơn đang `pending` thì đơn tự chuyển `confirmed`. |
+| **Luồng chính** | 1. Hệ thống ngoài: Cổng gửi `POST\|GET /api/payments/:gateway/ipn` kèm dữ liệu và chữ ký.<br>2. Hệ thống: Endpoint công khai (không JWT); `PaymentsService.handleCallback(gateway, payload)` xác thực chữ ký HMAC.<br>3. Hệ thống: Tìm `Payment` theo mã tham chiếu; đối chiếu `amount` với `Order.total`.<br>4. Hệ thống: Mở `$transaction`; nếu `Payment.status` đã `success` → bỏ qua (idempotent).<br>5. Hệ thống: Kết quả thành công → `Payment.status = success`, `transactionCode`, `gatewayResponse`, `paidAt`; `Order.paymentStatus = paid`.<br>6. Hệ thống: Nếu `Order.status = pending`: tự chuyển `confirmed` trong cùng transaction. KHÔNG đặt `app.current_user_id` nên trigger ghi `OrderStatusHistory` với `changedBy = NULL`; đặt `app.status_note = 'Thanh toán online thành công'`.<br>7. Hệ thống: Kết quả thất bại → `Payment.status = failed`, `gatewayResponse`; `Order.paymentStatus = failed`; đơn vẫn `pending`.<br>8. Hệ thống: Tạo `Notification` cho user; trả cổng đúng định dạng quy định (ví dụ `{ RspCode: "00" }`). |
+| **Luồng thay thế** | 2a. Chữ ký sai → từ chối (400/`RspCode 97`), ghi log bảo mật, không đổi dữ liệu.<br>3a. Không tìm thấy giao dịch hoặc sai số tiền → từ chối (`RspCode 01/04`).<br>4a. Callback lặp lại → trả thành công nhưng không xử lý lại.<br>5a. Callback thành công đến khi đơn đã `cancelled` (đã hủy trước khi cổng báo) → chỉ ghi `Payment` success, KHÔNG đổi trạng thái đơn, tạo cảnh báo cho admin để hoàn tiền thủ công (UC-ADM-23) [ĐỀ XUẤT]. |
 | **Ngoại lệ** | • Lỗi CSDL → trả mã lỗi để cổng gọi lại sau. |
-| **Quy tắc nghiệp vụ** | • Callback là nguồn sự thật duy nhất để xác nhận thanh toán online; không tin redirect của trình duyệt.<br>• `transactionCode` UNIQUE: giao dịch trùng bị từ chối.<br>• Thanh toán thành công không tự đổi `Order.status`; admin xác nhận đơn (UC-ADM-21). |
+| **Quy tắc nghiệp vụ** | • Callback là nguồn sự thật duy nhất để xác nhận thanh toán online; không tin redirect của trình duyệt.<br>• `transactionCode` UNIQUE: giao dịch trùng bị từ chối.<br>• Thanh toán online thành công TỰ chuyển đơn `pending → confirmed` (đã quyết định); lịch sử do DB trigger ghi, Service chỉ đặt biến phiên `app.status_note`. |
 | **Dữ liệu vào** | • payload của từng cổng (bắt buộc): chữ ký hợp lệ |
 | **Dữ liệu ra** | • Phản hồi theo chuẩn từng cổng |
 | **Model + C/R/U/D** | Payment (payments): R,U<br>Order (orders): R,U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_payments_set_updated_at`, `trg_orders_set_updated_at`.<br>• Service: `$transaction` đồng bộ `Payment` và `Order.paymentStatus`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_payments_set_updated_at`, `trg_orders_set_updated_at`, `trg_orders_log_status_update` (ghi lịch sử `pending → confirmed`, `changedBy = NULL`).<br>• Service: `$transaction` đồng bộ `Payment`, `Order.paymentStatus` và `Order.status`. |
 
 ### 11.2. Đơn vị vận chuyển (GHN, GHTK, Viettel Post)
 
@@ -1966,7 +1990,7 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | --- | --- |
 | Giai đoạn đầu | Admin tạo vận đơn và cập nhật trạng thái thủ công (UC-ADM-25); lưu `carrier`, `trackingCode`, `fee`, `shippedAt`, `deliveredAt` |
 | Mở rộng | Gọi API tạo vận đơn và nhận webhook trạng thái của từng hãng, ánh xạ sang `ShipmentStatus` [ĐỀ XUẤT] |
-| Tác nhân ngoài | Đơn vị vận chuyển lấy/giao hàng; không tự đổi `Order.status` (admin xác nhận `completed`) |
+| Tác nhân ngoài | Đơn vị vận chuyển lấy/giao hàng; trạng thái do admin cập nhật, khi `delivered` đơn tự `completed` (UC-ADM-25) |
 | Module | `modules/shipments` [CẦN TẠO MỚI] |
 
 ### 11.3. Dịch vụ email
@@ -1982,65 +2006,86 @@ Gửi qua SMTP; gửi bất đồng bộ (hàng đợi BullMQ) để không ch�
 
 ### 11.4. Lưu trữ tệp và xử lý nền
 
-MinIO/S3 lưu ảnh, GLB, USDZ, ảnh 360° (`config/s3.config.ts`, `modules/media`). Hàng đợi BullMQ + Redis (`modules/jobs`: `compress-image`, `remove-background`, `optimize-3d-model`, `generate-ar-metadata`) xử lý nền; **không có `apps/worker` riêng**, các processor chạy trong tiến trình API.
+MinIO/S3 lưu ảnh, GLB, USDZ, ảnh 360° (`config/s3.config.ts`, `modules/media`). Hàng đợi BullMQ + Redis (`modules/jobs`: `compress-image`, `remove-background`, `optimize-3d-model`, `generate-ar-metadata`; Redis có sẵn trong `docker-compose.yml`) xử lý nền. Không có `apps/worker`; service `worker` trong compose chạy cùng mã và cùng entrypoint `node dist/main.js` với API (mục 12.1 #8).
 
 
-## 12. Giả định và điểm cần xác nhận
+## 12. Quyết định nghiệp vụ và điểm còn mở
 
-### 12.1. Quyết định nghiệp vụ mặc định (đã áp dụng trong đặc tả)
+### 12.1. Đã quyết định
 
 | # | Quyết định | UC |
 | --- | --- | --- |
 | 1 | User hủy đơn khi `pending` hoặc `confirmed`; admin hủy được trước `shipping` (`pending`, `confirmed`, `processing`). Hủy đơn hoàn tồn kho và lượt dùng coupon | UC-ORD-03, UC-ADM-22 |
-| 2 | COD: `Payment` `pending`, chuyển `success` khi đơn `completed`. Online: `success` khi nhận callback hợp lệ; callback thất bại: đơn vẫn `pending`, cho thanh toán lại | UC-PAY-02, UC-PAY-03, UC-ADM-21 |
+| 2 | COD: `Payment` `pending`, chuyển `success` khi vận đơn `delivered` (đơn `completed`). Online: `success` khi nhận callback hợp lệ; callback thất bại: đơn vẫn `pending`, cho thanh toán lại | UC-PAY-02, UC-PAY-03, UC-ADM-25 |
 | 3 | Hoàn tiền thủ công: admin đổi đơn sang `refunded` và payment sang `refunded`; không gọi API hoàn tiền của cổng | UC-ADM-23 |
-| 4 | Không bắt buộc xác thực email để đặt hàng; bắt buộc để đánh giá [có thể đổi] | UC-AUTH-07, UC-REV-02 |
+| 4 | Không bắt buộc xác thực email để đặt hàng; **bắt buộc** xác thực email mới được đánh giá | UC-AUTH-07, UC-REV-02 |
 | 5 | Trừ tồn kho khi tạo đơn, trong `$transaction`, không phải khi thanh toán | UC-ORD-01 |
 | 6 | Đánh giá chỉ khi có `OrderItem` của sản phẩm thuộc đơn `completed` của chính user; review mới `pending`, admin duyệt | UC-REV-02, UC-ADM-18 |
 | 7 | Mô hình 3D: `uploading` → `processing` → `ready`/`failed`; xử lý bởi processor nền | UC-ADM-13 |
+| 8 | **Xử lý nền** giữ trong `apps/api/src/modules/jobs`. `docker-compose.yml` đã có service `redis` nên dùng BullMQ + Redis (không xử lý đồng bộ trong API). Service `worker` trong compose build `infra/docker/Dockerfile.worker` từ cùng mã `apps/api` và chạy `node dist/main.js` (cùng entrypoint với API, tức cũng mở cổng HTTP và chưa có entry riêng); hai tiến trình cùng tiêu thụ hàng đợi nên hoạt động được. Entry worker riêng (`src/worker.ts` dùng `NestFactory.createApplicationContext`, `CMD node dist/worker.js`) là cải tiến tuỳ chọn [CẦN TẠO MỚI] | UC-ADM-13, UC-ADM-04 |
+| 9 | **Xác thực email**: JWT ký riêng mục đích `verify_email`, không thêm bảng | UC-AUTH-07 |
+| 10 | **Setting**: danh sách trắng khóa công khai trong Service, không thêm cột | UC-ADM-03 |
+| 11 | **Ghi lượt xem không gian mẫu**: MỘT lần khi người xem rời trang bằng `navigator.sendBeacon` (kèm `hotspotClickCount`, `addedToCart`); bỏ `viewToken` | UC-SPACE-06 |
+| 12 | **Slug** cho cả API và web: route web cần đổi `products/[id]` → `products/[slug]`, `spaces/[id]` → `spaces/[slug]` [CẦN SỬA]. Quy ước: API công khai/của user dùng slug trong URL (`/api/products/:slug`, `/api/spaces/:slug`, `/api/wishlist/:slug`); API quản trị và nội dung body dùng id | UC-CAT-04, UC-SPACE-02 |
+| 13 | **Thanh toán online thành công** tự chuyển đơn `pending → confirmed`; lịch sử ghi `changedBy = NULL`, ghi chú "Thanh toán online thành công" | UC-PAY-02 |
+| 14 | **Vận đơn `delivered`** tự chuyển đơn `completed`; nếu COD thì payment đồng thời `success` | UC-ADM-25 |
+| 15 | **Hủy đơn đã thanh toán**: `cancelled`, `Payment` giữ `success`, admin hoàn tiền thủ công; cho phép `cancelled → refunded` | UC-ORD-03, UC-ADM-22, UC-ADM-23 |
+| 16 | **Áp mã giảm giá chỉ xem trước**; mã được ghi khi đặt hàng và kiểm tra lại trong transaction | UC-CART-04, UC-ORD-01 |
+| 17 | **Phương thức `card`** đi qua cổng VNPay | UC-PAY-01 |
+| 18 | **Tìm kiếm sản phẩm không dấu** (Nên có): cần thêm MỘT migration (index GIN trigram trên `immutable_unaccent(name)`), làm khi code | UC-CAT-06 |
+| 19 | **Ngoài phạm vi UC**: module `ai`, `ar-overlay`, ứng dụng `apps/mobile`; đưa vào "Hướng phát triển" (mục 13) | — |
 
-### 12.2. Điểm mới phát hiện khi rà soát
+### 12.2. Điểm còn mở (đang áp dụng mặc định, chờ phản hồi)
 
-| # | Điểm | Cách đặc tả đang dùng | Cần bạn quyết định |
-| --- | --- | --- | --- |
-| 1 | Không có thư mục `apps/worker` | Xử lý nền chạy trong `apps/api/src/modules/jobs` (BullMQ + Redis) | Tách worker riêng hay giữ trong API? |
-| 2 | Schema không có bảng token xác thực email | Dùng JWT ký riêng (mục đích `verify_email`), không tạo bảng | Đồng ý hay thêm bảng? |
-| 3 | `Setting` không có cờ công khai | Danh sách trắng khóa công khai trong Service (`GET /api/settings/public`) | Thêm cột `isPublic`? |
-| 4 | `SpaceView` không có uuid/updated_at, id tuần tự | Trả `viewToken` ký ngắn hạn để cập nhật số lần bấm hotspot | Đồng ý hay chỉ ghi một lần khi kết thúc? |
-| 5 | Route web `products/[id]`, `spaces/[id]` | API dùng `slug`; tham số `[id]` chứa slug | Giữ slug hay dùng id số? |
-| 6 | Tìm sản phẩm không dấu | Chỉ tìm có dấu (index trigram trên `name`); chỉ không gian mẫu có `immutable_unaccent` | Thêm index không dấu cho sản phẩm? |
-| 7 | Thanh toán online thành công | Chỉ đặt `paymentStatus = paid`; admin vẫn phải xác nhận đơn | Tự động `confirmed` khi đã thanh toán? |
-| 8 | Vận chuyển `delivered` | Không tự chuyển đơn `completed`; admin xác nhận | Tự `completed` sau N ngày? |
-| 9 | Hủy đơn đã thanh toán online | Đơn `cancelled`, `Payment` giữ `success`, admin hoàn tiền sau; cho phép `cancelled → refunded` | Đồng ý? |
-| 10 | Mã giảm giá không lưu trong giỏ (`Cart` không có cột coupon) | "Áp mã" chỉ xem trước; mã được ghi khi đặt hàng (`CreateOrderDto.couponCode`) | Đồng ý? |
-| 11 | Phương thức `card` | Giả định qua VNPay | Cổng nào cho thẻ? |
-| 12 | Module ngoài danh sách chức năng: `ai`, `ar-overlay` (API) và ứng dụng Android `apps/mobile` | Không đặc tả ở đây | Có đưa vào phạm vi đồ án không? |
-| 13 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNN`, thử lại khi trùng | Đồng ý định dạng? |
-| 14 | Giới hạn tệp | Ảnh ≤ 10 MB, GLB/USDZ ≤ 100 MB; `Media.fileSize` là INTEGER (tối đa ~2 GB) | Đồng ý? |
-| 15 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Đề xuất 429 | Triển khai ở giai đoạn nào? |
-| 16 | Thông báo tự động (đổi trạng thái đơn, duyệt đánh giá) | Service tạo `Notification`; không có trigger | Đồng ý? |
-| 17 | Gộp giỏ khách vào giỏ user sau đăng nhập | Không có (khách không có giỏ); chỉ nhớ ý định thêm vào giỏ ở client | Đồng ý? |
+| # | Điểm | Mặc định đang áp dụng |
+| --- | --- | --- |
+| 1 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNN`, thử lại khi trùng (UC-ORD-01) |
+| 2 | Giới hạn tệp | Ảnh ≤ 10 MB, GLB/USDZ ≤ 100 MB; `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
+| 3 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Trả 429; chưa quyết định triển khai ở giai đoạn nào |
+| 4 | Thông báo tự động (đổi trạng thái đơn, duyệt đánh giá) | Service tạo `Notification`; không có trigger |
+| 5 | Gộp giỏ khách vào giỏ user sau đăng nhập | Không gộp (khách không có giỏ); client chỉ nhớ ý định thêm vào giỏ để thực hiện lại sau khi đăng nhập |
+| 6 | Xác nhận chuyển khoản (UC-ADM-24) cũng tự chuyển đơn `pending → confirmed` giống thanh toán online | Có áp dụng [ĐỀ XUẤT] |
+| 7 | Callback thanh toán thành công đến sau khi đơn đã `cancelled` | Chỉ ghi `Payment` success, không đổi đơn, cảnh báo admin hoàn tiền thủ công [ĐỀ XUẤT] |
+| 8 | Vận đơn `failed`/`returned` khi đơn đang `shipping` | Chưa chốt; đề xuất cho admin hủy/hoàn tiền đơn khi vận đơn `returned` (mở rộng UC-ADM-22 cho trường hợp này) |
+| 9 | `userId` của lượt xem không gian khi dùng `sendBeacon` (không gửi được header Authorization) | Gửi `accessToken` tuỳ chọn trong body; không có thì ghi ẩn danh |
+| 10 | Đã xác thực email hay chưa với tài khoản cũ khi bật tính năng | Chưa có dữ liệu cũ; không áp dụng |
 
-### 12.3. Thành phần cần tạo mới (tóm tắt, chi tiết ở Giai đoạn 2)
+### 12.3. Thành phần cần tạo mới / cần sửa / cần migration (tóm tắt; chi tiết ở Giai đoạn 2)
 
-`OptionalJwtAuthGuard`, `PermissionsGuard`, `ActivityLogInterceptor`, module `categories`, `brands`, `pages`, `attributes`, `reviews`, `coupons`, `addresses`, `notifications`, `wishlist`, `payments`, `shipments`, `inventory`, `settings`, `stats`, `activity-logs`, `mail`, `ar-sessions`, `ar-snapshots`; DTO tương ứng; `setGlobalPrefix('api')`; cấu hình `ConfigModule` đọc `.env`.
+- **[CẦN TẠO MỚI]** `OptionalJwtAuthGuard` (cho `POST/PATCH /api/ar-sessions`), `PermissionsGuard`, `ActivityLogInterceptor`; module `categories`, `brands`, `pages`, `attributes`, `reviews`, `coupons`, `addresses`, `notifications`, `wishlist`, `payments`, `shipments`, `inventory`, `settings`, `stats`, `activity-logs`, `mail`, `ar-sessions`, `ar-snapshots`; DTO tương ứng; `setGlobalPrefix('api')`; cấu hình `ConfigModule` đọc `.env`; (tuỳ chọn) `src/worker.ts`.
+- **[CẦN SỬA]** `apps/web/src/app/(shop)/products/[id]` → `products/[slug]`; `apps/web/src/app/(shop)/spaces/[id]` → `spaces/[slug]`.
+- **Migration cần làm khi code** (tạo bằng `prisma migrate dev --create-only`): index `idx_products_name_unaccent_trgm` ON `products` USING gin (`immutable_unaccent(name)` gin_trgm_ops) (UC-CAT-06).
 
-## 13. Thống kê và kiểm tra
+## 13. Hướng phát triển
+
+Các thành phần đã có trong khung code nhưng **không thuộc danh sách use case** của đồ án này:
+
+| Thành phần | Vị trí | Ghi chú |
+| --- | --- | --- |
+| Module AI (gợi ý sản phẩm, mô tả tự động; OpenAI/Ollama) | `apps/api/src/modules/ai` | Tuỳ chọn, chưa có yêu cầu nghiệp vụ |
+| Module overlay AR cho mobile | `apps/api/src/modules/ar-overlay` | Sinh dữ liệu/metadata overlay cho ứng dụng Android |
+| Ứng dụng Android (camera AR overlay, catalog, giỏ hàng, chi tiết sản phẩm) | `apps/mobile` | Kotlin, dùng cùng API |
+| Tách tiến trình worker riêng | `infra/docker/Dockerfile.worker` | Hiện chạy cùng entrypoint với API |
+| Webhook đơn vị vận chuyển, đồng bộ trạng thái tự động | UC-ADM-25 | Hiện nhập tay |
+| Hoàn tiền qua API cổng thanh toán | UC-ADM-23 | Hiện ghi nhận thủ công |
+| Gộp giỏ khách vào giỏ user | UC-CART-01 | Hiện không có |
+
+## 14. Thống kê và kiểm tra
 
 
 | Chỉ số | Giá trị |
 | --- | --- |
-| Tổng UC | 75 |
-| UC Khách vãng lai | 20 |
-| UC Người dùng (gồm kế thừa Khách) | 43 |
-| UC Quản trị viên | 54 |
+| Tổng UC | 76 |
+| UC Khách vãng lai | 21 |
+| UC Người dùng (gồm kế thừa Khách) | 44 |
+| UC Quản trị viên | 55 |
 | UC Tác nhân ngoài | 1 |
 | UC riêng của Khách (chỉ dành cho khách chưa đăng nhập) | 1 |
-| UC chung (mục 6) | 21 |
+| UC chung (mục 6) | 22 |
 | UC riêng của User (mục 8) | 22 |
 | UC Quản trị (mục 9) | 30 |
 | Ưu tiên Bắt buộc | 29 |
-| Ưu tiên Nên có | 31 |
+| Ưu tiên Nên có | 32 |
 | Ưu tiên Mở rộng | 15 |
 | Model được ít nhất 1 UC sử dụng | 44/44 |
 
