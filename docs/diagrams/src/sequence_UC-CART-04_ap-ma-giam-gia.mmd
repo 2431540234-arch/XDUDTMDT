@@ -1,0 +1,61 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Ô nhập mã giảm giá ở trang thanh toán
+    participant G as JwtAuthGuard
+    participant C as CouponsController
+    participant S as CouponsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập mã giảm giá và bấm "Áp dụng"
+    alt Không: Đã đăng nhập
+        FE-->>A: Hiển thị hộp thoại yêu cầu đăng nhập, chưa gọi API
+    end
+    FE->>G: POST /api/coupons/validate
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(ValidateCouponDto)
+    alt Không: Mã hợp lệ về định dạng
+        C-->>FE: 400 Mã không hợp lệ
+    end
+    C->>S: CouponsService.validate(userId, code)
+    S->>P: cart.findUnique({ where: { userId }, include: { cartItems: true } })
+    P->>D: SELECT carts
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Giỏ hàng trống
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Giỏ hàng trống
+    end
+    S->>P: coupon.findFirst({ where: { code, isActive: true, startsAt: { lte: now } } })
+    P->>D: SELECT coupons
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Mã không tồn tại hoặc đã hết hạn
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Mã không tồn tại hoặc đã hết hạn
+    end
+    S->>P: subtotal >= minOrderValue && usedCount < usageLimit
+    P->>D: subtotal >= minOrderValue && usedCount <
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Chưa đạt điều kiện áp mã
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Chưa đạt điều kiện áp mã
+    end
+    S->>P: couponUsage.count({ where: { couponId, userId } })
+    P->>D: SELECT count coupon_usages
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Bạn đã dùng hết lượt
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Bạn đã dùng hết lượt
+    end
+    S->>S: Tính số tiền giảm (percent có trần maxDiscount, fixed không quá subtotal) - CouponsService.computeDiscount(coupon, subtotal)
+    S-->>C: kết quả
+    C-->>FE: 200 Số tiền giảm và tổng dự kiến (chưa ghi dữ liệu)
+    FE-->>A: Hiển thị số tiền giảm, giữ couponCode để gửi khi đặt hàng

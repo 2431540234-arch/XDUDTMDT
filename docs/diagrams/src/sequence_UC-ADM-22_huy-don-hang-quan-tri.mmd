@@ -1,0 +1,69 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Chi tiết đơn quản trị (nút "Hủy đơn")
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminOrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Hủy đơn", nhập lý do và xác nhận
+    FE->>G: POST /api/admin/orders/:id/cancel
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CancelOrderDto)
+    alt Không: Lý do hợp lệ (5 đến 500 ký tự)
+        C-->>FE: 400 Lý do không hợp lệ
+    end
+    C->>S: OrdersService.cancelByAdmin(adminId, id, dto)
+    critical $transaction (Prisma)
+        S->>P: order.findUnique({ where: { id }, include: { orderItems: true, couponUsages: true } })
+        P->>D: SELECT orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Đơn đã giao hoặc không thể hủy
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Đơn đã giao hoặc không thể hủy
+        end
+        S->>S: Đặt người thực hiện cho trigger - $executeRaw`SELECT set_config('app.current_user_id', ${adminId}, true)`
+        S->>P: order.update({ where: { id }, data: { status: 'cancelled', cancelReason } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+        loop dòng hàng còn variantId
+            S->>P: productVariant.update({ where: { id: variantId }, data: { stockQuantity: { increment: quantity } } })
+            P->>D: UPDATE product_variants
+            D-->>P: kết quả
+            P-->>S: kết quả
+            S->>P: inventoryMovement.create({ data: { variantId, type: 'return', quantityChange: quantity, referenceCode: orderCode } })
+            P->>D: INSERT INTO inventory_movements
+            D-->>P: kết quả
+            P-->>S: kết quả
+        end
+        S->>P: couponUsage.deleteMany({ where: { orderId: id } })
+        P->>D: DELETE FROM coupon_usages
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: coupon.updateMany({ where: { id: couponId, usedCount: { gt: 0 } }, data: { usedCount: { decrement: 1 } } })
+        P->>D: UPDATE coupons
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: payment.updateMany({ where: { orderId: id, status: 'pending' }, data: { status: 'failed' } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'order.cancel', targetType: 'orders', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: (sau commit) Thông báo user, đơn đã thanh toán cần hoàn tiền thủ công - NotificationsService.create
+    S-->>C: kết quả
+    C-->>FE: 200 Đơn đã hủy
+    FE-->>A: Hiển thị đơn đã hủy (cảnh báo hoàn tiền nếu đã thanh toán)

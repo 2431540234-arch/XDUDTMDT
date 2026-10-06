@@ -1,0 +1,27 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Mục Đánh giá ở trang chi tiết sản phẩm
+    participant C as ReviewsController
+    participant S as ReviewsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Cuộn tới mục "Đánh giá"
+    FE->>C: GET /api/products/:slug/reviews?page=&rating=
+    C->>S: ReviewsService.listByProduct(slug, query)
+    S->>P: product.findFirst({ where: { slug, status: 'published', deletedAt: null }, select: { id, ratingAvg, ratingCount } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy sản phẩm
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy sản phẩm
+    end
+    S->>P: review.findMany({ where: { productId, status: 'approved' }, orderBy: { createdAt: 'desc' }, skip, take })
+    P->>D: SELECT reviews
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Chuyển Decimal sang number - serialize(result)
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách đánh giá, ratingAvg, ratingCount
+    FE-->>A: Hiển thị điểm trung bình và danh sách đánh giá

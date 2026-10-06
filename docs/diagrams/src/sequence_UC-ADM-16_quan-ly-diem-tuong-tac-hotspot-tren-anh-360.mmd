@@ -1,0 +1,50 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trình soạn thảo ảnh 360° (hotspot)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminSpacesController
+    participant S as SpacesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm vị trí trên ảnh 360°, chọn loại hotspot (sản phẩm, điều hướng, thông tin) và bấm "Lưu"
+    FE->>G: POST /api/admin/panoramas/:id/hotspots
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateHotspotDto)
+    alt Không: Dữ liệu khớp loại (product cần productId, navigation cần targetPanoramaId, info cần content)
+        C-->>FE: 400 Dữ liệu hotspot không khớp loại
+    end
+    C->>S: SpacesService.createHotspot(adminId, id, dto)
+    S->>P: spacePanorama.findUnique({ where: { id } })
+    P->>D: SELECT space_panoramas
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy ảnh 360°
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy ảnh 360°
+    end
+    S->>P: spacePanorama.findFirst({ where: { id: targetPanoramaId, spaceId } })
+    P->>D: SELECT space_panoramas
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Ảnh đích không hợp lệ
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Ảnh đích không hợp lệ
+    end
+    S->>P: spaceHotspot.create({ data: { panoramaId: id, type, yaw, pitch, productId, targetPanoramaId, title, content } })
+    P->>D: INSERT INTO space_hotspots
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'hotspot.create', targetType: 'space_hotspots' } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_space_hotspots_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 201 Hotspot mới
+    FE-->>A: Hotspot hiển thị trên ảnh 360°

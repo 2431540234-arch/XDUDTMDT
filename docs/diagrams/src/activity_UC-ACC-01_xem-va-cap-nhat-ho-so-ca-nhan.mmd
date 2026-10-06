@@ -1,0 +1,44 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Sửa họ tên, số điện thoại, ảnh đại diện và bấm 'Lưu'"]
+        n16["Hiển thị hồ sơ đã cập nhật"]
+        n17(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Dữ liệu form hợp lệ?"}
+        n4["[Web] Hiển thị lỗi tại từng ô nhập"]
+        n5["Gửi PATCH /api/users/me"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Dữ liệu hợp lệ?"}
+        n9["Trả 400 Dữ liệu không hợp lệ"]
+        n11{"Ảnh đại diện (nếu có) do chính user tải lên?"}
+        n12["Trả 400 Ảnh đại diện không hợp lệ"]
+        n15["Trả 200: Hồ sơ mới"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n10["Truy vấn CSDL: SELECT media"]
+        n13["Cập nhật hồ sơ của chính user"]
+        n14["Trigger DB: Cập nhật updated_at"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Không"| n12
+    n11 -->|"Có"| n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n4 --> n17
+    n7 --> n17
+    n9 --> n17
+    n12 --> n17

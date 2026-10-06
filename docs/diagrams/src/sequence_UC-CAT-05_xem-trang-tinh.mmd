@@ -1,0 +1,22 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang tĩnh (StaticPage)
+    participant C as PagesController
+    participant S as PagesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm liên kết ở Footer
+    FE->>C: GET /api/pages/:slug
+    C->>S: PagesService.findBySlug(slug)
+    S->>P: page.findFirst({ where: { slug, status: 'published' } })
+    P->>D: SELECT pages
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy trang
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy trang
+    end
+    S-->>C: kết quả
+    C-->>FE: 200 Nội dung trang tĩnh
+    FE-->>A: Hiển thị nội dung đã làm sạch HTML

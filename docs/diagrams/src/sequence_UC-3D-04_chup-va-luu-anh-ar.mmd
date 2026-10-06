@@ -1,0 +1,47 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Nút chụp trong chế độ AR
+    participant G as JwtAuthGuard
+    participant C as ArSnapshotsController
+    participant S as ArSnapshotsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    participant X as MinIO/S3
+    participant W as Hàng đợi BullMQ / Worker
+    A->>FE: Bấm nút chụp trong chế độ AR
+    alt Không: Đã đăng nhập
+        FE-->>A: Yêu cầu đăng nhập để lưu ảnh, chưa gọi API
+    end
+    FE->>G: POST /api/ar-snapshots (multipart: file, productId, arSessionUuid)
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateArSnapshotDto)
+    alt Không: Tệp ảnh hợp lệ (jpeg/png/webp, tối đa 10 MB)
+        C-->>FE: 400/413 Tệp không hợp lệ
+    end
+    C->>S: ArSnapshotsService.create(userId, file, dto)
+    S->>X: putObject(file)
+    X-->>S: URL tệp
+    critical $transaction (Prisma)
+        S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, uploadedBy: userId } })
+        P->>D: INSERT INTO media
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: arSnapshot.create({ data: { userId, productId, arSessionId, mediaId, isPublic: false } })
+        P->>D: INSERT INTO ar_snapshots
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: arSession.updateMany({ where: { uuid: arSessionUuid, userId }, data: { captured: true } })
+        P->>D: UPDATE ar_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S-)W: Nén ảnh nền (compress-image.processor)
+    S-->>C: kết quả
+    C-->>FE: 201 id, imageUrl, isPublic
+    FE-->>A: Hiển thị ảnh đã lưu, cho phép chia sẻ hoặc đặt công khai

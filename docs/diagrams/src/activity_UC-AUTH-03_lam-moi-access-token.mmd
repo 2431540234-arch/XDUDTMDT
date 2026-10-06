@@ -1,0 +1,52 @@
+flowchart TD
+    subgraph LANE_A["Client (tự động)"]
+        n1(("Bắt đầu"))
+        n2["Nhận 401 do access token hết hạn, gửi refresh token"]
+        n20["Client lưu token mới và gửi lại request ban đầu"]
+        n21(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/auth/refresh"]
+        n4{"Đã đăng nhập?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Refresh token hợp lệ về chữ ký và thời hạn?"}
+        n7["Trả 401 Phiên không hợp lệ"]
+        n9{"Phiên tồn tại, chưa thu hồi, chưa hết hạn?"}
+        n10["Trả 401 Phiên hết hạn, yêu cầu đăng nhập lại"]
+        n12{"Tài khoản còn active và chưa xóa mềm?"}
+        n13["Trả 401 Tài khoản không khả dụng"]
+        n18["Ký cặp token mới"]
+        n19["Trả 200: Cặp token mới"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT user_sessions"]
+        n11["Truy vấn CSDL: SELECT users"]
+        n14["Bắt đầu transaction"]
+        n15["Thu hồi phiên cũ (xoay vòng token)"]
+        n16["Tạo phiên mới"]
+        n17["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 -->|"Không"| n13
+    n12 -->|"Có"| n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n5 --> n21
+    n7 --> n21
+    n10 --> n21
+    n13 --> n21

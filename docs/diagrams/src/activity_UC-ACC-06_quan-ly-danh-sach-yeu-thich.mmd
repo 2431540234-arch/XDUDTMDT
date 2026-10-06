@@ -1,0 +1,37 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Bấm biểu tượng tim"]
+        n13["Biểu tượng tim đổi sang trạng thái đã thích"]
+        n14(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Đã đăng nhập?"}
+        n4["[Web] Hiển thị hộp thoại yêu cầu đăng nhập, không gọi API"]
+        n5["Gửi PUT /api/wishlist/:slug"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n9{"Sản phẩm đang bán và chưa xóa mềm?"}
+        n10["Trả 404 Không tìm thấy sản phẩm"]
+        n12["Trả 204: Không nội dung"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT products"]
+        n11["Thêm vào yêu thích (idempotent)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n4 --> n14
+    n7 --> n14
+    n10 --> n14

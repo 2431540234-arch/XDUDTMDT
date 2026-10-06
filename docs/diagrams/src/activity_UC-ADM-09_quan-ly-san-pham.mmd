@@ -1,0 +1,48 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Nhập thông tin sản phẩm (tên, danh mục, thương hiệu, mô tả, SEO) và bấm 'Lưu'"]
+        n18["Chuyển tới trang sửa để thêm biến thể, ảnh, mô hình 3D"]
+        n19(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/admin/products"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Dữ liệu hợp lệ?"}
+        n7["Trả 400 Dữ liệu không hợp lệ"]
+        n8["Sinh slug từ tên (bỏ dấu) nếu để trống"]
+        n10{"Slug chưa được dùng (kể cả sản phẩm đã xóa mềm)?"}
+        n11["Trả 409 Slug đã tồn tại"]
+        n13{"Danh mục và thương hiệu tồn tại?"}
+        n14["Trả 400 Danh mục hoặc thương hiệu không hợp lệ"]
+        n17["Trả 201: ProductResponseDto"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n9["Truy vấn CSDL: SELECT products"]
+        n12["Truy vấn CSDL: SELECT categories"]
+        n15["Tạo sản phẩm (rating, cờ 3D/AR do trigger giữ)"]
+        n16["Ghi nhật ký hoạt động"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 --> n10
+    n10 -->|"Không"| n11
+    n10 -->|"Có"| n12
+    n12 --> n13
+    n13 -->|"Không"| n14
+    n13 -->|"Có"| n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n5 --> n19
+    n7 --> n19
+    n11 --> n19
+    n14 --> n19

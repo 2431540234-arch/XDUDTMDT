@@ -1,0 +1,31 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Nhập email và bấm 'Gửi liên kết đặt lại'"]
+        n11["Hiển thị thông báo đã gửi hướng dẫn"]
+        n12(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/auth/forgot-password"]
+        n4{"Email đúng định dạng?"}
+        n5["Trả 400 Email không hợp lệ"]
+        n7["Sinh token ngẫu nhiên và băm SHA-256"]
+        n9["Đưa job vào hàng đợi: Gửi email chứa liên kết đặt lại"]
+        n10["Trả 200: Thông báo chung 'Nếu email tồn tại, hướng dẫn đã được gửi'"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Tìm tài khoản active chưa xóa mềm (không lộ kết quả)"]
+        n8["Lưu mã đặt lại (hiệu lực 30 phút)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n5 --> n12

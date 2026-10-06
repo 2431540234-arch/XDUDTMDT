@@ -1,0 +1,44 @@
+flowchart LR
+    K(["Khách vãng lai"]):::actor
+    N(["Người dùng"]):::actor
+    A(["Quản trị viên"]):::actor
+    GW(["Cổng thanh toán"]):::ext
+    SH(["Đơn vị vận chuyển"]):::ext
+    EM(["Dịch vụ email"]):::ext
+    N -. "kế thừa quyền" .-> K
+    G_AUTH(["Xác thực (7 UC)"])
+    G_ACC(["Tài khoản (7 UC)"])
+    G_CAT(["Danh mục & sản phẩm (6 UC)"])
+    G_CART(["Giỏ hàng (4 UC)"])
+    G_ORD(["Đơn hàng (3 UC)"])
+    G_PAY(["Thanh toán (3 UC)"])
+    G_REV(["Đánh giá (3 UC)"])
+    G_D3(["3D & AR (7 UC)"])
+    G_SPACE(["Không gian mẫu (6 UC)"])
+    G_ADM(["Quản trị (30 UC)"])
+    K --- G_AUTH
+    N --- G_AUTH
+    A --- G_AUTH
+    N --- G_ACC
+    A --- G_ACC
+    K --- G_CAT
+    N --- G_CAT
+    A --- G_CAT
+    N --- G_CART
+    N --- G_ORD
+    N --- G_PAY
+    K --- G_REV
+    N --- G_REV
+    A --- G_REV
+    K --- G_D3
+    N --- G_D3
+    A --- G_D3
+    K --- G_SPACE
+    N --- G_SPACE
+    A --- G_SPACE
+    A --- G_ADM
+    G_PAY --- GW
+    G_ADM --- SH
+    G_AUTH --- EM
+    classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
+    classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3

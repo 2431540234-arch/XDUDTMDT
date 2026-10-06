@@ -1,0 +1,127 @@
+classDiagram
+    class Product3DModel {
+        +Int id «PK»
+        +String uuid «UK»
+        +Int productId «FK»
+        +Int? variantId «FK»
+        +Int lengthMm
+        +Int widthMm
+        +Int heightMm
+        +ModelPlacement placement
+        +Boolean allowScaling
+        +Json viewerConfig
+        +Int? posterMediaId «FK»
+        +ModelStatus status
+        +Int version
+        +Boolean isPrimary
+        +DateTime createdAt
+        +DateTime updatedAt
+        +markProcessing()
+        +markReady()
+        +markFailed()
+        +setPrimary()
+    }
+    class ModelFile {
+        +Int id «PK»
+        +Int modelId «FK»
+        +ModelFileFormat format
+        +ModelLod lod
+        +Int mediaId «FK»
+        +Int? polygonCount
+        +Int? textureResolution
+        +Boolean isCompressed
+        +String? checksum
+        +DateTime createdAt
+        +DateTime updatedAt
+        +computeChecksum() String
+    }
+    class ModelMaterialVariant {
+        +Int id «PK»
+        +Int modelId «FK»
+        +Int variantId «FK»
+        +String materialName
+        +Json config
+        +DateTime createdAt
+        +DateTime updatedAt
+        +applyTo(model)
+    }
+    class ArSession {
+        +Int id «PK»
+        +String uuid «UK»
+        +Int? userId «FK»
+        +String? visitorId
+        +Int productId «FK»
+        +Int? modelId «FK»
+        +String? device
+        +String? os
+        +String? arPlatform
+        +ArMode mode
+        +Int durationSeconds
+        +Boolean placed
+        +Boolean captured
+        +Boolean addedToCart
+        +DateTime createdAt
+        +DateTime updatedAt
+        +finish(duration, placed, captured, addedToCart)
+    }
+    class ArSnapshot {
+        +Int id «PK»
+        +Int userId «FK»
+        +Int productId «FK»
+        +Int? arSessionId «FK»
+        +Int mediaId «FK»
+        +Boolean isPublic
+        +DateTime createdAt
+        +DateTime updatedAt
+        +makePublic()
+        +makePrivate()
+    }
+    class ModelPlacement {
+        <<enumeration>>
+        floor
+        wall
+        table
+    }
+    class ModelStatus {
+        <<enumeration>>
+        uploading
+        processing
+        ready
+        failed
+    }
+    class ModelFileFormat {
+        <<enumeration>>
+        glb
+        usdz
+    }
+    class ModelLod {
+        <<enumeration>>
+        high
+        medium
+        low
+    }
+    class ArMode {
+        <<enumeration>>
+        view_3d
+        ar
+    }
+    Product3DModel "0..1" o-- "0..*" ArSession : model
+    Product "1" -- "0..*" ArSession : product
+    User "0..1" -- "0..*" ArSession : user
+    ArSession "0..1" o-- "0..*" ArSnapshot : arSession
+    Media "1" o-- "0..*" ArSnapshot : media
+    Product "1" -- "0..*" ArSnapshot : product
+    User "1" -- "0..*" ArSnapshot : user
+    Media "1" o-- "0..*" ModelFile : media
+    Product3DModel "1" *-- "0..*" ModelFile : model
+    Product3DModel "1" *-- "0..*" ModelMaterialVariant : model
+    ProductVariant "1" -- "0..*" ModelMaterialVariant : variant
+    Media "0..1" o-- "0..*" Product3DModel : posterMedia
+    Product "1" *-- "0..*" Product3DModel : product
+    ProductVariant "1" -- "0..*" Product3DModel : variant
+    Product3DModel "0..1" o-- "0..*" SpaceProductPlacement : model
+    Product3DModel ..> ModelPlacement : placement
+    Product3DModel ..> ModelStatus : status
+    ModelFile ..> ModelFileFormat : format
+    ModelFile ..> ModelLod : lod
+    ArSession ..> ArMode : mode

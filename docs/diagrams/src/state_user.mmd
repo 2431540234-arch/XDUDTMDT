@@ -1,0 +1,11 @@
+stateDiagram-v2
+    [*] --> active: Đăng ký (UC-AUTH-01)
+    active --> suspended: Admin khóa (UC-ADM-01)
+    suspended --> active: Admin mở khóa (UC-ADM-01)
+    active --> banned: Admin cấm (UC-ADM-01)
+    suspended --> banned: Admin cấm (UC-ADM-01)
+    banned --> active: Admin mở khóa (UC-ADM-01)
+    active --> Deleted: Xóa mềm deletedAt (Admin UC-ADM-01 hoặc User UC-ACC-07)
+    suspended --> Deleted: Admin xóa mềm
+    banned --> Deleted: Admin xóa mềm
+    Deleted --> [*]

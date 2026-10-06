@@ -1,0 +1,33 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Chuông thông báo trên Header
+    participant G as JwtAuthGuard
+    participant C as NotificationsController
+    participant S as NotificationsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm vào một thông báo
+    FE->>G: PATCH /api/notifications/:id/read
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: NotificationsService.markRead(userId, id)
+    S->>P: notification.findFirst({ where: { id, userId } })
+    P->>D: SELECT notifications
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy thông báo
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy thông báo
+    end
+    S->>P: notification.update({ where: { id }, data: { readAt: new Date() } })
+    P->>D: UPDATE notifications
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 200 Thông báo đã đọc
+    FE-->>A: Điều hướng theo dữ liệu kèm theo (ví dụ chi tiết đơn)

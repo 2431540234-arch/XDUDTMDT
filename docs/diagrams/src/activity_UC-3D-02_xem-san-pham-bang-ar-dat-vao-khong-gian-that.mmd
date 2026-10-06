@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Xem trong không gian của bạn' trên thiết bị hỗ trợ AR"]
+        n9["Mở AR (Quick Look / Scene Viewer / WebXR); ghi nhận phiên AR (UC-3D-07)"]
+        n10(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products/:slug/model"]
+        n5{"Sản phẩm hỗ trợ AR (có đủ GLB và USDZ ở mô hình ready)?"}
+        n6["Trả 404 Sản phẩm chưa hỗ trợ AR"]
+        n7["Chọn USDZ cho iOS, GLB cho Android/Web và truyền kích thước thật"]
+        n8["Trả 200: Tệp AR, kích thước thật, vị trí đặt, allowScaling"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Truy vấn CSDL: SELECT product_3d_models"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n6 --> n10

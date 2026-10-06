@@ -1,0 +1,162 @@
+classDiagram
+    class Brand {
+        +Int id «PK»
+        +String name
+        +String slug «UK»
+        +Int? logoMediaId «FK»
+        +Boolean isActive
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+    class Product {
+        +Int id «PK»
+        +String name
+        +String slug «UK»
+        +String? shortDescription
+        +String? description
+        +Int? categoryId «FK»
+        +Int? brandId «FK»
+        +ContentStatus status
+        +Boolean isFeatured
+        +Decimal ratingAvg
+        +Int ratingCount
+        +Int soldCount
+        +Boolean has3dModel
+        +Boolean hasAr
+        +String? metaTitle
+        +String? metaDescription
+        +DateTime? deletedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +publish()
+        +archive()
+        +softDelete()
+        +minPrice() Decimal
+    }
+    class Attribute {
+        +Int id «PK»
+        +String code «UK»
+        +String name «UK»
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+    class AttributeValue {
+        +Int id «PK»
+        +Int attributeId «FK»
+        +String value
+        +DateTime createdAt
+        +DateTime updatedAt
+    }
+    class ProductVariant {
+        +Int id «PK»
+        +Int productId «FK»
+        +String sku «UK»
+        +Decimal price
+        +Decimal? salePrice
+        +Int stockQuantity
+        +Int? weightGram
+        +Boolean isActive
+        +DateTime createdAt
+        +DateTime updatedAt
+        +decreaseStock(qty)
+        +increaseStock(qty)
+        +effectivePrice() Decimal
+        +isSellable() Boolean
+    }
+    class VariantAttributeValue {
+        +Int variantId «PK,FK»
+        +Int attributeValueId «PK,FK»
+        +Int attributeId «FK»
+        +DateTime createdAt
+    }
+    class ProductImage {
+        +Int id «PK»
+        +Int productId «FK»
+        +Int? variantId «FK»
+        +Int mediaId «FK»
+        +Int sortOrder
+        +Boolean isPrimary
+        +DateTime createdAt
+        +DateTime updatedAt
+        +setPrimary()
+    }
+    class InventoryMovement {
+        +Int id «PK»
+        +Int variantId «FK»
+        +InventoryMovementType type
+        +Int quantityChange
+        +String? reason
+        +String? referenceCode
+        +Int? performedBy «FK»
+        +DateTime createdAt
+        +apply()
+    }
+    class Review {
+        +Int id «PK»
+        +Int userId «FK»
+        +Int productId «FK»
+        +Int? orderId «FK»
+        +Int rating
+        +String? content
+        +ReviewStatus status
+        +DateTime createdAt
+        +DateTime updatedAt
+        +approve()
+        +reject()
+    }
+    class Wishlist {
+        +Int id «PK»
+        +Int userId «FK»
+        +Int productId «FK»
+        +DateTime createdAt
+    }
+    class ContentStatus {
+        <<enumeration>>
+        draft
+        published
+        archived
+    }
+    class InventoryMovementType {
+        <<enumeration>>
+        import
+        sale
+        return
+        adjustment
+    }
+    class ReviewStatus {
+        <<enumeration>>
+        pending
+        approved
+        rejected
+    }
+    Product "1" -- "0..*" ArSession : product
+    Product "1" -- "0..*" ArSnapshot : product
+    Attribute "1" *-- "0..*" AttributeValue : attribute
+    Media "0..1" o-- "0..*" Brand : logoMedia
+    ProductVariant "1" -- "0..*" CartItem : variant
+    User "0..1" o-- "0..*" InventoryMovement : performedByUser
+    ProductVariant "1" o-- "0..*" InventoryMovement : variant
+    ProductVariant "1" -- "0..*" ModelMaterialVariant : variant
+    ProductVariant "0..1" o-- "0..*" OrderItem : variant
+    Product "1" *-- "0..*" Product3DModel : product
+    ProductVariant "1" -- "0..*" Product3DModel : variant
+    Media "1" o-- "0..*" ProductImage : media
+    Product "1" *-- "0..*" ProductImage : product
+    ProductVariant "1" -- "0..*" ProductImage : variant
+    Product "1" *-- "0..*" ProductVariant : product
+    Brand "0..1" o-- "0..*" Product : brand
+    Category "0..1" o-- "0..*" Product : category
+    Order "0..1" o-- "0..*" Review : order
+    Product "1" -- "0..*" Review : product
+    User "1" -- "0..*" Review : user
+    Product "0..1" -- "0..*" SpaceHotspot : product
+    Product "1" -- "0..*" SpaceProductPlacement : product
+    ProductVariant "1" o-- "0..*" SpaceProductPlacement : variant
+    Product "0..1" o-- "0..*" SpaceView : sourceProduct
+    AttributeValue "1" *-- "0..*" VariantAttributeValue : attributeValue
+    ProductVariant "1" *-- "0..*" VariantAttributeValue : variant
+    Product "1" -- "0..*" Wishlist : product
+    User "1" -- "0..*" Wishlist : user
+    Product ..> ContentStatus : status
+    InventoryMovement ..> InventoryMovementType : type
+    Review ..> ReviewStatus : status

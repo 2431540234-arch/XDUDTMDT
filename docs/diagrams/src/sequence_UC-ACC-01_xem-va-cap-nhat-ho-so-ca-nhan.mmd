@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Hồ sơ (ProfilePage)
+    participant G as JwtAuthGuard
+    participant C as UsersController
+    participant S as UsersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Sửa họ tên, số điện thoại, ảnh đại diện và bấm "Lưu"
+    alt Không: Dữ liệu form hợp lệ
+        FE-->>A: Hiển thị lỗi tại từng ô nhập
+    end
+    FE->>G: PATCH /api/users/me
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UpdateUserDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: UsersService.updateProfile(userId, dto)
+    S->>P: media.findFirst({ where: { id: avatarMediaId, uploadedBy: userId } })
+    P->>D: SELECT media
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Ảnh đại diện không hợp lệ
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Ảnh đại diện không hợp lệ
+    end
+    S->>P: user.update({ where: { id: userId }, data: { fullName, phone, avatarMediaId } })
+    P->>D: UPDATE users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_users_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Hồ sơ mới
+    FE-->>A: Hiển thị hồ sơ đã cập nhật

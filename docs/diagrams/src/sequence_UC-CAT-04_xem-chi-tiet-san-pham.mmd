@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang chi tiết sản phẩm (ProductDetailPage)
+    participant C as ProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm vào một sản phẩm
+    FE->>C: GET /api/products/:slug
+    C->>S: ProductsService.findBySlug(slug)
+    S->>P: product.findFirst({ where: { slug, status: 'published', deletedAt: null }, include: { productImages: true, productVariants: { where: { isActive: true }, include: { variantAttributeValues: { include: { attributeValue: true } } } }, brand: true, category: true } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy sản phẩm
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy sản phẩm
+    end
+    S->>S: Chuyển Decimal sang number - serialize(product)
+    S-->>C: kết quả
+    C-->>FE: 200 Chi tiết sản phẩm (giá dạng number)
+    FE-->>A: Hiển thị ảnh, biến thể, giá, tồn kho, nút 3D/AR và đánh giá

@@ -1,0 +1,29 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Cuộn tới mục 'Đánh giá'"]
+        n10["Hiển thị điểm trung bình và danh sách đánh giá"]
+        n11(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products/:slug/reviews?page=&rating="]
+        n5{"Sản phẩm tồn tại và đang bán?"}
+        n6["Trả 404 Không tìm thấy sản phẩm"]
+        n8["Chuyển Decimal sang number"]
+        n9["Trả 200: Danh sách đánh giá, ratingAvg, ratingCount"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Truy vấn CSDL: SELECT products"]
+        n7["Lấy đánh giá đã duyệt, phân trang"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n10 --> n11
+    n6 --> n11

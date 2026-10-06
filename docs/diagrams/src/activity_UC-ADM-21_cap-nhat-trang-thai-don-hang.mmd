@@ -1,0 +1,63 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Xác nhận', 'Bắt đầu xử lý' hoặc 'Giao hàng' và ghi chú (nếu có)"]
+        n25["Hiển thị trạng thái mới trong dòng thời gian"]
+        n26(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/admin/orders/:id/status"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"status là confirmed, processing hoặc shipping?"}
+        n7["Trả 409 Hoàn tất khi vận đơn được đánh dấu đã giao (UC-ADM-25)"]
+        n10{"Đơn tồn tại?"}
+        n11["Trả 404 Không tìm thấy đơn hàng"]
+        n14{"Chuyển trạng thái hợp lệ (pending, confirmed, processing, shipping theo thứ tự)?"}
+        n15["Trả 409 Chuyển trạng thái không hợp lệ"]
+        n17{"Sang shipping thì đã có vận đơn?"}
+        n18["Trả 400 Chưa có vận đơn"]
+        n19["Đặt người thực hiện và ghi chú cho trigger"]
+        n23["(sau commit) Tạo thông báo và gửi email cho user"]
+        n24["Trả 200: Đơn kèm lịch sử trạng thái"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Bắt đầu transaction"]
+        n9["Truy vấn CSDL: SELECT orders"]
+        n12["Rollback transaction"]
+        n13["Truy vấn CSDL: assertTransition OrdersService"]
+        n16["Truy vấn CSDL: length shipments"]
+        n20["Cập nhật trạng thái đơn"]
+        n21["Trigger DB: Ghi OrderStatusHistory (từ, đến, changedBy = admin)"]
+        n22["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 --> n10
+    n10 -->|"Không"| n11
+    n11 --> n12
+    n10 -->|"Có"| n13
+    n13 --> n14
+    n14 -->|"Không"| n15
+    n15 --> n12
+    n14 -->|"Có"| n16
+    n16 --> n17
+    n17 -->|"Không"| n18
+    n18 --> n12
+    n17 -->|"Có"| n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n22 --> n23
+    n23 --> n24
+    n24 --> n25
+    n25 --> n26
+    n5 --> n26
+    n7 --> n26
+    n12 --> n26

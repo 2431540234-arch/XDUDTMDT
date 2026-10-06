@@ -1,0 +1,36 @@
+flowchart LR
+    A(["Quản trị viên"]):::actor
+    WK(["Worker xử lý nền"]):::ext
+    subgraph SG_ADM["Quản trị"]
+        UC_ADM_01(["UC-ADM-01 Quản lý người dùng"])
+        UC_ADM_02(["UC-ADM-02 Quản lý vai trò và phân quyền"])
+        UC_ADM_03(["UC-ADM-03 Quản lý cài đặt hệ thống"])
+        UC_ADM_04(["UC-ADM-04 Quản lý media (ảnh, tệp)"])
+        UC_ADM_05(["UC-ADM-05 Quản lý danh mục sản phẩm"])
+        UC_ADM_06(["UC-ADM-06 Quản lý thương hiệu"])
+        UC_ADM_07(["UC-ADM-07 Quản lý trang tĩnh"])
+        UC_ADM_08(["UC-ADM-08 Quản lý thuộc tính và giá trị thuộc tính"])
+        UC_ADM_09(["UC-ADM-09 Quản lý sản phẩm"])
+        UC_ADM_10(["UC-ADM-10 Quản lý biến thể sản phẩm"])
+        UC_ADM_11(["UC-ADM-11 Quản lý ảnh sản phẩm"])
+        UC_ADM_12(["UC-ADM-12 Nhập kho và điều chỉnh tồn kho"])
+        UC_ADM_13(["UC-ADM-13 Tải và quản lý mô hình 3D sản phẩm"])
+        UC_ADM_14(["UC-ADM-14 Cấu hình biến thể chất liệu cho mô hình 3D"])
+    end
+    A --- UC_ADM_01
+    A --- UC_ADM_02
+    A --- UC_ADM_03
+    A --- UC_ADM_04
+    A --- UC_ADM_05
+    A --- UC_ADM_06
+    A --- UC_ADM_07
+    A --- UC_ADM_08
+    A --- UC_ADM_09
+    A --- UC_ADM_10
+    A --- UC_ADM_11
+    A --- UC_ADM_12
+    A --- UC_ADM_13
+    A --- UC_ADM_14
+    UC_ADM_13 --- WK
+    classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
+    classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3

@@ -1,0 +1,32 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Bấm liên kết xác thực trong email"]
+        n11["Chuyển tới trang hồ sơ"]
+        n12(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/auth/verify-email?token=..."]
+        n4{"Có token?"}
+        n5["Trả 400 Thiếu token"]
+        n7{"Token JWT (mục đích verify_email) hợp lệ và chưa hết hạn?"}
+        n8["Trả 400 Liên kết không hợp lệ hoặc đã hết hạn"]
+        n10["Trả 200: Email đã được xác thực"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: verifyAsync JwtService"]
+        n9["Đặt thời điểm xác thực email"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n5 --> n12
+    n8 --> n12

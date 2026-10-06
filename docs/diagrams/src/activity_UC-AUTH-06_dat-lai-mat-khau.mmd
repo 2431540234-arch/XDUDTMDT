@@ -1,0 +1,47 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Mở liên kết trong email, nhập mật khẩu mới"]
+        n18["Chuyển tới trang đăng nhập"]
+        n19(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Mật khẩu mới đạt chính sách và trùng ô xác nhận?"}
+        n4["[Web] Hiển thị lỗi tại ô nhập"]
+        n5["Gửi POST /api/auth/reset-password"]
+        n6{"Dữ liệu hợp lệ?"}
+        n7["Trả 400 Dữ liệu không hợp lệ"]
+        n9{"Token tồn tại, chưa dùng, chưa hết hạn?"}
+        n10["Trả 400 Liên kết không hợp lệ hoặc đã hết hạn"]
+        n11["Băm mật khẩu mới"]
+        n17["Trả 200: Đổi mật khẩu thành công"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT password_resets"]
+        n12["Bắt đầu transaction"]
+        n13["Đổi mật khẩu"]
+        n14["Đánh dấu token đã dùng"]
+        n15["Thu hồi mọi phiên đăng nhập"]
+        n16["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n4 --> n19
+    n7 --> n19
+    n10 --> n19

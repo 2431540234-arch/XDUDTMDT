@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Ảnh AR của tôi (ArPhotosPage)
+    participant G as JwtAuthGuard
+    participant C as ArSnapshotsController
+    participant S as ArSnapshotsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bật "Công khai" cho một ảnh AR
+    FE->>G: PATCH /api/ar-snapshots/:id
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UpdateArSnapshotDto)
+    alt Không: isPublic là boolean
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: ArSnapshotsService.update(userId, id, dto)
+    S->>P: arSnapshot.findFirst({ where: { id, userId } })
+    P->>D: SELECT ar_snapshots
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy ảnh
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy ảnh
+    end
+    S->>P: arSnapshot.update({ where: { id }, data: { isPublic } })
+    P->>D: UPDATE ar_snapshots
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_ar_snapshots_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Ảnh AR sau khi cập nhật
+    FE-->>A: Ảnh xuất hiện ở mục "Khách hàng đã trải nghiệm" khi công khai

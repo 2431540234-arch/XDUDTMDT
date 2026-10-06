@@ -1,0 +1,50 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Thêm sản phẩm (NewProductPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập thông tin sản phẩm (tên, danh mục, thương hiệu, mô tả, SEO) và bấm "Lưu"
+    FE->>G: POST /api/admin/products
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateProductDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: ProductsService.create(adminId, dto)
+    S->>S: Sinh slug từ tên (bỏ dấu) nếu để trống - slugify(name)
+    S->>P: product.findUnique({ where: { slug } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Slug đã tồn tại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Slug đã tồn tại
+    end
+    S->>P: category.findUnique({ where: { id: categoryId } })
+    P->>D: SELECT categories
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Danh mục hoặc thương hiệu không hợp lệ
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Danh mục hoặc thương hiệu không hợp lệ
+    end
+    S->>P: product.create({ data: { name, slug, shortDescription, description, categoryId, brandId, status, isFeatured, metaTitle, metaDescription } })
+    P->>D: INSERT INTO products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'product.create', targetType: 'products', targetId } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 201 ProductResponseDto
+    FE-->>A: Chuyển tới trang sửa để thêm biến thể, ảnh, mô hình 3D

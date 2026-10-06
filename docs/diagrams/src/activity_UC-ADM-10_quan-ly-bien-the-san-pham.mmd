@@ -1,0 +1,54 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Nhập SKU, giá, giá khuyến mãi, cân nặng, chọn giá trị thuộc tính và bấm 'Lưu biến thể'"]
+        n21["Danh sách biến thể được cập nhật"]
+        n22(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/admin/products/:id/variants"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Dữ liệu hợp lệ (giá >= 0, salePrice <= price, mỗi thuộc tính một giá trị)?"}
+        n7["Trả 400 Dữ liệu không hợp lệ"]
+        n9{"Sản phẩm tồn tại?"}
+        n10["Trả 404 Không tìm thấy sản phẩm"]
+        n12{"SKU chưa được dùng?"}
+        n13["Trả 409 SKU đã tồn tại"]
+        n20["Trả 201: Biến thể mới (giá dạng number)"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT products"]
+        n11["Truy vấn CSDL: SELECT product_variants"]
+        n14["Bắt đầu transaction"]
+        n15["Tạo biến thể (tồn kho ban đầu 0)"]
+        n16["Gắn giá trị thuộc tính (kèm attributeId)"]
+        n17["Ghi nhật ký hoạt động"]
+        n18["Commit transaction"]
+        n19["Trigger DB: Cập nhật updated_at"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 -->|"Không"| n13
+    n12 -->|"Có"| n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n5 --> n22
+    n7 --> n22
+    n10 --> n22
+    n13 --> n22

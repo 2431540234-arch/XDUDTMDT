@@ -1,0 +1,63 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Nhập mã giảm giá và bấm 'Áp dụng'"]
+        n24["Hiển thị số tiền giảm; giữ couponCode để gửi khi đặt hàng"]
+        n25(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Đã đăng nhập?"}
+        n4["[Web] Hiển thị hộp thoại yêu cầu đăng nhập, chưa gọi API"]
+        n5["Gửi POST /api/coupons/validate"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Mã hợp lệ về định dạng?"}
+        n9["Trả 400 Mã không hợp lệ"]
+        n11{"Giỏ có sản phẩm?"}
+        n12["Trả 400 Giỏ hàng trống"]
+        n14{"Mã tồn tại, đang bật và trong thời gian hiệu lực?"}
+        n15["Trả 400 Mã không tồn tại hoặc đã hết hạn"]
+        n17{"Đạt giá trị đơn tối thiểu và còn lượt toàn hệ thống?"}
+        n18["Trả 400 Chưa đạt điều kiện áp mã"]
+        n20{"User còn lượt dùng mã này?"}
+        n21["Trả 400 Bạn đã dùng hết lượt"]
+        n22["Tính số tiền giảm (percent có trần maxDiscount, fixed không quá subtotal)"]
+        n23["Trả 200: Số tiền giảm và tổng dự kiến (chưa ghi dữ liệu)"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n10["Truy vấn CSDL: SELECT carts"]
+        n13["Truy vấn CSDL: SELECT coupons"]
+        n16["Truy vấn CSDL: subtotal >= minOrderValue && usedCount <"]
+        n19["Truy vấn CSDL: SELECT count coupon_usages"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Không"| n12
+    n11 -->|"Có"| n13
+    n13 --> n14
+    n14 -->|"Không"| n15
+    n14 -->|"Có"| n16
+    n16 --> n17
+    n17 -->|"Không"| n18
+    n17 -->|"Có"| n19
+    n19 --> n20
+    n20 -->|"Không"| n21
+    n20 -->|"Có"| n22
+    n22 --> n23
+    n23 --> n24
+    n24 --> n25
+    n4 --> n25
+    n7 --> n25
+    n9 --> n25
+    n12 --> n25
+    n15 --> n25
+    n18 --> n25
+    n21 --> n25

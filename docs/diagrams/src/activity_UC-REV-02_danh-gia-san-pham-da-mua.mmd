@@ -1,0 +1,58 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Chọn số sao, nhập nội dung và bấm 'Gửi đánh giá'"]
+        n22["Hiển thị thông báo 'Đánh giá đang chờ duyệt'"]
+        n23(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Đã đăng nhập?"}
+        n4["[Web] Hiển thị hộp thoại yêu cầu đăng nhập, chưa gọi API"]
+        n5["Gửi POST /api/products/:slug/reviews"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Số sao từ 1 đến 5?"}
+        n9["Trả 400 Dữ liệu không hợp lệ"]
+        n11{"Email đã được xác thực?"}
+        n12["Trả 403 Cần xác thực email để đánh giá"]
+        n14{"User đã mua sản phẩm (đơn completed của chính mình có sản phẩm)?"}
+        n15["Trả 403 Chỉ người đã mua mới được đánh giá"]
+        n17{"Chưa đánh giá sản phẩm này cho đơn này?"}
+        n18["Trả 409 Bạn đã đánh giá sản phẩm này"]
+        n21["Trả 201: Đánh giá đang chờ duyệt"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n10["Truy vấn CSDL: SELECT users"]
+        n13["Truy vấn CSDL: SELECT orders"]
+        n16["Truy vấn CSDL: SELECT reviews"]
+        n19["Tạo đánh giá ở trạng thái pending"]
+        n20["Trigger DB: Trigger tính lại điểm trung bình (chưa đổi vì pending)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Không"| n12
+    n11 -->|"Có"| n13
+    n13 --> n14
+    n14 -->|"Không"| n15
+    n14 -->|"Có"| n16
+    n16 --> n17
+    n17 -->|"Không"| n18
+    n17 -->|"Có"| n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n22 --> n23
+    n4 --> n23
+    n7 --> n23
+    n9 --> n23
+    n12 --> n23
+    n15 --> n23
+    n18 --> n23

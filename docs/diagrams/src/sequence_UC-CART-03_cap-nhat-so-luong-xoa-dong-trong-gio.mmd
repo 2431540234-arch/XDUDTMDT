@@ -1,0 +1,46 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as CartItem (đổi số lượng/xóa)
+    participant G as JwtAuthGuard
+    participant C as CartController
+    participant S as CartService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Đổi số lượng hoặc bấm xóa một dòng
+    FE->>G: PATCH /api/cart/items/:id
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UpdateCartItemDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Số lượng không hợp lệ
+    end
+    C->>S: CartService.updateItem(userId, id, dto)
+    S->>P: cartItem.findFirst({ where: { id, cart: { userId } }, include: { variant: true } })
+    P->>D: SELECT cart_items
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy dòng giỏ hàng
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy dòng giỏ hàng
+    end
+    S->>P: quantity <= variant.stockQuantity
+    P->>D: quantity <= variant.stockQuantity
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Chỉ còn N sản phẩm
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Chỉ còn N sản phẩm
+    end
+    S->>P: cartItem.update({ where: { id }, data: { quantity } })
+    P->>D: UPDATE cart_items
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_cart_items_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Giỏ hàng mới
+    FE-->>A: Cập nhật dòng và tổng tiền

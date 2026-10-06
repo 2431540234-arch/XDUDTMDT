@@ -1,0 +1,61 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Chi tiết đơn quản trị (mục Vận chuyển)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminShipmentsController
+    participant S as ShipmentsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Đổi trạng thái vận đơn sang "Đã giao" (delivered)
+    FE->>G: PATCH /api/admin/shipments/:id
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateShipmentDto)
+    alt Không: status thuộc ShipmentStatus và deliveredAt >= shippedAt
+        C-->>FE: 400 Dữ liệu vận đơn không hợp lệ
+    end
+    C->>S: ShipmentsService.update(adminId, id, dto)
+    critical $transaction (Prisma)
+        S->>P: shipment.findUnique({ where: { id }, include: { order: { include: { orderItems: true, payments: true } } } })
+        P->>D: SELECT shipments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Chưa thể đánh dấu đã giao
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Chưa thể đánh dấu đã giao
+        end
+        S->>P: shipment.update({ where: { id }, data: { status, deliveredAt: new Date() } })
+        P->>D: UPDATE shipments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>S: Đặt người thực hiện cho trigger - $executeRaw`SELECT set_config('app.current_user_id', ${adminId}, true)`
+        S->>P: order.update({ where: { id: orderId }, data: { status: 'completed' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+        loop dòng hàng của đơn
+            S->>P: product.update({ where: { id: productId }, data: { soldCount: { increment: quantity } } })
+            P->>D: UPDATE products
+            D-->>P: kết quả
+            P-->>S: kết quả
+        end
+        S->>P: payment.updateMany({ where: { orderId, method: 'cod', status: 'pending' }, data: { status: 'success', paidAt: new Date() } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'shipment.delivered', targetType: 'shipments', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: (sau commit) Thông báo user đơn đã giao - NotificationsService.create
+    S-->>C: kết quả
+    C-->>FE: 200 Vận đơn và đơn sau khi cập nhật
+    FE-->>A: Đơn hiển thị trạng thái hoàn tất

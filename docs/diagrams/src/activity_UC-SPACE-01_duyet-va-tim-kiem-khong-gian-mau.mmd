@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Chọn loại phòng, phong cách hoặc gõ tìm kiếm"]
+        n9["Hiển thị lưới không gian mẫu"]
+        n10(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/spaces?roomType=&style=&category=&q=&sort=&page="]
+        n4{"Tham số hợp lệ (roomType thuộc enum)?"}
+        n5["Trả 400 Tham số không hợp lệ"]
+        n8["Trả 200: Danh sách phân trang"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Tìm không gian đã đăng, không dấu theo tiêu đề (index GIN)"]
+        n7["Lấy chi tiết thẻ không gian (ảnh bìa, loại phòng, viewCount)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n5 --> n10

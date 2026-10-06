@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Cài đặt (AdminSettingsPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminSettingsController
+    participant S as SettingsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Sửa giá trị cấu hình (ví dụ phí vận chuyển mặc định) và bấm "Lưu"
+    FE->>G: PUT /api/admin/settings/:key
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UpdateSettingDto)
+    alt Không: Khóa hợp lệ và giá trị đúng kiểu
+        C-->>FE: 400 Khóa hoặc giá trị không hợp lệ
+    end
+    C->>S: SettingsService.update(adminId, key, dto)
+    S->>P: setting.findUnique({ where: { key } })
+    P->>D: SELECT settings
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: setting.upsert({ where: { key }, update: { value }, create: { key, value } })
+    P->>D: INSERT ... ON CONFLICT DO UPDATE settings
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'setting.update', targetType: 'settings', changes } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_settings_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Khóa, giá trị, thời điểm cập nhật
+    FE-->>A: Hiển thị cấu hình đã lưu

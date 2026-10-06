@@ -1,0 +1,32 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Mở danh sách đơn rồi bấm một đơn để xem chi tiết"]
+        n11["Hiển thị tiến trình đơn và các nút hủy, thanh toán lại, đánh giá theo trạng thái"]
+        n12(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/orders/:orderCode"]
+        n4{"Đã đăng nhập?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n7{"Đơn thuộc user?"}
+        n8["Trả 404 Không tìm thấy đơn hàng"]
+        n9["Chuyển Decimal sang number"]
+        n10["Trả 200: Chi tiết đơn, lịch sử trạng thái, thanh toán, vận chuyển"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: SELECT orders"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n5 --> n12
+    n8 --> n12

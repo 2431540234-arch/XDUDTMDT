@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> uploading: Admin tạo mô hình (UC-ADM-13)
+    uploading --> processing: Đủ tệp, đưa job vào hàng đợi
+    processing --> ready: Worker xử lý xong
+    processing --> failed: Worker lỗi
+    failed --> processing: Admin xử lý lại
+    ready --> processing: Admin thay tệp, version tăng

@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang Đăng ký (RegisterPage)
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    participant W as Hàng đợi BullMQ / Worker
+    A->>FE: Nhập họ tên, email, số điện thoại, mật khẩu và bấm "Đăng ký"
+    alt Không: Dữ liệu form hợp lệ
+        FE-->>A: Hiển thị lỗi tại từng ô nhập
+    end
+    FE->>C: POST /api/auth/register
+    C->>C: ValidationPipe(RegisterDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: AuthService.register(dto)
+    S->>P: user.findFirst({ where: { email, deletedAt: null } })
+    P->>D: SELECT users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Email đã được sử dụng
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Email đã được sử dụng
+    end
+    S->>S: Băm mật khẩu bằng bcrypt - bcrypt.hash(password, 10)
+    critical $transaction (Prisma)
+        S->>P: user.create({ data: { fullName, email, phone, passwordHash } })
+        P->>D: INSERT INTO users
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: userSession.create({ data: { userId, refreshTokenHash, ipAddress, userAgent } })
+        P->>D: INSERT INTO user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    Note over D: Trigger trg_users_assign_default_role
+    S-)W: Gửi email xác thực (MailService.sendVerification(user))
+    S->>S: Ký access token (15 phút) và refresh token (7 ngày) - JwtService.signAsync
+    S-->>C: kết quả
+    C-->>FE: 201 Token và hồ sơ người dùng
+    FE-->>A: Chuyển về trang trước, giao diện ở trạng thái đã đăng nhập

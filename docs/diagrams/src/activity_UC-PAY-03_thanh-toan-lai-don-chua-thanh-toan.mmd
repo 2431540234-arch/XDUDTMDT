@@ -1,0 +1,47 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Thanh toán lại' (có thể đổi phương thức)"]
+        n18["Trình duyệt chuyển sang trang thanh toán của cổng"]
+        n19(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/payments/:orderId/retry"]
+        n4{"Đã đăng nhập?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Phương thức hợp lệ?"}
+        n7["Trả 400 Phương thức không hợp lệ"]
+        n9{"Đơn thuộc user, pending và chưa paid?"}
+        n10["Trả 409 Đơn không thể thanh toán lại"]
+        n16["Tạo URL thanh toán có chữ ký"]
+        n17["Trả 200: paymentUrl"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT orders"]
+        n11["Bắt đầu transaction"]
+        n12["Đóng giao dịch cũ còn pending"]
+        n13["Tạo giao dịch mới"]
+        n14["Cập nhật phương thức và đặt lại trạng thái thanh toán"]
+        n15["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n5 --> n19
+    n7 --> n19
+    n10 --> n19

@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang chi tiết không gian mẫu (SpaceDetailPage)
+    participant C as SpacesController
+    participant S as SpacesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm vào một không gian mẫu để tham quan
+    FE->>C: GET /api/spaces/:slug
+    C->>S: SpacesService.findBySlug(slug)
+    S->>P: space.findFirst({ where: { slug, status: 'published' }, include: { spacePanoramas: { orderBy: { sortOrder: 'asc' }, include: { media: true, spaceHotspotsAsPanorama: { include: { product: true } }, spaceProductPlacements: { include: { product: true, model: { include: { modelFiles: true } } } } } } } })
+    P->>D: SELECT spaces
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy không gian
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy không gian
+    end
+    S->>S: Chọn ảnh mở đầu (isStart) và chuẩn hóa dữ liệu - serialize(space)
+    S-->>C: kết quả
+    C-->>FE: 200 Không gian, ảnh 360°, hotspot, placement
+    FE-->>A: Mở ảnh mở đầu với góc nhìn mặc định, sau đó ghi lượt xem một lần khi rời trang (UC-SPACE-06)

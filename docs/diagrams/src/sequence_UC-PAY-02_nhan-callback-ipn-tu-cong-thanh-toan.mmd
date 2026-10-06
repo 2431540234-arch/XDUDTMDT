@@ -1,0 +1,49 @@
+sequenceDiagram
+    autonumber
+    actor A as Cổng thanh toán
+    participant C as PaymentsController
+    participant S as PaymentsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    Note over A: Gửi thông báo kết quả giao dịch (IPN) tới máy chủ
+    A->>C: POST /api/payments/:gateway/ipn (payload và chữ ký của cổng)
+    C->>C: ValidationPipe(DTO)
+    alt Không: Chữ ký HMAC hợp lệ
+        C-->>A: 400 Chữ ký không hợp lệ (RspCode 97)
+    end
+    C->>S: PaymentsService.handleCallback(gateway, payload)
+    S->>P: payment.findFirst({ where: { orderId, status: 'pending' }, include: { order: true } })
+    P->>D: SELECT payments
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Không tìm thấy giao dịch hoặc sai số tiền (RspCode 01 hoặc 04)
+        S-->>C: throw BadRequestException
+        C-->>A: 400 Không tìm thấy giao dịch hoặc sai số tiền (RspCode 01 hoặc 04)
+    end
+    S->>P: payment.status !== 'success'
+    P->>D: status payments
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 200 Đã xử lý (idempotent)
+        S-->>C: throw HttpException
+        C-->>A: 200 Đã xử lý (idempotent)
+    end
+    critical $transaction (Prisma)
+        S->>P: payment.update({ where: { id }, data: { status: 'success', transactionCode, gatewayResponse, paidAt: new Date() } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: order.update({ where: { id: orderId }, data: { paymentStatus: 'paid' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>S: Đặt ghi chú phiên (không đặt người đổi nên changedBy = NULL) - $executeRaw`SELECT set_config('app.status_note', 'Thanh toán online thành công', true)`
+        S->>P: order.updateMany({ where: { id: orderId, status: 'pending' }, data: { status: 'confirmed' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+    end
+    S->>S: (sau commit) Tạo thông báo cho user - NotificationsService.create
+    S-->>C: kết quả
+    C-->>A: 200 Phản hồi theo chuẩn cổng (ví dụ RspCode 00)

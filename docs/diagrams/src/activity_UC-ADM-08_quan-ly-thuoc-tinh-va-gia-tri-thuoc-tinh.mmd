@@ -1,0 +1,39 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Thêm thuộc tính hoặc giá trị thuộc tính và bấm 'Lưu'"]
+        n14["Danh sách thuộc tính được cập nhật"]
+        n15(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/admin/attributes"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Dữ liệu hợp lệ?"}
+        n7["Trả 400 Dữ liệu không hợp lệ"]
+        n9{"Mã và tên thuộc tính chưa tồn tại?"}
+        n10["Trả 409 Thuộc tính đã tồn tại"]
+        n13["Trả 201: Thuộc tính mới"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT attributes"]
+        n11["Tạo thuộc tính"]
+        n12["Ghi nhật ký hoạt động"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n5 --> n15
+    n7 --> n15
+    n10 --> n15

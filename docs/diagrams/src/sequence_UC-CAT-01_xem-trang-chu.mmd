@@ -1,0 +1,19 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang chủ (HomePage)
+    participant C as ProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Mở trang chủ
+    FE->>C: GET /api/products?featured=true&limit=8
+    C->>S: ProductsService.findAll(query)
+    S->>P: product.findMany({ where: { isFeatured: true, status: 'published', deletedAt: null }, include: { productImages: true, productVariants: true } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Chuyển Decimal sang number - serialize(items)
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách sản phẩm nổi bật (frontend gọi thêm danh mục gốc và không gian mới)
+    FE-->>A: Hiển thị các khối nội dung của trang chủ

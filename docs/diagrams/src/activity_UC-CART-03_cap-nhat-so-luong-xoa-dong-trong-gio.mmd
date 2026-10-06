@@ -1,0 +1,46 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Đổi số lượng hoặc bấm xóa một dòng"]
+        n17["Cập nhật dòng và tổng tiền"]
+        n18(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/cart/items/:id"]
+        n4{"Đã đăng nhập?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Dữ liệu hợp lệ?"}
+        n7["Trả 400 Số lượng không hợp lệ"]
+        n9{"Dòng thuộc giỏ của user?"}
+        n10["Trả 404 Không tìm thấy dòng giỏ hàng"]
+        n12{"Số lượng không vượt tồn kho?"}
+        n13["Trả 409 Chỉ còn N sản phẩm"]
+        n16["Trả 200: Giỏ hàng mới"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT cart_items"]
+        n11["Truy vấn CSDL: quantity <= variant.stockQuantity"]
+        n14["Cập nhật số lượng (0 thì xóa dòng)"]
+        n15["Trigger DB: Cập nhật updated_at"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 -->|"Không"| n13
+    n12 -->|"Có"| n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n5 --> n18
+    n7 --> n18
+    n10 --> n18
+    n13 --> n18

@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> pending: User gửi đánh giá (UC-REV-02)
+    pending --> approved: Admin duyệt (UC-ADM-18)
+    pending --> rejected: Admin từ chối (UC-ADM-18)
+    approved --> rejected: Admin gỡ (UC-ADM-18)
+    rejected --> approved: Admin duyệt lại (UC-ADM-18)
+    approved --> pending: User sửa đánh giá (UC-REV-03)
+    rejected --> pending: User sửa đánh giá (UC-REV-03)
+    approved --> [*]: User xóa

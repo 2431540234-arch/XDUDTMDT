@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Mã giảm giá (AdminCouponsPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminCouponsController
+    participant S as CouponsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập mã, loại, giá trị, điều kiện, thời gian hiệu lực và bấm "Lưu"
+    FE->>G: POST /api/admin/coupons
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateCouponDto)
+    alt Không: Giá trị hợp lệ (percent tối đa 100, value > 0, startsAt < endsAt)
+        C-->>FE: 400 Dữ liệu mã giảm giá không hợp lệ
+    end
+    C->>S: CouponsService.create(adminId, dto)
+    S->>P: coupon.findFirst({ where: { code } })
+    P->>D: SELECT coupons
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Mã giảm giá đã tồn tại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Mã giảm giá đã tồn tại
+    end
+    S->>P: coupon.create({ data: { code, type, value, maxDiscount, minOrderValue, usageLimit, perUserLimit, startsAt, endsAt, isActive } })
+    P->>D: INSERT INTO coupons
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'coupon.create', targetType: 'coupons' } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 201 Mã giảm giá mới
+    FE-->>A: Danh sách mã được cập nhật

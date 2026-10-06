@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang xác thực email (VerifyEmailPage)
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm liên kết xác thực trong email
+    FE->>C: GET /api/auth/verify-email?token=...
+    C->>C: ValidationPipe(VerifyEmailQueryDto)
+    alt Không: Có token
+        C-->>FE: 400 Thiếu token
+    end
+    C->>S: AuthService.verifyEmail(token)
+    S->>P: JwtService.verifyAsync(token)
+    P->>D: verifyAsync JwtService
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Liên kết không hợp lệ hoặc đã hết hạn
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Liên kết không hợp lệ hoặc đã hết hạn
+    end
+    S->>P: user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } })
+    P->>D: UPDATE users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 200 Email đã được xác thực
+    FE-->>A: Chuyển tới trang hồ sơ

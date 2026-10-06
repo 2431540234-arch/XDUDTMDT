@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Header (nút Đăng xuất)
+    participant G as JwtAuthGuard
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Đăng xuất"
+    FE->>G: POST /api/auth/logout
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(RefreshTokenDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Thiếu refresh token
+    end
+    C->>S: AuthService.logout(userId, refreshToken)
+    S->>P: userSession.updateMany({ where: { userId, refreshTokenHash, revokedAt: null }, data: { revokedAt: new Date() } })
+    P->>D: UPDATE user_sessions
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 204 Không nội dung
+    FE-->>A: Xóa authStore, cartStore và chuyển về trang chủ

@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm vào một sản phẩm"]
+        n9["Hiển thị ảnh, biến thể, giá, tồn kho, nút 3D/AR và đánh giá"]
+        n10(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products/:slug"]
+        n5{"Sản phẩm tồn tại, đã đăng và chưa xóa mềm?"}
+        n6["Trả 404 Không tìm thấy sản phẩm"]
+        n7["Chuyển Decimal sang number"]
+        n8["Trả 200: Chi tiết sản phẩm (giá dạng number)"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Truy vấn CSDL: SELECT products"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n6 --> n10

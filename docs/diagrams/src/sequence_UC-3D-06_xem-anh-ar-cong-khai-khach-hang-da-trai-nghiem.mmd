@@ -1,0 +1,18 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Mục "Khách hàng đã trải nghiệm"
+    participant C as ArSnapshotsController
+    participant S as ArSnapshotsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Mở mục "Khách hàng đã trải nghiệm"
+    FE->>C: GET /api/ar-snapshots/public?productId=&page=
+    C->>S: ArSnapshotsService.listPublic(query)
+    S->>P: arSnapshot.findMany({ where: { isPublic: true, productId }, include: { media: true, user: { select: { fullName: true } } }, orderBy: { createdAt: 'desc' } })
+    P->>D: SELECT ar_snapshots
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách ảnh công khai (không lộ email, điện thoại)
+    FE-->>A: Hiển thị lưới ảnh

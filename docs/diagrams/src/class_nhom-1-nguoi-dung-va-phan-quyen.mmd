@@ -1,0 +1,114 @@
+classDiagram
+    class User {
+        +Int id «PK»
+        +String uuid «UK»
+        +String fullName
+        +String email
+        +String? phone
+        +String passwordHash
+        +Int? avatarMediaId «FK»
+        +UserStatus status
+        +DateTime? emailVerifiedAt
+        +DateTime? lastLoginAt
+        +DateTime? deletedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +register(dto)
+        +login(email, password) Session
+        +changePassword(current, next)
+        +isActive() Boolean
+        +softDelete()
+    }
+    class Role {
+        +Int id «PK»
+        +String code «UK»
+        +String name
+        +String? description
+        +DateTime createdAt
+        +DateTime updatedAt
+        +hasPermission(code) Boolean
+    }
+    class Permission {
+        +Int id «PK»
+        +String code «UK»
+        +String name
+        +String? description
+        +DateTime createdAt
+    }
+    class RolePermission {
+        +Int roleId «PK,FK»
+        +Int permissionId «PK,FK»
+        +DateTime createdAt
+    }
+    class UserRole {
+        +Int userId «PK,FK»
+        +Int roleId «PK,FK»
+        +DateTime createdAt
+    }
+    class PasswordReset {
+        +Int id «PK»
+        +Int userId «FK»
+        +String tokenHash «UK»
+        +DateTime expiresAt
+        +DateTime? usedAt
+        +DateTime createdAt
+        +consume(newPassword)
+        +isUsable() Boolean
+    }
+    class UserSession {
+        +Int id «PK»
+        +Int userId «FK»
+        +String refreshTokenHash «UK»
+        +String? ipAddress
+        +String? userAgent
+        +String? deviceName
+        +DateTime expiresAt
+        +DateTime? revokedAt
+        +DateTime createdAt
+        +revoke()
+        +isValid() Boolean
+    }
+    class Address {
+        +Int id «PK»
+        +Int userId «FK»
+        +String recipientName
+        +String phone
+        +String province
+        +String district
+        +String ward
+        +String addressLine
+        +Boolean isDefault
+        +DateTime createdAt
+        +DateTime updatedAt
+        +setDefault()
+        +toSnapshot() OrderAddress
+    }
+    class UserStatus {
+        <<enumeration>>
+        active
+        suspended
+        banned
+    }
+    User "0..1" o-- "0..*" ActivityLog : actor
+    User "1" *-- "0..*" Address : user
+    User "0..1" -- "0..*" ArSession : user
+    User "1" -- "0..*" ArSnapshot : user
+    User "1" *-- "0..1" Cart : user
+    User "1" o-- "0..*" CouponUsage : user
+    User "0..1" o-- "0..*" InventoryMovement : performedByUser
+    User "0..1" o-- "0..*" Media : uploadedByUser
+    User "1" *-- "0..*" Notification : user
+    User "0..1" o-- "0..*" OrderStatusHistory : changedByUser
+    User "1" o-- "0..*" Order : user
+    User "1" *-- "0..*" PasswordReset : user
+    User "1" -- "0..*" Review : user
+    Permission "1" *-- "0..*" RolePermission : permission
+    Role "1" *-- "0..*" RolePermission : role
+    User "1" -- "0..*" SpaceBookmark : user
+    User "0..1" -- "0..*" SpaceView : user
+    Role "1" *-- "0..*" UserRole : role
+    User "1" *-- "0..*" UserRole : user
+    User "1" *-- "0..*" UserSession : user
+    Media "0..1" o-- "0..*" User : avatarMedia
+    User "1" -- "0..*" Wishlist : user
+    User ..> UserStatus : status

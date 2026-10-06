@@ -1,0 +1,54 @@
+classDiagram
+    class Setting {
+        +Int id «PK»
+        +String key «UK»
+        +Json value
+        +String? description
+        +DateTime createdAt
+        +DateTime updatedAt
+        +getValue() Json
+    }
+    class Media {
+        +Int id «PK»
+        +String fileName
+        +String filePath «UK»
+        +String mimeType
+        +Int fileSize
+        +String? altText
+        +Int? uploadedBy «FK»
+        +DateTime createdAt
+        +DateTime updatedAt
+        +getUrl() String
+    }
+    class Notification {
+        +Int id «PK»
+        +Int userId «FK»
+        +String title
+        +Json data
+        +DateTime? readAt
+        +DateTime createdAt
+        +markRead()
+    }
+    class ActivityLog {
+        +Int id «PK»
+        +Int? actorId «FK»
+        +String action
+        +String? targetType
+        +Int? targetId
+        +Json? changes
+        +String? ipAddress
+        +DateTime createdAt
+        +record(adminId, action, target)
+    }
+    User "0..1" o-- "0..*" ActivityLog : actor
+    Media "1" o-- "0..*" ArSnapshot : media
+    Media "0..1" o-- "0..*" Brand : logoMedia
+    Media "0..1" o-- "0..*" Category : imageMedia
+    User "0..1" o-- "0..*" Media : uploadedByUser
+    Media "1" o-- "0..*" ModelFile : media
+    User "1" *-- "0..*" Notification : user
+    Media "0..1" o-- "0..*" Product3DModel : posterMedia
+    Media "1" o-- "0..*" ProductImage : media
+    Media "1" o-- "0..*" SpacePanorama : media
+    Media "0..1" o-- "0..*" Space : coverMedia
+    Media "0..1" o-- "0..*" User : avatarMedia

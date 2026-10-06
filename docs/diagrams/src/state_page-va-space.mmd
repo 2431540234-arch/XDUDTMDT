@@ -1,0 +1,7 @@
+stateDiagram-v2
+    [*] --> draft: Admin tạo (UC-ADM-07, UC-ADM-15)
+    draft --> published: Admin đăng, đặt publishedAt
+    published --> archived: Admin lưu trữ
+    archived --> published: Admin đăng lại
+    published --> draft: Admin gỡ về nháp
+    archived --> draft: Admin chuyển về nháp

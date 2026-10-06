@@ -1,0 +1,8 @@
+stateDiagram-v2
+    [*] --> pending: Tạo cùng đơn hàng hoặc thanh toán lại (UC-ORD-01, UC-PAY-03)
+    pending --> success: Cổng gọi IPN hợp lệ (UC-PAY-02) / Admin xác nhận chuyển khoản (UC-ADM-24) / COD khi vận đơn delivered (UC-ADM-25)
+    pending --> failed: IPN thất bại, hủy đơn hoặc thanh toán lại (UC-PAY-02, UC-ORD-03, UC-PAY-03)
+    success --> refunded: Admin hoàn tiền thủ công (UC-ADM-23)
+    failed --> [*]
+    refunded --> [*]
+    success --> [*]

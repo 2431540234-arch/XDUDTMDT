@@ -1,0 +1,6 @@
+stateDiagram-v2
+    [*] --> unpaid: Tạo đơn
+    unpaid --> paid: Payment success
+    unpaid --> failed: Payment failed
+    failed --> unpaid: User thanh toán lại (UC-PAY-03)
+    paid --> refunded: Admin hoàn tiền (UC-ADM-23)

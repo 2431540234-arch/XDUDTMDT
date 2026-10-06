@@ -1,0 +1,62 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Đổi trạng thái vận đơn sang 'Đã giao' (delivered)"]
+        n25["Đơn hiển thị trạng thái hoàn tất"]
+        n26(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/admin/shipments/:id"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"status thuộc ShipmentStatus và deliveredAt >= shippedAt?"}
+        n7["Trả 400 Dữ liệu vận đơn không hợp lệ"]
+        n10{"Vận đơn tồn tại và (khi delivered) đơn đang shipping?"}
+        n11["Trả 409 Chưa thể đánh dấu đã giao"]
+        n14["Đặt người thực hiện cho trigger"]
+        n17["Với mỗi phần tử: dòng hàng của đơn"]
+        n19{"Còn phần tử khác?"}
+        n23["(sau commit) Thông báo user đơn đã giao"]
+        n24["Trả 200: Vận đơn và đơn sau khi cập nhật"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Bắt đầu transaction"]
+        n9["Truy vấn CSDL: SELECT shipments"]
+        n12["Rollback transaction"]
+        n13["Cập nhật vận đơn (shippedAt, deliveredAt)"]
+        n15["Đơn shipping sang completed"]
+        n16["Trigger DB: Ghi OrderStatusHistory (đến completed, changedBy = admin)"]
+        n18["Tăng số lượng đã bán của sản phẩm"]
+        n20["Nếu COD thì ghi nhận đã thu tiền (payment success, paymentStatus paid)"]
+        n21["Ghi nhật ký hoạt động"]
+        n22["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 --> n10
+    n10 -->|"Không"| n11
+    n11 --> n12
+    n10 -->|"Có"| n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 -->|"Có"| n17
+    n19 -->|"Không"| n20
+    n20 --> n21
+    n21 --> n22
+    n22 --> n23
+    n23 --> n24
+    n24 --> n25
+    n25 --> n26
+    n5 --> n26
+    n7 --> n26
+    n12 --> n26

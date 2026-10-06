@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Thư viện media (AdminMediaPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminMediaController
+    participant S as MediaService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    participant X as MinIO/S3
+    participant W as Hàng đợi BullMQ / Worker
+    A->>FE: Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm "Tải lên"
+    FE->>G: POST /api/admin/media (multipart: file, altText)
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UploadMediaDto)
+    alt Không: Loại MIME và dung lượng cho phép
+        C-->>FE: 400/413 Tệp không hợp lệ
+    end
+    C->>S: MediaService.upload(adminId, file, dto)
+    S->>X: putObject(file)
+    X-->>S: URL tệp
+    S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, altText, uploadedBy: adminId } })
+    P->>D: INSERT INTO media
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-)W: Nén ảnh nền (chỉ với ảnh) (compress-image.processor)
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'media.upload', targetType: 'media', targetId } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 201 id, url, mimeType, fileSize
+    FE-->>A: Tệp xuất hiện trong thư viện

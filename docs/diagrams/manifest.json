@@ -1,0 +1,1154 @@
+[
+ {
+  "name": "usecase_tong-quat",
+  "kind": "Use case",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "5.1. Sơ đồ tổng quát (theo nhóm chức năng)",
+  "lines": 44
+ },
+ {
+  "name": "usecase_khach-vang-lai",
+  "kind": "Use case",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "5.2. Khách vãng lai",
+  "lines": 64
+ },
+ {
+  "name": "usecase_nguoi-dung",
+  "kind": "Use case",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "5.3. Người dùng (chức năng riêng, ngoài các chức năng kế thừa từ Khách)",
+  "lines": 78
+ },
+ {
+  "name": "usecase_quan-tri-1-he-thong-catalog",
+  "kind": "Use case",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "5.4. Quản trị viên: hệ thống, catalog, kho, 3D",
+  "lines": 36
+ },
+ {
+  "name": "usecase_quan-tri-2-noi-dung-don-hang",
+  "kind": "Use case",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "5.5. Quản trị viên: nội dung, đơn hàng, thống kê",
+  "lines": 40
+ },
+ {
+  "name": "state_user",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.1. User (`UserStatus`)",
+  "lines": 11
+ },
+ {
+  "name": "state_order",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.2. Order (`OrderStatus`)",
+  "lines": 14
+ },
+ {
+  "name": "state_payment-va-order-paymentstatus",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.3. Payment (`PaymentTxnStatus`) và Order.paymentStatus (`OrderPaymentStatus`)",
+  "lines": 8
+ },
+ {
+  "name": "state_order-payment-status",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.3. Payment (`PaymentTxnStatus`) và Order.paymentStatus (`OrderPaymentStatus`)",
+  "lines": 6
+ },
+ {
+  "name": "state_shipment",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.4. Shipment (`ShipmentStatus`)",
+  "lines": 11
+ },
+ {
+  "name": "state_review",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.5. Review (`ReviewStatus`)",
+  "lines": 9
+ },
+ {
+  "name": "state_page-va-space",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.6. Page và Space (`ContentStatus`)",
+  "lines": 7
+ },
+ {
+  "name": "state_product3dmodel",
+  "kind": "Trạng thái",
+  "uc": "—",
+  "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
+  "heading": "10.7. Product3DModel (`ModelStatus`)",
+  "lines": 7
+ },
+ {
+  "name": "architecture_kien-truc-he-thong",
+  "kind": "Kiến trúc",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "1.2. Kiến trúc",
+  "lines": 31
+ },
+ {
+  "name": "activity_UC-AUTH-01_dang-ky-tai-khoan",
+  "kind": "Activity",
+  "uc": "UC-AUTH-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.1 UC-AUTH-01 – Đăng ký tài khoản",
+  "lines": 51
+ },
+ {
+  "name": "activity_UC-AUTH-02_dang-nhap",
+  "kind": "Activity",
+  "uc": "UC-AUTH-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.2 UC-AUTH-02 – Đăng nhập",
+  "lines": 54
+ },
+ {
+  "name": "activity_UC-AUTH-03_lam-moi-access-token",
+  "kind": "Activity",
+  "uc": "UC-AUTH-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.3 UC-AUTH-03 – Làm mới access token",
+  "lines": 52
+ },
+ {
+  "name": "activity_UC-AUTH-04_dang-xuat",
+  "kind": "Activity",
+  "uc": "UC-AUTH-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.4 UC-AUTH-04 – Đăng xuất",
+  "lines": 30
+ },
+ {
+  "name": "activity_UC-AUTH-05_quen-mat-khau-yeu-cau-dat-lai",
+  "kind": "Activity",
+  "uc": "UC-AUTH-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.5 UC-AUTH-05 – Quên mật khẩu (yêu cầu đặt lại)",
+  "lines": 31
+ },
+ {
+  "name": "activity_UC-AUTH-06_dat-lai-mat-khau",
+  "kind": "Activity",
+  "uc": "UC-AUTH-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.6 UC-AUTH-06 – Đặt lại mật khẩu",
+  "lines": 47
+ },
+ {
+  "name": "activity_UC-AUTH-07_xac-thuc-email",
+  "kind": "Activity",
+  "uc": "UC-AUTH-07",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.7 UC-AUTH-07 – Xác thực email",
+  "lines": 32
+ },
+ {
+  "name": "activity_UC-ACC-01_xem-va-cap-nhat-ho-so-ca-nhan",
+  "kind": "Activity",
+  "uc": "UC-ACC-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.8 UC-ACC-01 – Xem và cập nhật hồ sơ cá nhân",
+  "lines": 44
+ },
+ {
+  "name": "activity_UC-ACC-02_doi-mat-khau",
+  "kind": "Activity",
+  "uc": "UC-ACC-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.9 UC-ACC-02 – Đổi mật khẩu",
+  "lines": 50
+ },
+ {
+  "name": "activity_UC-ACC-04_quan-ly-so-dia-chi-giao-hang",
+  "kind": "Activity",
+  "uc": "UC-ACC-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.10 UC-ACC-04 – Quản lý sổ địa chỉ giao hàng",
+  "lines": 40
+ },
+ {
+  "name": "activity_UC-ACC-05_xem-va-danh-dau-da-doc-thong-bao",
+  "kind": "Activity",
+  "uc": "UC-ACC-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.11 UC-ACC-05 – Xem và đánh dấu đã đọc thông báo",
+  "lines": 32
+ },
+ {
+  "name": "activity_UC-ACC-06_quan-ly-danh-sach-yeu-thich",
+  "kind": "Activity",
+  "uc": "UC-ACC-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.12 UC-ACC-06 – Quản lý danh sách yêu thích",
+  "lines": 37
+ },
+ {
+  "name": "activity_UC-CAT-01_xem-trang-chu",
+  "kind": "Activity",
+  "uc": "UC-CAT-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.13 UC-CAT-01 – Xem trang chủ",
+  "lines": 22
+ },
+ {
+  "name": "activity_UC-CAT-02_duyet-san-pham-theo-danh-muc",
+  "kind": "Activity",
+  "uc": "UC-CAT-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.14 UC-CAT-02 – Duyệt sản phẩm theo danh mục",
+  "lines": 36
+ },
+ {
+  "name": "activity_UC-CAT-03_tim-kiem-san-pham",
+  "kind": "Activity",
+  "uc": "UC-CAT-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.15 UC-CAT-03 – Tìm kiếm sản phẩm",
+  "lines": 36
+ },
+ {
+  "name": "activity_UC-CAT-04_xem-chi-tiet-san-pham",
+  "kind": "Activity",
+  "uc": "UC-CAT-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.16 UC-CAT-04 – Xem chi tiết sản phẩm",
+  "lines": 27
+ },
+ {
+  "name": "activity_UC-CAT-05_xem-trang-tinh",
+  "kind": "Activity",
+  "uc": "UC-CAT-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.17 UC-CAT-05 – Xem trang tĩnh",
+  "lines": 25
+ },
+ {
+  "name": "activity_UC-CAT-06_tim-kiem-san-pham-khong-dau",
+  "kind": "Activity",
+  "uc": "UC-CAT-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.18 UC-CAT-06 – Tìm kiếm sản phẩm không dấu",
+  "lines": 31
+ },
+ {
+  "name": "activity_UC-CART-01_them-san-pham-vao-gio-hang",
+  "kind": "Activity",
+  "uc": "UC-CART-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.19 UC-CART-01 – Thêm sản phẩm vào giỏ hàng",
+  "lines": 51
+ },
+ {
+  "name": "activity_UC-CART-02_xem-gio-hang",
+  "kind": "Activity",
+  "uc": "UC-CART-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.20 UC-CART-02 – Xem giỏ hàng",
+  "lines": 34
+ },
+ {
+  "name": "activity_UC-CART-03_cap-nhat-so-luong-xoa-dong-trong-gio",
+  "kind": "Activity",
+  "uc": "UC-CART-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.21 UC-CART-03 – Cập nhật số lượng / xóa dòng trong giỏ",
+  "lines": 46
+ },
+ {
+  "name": "activity_UC-CART-04_ap-ma-giam-gia",
+  "kind": "Activity",
+  "uc": "UC-CART-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.22 UC-CART-04 – Áp mã giảm giá",
+  "lines": 63
+ },
+ {
+  "name": "activity_UC-ORD-01_dat-hang",
+  "kind": "Activity",
+  "uc": "UC-ORD-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.23 UC-ORD-01 – Đặt hàng",
+  "lines": 101
+ },
+ {
+  "name": "activity_UC-ORD-02_xem-va-theo-doi-don-hang-cua-toi",
+  "kind": "Activity",
+  "uc": "UC-ORD-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.24 UC-ORD-02 – Xem và theo dõi đơn hàng của tôi",
+  "lines": 32
+ },
+ {
+  "name": "activity_UC-ORD-03_huy-don-hang",
+  "kind": "Activity",
+  "uc": "UC-ORD-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.25 UC-ORD-03 – Hủy đơn hàng",
+  "lines": 71
+ },
+ {
+  "name": "activity_UC-PAY-01_thanh-toan-don-hang-online",
+  "kind": "Activity",
+  "uc": "UC-PAY-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.26 UC-PAY-01 – Thanh toán đơn hàng online",
+  "lines": 39
+ },
+ {
+  "name": "activity_UC-PAY-02_nhan-callback-ipn-tu-cong-thanh-toan",
+  "kind": "Activity",
+  "uc": "UC-PAY-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.27 UC-PAY-02 – Nhận callback/IPN từ cổng thanh toán",
+  "lines": 51
+ },
+ {
+  "name": "activity_UC-PAY-03_thanh-toan-lai-don-chua-thanh-toan",
+  "kind": "Activity",
+  "uc": "UC-PAY-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.28 UC-PAY-03 – Thanh toán lại đơn chưa thanh toán",
+  "lines": 47
+ },
+ {
+  "name": "activity_UC-REV-01_xem-danh-gia-san-pham",
+  "kind": "Activity",
+  "uc": "UC-REV-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.29 UC-REV-01 – Xem đánh giá sản phẩm",
+  "lines": 29
+ },
+ {
+  "name": "activity_UC-REV-02_danh-gia-san-pham-da-mua",
+  "kind": "Activity",
+  "uc": "UC-REV-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.30 UC-REV-02 – Đánh giá sản phẩm đã mua",
+  "lines": 58
+ },
+ {
+  "name": "activity_UC-3D-01_xem-mo-hinh-3d-cua-san-pham",
+  "kind": "Activity",
+  "uc": "UC-3D-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.31 UC-3D-01 – Xem mô hình 3D của sản phẩm",
+  "lines": 27
+ },
+ {
+  "name": "activity_UC-3D-02_xem-san-pham-bang-ar-dat-vao-khong-gian-that",
+  "kind": "Activity",
+  "uc": "UC-3D-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.32 UC-3D-02 – Xem sản phẩm bằng AR (đặt vào không gian thật)",
+  "lines": 27
+ },
+ {
+  "name": "activity_UC-3D-04_chup-va-luu-anh-ar",
+  "kind": "Activity",
+  "uc": "UC-3D-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.33 UC-3D-04 – Chụp và lưu ảnh AR",
+  "lines": 49
+ },
+ {
+  "name": "activity_UC-3D-05_quan-ly-anh-ar-cua-toi-cong-khai-an-xoa",
+  "kind": "Activity",
+  "uc": "UC-3D-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.34 UC-3D-05 – Quản lý ảnh AR của tôi (công khai/ẩn/xóa)",
+  "lines": 39
+ },
+ {
+  "name": "activity_UC-3D-06_xem-anh-ar-cong-khai-khach-hang-da-trai-nghiem",
+  "kind": "Activity",
+  "uc": "UC-3D-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.35 UC-3D-06 – Xem ảnh AR công khai \"Khách hàng đã trải nghiệm\"",
+  "lines": 20
+ },
+ {
+  "name": "activity_UC-SPACE-01_duyet-va-tim-kiem-khong-gian-mau",
+  "kind": "Activity",
+  "uc": "UC-SPACE-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.36 UC-SPACE-01 – Duyệt và tìm kiếm không gian mẫu",
+  "lines": 27
+ },
+ {
+  "name": "activity_UC-SPACE-02_xem-khong-gian-mau-360",
+  "kind": "Activity",
+  "uc": "UC-SPACE-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.37 UC-SPACE-02 – Xem không gian mẫu 360°",
+  "lines": 27
+ },
+ {
+  "name": "activity_UC-SPACE-03_bam-diem-san-pham-trong-phong-mau-mua-theo-phong",
+  "kind": "Activity",
+  "uc": "UC-SPACE-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.38 UC-SPACE-03 – Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng)",
+  "lines": 27
+ },
+ {
+  "name": "activity_UC-SPACE-04_luu-bo-luu-khong-gian-mau-yeu-thich",
+  "kind": "Activity",
+  "uc": "UC-SPACE-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.39 UC-SPACE-04 – Lưu / bỏ lưu không gian mẫu yêu thích",
+  "lines": 37
+ },
+ {
+  "name": "activity_UC-ADM-01_quan-ly-nguoi-dung",
+  "kind": "Activity",
+  "uc": "UC-ADM-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.40 UC-ADM-01 – Quản lý người dùng",
+  "lines": 54
+ },
+ {
+  "name": "activity_UC-ADM-03_quan-ly-cai-dat-he-thong",
+  "kind": "Activity",
+  "uc": "UC-ADM-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.41 UC-ADM-03 – Quản lý cài đặt hệ thống",
+  "lines": 36
+ },
+ {
+  "name": "activity_UC-ADM-04_quan-ly-media-anh-tep",
+  "kind": "Activity",
+  "uc": "UC-ADM-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.42 UC-ADM-04 – Quản lý media (ảnh, tệp)",
+  "lines": 38
+ },
+ {
+  "name": "activity_UC-ADM-05_quan-ly-danh-muc-san-pham",
+  "kind": "Activity",
+  "uc": "UC-ADM-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.43 UC-ADM-05 – Quản lý danh mục sản phẩm",
+  "lines": 46
+ },
+ {
+  "name": "activity_UC-ADM-06_quan-ly-thuong-hieu",
+  "kind": "Activity",
+  "uc": "UC-ADM-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.44 UC-ADM-06 – Quản lý thương hiệu",
+  "lines": 39
+ },
+ {
+  "name": "activity_UC-ADM-07_quan-ly-trang-tinh",
+  "kind": "Activity",
+  "uc": "UC-ADM-07",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.45 UC-ADM-07 – Quản lý trang tĩnh",
+  "lines": 41
+ },
+ {
+  "name": "activity_UC-ADM-08_quan-ly-thuoc-tinh-va-gia-tri-thuoc-tinh",
+  "kind": "Activity",
+  "uc": "UC-ADM-08",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.46 UC-ADM-08 – Quản lý thuộc tính và giá trị thuộc tính",
+  "lines": 39
+ },
+ {
+  "name": "activity_UC-ADM-09_quan-ly-san-pham",
+  "kind": "Activity",
+  "uc": "UC-ADM-09",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.47 UC-ADM-09 – Quản lý sản phẩm",
+  "lines": 48
+ },
+ {
+  "name": "activity_UC-ADM-10_quan-ly-bien-the-san-pham",
+  "kind": "Activity",
+  "uc": "UC-ADM-10",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.48 UC-ADM-10 – Quản lý biến thể sản phẩm",
+  "lines": 54
+ },
+ {
+  "name": "activity_UC-ADM-11_quan-ly-anh-san-pham",
+  "kind": "Activity",
+  "uc": "UC-ADM-11",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.49 UC-ADM-11 – Quản lý ảnh sản phẩm",
+  "lines": 40
+ },
+ {
+  "name": "activity_UC-ADM-12_nhap-kho-va-dieu-chinh-ton-kho",
+  "kind": "Activity",
+  "uc": "UC-ADM-12",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.50 UC-ADM-12 – Nhập kho và điều chỉnh tồn kho",
+  "lines": 54
+ },
+ {
+  "name": "activity_UC-ADM-13_tai-va-quan-ly-mo-hinh-3d-san-pham",
+  "kind": "Activity",
+  "uc": "UC-ADM-13",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.51 UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm",
+  "lines": 60
+ },
+ {
+  "name": "activity_UC-ADM-15_quan-ly-khong-gian-mau-va-anh-360",
+  "kind": "Activity",
+  "uc": "UC-ADM-15",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.52 UC-ADM-15 – Quản lý không gian mẫu và ảnh 360°",
+  "lines": 48
+ },
+ {
+  "name": "activity_UC-ADM-16_quan-ly-diem-tuong-tac-hotspot-tren-anh-360",
+  "kind": "Activity",
+  "uc": "UC-ADM-16",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.53 UC-ADM-16 – Quản lý điểm tương tác (hotspot) trên ảnh 360°",
+  "lines": 48
+ },
+ {
+  "name": "activity_UC-ADM-18_duyet-hoac-tu-choi-danh-gia",
+  "kind": "Activity",
+  "uc": "UC-ADM-18",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.54 UC-ADM-18 – Duyệt hoặc từ chối đánh giá",
+  "lines": 43
+ },
+ {
+  "name": "activity_UC-ADM-19_quan-ly-ma-giam-gia",
+  "kind": "Activity",
+  "uc": "UC-ADM-19",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.55 UC-ADM-19 – Quản lý mã giảm giá",
+  "lines": 39
+ },
+ {
+  "name": "activity_UC-ADM-20_xem-danh-sach-va-chi-tiet-don-hang",
+  "kind": "Activity",
+  "uc": "UC-ADM-20",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.56 UC-ADM-20 – Xem danh sách và chi tiết đơn hàng",
+  "lines": 34
+ },
+ {
+  "name": "activity_UC-ADM-21_cap-nhat-trang-thai-don-hang",
+  "kind": "Activity",
+  "uc": "UC-ADM-21",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.57 UC-ADM-21 – Cập nhật trạng thái đơn hàng",
+  "lines": 63
+ },
+ {
+  "name": "activity_UC-ADM-22_huy-don-hang-quan-tri",
+  "kind": "Activity",
+  "uc": "UC-ADM-22",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.58 UC-ADM-22 – Hủy đơn hàng (quản trị)",
+  "lines": 66
+ },
+ {
+  "name": "activity_UC-ADM-23_hoan-tien-thu-cong",
+  "kind": "Activity",
+  "uc": "UC-ADM-23",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.59 UC-ADM-23 – Hoàn tiền thủ công",
+  "lines": 55
+ },
+ {
+  "name": "activity_UC-ADM-24_quan-ly-thanh-toan-xac-nhan-chuyen-khoan",
+  "kind": "Activity",
+  "uc": "UC-ADM-24",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.60 UC-ADM-24 – Quản lý thanh toán (xác nhận chuyển khoản)",
+  "lines": 48
+ },
+ {
+  "name": "activity_UC-ADM-25_quan-ly-van-chuyen",
+  "kind": "Activity",
+  "uc": "UC-ADM-25",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.61 UC-ADM-25 – Quản lý vận chuyển",
+  "lines": 62
+ },
+ {
+  "name": "sequence_UC-AUTH-01_dang-ky-tai-khoan",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.1 UC-AUTH-01 – Đăng ký tài khoản",
+  "lines": 44
+ },
+ {
+  "name": "sequence_UC-AUTH-02_dang-nhap",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.2 UC-AUTH-02 – Đăng nhập",
+  "lines": 53
+ },
+ {
+  "name": "sequence_UC-AUTH-03_lam-moi-access-token",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.3 UC-AUTH-03 – Làm mới access token",
+  "lines": 52
+ },
+ {
+  "name": "sequence_UC-AUTH-04_dang-xuat",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.4 UC-AUTH-04 – Đăng xuất",
+  "lines": 29
+ },
+ {
+  "name": "sequence_UC-AUTH-05_quen-mat-khau-yeu-cau-dat-lai",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.5 UC-AUTH-05 – Quên mật khẩu (yêu cầu đặt lại)",
+  "lines": 29
+ },
+ {
+  "name": "sequence_UC-AUTH-06_dat-lai-mat-khau",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.6 UC-AUTH-06 – Đặt lại mật khẩu",
+  "lines": 44
+ },
+ {
+  "name": "sequence_UC-AUTH-07_xac-thuc-email",
+  "kind": "Sequence",
+  "uc": "UC-AUTH-07",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.7 UC-AUTH-07 – Xác thực email",
+  "lines": 30
+ },
+ {
+  "name": "sequence_UC-ACC-01_xem-va-cap-nhat-ho-so-ca-nhan",
+  "kind": "Sequence",
+  "uc": "UC-ACC-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.8 UC-ACC-01 – Xem và cập nhật hồ sơ cá nhân",
+  "lines": 41
+ },
+ {
+  "name": "sequence_UC-ACC-02_doi-mat-khau",
+  "kind": "Sequence",
+  "uc": "UC-ACC-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.9 UC-ACC-02 – Đổi mật khẩu",
+  "lines": 47
+ },
+ {
+  "name": "sequence_UC-ACC-04_quan-ly-so-dia-chi-giao-hang",
+  "kind": "Sequence",
+  "uc": "UC-ACC-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.10 UC-ACC-04 – Quản lý sổ địa chỉ giao hàng",
+  "lines": 40
+ },
+ {
+  "name": "sequence_UC-ACC-05_xem-va-danh-dau-da-doc-thong-bao",
+  "kind": "Sequence",
+  "uc": "UC-ACC-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.11 UC-ACC-05 – Xem và đánh dấu đã đọc thông báo",
+  "lines": 33
+ },
+ {
+  "name": "sequence_UC-ACC-06_quan-ly-danh-sach-yeu-thich",
+  "kind": "Sequence",
+  "uc": "UC-ACC-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.12 UC-ACC-06 – Quản lý danh sách yêu thích",
+  "lines": 36
+ },
+ {
+  "name": "sequence_UC-CAT-01_xem-trang-chu",
+  "kind": "Sequence",
+  "uc": "UC-CAT-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.13 UC-CAT-01 – Xem trang chủ",
+  "lines": 19
+ },
+ {
+  "name": "sequence_UC-CAT-02_duyet-san-pham-theo-danh-muc",
+  "kind": "Sequence",
+  "uc": "UC-CAT-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.14 UC-CAT-02 – Duyệt sản phẩm theo danh mục",
+  "lines": 35
+ },
+ {
+  "name": "sequence_UC-CAT-03_tim-kiem-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-CAT-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.15 UC-CAT-03 – Tìm kiếm sản phẩm",
+  "lines": 31
+ },
+ {
+  "name": "sequence_UC-CAT-04_xem-chi-tiet-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-CAT-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.16 UC-CAT-04 – Xem chi tiết sản phẩm",
+  "lines": 23
+ },
+ {
+  "name": "sequence_UC-CAT-05_xem-trang-tinh",
+  "kind": "Sequence",
+  "uc": "UC-CAT-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.17 UC-CAT-05 – Xem trang tĩnh",
+  "lines": 22
+ },
+ {
+  "name": "sequence_UC-CAT-06_tim-kiem-san-pham-khong-dau",
+  "kind": "Sequence",
+  "uc": "UC-CAT-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.18 UC-CAT-06 – Tìm kiếm sản phẩm không dấu",
+  "lines": 28
+ },
+ {
+  "name": "sequence_UC-CART-01_them-san-pham-vao-gio-hang",
+  "kind": "Sequence",
+  "uc": "UC-CART-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.19 UC-CART-01 – Thêm sản phẩm vào giỏ hàng",
+  "lines": 52
+ },
+ {
+  "name": "sequence_UC-CART-02_xem-gio-hang",
+  "kind": "Sequence",
+  "uc": "UC-CART-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.20 UC-CART-02 – Xem giỏ hàng",
+  "lines": 30
+ },
+ {
+  "name": "sequence_UC-CART-03_cap-nhat-so-luong-xoa-dong-trong-gio",
+  "kind": "Sequence",
+  "uc": "UC-CART-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.21 UC-CART-03 – Cập nhật số lượng / xóa dòng trong giỏ",
+  "lines": 46
+ },
+ {
+  "name": "sequence_UC-CART-04_ap-ma-giam-gia",
+  "kind": "Sequence",
+  "uc": "UC-CART-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.22 UC-CART-04 – Áp mã giảm giá",
+  "lines": 61
+ },
+ {
+  "name": "sequence_UC-ORD-01_dat-hang",
+  "kind": "Sequence",
+  "uc": "UC-ORD-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.23 UC-ORD-01 – Đặt hàng",
+  "lines": 109
+ },
+ {
+  "name": "sequence_UC-ORD-02_xem-va-theo-doi-don-hang-cua-toi",
+  "kind": "Sequence",
+  "uc": "UC-ORD-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.24 UC-ORD-02 – Xem và theo dõi đơn hàng của tôi",
+  "lines": 30
+ },
+ {
+  "name": "sequence_UC-ORD-03_huy-don-hang",
+  "kind": "Sequence",
+  "uc": "UC-ORD-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.25 UC-ORD-03 – Hủy đơn hàng",
+  "lines": 74
+ },
+ {
+  "name": "sequence_UC-PAY-01_thanh-toan-don-hang-online",
+  "kind": "Sequence",
+  "uc": "UC-PAY-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.26 UC-PAY-01 – Thanh toán đơn hàng online",
+  "lines": 38
+ },
+ {
+  "name": "sequence_UC-PAY-02_nhan-callback-ipn-tu-cong-thanh-toan",
+  "kind": "Sequence",
+  "uc": "UC-PAY-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.27 UC-PAY-02 – Nhận callback/IPN từ cổng thanh toán",
+  "lines": 49
+ },
+ {
+  "name": "sequence_UC-PAY-03_thanh-toan-lai-don-chua-thanh-toan",
+  "kind": "Sequence",
+  "uc": "UC-PAY-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.28 UC-PAY-03 – Thanh toán lại đơn chưa thanh toán",
+  "lines": 48
+ },
+ {
+  "name": "sequence_UC-REV-01_xem-danh-gia-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-REV-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.29 UC-REV-01 – Xem đánh giá sản phẩm",
+  "lines": 27
+ },
+ {
+  "name": "sequence_UC-REV-02_danh-gia-san-pham-da-mua",
+  "kind": "Sequence",
+  "uc": "UC-REV-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.30 UC-REV-02 – Đánh giá sản phẩm đã mua",
+  "lines": 57
+ },
+ {
+  "name": "sequence_UC-3D-01_xem-mo-hinh-3d-cua-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-3D-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.31 UC-3D-01 – Xem mô hình 3D của sản phẩm",
+  "lines": 23
+ },
+ {
+  "name": "sequence_UC-3D-02_xem-san-pham-bang-ar-dat-vao-khong-gian-that",
+  "kind": "Sequence",
+  "uc": "UC-3D-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.32 UC-3D-02 – Xem sản phẩm bằng AR (đặt vào không gian thật)",
+  "lines": 23
+ },
+ {
+  "name": "sequence_UC-3D-04_chup-va-luu-anh-ar",
+  "kind": "Sequence",
+  "uc": "UC-3D-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.33 UC-3D-04 – Chụp và lưu ảnh AR",
+  "lines": 47
+ },
+ {
+  "name": "sequence_UC-3D-05_quan-ly-anh-ar-cua-toi-cong-khai-an-xoa",
+  "kind": "Sequence",
+  "uc": "UC-3D-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.34 UC-3D-05 – Quản lý ảnh AR của tôi (công khai/ẩn/xóa)",
+  "lines": 38
+ },
+ {
+  "name": "sequence_UC-3D-06_xem-anh-ar-cong-khai-khach-hang-da-trai-nghiem",
+  "kind": "Sequence",
+  "uc": "UC-3D-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.35 UC-3D-06 – Xem ảnh AR công khai \"Khách hàng đã trải nghiệm\"",
+  "lines": 18
+ },
+ {
+  "name": "sequence_UC-SPACE-01_duyet-va-tim-kiem-khong-gian-mau",
+  "kind": "Sequence",
+  "uc": "UC-SPACE-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.36 UC-SPACE-01 – Duyệt và tìm kiếm không gian mẫu",
+  "lines": 26
+ },
+ {
+  "name": "sequence_UC-SPACE-02_xem-khong-gian-mau-360",
+  "kind": "Sequence",
+  "uc": "UC-SPACE-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.37 UC-SPACE-02 – Xem không gian mẫu 360°",
+  "lines": 23
+ },
+ {
+  "name": "sequence_UC-SPACE-03_bam-diem-san-pham-trong-phong-mau-mua-theo-phong",
+  "kind": "Sequence",
+  "uc": "UC-SPACE-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.38 UC-SPACE-03 – Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng)",
+  "lines": 23
+ },
+ {
+  "name": "sequence_UC-SPACE-04_luu-bo-luu-khong-gian-mau-yeu-thich",
+  "kind": "Sequence",
+  "uc": "UC-SPACE-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.39 UC-SPACE-04 – Lưu / bỏ lưu không gian mẫu yêu thích",
+  "lines": 36
+ },
+ {
+  "name": "sequence_UC-ADM-01_quan-ly-nguoi-dung",
+  "kind": "Sequence",
+  "uc": "UC-ADM-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.40 UC-ADM-01 – Quản lý người dùng",
+  "lines": 56
+ },
+ {
+  "name": "sequence_UC-ADM-03_quan-ly-cai-dat-he-thong",
+  "kind": "Sequence",
+  "uc": "UC-ADM-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.41 UC-ADM-03 – Quản lý cài đặt hệ thống",
+  "lines": 38
+ },
+ {
+  "name": "sequence_UC-ADM-04_quan-ly-media-anh-tep",
+  "kind": "Sequence",
+  "uc": "UC-ADM-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.42 UC-ADM-04 – Quản lý media (ảnh, tệp)",
+  "lines": 38
+ },
+ {
+  "name": "sequence_UC-ADM-05_quan-ly-danh-muc-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-ADM-05",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.43 UC-ADM-05 – Quản lý danh mục sản phẩm",
+  "lines": 49
+ },
+ {
+  "name": "sequence_UC-ADM-06_quan-ly-thuong-hieu",
+  "kind": "Sequence",
+  "uc": "UC-ADM-06",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.44 UC-ADM-06 – Quản lý thương hiệu",
+  "lines": 41
+ },
+ {
+  "name": "sequence_UC-ADM-07_quan-ly-trang-tinh",
+  "kind": "Sequence",
+  "uc": "UC-ADM-07",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.45 UC-ADM-07 – Quản lý trang tĩnh",
+  "lines": 42
+ },
+ {
+  "name": "sequence_UC-ADM-08_quan-ly-thuoc-tinh-va-gia-tri-thuoc-tinh",
+  "kind": "Sequence",
+  "uc": "UC-ADM-08",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.46 UC-ADM-08 – Quản lý thuộc tính và giá trị thuộc tính",
+  "lines": 41
+ },
+ {
+  "name": "sequence_UC-ADM-09_quan-ly-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-ADM-09",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.47 UC-ADM-09 – Quản lý sản phẩm",
+  "lines": 50
+ },
+ {
+  "name": "sequence_UC-ADM-10_quan-ly-bien-the-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-ADM-10",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.48 UC-ADM-10 – Quản lý biến thể sản phẩm",
+  "lines": 56
+ },
+ {
+  "name": "sequence_UC-ADM-11_quan-ly-anh-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-ADM-11",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.49 UC-ADM-11 – Quản lý ảnh sản phẩm",
+  "lines": 40
+ },
+ {
+  "name": "sequence_UC-ADM-12_nhap-kho-va-dieu-chinh-ton-kho",
+  "kind": "Sequence",
+  "uc": "UC-ADM-12",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.50 UC-ADM-12 – Nhập kho và điều chỉnh tồn kho",
+  "lines": 54
+ },
+ {
+  "name": "sequence_UC-ADM-13_tai-va-quan-ly-mo-hinh-3d-san-pham",
+  "kind": "Sequence",
+  "uc": "UC-ADM-13",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.51 UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm",
+  "lines": 61
+ },
+ {
+  "name": "sequence_UC-ADM-15_quan-ly-khong-gian-mau-va-anh-360",
+  "kind": "Sequence",
+  "uc": "UC-ADM-15",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.52 UC-ADM-15 – Quản lý không gian mẫu và ảnh 360°",
+  "lines": 50
+ },
+ {
+  "name": "sequence_UC-ADM-16_quan-ly-diem-tuong-tac-hotspot-tren-anh-360",
+  "kind": "Sequence",
+  "uc": "UC-ADM-16",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.53 UC-ADM-16 – Quản lý điểm tương tác (hotspot) trên ảnh 360°",
+  "lines": 50
+ },
+ {
+  "name": "sequence_UC-ADM-18_duyet-hoac-tu-choi-danh-gia",
+  "kind": "Sequence",
+  "uc": "UC-ADM-18",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.54 UC-ADM-18 – Duyệt hoặc từ chối đánh giá",
+  "lines": 43
+ },
+ {
+  "name": "sequence_UC-ADM-19_quan-ly-ma-giam-gia",
+  "kind": "Sequence",
+  "uc": "UC-ADM-19",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.55 UC-ADM-19 – Quản lý mã giảm giá",
+  "lines": 41
+ },
+ {
+  "name": "sequence_UC-ADM-20_xem-danh-sach-va-chi-tiet-don-hang",
+  "kind": "Sequence",
+  "uc": "UC-ADM-20",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.56 UC-ADM-20 – Xem danh sách và chi tiết đơn hàng",
+  "lines": 34
+ },
+ {
+  "name": "sequence_UC-ADM-21_cap-nhat-trang-thai-don-hang",
+  "kind": "Sequence",
+  "uc": "UC-ADM-21",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.57 UC-ADM-21 – Cập nhật trạng thái đơn hàng",
+  "lines": 61
+ },
+ {
+  "name": "sequence_UC-ADM-22_huy-don-hang-quan-tri",
+  "kind": "Sequence",
+  "uc": "UC-ADM-22",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.58 UC-ADM-22 – Hủy đơn hàng (quản trị)",
+  "lines": 69
+ },
+ {
+  "name": "sequence_UC-ADM-23_hoan-tien-thu-cong",
+  "kind": "Sequence",
+  "uc": "UC-ADM-23",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.59 UC-ADM-23 – Hoàn tiền thủ công",
+  "lines": 53
+ },
+ {
+  "name": "sequence_UC-ADM-24_quan-ly-thanh-toan-xac-nhan-chuyen-khoan",
+  "kind": "Sequence",
+  "uc": "UC-ADM-24",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.60 UC-ADM-24 – Quản lý thanh toán (xác nhận chuyển khoản)",
+  "lines": 50
+ },
+ {
+  "name": "sequence_UC-ADM-25_quan-ly-van-chuyen",
+  "kind": "Sequence",
+  "uc": "UC-ADM-25",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.61 UC-ADM-25 – Quản lý vận chuyển",
+  "lines": 61
+ },
+ {
+  "name": "class_tong-quan",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.1. Sơ đồ tổng quan (chỉ tên class và quan hệ)",
+  "lines": 75
+ },
+ {
+  "name": "class_nhom-1-nguoi-dung-va-phan-quyen",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.2. Nhóm 1 – Người dùng và phân quyền",
+  "lines": 114
+ },
+ {
+  "name": "class_nhom-2-he-thong-chung",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.3. Nhóm 2 – Hệ thống chung",
+  "lines": 54
+ },
+ {
+  "name": "class_nhom-3-noi-dung",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.4. Nhóm 3 – Nội dung",
+  "lines": 41
+ },
+ {
+  "name": "class_nhom-4-san-pham",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.5. Nhóm 4 – Sản phẩm",
+  "lines": 162
+ },
+ {
+  "name": "class_nhom-5-mo-hinh-3d-va-ar",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.6. Nhóm 5 – Mô hình 3D và AR",
+  "lines": 127
+ },
+ {
+  "name": "class_nhom-6-gio-hang-va-don-hang",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.7. Nhóm 6 – Giỏ hàng và đơn hàng",
+  "lines": 202
+ },
+ {
+  "name": "class_nhom-7-khong-gian-mau",
+  "kind": "Class",
+  "uc": "—",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "5.8. Nhóm 7 – Không gian mẫu",
+  "lines": 121
+ }
+]

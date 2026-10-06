@@ -1,0 +1,64 @@
+flowchart LR
+    K(["Khách vãng lai"]):::actor
+    EM(["Dịch vụ email"]):::ext
+    subgraph SG_AUTH["Xác thực"]
+        UC_AUTH_01(["UC-AUTH-01 Đăng ký tài khoản"])
+        UC_AUTH_02(["UC-AUTH-02 Đăng nhập"])
+        UC_AUTH_05(["UC-AUTH-05 Quên mật khẩu (yêu cầu đặt lại)"])
+        UC_AUTH_06(["UC-AUTH-06 Đặt lại mật khẩu"])
+    end
+    subgraph SG_CAT["Danh mục & sản phẩm"]
+        UC_CAT_01(["UC-CAT-01 Xem trang chủ"])
+        UC_CAT_02(["UC-CAT-02 Duyệt sản phẩm theo danh mục"])
+        UC_CAT_03(["UC-CAT-03 Tìm kiếm sản phẩm"])
+        UC_CAT_04(["UC-CAT-04 Xem chi tiết sản phẩm"])
+        UC_CAT_05(["UC-CAT-05 Xem trang tĩnh"])
+        UC_CAT_06(["UC-CAT-06 Tìm kiếm sản phẩm không dấu"])
+    end
+    subgraph SG_REV["Đánh giá"]
+        UC_REV_01(["UC-REV-01 Xem đánh giá sản phẩm"])
+    end
+    subgraph SG_D3["3D & AR"]
+        UC_3D_01(["UC-3D-01 Xem mô hình 3D của sản phẩm"])
+        UC_3D_02(["UC-3D-02 Xem sản phẩm bằng AR (đặt vào không gian thật)"])
+        UC_3D_03(["UC-3D-03 Đổi màu/chất liệu trên mô hình 3D"])
+        UC_3D_06(["UC-3D-06 Xem ảnh AR công khai 'Khách hàng đã trải nghiệm'"])
+        UC_3D_07(["UC-3D-07 Ghi nhận thống kê phiên 3D/AR (ẩn danh)"])
+    end
+    subgraph SG_SPACE["Không gian mẫu"]
+        UC_SPACE_01(["UC-SPACE-01 Duyệt và tìm kiếm không gian mẫu"])
+        UC_SPACE_02(["UC-SPACE-02 Xem không gian mẫu 360°"])
+        UC_SPACE_03(["UC-SPACE-03 Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng)"])
+        UC_SPACE_05(["UC-SPACE-05 Thử đổi món đồ trong phòng mẫu"])
+        UC_SPACE_06(["UC-SPACE-06 Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)"])
+    end
+    K --- UC_AUTH_01
+    K --- UC_AUTH_02
+    K --- UC_AUTH_05
+    K --- UC_AUTH_06
+    K --- UC_CAT_01
+    K --- UC_CAT_02
+    K --- UC_CAT_03
+    K --- UC_CAT_04
+    K --- UC_CAT_05
+    K --- UC_CAT_06
+    K --- UC_REV_01
+    K --- UC_3D_01
+    K --- UC_3D_02
+    K --- UC_3D_03
+    K --- UC_3D_06
+    K --- UC_3D_07
+    K --- UC_SPACE_01
+    K --- UC_SPACE_02
+    K --- UC_SPACE_03
+    K --- UC_SPACE_05
+    K --- UC_SPACE_06
+    UC_AUTH_01 --- EM
+    UC_AUTH_05 --- EM
+    UC_CAT_06 -. "«extend»" .-> UC_CAT_03
+    UC_3D_01 -. "«include»" .-> UC_3D_07
+    UC_3D_02 -. "«include»" .-> UC_3D_07
+    UC_SPACE_02 -. "«include»" .-> UC_SPACE_06
+    UC_SPACE_03 -. "«extend»" .-> UC_SPACE_02
+    classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
+    classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3

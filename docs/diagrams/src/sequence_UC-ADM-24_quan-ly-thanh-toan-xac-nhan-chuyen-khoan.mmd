@@ -1,0 +1,50 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Thanh toán (AdminPaymentsPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminPaymentsController
+    participant S as PaymentsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Đối soát sao kê và bấm "Xác nhận đã nhận tiền"
+    FE->>G: PATCH /api/admin/payments/:id/confirm
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: PaymentsService.confirmManual(adminId, id, dto)
+    S->>P: payment.findFirst({ where: { id, method: 'bank_transfer', status: 'pending' }, include: { order: true } })
+    P->>D: SELECT payments
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Giao dịch không thể xác nhận
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Giao dịch không thể xác nhận
+    end
+    critical $transaction (Prisma)
+        S->>P: payment.update({ where: { id }, data: { status: 'success', transactionCode, paidAt: new Date() } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: order.update({ where: { id: orderId }, data: { paymentStatus: 'paid' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>S: Đặt người thực hiện cho trigger - $executeRaw`SELECT set_config('app.current_user_id', ${adminId}, true)`
+        S->>P: order.updateMany({ where: { id: orderId, status: 'pending' }, data: { status: 'confirmed' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'payment.confirm', targetType: 'payments', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: (sau commit) Thông báo cho user - NotificationsService.create
+    S-->>C: kết quả
+    C-->>FE: 200 Giao dịch sau khi xác nhận
+    FE-->>A: Đơn chuyển sang đã xác nhận

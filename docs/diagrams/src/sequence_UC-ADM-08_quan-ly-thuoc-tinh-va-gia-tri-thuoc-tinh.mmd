@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Thuộc tính (AdminAttributesPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminAttributesController
+    participant S as AttributesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Thêm thuộc tính hoặc giá trị thuộc tính và bấm "Lưu"
+    FE->>G: POST /api/admin/attributes
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateAttributeDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: AttributesService.create(adminId, dto)
+    S->>P: attribute.findFirst({ where: { OR: [{ code }, { name }] } })
+    P->>D: SELECT attributes
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Thuộc tính đã tồn tại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Thuộc tính đã tồn tại
+    end
+    S->>P: attribute.create({ data: { code, name } })
+    P->>D: INSERT INTO attributes
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'attribute.create', targetType: 'attributes' } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 201 Thuộc tính mới
+    FE-->>A: Danh sách thuộc tính được cập nhật

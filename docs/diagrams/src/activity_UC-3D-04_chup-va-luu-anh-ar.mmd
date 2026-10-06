@@ -1,0 +1,49 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Bấm nút chụp trong chế độ AR"]
+        n18["Hiển thị ảnh đã lưu, cho phép chia sẻ hoặc đặt công khai"]
+        n19(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Đã đăng nhập?"}
+        n4["[Web] Yêu cầu đăng nhập để lưu ảnh, chưa gọi API"]
+        n5["Gửi POST /api/ar-snapshots"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Tệp ảnh hợp lệ (jpeg/png/webp, tối đa 10 MB)?"}
+        n9["Trả 400/413 Tệp không hợp lệ"]
+        n16["Đưa job vào hàng đợi: Nén ảnh nền"]
+        n17["Trả 201: id, imageUrl, isPublic"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n11["Bắt đầu transaction"]
+        n12["Tạo bản ghi media"]
+        n13["Tạo ảnh AR (mặc định riêng tư)"]
+        n14["Đánh dấu phiên AR đã chụp ảnh"]
+        n15["Commit transaction"]
+    end
+    subgraph LANE_X["MinIO/S3"]
+        n10["Lưu ảnh lên MinIO/S3"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n4 --> n19
+    n7 --> n19
+    n9 --> n19

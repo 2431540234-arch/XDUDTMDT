@@ -1,0 +1,56 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Quản lý người dùng (AdminUsersPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminUsersController
+    participant S as UsersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn người dùng và bấm "Khóa", "Cấm", "Mở khóa" hoặc "Xóa"
+    FE->>G: PATCH /api/admin/users/:id/status
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UpdateUserStatusDto)
+    alt Không: Trạng thái thuộc active, suspended, banned
+        C-->>FE: 400 Trạng thái không hợp lệ
+    end
+    C->>S: UsersService.adminSetStatus(adminId, id, dto)
+    S->>P: user.findFirst({ where: { id, deletedAt: null } })
+    P->>D: SELECT users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy người dùng
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy người dùng
+    end
+    S->>P: userRole.count({ where: { role: { code: 'admin' } } })
+    P->>D: SELECT count user_roles
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Không thể thực hiện với tài khoản này
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Không thể thực hiện với tài khoản này
+    end
+    critical $transaction (Prisma)
+        S->>P: user.update({ where: { id }, data: { status } })
+        P->>D: UPDATE users
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: userSession.updateMany({ where: { userId: id, revokedAt: null }, data: { revokedAt: new Date() } })
+        P->>D: UPDATE user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'user.set_status', targetType: 'users', targetId: id, changes } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    Note over D: Trigger trg_users_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Hồ sơ người dùng sau khi đổi
+    FE-->>A: Hiển thị trạng thái mới

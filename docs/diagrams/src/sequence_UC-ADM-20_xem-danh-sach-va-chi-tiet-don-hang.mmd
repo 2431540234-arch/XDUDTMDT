@@ -1,0 +1,34 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Đơn hàng (AdminOrdersPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminOrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn bộ lọc (trạng thái, thanh toán, ngày, từ khóa) và mở một đơn
+    FE->>G: GET /api/admin/orders?status=&paymentStatus=&from=&to=&q=&page=
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(AdminOrderQueryDto)
+    alt Không: Tham số hợp lệ
+        C-->>FE: 400 Tham số không hợp lệ
+    end
+    C->>S: OrdersService.adminFindAll(query)
+    S->>P: order.findMany({ where, orderBy: { createdAt: 'desc' }, skip, take, include: { user: true } })
+    P->>D: SELECT orders
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: order.count({ where })
+    P->>D: SELECT count orders
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Chuyển Decimal sang number - serialize(items)
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách phân trang
+    FE-->>A: Hiển thị bảng đơn, bấm một dòng để xem chi tiết (GET /api/admin/orders/:id)

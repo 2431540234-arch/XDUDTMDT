@@ -1,0 +1,47 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Đổi mật khẩu (ChangePasswordPage)
+    participant G as JwtAuthGuard
+    participant C as UsersController
+    participant S as UsersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập mật khẩu hiện tại, mật khẩu mới và bấm "Đổi mật khẩu"
+    alt Không: Mật khẩu mới đạt chính sách và trùng ô xác nhận
+        FE-->>A: Hiển thị lỗi tại ô nhập
+    end
+    FE->>G: POST /api/users/me/change-password
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(ChangePasswordDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: UsersService.changePassword(userId, dto, currentSessionId)
+    S->>P: bcrypt.compare(currentPassword, passwordHash)
+    P->>D: compare bcrypt
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Mật khẩu hiện tại không đúng
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Mật khẩu hiện tại không đúng
+    end
+    S->>S: Băm mật khẩu mới - bcrypt.hash(newPassword, 10)
+    critical $transaction (Prisma)
+        S->>P: user.update({ where: { id: userId }, data: { passwordHash } })
+        P->>D: UPDATE users
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: userSession.updateMany({ where: { userId, id: { not: currentSessionId }, revokedAt: null }, data: { revokedAt: new Date() } })
+        P->>D: UPDATE user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S-->>C: kết quả
+    C-->>FE: 200 Đổi mật khẩu thành công
+    FE-->>A: Hiển thị thông báo thành công

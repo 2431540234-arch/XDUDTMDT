@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Chi tiết đơn (OrderDetailPage)
+    participant G as JwtAuthGuard
+    participant C as OrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Mở danh sách đơn rồi bấm một đơn để xem chi tiết
+    FE->>G: GET /api/orders/:orderCode
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: OrdersService.findOne(userId, orderCode)
+    S->>P: order.findFirst({ where: { orderCode, userId }, include: { orderItems: true, orderStatusHistory: true, payments: true, shipments: true } })
+    P->>D: SELECT orders
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy đơn hàng
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy đơn hàng
+    end
+    S->>S: Chuyển Decimal sang number - serialize(order)
+    S-->>C: kết quả
+    C-->>FE: 200 Chi tiết đơn, lịch sử trạng thái, thanh toán, vận chuyển
+    FE-->>A: Hiển thị tiến trình đơn và các nút hủy, thanh toán lại, đánh giá theo trạng thái

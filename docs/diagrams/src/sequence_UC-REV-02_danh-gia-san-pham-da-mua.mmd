@@ -1,0 +1,57 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Form đánh giá ở chi tiết đơn
+    participant G as JwtAuthGuard
+    participant C as ReviewsController
+    participant S as ReviewsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn số sao, nhập nội dung và bấm "Gửi đánh giá"
+    alt Không: Đã đăng nhập
+        FE-->>A: Hiển thị hộp thoại yêu cầu đăng nhập, chưa gọi API
+    end
+    FE->>G: POST /api/products/:slug/reviews
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateReviewDto)
+    alt Không: Số sao từ 1 đến 5
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: ReviewsService.create(userId, slug, dto)
+    S->>P: user.findUnique({ where: { id: userId }, select: { emailVerifiedAt } })
+    P->>D: SELECT users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 403 Cần xác thực email để đánh giá
+        S-->>C: throw ForbiddenException
+        C-->>FE: 403 Cần xác thực email để đánh giá
+    end
+    S->>P: order.findFirst({ where: { id: orderId, userId, status: 'completed', orderItems: { some: { variant: { productId } } } } })
+    P->>D: SELECT orders
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 403 Chỉ người đã mua mới được đánh giá
+        S-->>C: throw ForbiddenException
+        C-->>FE: 403 Chỉ người đã mua mới được đánh giá
+    end
+    S->>P: review.findFirst({ where: { userId, productId, orderId } })
+    P->>D: SELECT reviews
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Bạn đã đánh giá sản phẩm này
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Bạn đã đánh giá sản phẩm này
+    end
+    S->>P: review.create({ data: { userId, productId, orderId, rating, content } })
+    P->>D: INSERT INTO reviews
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_reviews_refresh_rating
+    S-->>C: kết quả
+    C-->>FE: 201 Đánh giá đang chờ duyệt
+    FE-->>A: Hiển thị thông báo "Đánh giá đang chờ duyệt"

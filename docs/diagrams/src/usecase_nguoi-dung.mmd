@@ -1,0 +1,78 @@
+flowchart LR
+    N(["Người dùng"]):::actor
+    EM(["Dịch vụ email"]):::ext
+    GW(["Cổng thanh toán"]):::ext
+    subgraph SG_AUTH["Xác thực"]
+        UC_AUTH_03(["UC-AUTH-03 Làm mới access token"])
+        UC_AUTH_04(["UC-AUTH-04 Đăng xuất"])
+        UC_AUTH_07(["UC-AUTH-07 Xác thực email"])
+    end
+    subgraph SG_ACC["Tài khoản"]
+        UC_ACC_01(["UC-ACC-01 Xem và cập nhật hồ sơ cá nhân"])
+        UC_ACC_02(["UC-ACC-02 Đổi mật khẩu"])
+        UC_ACC_03(["UC-ACC-03 Quản lý phiên đăng nhập (đăng xuất từ xa)"])
+        UC_ACC_04(["UC-ACC-04 Quản lý sổ địa chỉ giao hàng"])
+        UC_ACC_05(["UC-ACC-05 Xem và đánh dấu đã đọc thông báo"])
+        UC_ACC_06(["UC-ACC-06 Quản lý danh sách yêu thích"])
+        UC_ACC_07(["UC-ACC-07 Yêu cầu xóa tài khoản (xóa mềm)"])
+    end
+    subgraph SG_CART["Giỏ hàng"]
+        UC_CART_01(["UC-CART-01 Thêm sản phẩm vào giỏ hàng"])
+        UC_CART_02(["UC-CART-02 Xem giỏ hàng"])
+        UC_CART_03(["UC-CART-03 Cập nhật số lượng / xóa dòng trong giỏ"])
+        UC_CART_04(["UC-CART-04 Áp mã giảm giá"])
+    end
+    subgraph SG_ORD["Đơn hàng"]
+        UC_ORD_01(["UC-ORD-01 Đặt hàng"])
+        UC_ORD_02(["UC-ORD-02 Xem và theo dõi đơn hàng của tôi"])
+        UC_ORD_03(["UC-ORD-03 Hủy đơn hàng"])
+    end
+    subgraph SG_PAY["Thanh toán"]
+        UC_PAY_01(["UC-PAY-01 Thanh toán đơn hàng online"])
+        UC_PAY_03(["UC-PAY-03 Thanh toán lại đơn chưa thanh toán"])
+    end
+    subgraph SG_REV["Đánh giá"]
+        UC_REV_02(["UC-REV-02 Đánh giá sản phẩm đã mua"])
+        UC_REV_03(["UC-REV-03 Sửa/xóa đánh giá của mình"])
+    end
+    subgraph SG_D3["3D & AR"]
+        UC_3D_04(["UC-3D-04 Chụp và lưu ảnh AR"])
+        UC_3D_05(["UC-3D-05 Quản lý ảnh AR của tôi (công khai/ẩn/xóa)"])
+    end
+    subgraph SG_SPACE["Không gian mẫu"]
+        UC_SPACE_04(["UC-SPACE-04 Lưu / bỏ lưu không gian mẫu yêu thích"])
+    end
+    N --- UC_AUTH_03
+    N --- UC_AUTH_04
+    N --- UC_AUTH_07
+    N --- UC_ACC_01
+    N --- UC_ACC_02
+    N --- UC_ACC_03
+    N --- UC_ACC_04
+    N --- UC_ACC_05
+    N --- UC_ACC_06
+    N --- UC_ACC_07
+    N --- UC_CART_01
+    N --- UC_CART_02
+    N --- UC_CART_03
+    N --- UC_CART_04
+    N --- UC_ORD_01
+    N --- UC_ORD_02
+    N --- UC_ORD_03
+    N --- UC_PAY_01
+    N --- UC_PAY_03
+    N --- UC_REV_02
+    N --- UC_REV_03
+    N --- UC_3D_04
+    N --- UC_3D_05
+    N --- UC_SPACE_04
+    UC_AUTH_07 --- EM
+    UC_ORD_01 --- EM
+    UC_PAY_01 --- GW
+    UC_PAY_03 --- GW
+    UC_CART_04 -. "«extend»" .-> UC_ORD_01
+    UC_ORD_01 -. "«include»" .-> UC_CART_02
+    UC_PAY_03 -. "«extend»" .-> UC_ORD_02
+    N -. "kế thừa toàn bộ chức năng của Khách (5.2)" .-> KX["Chức năng của Khách vãng lai"]
+    classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
+    classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3

@@ -1,0 +1,43 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Đọc đánh giá chờ duyệt và bấm 'Duyệt' hoặc 'Từ chối'"]
+        n16["Đánh giá rời hàng đợi chờ duyệt"]
+        n17(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/admin/reviews/:id/status"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"status thuộc approved, rejected, pending?"}
+        n7["Trả 400 Trạng thái không hợp lệ"]
+        n9{"Đánh giá tồn tại?"}
+        n10["Trả 404 Không tìm thấy đánh giá"]
+        n14["(sau commit) Thông báo cho người viết"]
+        n15["Trả 200: Đánh giá sau khi duyệt"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT reviews"]
+        n11["Đổi trạng thái đánh giá"]
+        n12["Trigger DB: Tính lại ratingAvg và ratingCount (chỉ review approved)"]
+        n13["Ghi nhật ký hoạt động"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n5 --> n17
+    n7 --> n17
+    n10 --> n17

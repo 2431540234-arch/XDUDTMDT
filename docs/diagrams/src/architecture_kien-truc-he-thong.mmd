@@ -1,0 +1,31 @@
+flowchart LR
+    subgraph Client["Trình duyệt"]
+        WEB["apps/web (Next.js)<br>pages, components, hooks, store, services"]
+    end
+    subgraph API["apps/api (NestJS)"]
+        GUARD["Guards, Pipes, Filters, Interceptors"]
+        CTRL["Controllers"]
+        SVC["Services (nghiệp vụ, prisma.$transaction)"]
+        PRISMA["PrismaService"]
+        JOBS["modules/jobs (BullMQ processors)"]
+    end
+    subgraph DATA["Dữ liệu"]
+        PG[("PostgreSQL 16<br>44 bảng, 36 trigger")]
+        RD[("Redis")]
+        S3[("MinIO / S3")]
+    end
+    subgraph EXT["Hệ thống ngoài"]
+        GW["Cổng thanh toán"]
+        SH["Đơn vị vận chuyển"]
+        SMTP["Dịch vụ email"]
+    end
+    WEB -- "HTTPS /api" --> GUARD --> CTRL --> SVC --> PRISMA --> PG
+    SVC -- "đưa job" --> RD
+    RD --> JOBS
+    JOBS --> S3
+    JOBS --> PRISMA
+    SVC --> S3
+    SVC --> SMTP
+    WEB -. "redirect" .-> GW
+    GW -- "IPN" --> CTRL
+    SVC -. "nhập tay / webhook" .-> SH

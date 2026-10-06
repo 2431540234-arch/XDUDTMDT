@@ -1,0 +1,54 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Nhập email, mật khẩu và bấm 'Đăng nhập'"]
+        n21["Lưu token vào authStore, chuyển hướng (admin tới /dashboard)"]
+        n22(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/auth/login"]
+        n4{"Dữ liệu hợp lệ?"}
+        n5["Trả 400 Dữ liệu không hợp lệ"]
+        n7{"Tìm thấy tài khoản chưa xóa mềm?"}
+        n8["Trả 401 Email hoặc mật khẩu không đúng"]
+        n10{"Tài khoản đang active?"}
+        n11["Trả 403 Tài khoản bị khóa"]
+        n13{"Mật khẩu đúng?"}
+        n14["Trả 401 Email hoặc mật khẩu không đúng"]
+        n19["Ký access token và refresh token (kèm vai trò)"]
+        n20["Trả 200: Token và hồ sơ người dùng"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: SELECT users"]
+        n9["Truy vấn CSDL: status === 'active'"]
+        n12["Truy vấn CSDL: compare bcrypt"]
+        n15["Bắt đầu transaction"]
+        n16["Tạo phiên đăng nhập"]
+        n17["Cập nhật lần đăng nhập cuối"]
+        n18["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 -->|"Không"| n11
+    n10 -->|"Có"| n12
+    n12 --> n13
+    n13 -->|"Không"| n14
+    n13 -->|"Có"| n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n5 --> n22
+    n8 --> n22
+    n11 --> n22
+    n14 --> n22

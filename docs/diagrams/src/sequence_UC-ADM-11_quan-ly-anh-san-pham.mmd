@@ -1,0 +1,40 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Mục Ảnh ở trang sửa sản phẩm
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn ảnh từ thư viện, bấm "Đặt làm ảnh đại diện"
+    FE->>G: PATCH /api/admin/product-images/:imageId/primary
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: ProductsService.setPrimaryImage(adminId, imageId)
+    S->>P: productImage.findUnique({ where: { id: imageId } })
+    P->>D: SELECT product_images
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy ảnh
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy ảnh
+    end
+    critical $transaction (Prisma)
+        S->>P: productImage.updateMany({ where: { productId, isPrimary: true }, data: { isPrimary: false } })
+        P->>D: UPDATE product_images
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: productImage.update({ where: { id: imageId }, data: { isPrimary: true } })
+        P->>D: UPDATE product_images
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    Note over D: Trigger trg_product_images_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách ảnh của sản phẩm
+    FE-->>A: Ảnh đại diện mới được hiển thị

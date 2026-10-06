@@ -1,0 +1,71 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Hủy đơn', nhập lý do và xác nhận"]
+        n29["Hiển thị đơn đã hủy (đơn đã thanh toán: chờ cửa hàng hoàn tiền thủ công)"]
+        n30(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/orders/:id/cancel"]
+        n4{"Đã đăng nhập?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Lý do hợp lệ (5 đến 500 ký tự)?"}
+        n7["Trả 400 Lý do không hợp lệ"]
+        n10{"Đơn thuộc user?"}
+        n11["Trả 404 Không tìm thấy đơn hàng"]
+        n14{"Đơn đang pending hoặc confirmed?"}
+        n15["Trả 409 Đơn không thể hủy, vui lòng liên hệ cửa hàng"]
+        n16["Đặt biến phiên người thực hiện"]
+        n19["Với mỗi phần tử: dòng hàng còn variantId"]
+        n22{"Còn phần tử khác?"}
+        n27["(sau commit) Tạo thông báo cho user"]
+        n28["Trả 200: Đơn sau khi hủy"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Bắt đầu transaction"]
+        n9["Truy vấn CSDL: SELECT orders"]
+        n12["Rollback transaction"]
+        n13["Truy vấn CSDL: status in ['pending', 'confirmed']"]
+        n17["Chuyển đơn sang cancelled kèm lý do"]
+        n18["Trigger DB: Ghi OrderStatusHistory (đến cancelled, changedBy = user)"]
+        n20["Hoàn tồn kho"]
+        n21["Ghi biến động kho loại return"]
+        n23["Hoàn lượt dùng mã giảm giá (xóa bản ghi sử dụng)"]
+        n24["Giảm bộ đếm lượt dùng của mã"]
+        n25["Đóng giao dịch thanh toán chờ xử lý"]
+        n26["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 --> n10
+    n10 -->|"Không"| n11
+    n11 --> n12
+    n10 -->|"Có"| n13
+    n13 --> n14
+    n14 -->|"Không"| n15
+    n15 --> n12
+    n14 -->|"Có"| n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n22 -->|"Có"| n19
+    n22 -->|"Không"| n23
+    n23 --> n24
+    n24 --> n25
+    n25 --> n26
+    n26 --> n27
+    n27 --> n28
+    n28 --> n29
+    n29 --> n30
+    n5 --> n30
+    n7 --> n30
+    n12 --> n30

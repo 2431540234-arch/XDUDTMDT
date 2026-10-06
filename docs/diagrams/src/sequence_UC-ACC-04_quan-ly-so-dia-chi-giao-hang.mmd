@@ -1,0 +1,40 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Sổ địa chỉ (AddressesPage)
+    participant G as JwtAuthGuard
+    participant C as AddressesController
+    participant S as AddressesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn "Đặt làm mặc định" cho một địa chỉ (thêm/sửa/xóa tương tự)
+    FE->>G: PATCH /api/addresses/:id/default
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: AddressesService.setDefault(userId, id)
+    S->>P: address.findFirst({ where: { id, userId } })
+    P->>D: SELECT addresses
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy địa chỉ
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy địa chỉ
+    end
+    critical $transaction (Prisma)
+        S->>P: address.updateMany({ where: { userId, isDefault: true }, data: { isDefault: false } })
+        P->>D: UPDATE addresses
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: address.update({ where: { id }, data: { isDefault: true } })
+        P->>D: UPDATE addresses
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    Note over D: Trigger trg_addresses_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách địa chỉ mới
+    FE-->>A: Hiển thị địa chỉ mặc định mới

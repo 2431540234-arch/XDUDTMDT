@@ -1,0 +1,22 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Mở trang chủ"]
+        n7["Hiển thị các khối nội dung của trang chủ"]
+        n8(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products?featured=true&limit=8"]
+        n5["Chuyển Decimal sang number"]
+        n6["Trả 200: Danh sách sản phẩm nổi bật (frontend gọi thêm danh mục gốc và không gian mới)"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Lấy sản phẩm nổi bật đã đăng, chưa xóa mềm, kèm ảnh đại diện và giá thấp nhất"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 --> n7
+    n7 --> n8

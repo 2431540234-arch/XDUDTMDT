@@ -1,0 +1,42 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Quản lý trang tĩnh (AdminPagesPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminPagesController
+    participant S as PagesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Soạn nội dung, chọn trạng thái và bấm "Lưu"
+    FE->>G: POST /api/admin/pages
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreatePageDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: PagesService.create(adminId, dto)
+    S->>P: page.findUnique({ where: { slug } })
+    P->>D: SELECT pages
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Slug đã tồn tại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Slug đã tồn tại
+    end
+    S->>S: Làm sạch HTML trước khi lưu - sanitizeHtml(content)
+    S->>P: page.create({ data: { title, slug, content, status, metaTitle, metaDescription, publishedAt } })
+    P->>D: INSERT INTO pages
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'page.create', targetType: 'pages' } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 201 Trang mới
+    FE-->>A: Danh sách trang được cập nhật

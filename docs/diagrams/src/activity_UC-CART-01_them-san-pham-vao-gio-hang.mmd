@@ -1,0 +1,51 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Chọn biến thể, số lượng và bấm 'Thêm vào giỏ'"]
+        n19["Cập nhật số lượng trên biểu tượng giỏ"]
+        n20(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Đã đăng nhập?"}
+        n4["[Web] Hiển thị hộp thoại yêu cầu đăng nhập/đăng ký (UC-AUTH-02), chưa gọi API ghi"]
+        n5["Gửi POST /api/cart/items"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Dữ liệu hợp lệ?"}
+        n9["Trả 400 Dữ liệu không hợp lệ"]
+        n11{"Biến thể đang bán, sản phẩm đã đăng và chưa xóa mềm?"}
+        n12["Trả 404 Biến thể không khả dụng"]
+        n15{"Số lượng cộng dồn không vượt tồn kho?"}
+        n16["Trả 409 Chỉ còn N sản phẩm"]
+        n18["Trả 201: Giỏ hàng mới"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n10["Truy vấn CSDL: SELECT product_variants"]
+        n13["Tạo giỏ nếu chưa có (mỗi user một giỏ)"]
+        n14["Truy vấn CSDL: SELECT cart_items"]
+        n17["Thêm hoặc cộng dồn số lượng vào giỏ"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Không"| n12
+    n11 -->|"Có"| n13
+    n13 --> n14
+    n14 --> n15
+    n15 -->|"Không"| n16
+    n15 -->|"Có"| n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n4 --> n20
+    n7 --> n20
+    n9 --> n20
+    n12 --> n20
+    n16 --> n20

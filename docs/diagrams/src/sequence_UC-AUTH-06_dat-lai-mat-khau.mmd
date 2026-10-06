@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang Đặt lại mật khẩu (ResetPasswordPage)
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Mở liên kết trong email, nhập mật khẩu mới
+    alt Không: Mật khẩu mới đạt chính sách và trùng ô xác nhận
+        FE-->>A: Hiển thị lỗi tại ô nhập
+    end
+    FE->>C: POST /api/auth/reset-password
+    C->>C: ValidationPipe(ResetPasswordDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: AuthService.resetPassword(dto)
+    S->>P: passwordReset.findFirst({ where: { tokenHash, usedAt: null, expiresAt: { gt: now } } })
+    P->>D: SELECT password_resets
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Liên kết không hợp lệ hoặc đã hết hạn
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Liên kết không hợp lệ hoặc đã hết hạn
+    end
+    S->>S: Băm mật khẩu mới - bcrypt.hash(newPassword, 10)
+    critical $transaction (Prisma)
+        S->>P: user.update({ where: { id: userId }, data: { passwordHash } })
+        P->>D: UPDATE users
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: passwordReset.update({ where: { id }, data: { usedAt: new Date() } })
+        P->>D: UPDATE password_resets
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: userSession.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } })
+        P->>D: UPDATE user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S-->>C: kết quả
+    C-->>FE: 200 Đổi mật khẩu thành công
+    FE-->>A: Chuyển tới trang đăng nhập

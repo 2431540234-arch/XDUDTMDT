@@ -1,0 +1,56 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Mục Biến thể ở trang sửa sản phẩm
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập SKU, giá, giá khuyến mãi, cân nặng, chọn giá trị thuộc tính và bấm "Lưu biến thể"
+    FE->>G: POST /api/admin/products/:id/variants
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateVariantDto)
+    alt Không: Dữ liệu hợp lệ (giá >= 0, salePrice <= price, mỗi thuộc tính một giá trị)
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: ProductsService.createVariant(adminId, id, dto)
+    S->>P: product.findFirst({ where: { id, deletedAt: null } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy sản phẩm
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy sản phẩm
+    end
+    S->>P: productVariant.findUnique({ where: { sku } })
+    P->>D: SELECT product_variants
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 SKU đã tồn tại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 SKU đã tồn tại
+    end
+    critical $transaction (Prisma)
+        S->>P: productVariant.create({ data: { productId, sku, price, salePrice, weightGram, isActive } })
+        P->>D: INSERT INTO product_variants
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: variantAttributeValue.createMany({ data: [{ variantId, attributeValueId, attributeId }] })
+        P->>D: INSERT INTO variant_attribute_values
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'variant.create', targetType: 'product_variants' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    Note over D: Trigger trg_product_variants_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 201 Biến thể mới (giá dạng number)
+    FE-->>A: Danh sách biến thể được cập nhật

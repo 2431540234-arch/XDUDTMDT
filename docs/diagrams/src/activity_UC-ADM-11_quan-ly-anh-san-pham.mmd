@@ -1,0 +1,40 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Chọn ảnh từ thư viện, bấm 'Đặt làm ảnh đại diện'"]
+        n15["Ảnh đại diện mới được hiển thị"]
+        n16(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/admin/product-images/:imageId/primary"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n7{"Ảnh tồn tại?"}
+        n8["Trả 404 Không tìm thấy ảnh"]
+        n14["Trả 200: Danh sách ảnh của sản phẩm"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: SELECT product_images"]
+        n9["Bắt đầu transaction"]
+        n10["Bỏ cờ ảnh đại diện cũ (tối đa một ảnh đại diện)"]
+        n11["Đặt ảnh mới làm ảnh đại diện"]
+        n12["Commit transaction"]
+        n13["Trigger DB: Cập nhật updated_at"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n5 --> n16
+    n8 --> n16

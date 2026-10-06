@@ -1,0 +1,202 @@
+classDiagram
+    class Cart {
+        +Int id «PK»
+        +Int userId «FK,UK»
+        +DateTime createdAt
+        +DateTime updatedAt
+        +addItem(variantId, qty)
+        +clear()
+        +subtotal() Decimal
+    }
+    class CartItem {
+        +Int id «PK»
+        +Int cartId «FK»
+        +Int variantId «FK»
+        +Int quantity
+        +DateTime createdAt
+        +DateTime updatedAt
+        +changeQuantity(qty)
+        +lineTotal() Decimal
+    }
+    class Coupon {
+        +Int id «PK»
+        +String code «UK»
+        +CouponType type
+        +Decimal value
+        +Decimal? maxDiscount
+        +Decimal minOrderValue
+        +Int? usageLimit
+        +Int? perUserLimit
+        +Int usedCount
+        +DateTime startsAt
+        +DateTime? endsAt
+        +Boolean isActive
+        +DateTime createdAt
+        +DateTime updatedAt
+        +isApplicable(userId, subtotal) Boolean
+        +computeDiscount(subtotal) Decimal
+    }
+    class CouponUsage {
+        +Int id «PK»
+        +Int couponId «FK»
+        +Int userId «FK»
+        +Int orderId «FK»
+        +DateTime createdAt
+    }
+    class Order {
+        +Int id «PK»
+        +String uuid «UK»
+        +String orderCode «UK»
+        +Int userId «FK»
+        +OrderStatus status
+        +String recipientName
+        +String recipientPhone
+        +String shippingProvince
+        +String shippingDistrict
+        +String shippingWard
+        +String shippingAddress
+        +Decimal subtotal
+        +Decimal discountAmount
+        +Decimal shippingFee
+        +Decimal total
+        +Int? couponId «FK»
+        +PaymentMethod paymentMethod
+        +OrderPaymentStatus paymentStatus
+        +String? note
+        +String? cancelReason
+        +DateTime createdAt
+        +DateTime updatedAt
+        +create(userId, dto)
+        +cancel(reason)
+        +confirm()
+        +complete()
+        +computeTotals()
+        +canBeCancelledBy(user) Boolean
+    }
+    class OrderItem {
+        +Int id «PK»
+        +Int orderId «FK»
+        +Int? variantId «FK»
+        +String productName
+        +String sku
+        +Decimal unitPrice
+        +Int quantity
+        +Decimal? lineTotal
+        +DateTime createdAt
+    }
+    class OrderStatusHistory {
+        +Int id «PK»
+        +Int orderId «FK»
+        +OrderStatus? fromStatus
+        +OrderStatus toStatus
+        +Int? changedBy «FK»
+        +String? note
+        +DateTime createdAt
+    }
+    class Payment {
+        +Int id «PK»
+        +Int orderId «FK»
+        +PaymentMethod method
+        +Decimal amount
+        +PaymentTxnStatus status
+        +String? transactionCode «UK»
+        +Json? gatewayResponse
+        +DateTime? paidAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +markSuccess(transactionCode)
+        +markFailed()
+        +refund()
+    }
+    class Shipment {
+        +Int id «PK»
+        +Int orderId «FK»
+        +ShipmentCarrier carrier
+        +String? trackingCode
+        +ShipmentStatus status
+        +Decimal fee
+        +DateTime? shippedAt
+        +DateTime? deliveredAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +markDelivered()
+    }
+    class CouponType {
+        <<enumeration>>
+        percent
+        fixed
+    }
+    class OrderStatus {
+        <<enumeration>>
+        pending
+        confirmed
+        processing
+        shipping
+        completed
+        cancelled
+        refunded
+    }
+    class PaymentMethod {
+        <<enumeration>>
+        cod
+        bank_transfer
+        momo
+        vnpay
+        zalopay
+        card
+    }
+    class OrderPaymentStatus {
+        <<enumeration>>
+        unpaid
+        paid
+        refunded
+        failed
+    }
+    class PaymentTxnStatus {
+        <<enumeration>>
+        pending
+        success
+        failed
+        refunded
+    }
+    class ShipmentCarrier {
+        <<enumeration>>
+        ghn
+        ghtk
+        viettel_post
+        other
+    }
+    class ShipmentStatus {
+        <<enumeration>>
+        pending
+        picked_up
+        in_transit
+        delivered
+        failed
+        returned
+    }
+    Cart "1" *-- "0..*" CartItem : cart
+    ProductVariant "1" -- "0..*" CartItem : variant
+    User "1" *-- "0..1" Cart : user
+    Coupon "1" o-- "0..*" CouponUsage : coupon
+    Order "1" -- "0..*" CouponUsage : order
+    User "1" o-- "0..*" CouponUsage : user
+    Order "1" *-- "1..*" OrderItem : order
+    ProductVariant "0..1" o-- "0..*" OrderItem : variant
+    User "0..1" o-- "0..*" OrderStatusHistory : changedByUser
+    Order "1" *-- "0..*" OrderStatusHistory : order
+    Coupon "0..1" o-- "0..*" Order : coupon
+    User "1" o-- "0..*" Order : user
+    Order "1" o-- "0..*" Payment : order
+    Order "0..1" o-- "0..*" Review : order
+    Order "1" o-- "0..*" Shipment : order
+    Coupon ..> CouponType : type
+    Order ..> OrderStatus : status
+    Order ..> PaymentMethod : paymentMethod
+    Order ..> OrderPaymentStatus : paymentStatus
+    OrderStatusHistory ..> OrderStatus : fromStatus
+    OrderStatusHistory ..> OrderStatus : toStatus
+    Payment ..> PaymentMethod : method
+    Payment ..> PaymentTxnStatus : status
+    Shipment ..> ShipmentCarrier : carrier
+    Shipment ..> ShipmentStatus : status

@@ -1,0 +1,26 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang danh sách không gian mẫu (SpacesPage)
+    participant C as SpacesController
+    participant S as SpacesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn loại phòng, phong cách hoặc gõ tìm kiếm
+    FE->>C: GET /api/spaces?roomType=&style=&category=&q=&sort=&page=
+    C->>C: ValidationPipe(SpaceQueryDto)
+    alt Không: Tham số hợp lệ (roomType thuộc enum)
+        C-->>FE: 400 Tham số không hợp lệ
+    end
+    C->>S: SpacesService.findAll(query)
+    S->>P: $queryRaw`SELECT id FROM spaces WHERE status = 'published' AND immutable_unaccent(title) ILIKE '%' || immutable_unaccent(${q}) || '%'`
+    P->>D: SQL thô (SELECT)
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: space.findMany({ where: { id: { in: ids }, roomType }, include: { coverMedia: true } })
+    P->>D: SELECT spaces
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách phân trang
+    FE-->>A: Hiển thị lưới không gian mẫu

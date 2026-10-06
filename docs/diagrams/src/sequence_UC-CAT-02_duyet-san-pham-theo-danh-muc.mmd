@@ -1,0 +1,35 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang danh sách sản phẩm (ProductsPage)
+    participant C as ProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn danh mục, bộ lọc, sắp xếp
+    FE->>C: GET /api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&limit=
+    C->>C: ValidationPipe(ProductQueryDto)
+    alt Không: Tham số truy vấn hợp lệ
+        C-->>FE: 400 Tham số không hợp lệ
+    end
+    C->>S: ProductsService.findAll(query)
+    S->>P: category.findFirst({ where: { slug, isActive: true } })
+    P->>D: SELECT categories
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy danh mục
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy danh mục
+    end
+    S->>P: product.findMany({ where: { status: 'published', deletedAt: null, categoryId: { in: ids } }, orderBy, skip, take })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: product.count({ where })
+    P->>D: SELECT count products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Chuyển Decimal sang number - serialize(items)
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách phân trang và tổng số
+    FE-->>A: Hiển thị lưới sản phẩm hoặc "Không tìm thấy"

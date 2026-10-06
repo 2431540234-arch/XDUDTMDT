@@ -1,0 +1,40 @@
+flowchart LR
+    A(["Quản trị viên"]):::actor
+    SH(["Đơn vị vận chuyển"]):::ext
+    subgraph SG_ADM["Quản trị"]
+        UC_ADM_15(["UC-ADM-15 Quản lý không gian mẫu và ảnh 360°"])
+        UC_ADM_16(["UC-ADM-16 Quản lý điểm tương tác (hotspot) trên ảnh 360°"])
+        UC_ADM_17(["UC-ADM-17 Đặt mô hình 3D sản phẩm vào ảnh 360° (placement)"])
+        UC_ADM_18(["UC-ADM-18 Duyệt hoặc từ chối đánh giá"])
+        UC_ADM_19(["UC-ADM-19 Quản lý mã giảm giá"])
+        UC_ADM_20(["UC-ADM-20 Xem danh sách và chi tiết đơn hàng"])
+        UC_ADM_21(["UC-ADM-21 Cập nhật trạng thái đơn hàng"])
+        UC_ADM_22(["UC-ADM-22 Hủy đơn hàng (quản trị)"])
+        UC_ADM_23(["UC-ADM-23 Hoàn tiền thủ công"])
+        UC_ADM_24(["UC-ADM-24 Quản lý thanh toán (xác nhận chuyển khoản)"])
+        UC_ADM_25(["UC-ADM-25 Quản lý vận chuyển"])
+        UC_ADM_26(["UC-ADM-26 Gửi thông báo cho người dùng"])
+        UC_ADM_27(["UC-ADM-27 Xem nhật ký hoạt động của quản trị viên"])
+        UC_ADM_28(["UC-ADM-28 Xem thống kê tổng quan"])
+        UC_ADM_29(["UC-ADM-29 Thống kê AR và phễu không gian mẫu"])
+        UC_ADM_30(["UC-ADM-30 Gỡ ảnh AR công khai không phù hợp"])
+    end
+    A --- UC_ADM_15
+    A --- UC_ADM_16
+    A --- UC_ADM_17
+    A --- UC_ADM_18
+    A --- UC_ADM_19
+    A --- UC_ADM_20
+    A --- UC_ADM_21
+    A --- UC_ADM_22
+    A --- UC_ADM_23
+    A --- UC_ADM_24
+    A --- UC_ADM_25
+    A --- UC_ADM_26
+    A --- UC_ADM_27
+    A --- UC_ADM_28
+    A --- UC_ADM_29
+    A --- UC_ADM_30
+    UC_ADM_25 --- SH
+    classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
+    classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3

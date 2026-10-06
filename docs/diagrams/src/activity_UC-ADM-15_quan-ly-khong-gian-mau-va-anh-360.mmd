@@ -1,0 +1,48 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Đăng' cho một không gian mẫu"]
+        n18["Không gian xuất hiện ở danh sách công khai khi published"]
+        n19(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/admin/spaces/:id/status"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Trạng thái thuộc draft, published, archived?"}
+        n7["Trả 400 Trạng thái không hợp lệ"]
+        n9{"Không gian tồn tại?"}
+        n10["Trả 404 Không tìm thấy không gian"]
+        n12{"Có ít nhất một ảnh 360° và đúng một ảnh mở đầu?"}
+        n13["Trả 400 Cần ảnh 360° và một ảnh mở đầu trước khi đăng"]
+        n17["Trả 200: Không gian sau khi đổi trạng thái"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT spaces"]
+        n11["Truy vấn CSDL: spacePanoramas spaces"]
+        n14["Đổi trạng thái và đặt thời điểm đăng"]
+        n15["Ghi nhật ký hoạt động"]
+        n16["Trigger DB: Cập nhật updated_at"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 -->|"Không"| n13
+    n12 -->|"Có"| n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n5 --> n19
+    n7 --> n19
+    n10 --> n19
+    n13 --> n19

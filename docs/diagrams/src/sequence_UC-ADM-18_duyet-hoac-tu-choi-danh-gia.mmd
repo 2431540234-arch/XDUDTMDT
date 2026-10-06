@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Duyệt đánh giá (AdminReviewsPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminReviewsController
+    participant S as ReviewsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Đọc đánh giá chờ duyệt và bấm "Duyệt" hoặc "Từ chối"
+    FE->>G: PATCH /api/admin/reviews/:id/status
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(ModerateReviewDto)
+    alt Không: status thuộc approved, rejected, pending
+        C-->>FE: 400 Trạng thái không hợp lệ
+    end
+    C->>S: ReviewsService.moderate(adminId, id, dto)
+    S->>P: review.findUnique({ where: { id } })
+    P->>D: SELECT reviews
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy đánh giá
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy đánh giá
+    end
+    S->>P: review.update({ where: { id }, data: { status } })
+    P->>D: UPDATE reviews
+    D-->>P: kết quả
+    P-->>S: kết quả
+    Note over D: Trigger trg_reviews_refresh_rating
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'review.moderate', targetType: 'reviews', targetId: id } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: (sau commit) Thông báo cho người viết - NotificationsService.create
+    S-->>C: kết quả
+    C-->>FE: 200 Đánh giá sau khi duyệt
+    FE-->>A: Đánh giá rời hàng đợi chờ duyệt

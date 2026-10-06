@@ -1,0 +1,38 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm 'Tải lên'"]
+        n13["Tệp xuất hiện trong thư viện"]
+        n14(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/admin/media"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Loại MIME và dung lượng cho phép?"}
+        n7["Trả 400/413 Tệp không hợp lệ"]
+        n10["Đưa job vào hàng đợi: Nén ảnh nền (chỉ với ảnh)"]
+        n12["Trả 201: id, url, mimeType, fileSize"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n9["Tạo bản ghi media"]
+        n11["Ghi nhật ký hoạt động"]
+    end
+    subgraph LANE_X["MinIO/S3"]
+        n8["Lưu tệp lên MinIO/S3"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n5 --> n14
+    n7 --> n14

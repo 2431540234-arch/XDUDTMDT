@@ -1,0 +1,31 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Gõ từ khóa không dấu (ví dụ 'ban tra')"]
+        n11["Hiển thị kết quả, kể cả khi gõ không dấu"]
+        n12(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products/search?q=..."]
+        n4{"Từ khóa 2 đến 100 ký tự?"}
+        n5["Trả 400 Từ khóa không hợp lệ"]
+        n6["Escape ký tự % và _ trong từ khóa"]
+        n9["Chuyển Decimal sang number"]
+        n10["Trả 200: Danh sách kết quả"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n7["Tìm không dấu bằng index immutable_unaccent(name) (cần migration mới)"]
+        n8["Lấy chi tiết các sản phẩm tìm được"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n5 --> n12

@@ -1,0 +1,29 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang Quên mật khẩu (ForgotPasswordPage)
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    participant W as Hàng đợi BullMQ / Worker
+    A->>FE: Nhập email và bấm "Gửi liên kết đặt lại"
+    FE->>C: POST /api/auth/forgot-password
+    C->>C: ValidationPipe(ForgotPasswordDto)
+    alt Không: Email đúng định dạng
+        C-->>FE: 400 Email không hợp lệ
+    end
+    C->>S: AuthService.forgotPassword(email)
+    S->>P: user.findFirst({ where: { email, status: 'active', deletedAt: null } })
+    P->>D: SELECT users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Sinh token ngẫu nhiên và băm SHA-256 - crypto.randomBytes(32), sha256
+    S->>P: passwordReset.create({ data: { userId, tokenHash, expiresAt } })
+    P->>D: INSERT INTO password_resets
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-)W: Gửi email chứa liên kết đặt lại (MailService.sendPasswordReset(user, token))
+    S-->>C: kết quả
+    C-->>FE: 200 Thông báo chung "Nếu email tồn tại, hướng dẫn đã được gửi"
+    FE-->>A: Hiển thị thông báo đã gửi hướng dẫn

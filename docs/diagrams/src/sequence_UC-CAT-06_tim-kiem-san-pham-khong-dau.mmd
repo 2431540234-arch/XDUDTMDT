@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Ô tìm kiếm trên Header
+    participant C as ProductsController
+    participant S as ProductsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Gõ từ khóa không dấu (ví dụ "ban tra")
+    FE->>C: GET /api/products/search?q=...
+    C->>C: ValidationPipe(SearchProductsDto)
+    alt Không: Từ khóa 2 đến 100 ký tự
+        C-->>FE: 400 Từ khóa không hợp lệ
+    end
+    C->>S: ProductsService.search(q, page, limit)
+    S->>S: Escape ký tự % và _ trong từ khóa - escapeLike(q)
+    S->>P: $queryRaw`SELECT id FROM products WHERE immutable_unaccent(name) ILIKE '%' || immutable_unaccent(${q}) || '%' AND status = 'published' AND deleted_at IS NULL ORDER BY similarity(immutable_unaccent(name), immutable_unaccent(${q})) DESC`
+    P->>D: SQL thô (SELECT)
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: product.findMany({ where: { id: { in: ids } }, include: { productImages: true } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Chuyển Decimal sang number - serialize(items)
+    S-->>C: kết quả
+    C-->>FE: 200 Danh sách kết quả
+    FE-->>A: Hiển thị kết quả, kể cả khi gõ không dấu

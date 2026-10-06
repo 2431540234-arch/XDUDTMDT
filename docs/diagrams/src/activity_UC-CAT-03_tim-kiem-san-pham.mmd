@@ -1,0 +1,36 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Gõ từ khóa vào ô tìm kiếm"]
+        n13["Hiển thị gợi ý hoặc trang kết quả"]
+        n14(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Từ khóa có ít nhất 2 ký tự?"}
+        n4["[Web] Chưa gọi API"]
+        n5["Gửi GET /api/products/search?q=..."]
+        n6{"Từ khóa 2 đến 100 ký tự?"}
+        n7["Trả 400 Từ khóa không hợp lệ"]
+        n8["Escape ký tự % và _ trong từ khóa"]
+        n11["Chuyển Decimal sang number"]
+        n12["Trả 200: Danh sách kết quả"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n9["Tìm gần đúng theo tên (index GIN trigram)"]
+        n10["Lấy chi tiết các sản phẩm tìm được"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n4 --> n14
+    n7 --> n14

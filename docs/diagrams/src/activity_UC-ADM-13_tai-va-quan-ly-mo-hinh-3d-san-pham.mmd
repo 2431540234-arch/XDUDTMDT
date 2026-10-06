@@ -1,0 +1,60 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Tải tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm 'Tải lên'"]
+        n23["Hiển thị trạng thái processing; worker cập nhật ready hoặc failed (đo polygon, texture, checksum, nén)"]
+        n24(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/admin/models/:id/files"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n6{"Định dạng glb hoặc usdz và LOD hợp lệ?"}
+        n7["Trả 400/413 Tệp không hợp lệ"]
+        n9{"Mô hình tồn tại?"}
+        n10["Trả 404 Không tìm thấy mô hình"]
+        n12{"Chưa có tệp cùng định dạng và LOD?"}
+        n13["Trả 409 Tệp định dạng và LOD này đã tồn tại"]
+        n21["Đưa job vào hàng đợi: Đưa job optimize-3d-model rồi generate-ar-metadata vào hàng đợi media-processing"]
+        n22["Trả 202: Đã nhận tệp, mô hình đang xử lý"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT product_3d_models"]
+        n11["Truy vấn CSDL: SELECT model_files"]
+        n15["Bắt đầu transaction"]
+        n16["Tạo bản ghi media"]
+        n17["Tạo ModelFile"]
+        n18["Chuyển mô hình sang processing"]
+        n19["Commit transaction"]
+        n20["Trigger DB: Cập nhật cờ has3dModel và hasAr của sản phẩm"]
+    end
+    subgraph LANE_X["MinIO/S3"]
+        n14["Lưu tệp lên MinIO/S3"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 -->|"Không"| n13
+    n12 -->|"Có"| n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n22 --> n23
+    n23 --> n24
+    n5 --> n24
+    n7 --> n24
+    n10 --> n24
+    n13 --> n24

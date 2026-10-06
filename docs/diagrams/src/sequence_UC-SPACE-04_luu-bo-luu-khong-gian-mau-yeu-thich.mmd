@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Nút "Lưu" trên trang không gian
+    participant G as JwtAuthGuard
+    participant C as SpacesController
+    participant S as SpacesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm biểu tượng "Lưu" ở không gian mẫu
+    alt Không: Đã đăng nhập
+        FE-->>A: Hiển thị hộp thoại yêu cầu đăng nhập, chưa gọi API
+    end
+    FE->>G: PUT /api/spaces/:slug/bookmark
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: SpacesService.bookmark(userId, slug)
+    S->>P: space.findFirst({ where: { slug, status: 'published' } })
+    P->>D: SELECT spaces
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy không gian
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy không gian
+    end
+    S->>P: spaceBookmark.upsert({ where: { userId_spaceId: { userId, spaceId } }, update: {}, create: { userId, spaceId } })
+    P->>D: INSERT ... ON CONFLICT DO UPDATE space_bookmarks
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 204 Không nội dung
+    FE-->>A: Biểu tượng "Lưu" đổi sang đã lưu

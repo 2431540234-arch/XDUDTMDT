@@ -1,0 +1,25 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm liên kết ở Footer"]
+        n8["Hiển thị nội dung đã làm sạch HTML"]
+        n9(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/pages/:slug"]
+        n5{"Trang tồn tại và đã đăng?"}
+        n6["Trả 404 Không tìm thấy trang"]
+        n7["Trả 200: Nội dung trang tĩnh"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Truy vấn CSDL: SELECT pages"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n8
+    n8 --> n9
+    n6 --> n9

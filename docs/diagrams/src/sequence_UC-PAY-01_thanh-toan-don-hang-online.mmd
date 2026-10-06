@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang kết quả đặt hàng / Chi tiết đơn
+    participant G as JwtAuthGuard
+    participant C as PaymentsController
+    participant S as PaymentsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Thanh toán" cho đơn dùng cổng online
+    FE->>G: POST /api/payments/:orderId/checkout
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: PaymentsService.createCheckout(userId, orderId)
+    S->>P: order.findFirst({ where: { id: orderId, userId, status: 'pending', paymentStatus: 'unpaid' } })
+    P->>D: SELECT orders
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Đơn không thể thanh toán
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Đơn không thể thanh toán
+    end
+    S->>P: payment.findFirst({ where: { orderId, status: 'pending' } })
+    P->>D: SELECT payments
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Phương thức thanh toán không hỗ trợ
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Phương thức thanh toán không hỗ trợ
+    end
+    S->>S: Tạo URL thanh toán có chữ ký HMAC (số tiền lấy từ Order.total) - GatewayFactory.get(method).buildPaymentUrl(order, payment)
+    S-->>C: kết quả
+    C-->>FE: 200 paymentUrl và thời hạn
+    FE-->>A: Trình duyệt chuyển sang trang thanh toán của cổng

@@ -1,0 +1,11 @@
+stateDiagram-v2
+    [*] --> pending: Admin tạo vận đơn (UC-ADM-25)
+    pending --> picked_up: Đơn vị vận chuyển lấy hàng (Admin cập nhật)
+    picked_up --> in_transit: Đang vận chuyển
+    in_transit --> delivered: Giao thành công, đơn tự completed, COD thu tiền (UC-ADM-25)
+    in_transit --> failed: Giao thất bại
+    failed --> in_transit: Giao lại
+    failed --> returned: Hoàn hàng về kho
+    in_transit --> returned: Hoàn hàng
+    delivered --> [*]
+    returned --> [*]

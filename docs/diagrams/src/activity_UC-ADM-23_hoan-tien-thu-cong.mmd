@@ -1,0 +1,55 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Sau khi đã hoàn tiền ngoài hệ thống, bấm 'Ghi nhận hoàn tiền'"]
+        n22["Hiển thị trạng thái hoàn tiền"]
+        n23(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/admin/orders/:id/refund"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Đơn completed hoặc cancelled và đã thanh toán?"}
+        n9["Trả 409 Đơn không đủ điều kiện hoàn tiền"]
+        n11["Đặt người thực hiện cho trigger"]
+        n15["Với mỗi phần tử: dòng hàng (chỉ khi chọn nhập lại kho)"]
+        n17{"Còn phần tử khác?"}
+        n20["(sau commit) Thông báo cho user"]
+        n21["Trả 200: Đơn đã hoàn tiền"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Bắt đầu transaction"]
+        n7["Truy vấn CSDL: SELECT orders"]
+        n10["Rollback transaction"]
+        n12["Chuyển đơn sang refunded, thanh toán refunded"]
+        n13["Trigger DB: Ghi OrderStatusHistory (đến refunded, changedBy = admin)"]
+        n14["Đánh dấu giao dịch đã hoàn"]
+        n16["Nhập lại kho và ghi biến động return"]
+        n18["Ghi nhật ký hoạt động"]
+        n19["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 --> n8
+    n8 -->|"Không"| n9
+    n9 --> n10
+    n8 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 -->|"Có"| n15
+    n17 -->|"Không"| n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n21 --> n22
+    n22 --> n23
+    n5 --> n23
+    n10 --> n23

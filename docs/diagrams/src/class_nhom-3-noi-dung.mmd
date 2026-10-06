@@ -1,0 +1,41 @@
+classDiagram
+    class Category {
+        +Int id «PK»
+        +Int? parentId «FK»
+        +String name
+        +String slug «UK»
+        +Int? imageMediaId «FK»
+        +Int sortOrder
+        +Boolean isActive
+        +String? metaTitle
+        +String? metaDescription
+        +DateTime createdAt
+        +DateTime updatedAt
+        +isDescendantOf(id) Boolean
+        +getPath() List
+    }
+    class Page {
+        +Int id «PK»
+        +String title
+        +String slug «UK»
+        +String? content
+        +ContentStatus status
+        +String? metaTitle
+        +String? metaDescription
+        +DateTime? publishedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +publish()
+        +archive()
+    }
+    class ContentStatus {
+        <<enumeration>>
+        draft
+        published
+        archived
+    }
+    Media "0..1" o-- "0..*" Category : imageMedia
+    Category "0..1" o-- "0..*" Category : parent
+    Category "0..1" o-- "0..*" Product : category
+    Category "0..1" o-- "0..*" Space : category
+    Page ..> ContentStatus : status

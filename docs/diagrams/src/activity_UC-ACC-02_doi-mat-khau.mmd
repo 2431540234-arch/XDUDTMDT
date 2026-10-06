@@ -1,0 +1,50 @@
+flowchart TD
+    subgraph LANE_A["Người dùng"]
+        n1(("Bắt đầu"))
+        n2["Nhập mật khẩu hiện tại, mật khẩu mới và bấm 'Đổi mật khẩu'"]
+        n19["Hiển thị thông báo thành công"]
+        n20(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Mật khẩu mới đạt chính sách và trùng ô xác nhận?"}
+        n4["[Web] Hiển thị lỗi tại ô nhập"]
+        n5["Gửi POST /api/users/me/change-password"]
+        n6{"Đã đăng nhập?"}
+        n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n8{"Dữ liệu hợp lệ?"}
+        n9["Trả 400 Dữ liệu không hợp lệ"]
+        n11{"Mật khẩu hiện tại đúng?"}
+        n12["Trả 400 Mật khẩu hiện tại không đúng"]
+        n13["Băm mật khẩu mới"]
+        n18["Trả 200: Đổi mật khẩu thành công"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n10["Truy vấn CSDL: compare bcrypt"]
+        n14["Bắt đầu transaction"]
+        n15["Đổi mật khẩu"]
+        n16["Thu hồi các phiên khác"]
+        n17["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Không"| n12
+    n11 -->|"Có"| n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n4 --> n20
+    n7 --> n20
+    n9 --> n20
+    n12 --> n20

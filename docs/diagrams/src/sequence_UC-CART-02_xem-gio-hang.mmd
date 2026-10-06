@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Giỏ hàng (CartPage)
+    participant G as JwtAuthGuard
+    participant C as CartController
+    participant S as CartService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Mở trang giỏ hàng
+    alt Không: Đã đăng nhập
+        FE-->>A: Chuyển tới /login?redirect=/cart
+    end
+    FE->>G: GET /api/cart
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: CartService.getCart(userId)
+    S->>P: cart.findUnique({ where: { userId }, include: { cartItems: { include: { variant: { include: { product: true } } } } } })
+    P->>D: SELECT carts
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>S: Tính giá hiện hành, cờ hết hàng/ngừng bán và subtotal bằng Prisma.Decimal - CartService.buildView(cart)
+    S->>S: Chuyển Decimal sang number - serialize(view)
+    S-->>C: kết quả
+    C-->>FE: 200 Giỏ hàng (giỏ rỗng nếu chưa có)
+    FE-->>A: Hiển thị các dòng, cảnh báo và tổng kết CartSummary

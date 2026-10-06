@@ -1,0 +1,121 @@
+classDiagram
+    class Space {
+        +Int id «PK»
+        +String uuid «UK»
+        +String title
+        +String slug «UK»
+        +String? description
+        +RoomType roomType
+        +String? style
+        +Int? categoryId «FK»
+        +Int? coverMediaId «FK»
+        +ContentStatus status
+        +Int viewCount
+        +DateTime? publishedAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +publish()
+        +archive()
+    }
+    class SpacePanorama {
+        +Int id «PK»
+        +Int spaceId «FK»
+        +Int mediaId «FK»
+        +String? title
+        +Decimal defaultYaw
+        +Decimal defaultPitch
+        +Decimal defaultFov
+        +Int sortOrder
+        +Boolean isStart
+        +DateTime createdAt
+        +DateTime updatedAt
+        +setAsStart()
+    }
+    class SpaceHotspot {
+        +Int id «PK»
+        +Int panoramaId «FK»
+        +HotspotType type
+        +Decimal yaw
+        +Decimal pitch
+        +Int? productId «FK»
+        +Int? targetPanoramaId «FK»
+        +String? title
+        +String? content
+        +DateTime createdAt
+        +DateTime updatedAt
+        +validateByType() Boolean
+    }
+    class SpaceProductPlacement {
+        +Int id «PK»
+        +Int panoramaId «FK»
+        +Int productId «FK»
+        +Int? variantId «FK»
+        +Int? modelId «FK»
+        +Decimal yaw
+        +Decimal pitch
+        +Decimal distance
+        +Decimal rotationX
+        +Decimal rotationY
+        +Decimal rotationZ
+        +Decimal scale
+        +DateTime createdAt
+        +DateTime updatedAt
+        +resolveModel() Product3DModel
+    }
+    class SpaceBookmark {
+        +Int id «PK»
+        +Int userId «FK»
+        +Int spaceId «FK»
+        +DateTime createdAt
+    }
+    class SpaceView {
+        +Int id «PK»
+        +Int spaceId «FK»
+        +Int? userId «FK»
+        +String? visitorId
+        +Int? sourceProductId «FK»
+        +Int hotspotClickCount
+        +Boolean addedToCart
+        +DateTime createdAt
+    }
+    class RoomType {
+        <<enumeration>>
+        living_room
+        bedroom
+        kitchen
+        dining_room
+        bathroom
+        office
+        other
+    }
+    class ContentStatus {
+        <<enumeration>>
+        draft
+        published
+        archived
+    }
+    class HotspotType {
+        <<enumeration>>
+        product
+        navigation
+        info
+    }
+    Space "1" -- "0..*" SpaceBookmark : space
+    User "1" -- "0..*" SpaceBookmark : user
+    SpacePanorama "1" *-- "0..*" SpaceHotspot : panorama
+    Product "0..1" -- "0..*" SpaceHotspot : product
+    SpacePanorama "0..1" *-- "0..*" SpaceHotspot : targetPanorama
+    Media "1" o-- "0..*" SpacePanorama : media
+    Space "1" *-- "0..*" SpacePanorama : space
+    Product3DModel "0..1" o-- "0..*" SpaceProductPlacement : model
+    SpacePanorama "1" *-- "0..*" SpaceProductPlacement : panorama
+    Product "1" -- "0..*" SpaceProductPlacement : product
+    ProductVariant "1" o-- "0..*" SpaceProductPlacement : variant
+    Product "0..1" o-- "0..*" SpaceView : sourceProduct
+    Space "1" -- "0..*" SpaceView : space
+    User "0..1" -- "0..*" SpaceView : user
+    Category "0..1" o-- "0..*" Space : category
+    Media "0..1" o-- "0..*" Space : coverMedia
+    Space ..> RoomType : roomType
+    Space ..> ContentStatus : status
+    SpaceHotspot ..> HotspotType : type

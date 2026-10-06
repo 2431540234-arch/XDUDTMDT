@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Nút tim trên ProductCard / ProductInfo
+    participant G as JwtAuthGuard
+    participant C as WishlistController
+    participant S as WishlistService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm biểu tượng tim
+    alt Không: Đã đăng nhập
+        FE-->>A: Hiển thị hộp thoại yêu cầu đăng nhập, không gọi API
+    end
+    FE->>G: PUT /api/wishlist/:slug
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: WishlistService.add(userId, slug)
+    S->>P: product.findFirst({ where: { slug, status: 'published', deletedAt: null } })
+    P->>D: SELECT products
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Không tìm thấy sản phẩm
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Không tìm thấy sản phẩm
+    end
+    S->>P: wishlist.upsert({ where: { userId_productId: { userId, productId } }, update: {}, create: { userId, productId } })
+    P->>D: INSERT ... ON CONFLICT DO UPDATE wishlists
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 204 Không nội dung
+    FE-->>A: Biểu tượng tim đổi sang trạng thái đã thích

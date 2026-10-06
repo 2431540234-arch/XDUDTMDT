@@ -1,0 +1,74 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Chi tiết đơn (nút "Hủy đơn")
+    participant G as JwtAuthGuard
+    participant C as OrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Hủy đơn", nhập lý do và xác nhận
+    FE->>G: POST /api/orders/:id/cancel
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CancelOrderDto)
+    alt Không: Lý do hợp lệ (5 đến 500 ký tự)
+        C-->>FE: 400 Lý do không hợp lệ
+    end
+    C->>S: OrdersService.cancel(userId, id, dto)
+    critical $transaction (Prisma)
+        S->>P: order.findFirst({ where: { id, userId }, include: { orderItems: true, couponUsages: true } })
+        P->>D: SELECT orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 404 Không tìm thấy đơn hàng
+            S-->>C: throw NotFoundException
+            Note over S,D: rollback transaction
+            C-->>FE: 404 Không tìm thấy đơn hàng
+        end
+        S->>P: status in ['pending', 'confirmed']
+        P->>D: status in ['pending', 'confirmed']
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Đơn không thể hủy, vui lòng liên hệ cửa hàng
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Đơn không thể hủy, vui lòng liên hệ cửa hàng
+        end
+        S->>S: Đặt biến phiên người thực hiện - $executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`
+        S->>P: order.update({ where: { id }, data: { status: 'cancelled', cancelReason } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+        loop dòng hàng còn variantId
+            S->>P: productVariant.update({ where: { id: variantId }, data: { stockQuantity: { increment: quantity } } })
+            P->>D: UPDATE product_variants
+            D-->>P: kết quả
+            P-->>S: kết quả
+            S->>P: inventoryMovement.create({ data: { variantId, type: 'return', quantityChange: quantity, referenceCode: orderCode } })
+            P->>D: INSERT INTO inventory_movements
+            D-->>P: kết quả
+            P-->>S: kết quả
+        end
+        S->>P: couponUsage.deleteMany({ where: { orderId: id } })
+        P->>D: DELETE FROM coupon_usages
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: coupon.updateMany({ where: { id: couponId, usedCount: { gt: 0 } }, data: { usedCount: { decrement: 1 } } })
+        P->>D: UPDATE coupons
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: payment.updateMany({ where: { orderId: id, status: 'pending' }, data: { status: 'failed' } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: (sau commit) Tạo thông báo cho user - NotificationsService.create
+    S-->>C: kết quả
+    C-->>FE: 200 Đơn sau khi hủy
+    FE-->>A: Hiển thị đơn đã hủy (đơn đã thanh toán: chờ cửa hàng hoàn tiền thủ công)

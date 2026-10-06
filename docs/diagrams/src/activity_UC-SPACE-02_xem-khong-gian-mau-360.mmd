@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm vào một không gian mẫu để tham quan"]
+        n9["Mở ảnh mở đầu với góc nhìn mặc định; sau đó ghi lượt xem một lần khi rời trang (UC-SPACE-06)"]
+        n10(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/spaces/:slug"]
+        n5{"Không gian tồn tại và đã đăng?"}
+        n6["Trả 404 Không tìm thấy không gian"]
+        n7["Chọn ảnh mở đầu (isStart) và chuẩn hóa dữ liệu"]
+        n8["Trả 200: Không gian, ảnh 360°, hotspot, placement"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Truy vấn CSDL: SELECT spaces"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n6 --> n10

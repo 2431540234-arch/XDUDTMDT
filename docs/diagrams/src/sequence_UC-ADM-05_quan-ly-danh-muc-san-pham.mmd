@@ -1,0 +1,49 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Danh mục (AdminCategoriesPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminCategoriesController
+    participant S as CategoriesService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập tên, slug, danh mục cha, ảnh, thứ tự và bấm "Lưu"
+    FE->>G: POST /api/admin/categories
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateCategoryDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: CategoriesService.create(adminId, dto)
+    S->>P: category.findUnique({ where: { slug } })
+    P->>D: SELECT categories
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Slug đã tồn tại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Slug đã tồn tại
+    end
+    S->>P: CategoriesService.isDescendant(parentId, id)
+    P->>D: isDescendant CategoriesService
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 400 Danh mục cha không hợp lệ
+        S-->>C: throw BadRequestException
+        C-->>FE: 400 Danh mục cha không hợp lệ
+    end
+    S->>P: category.create({ data: { name, slug, parentId, imageMediaId, sortOrder, isActive, metaTitle, metaDescription } })
+    P->>D: INSERT INTO categories
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S->>P: activityLog.create({ data: { actorId: adminId, action: 'category.create', targetType: 'categories' } })
+    P->>D: INSERT INTO activity_logs
+    D-->>P: kết quả
+    P-->>S: kết quả
+    S-->>C: kết quả
+    C-->>FE: 201 Danh mục mới
+    FE-->>A: Cây danh mục được cập nhật

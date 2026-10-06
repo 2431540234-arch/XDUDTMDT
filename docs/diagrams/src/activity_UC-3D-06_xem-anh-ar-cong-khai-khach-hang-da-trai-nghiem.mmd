@@ -1,0 +1,20 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Mở mục 'Khách hàng đã trải nghiệm'"]
+        n6["Hiển thị lưới ảnh"]
+        n7(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/ar-snapshots/public?productId=&page="]
+        n5["Trả 200: Danh sách ảnh công khai (không lộ email, điện thoại)"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Lấy ảnh công khai kèm tên rút gọn người chụp"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 --> n7

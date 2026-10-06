@@ -1,0 +1,51 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Nhập họ tên, email, số điện thoại, mật khẩu và bấm 'Đăng ký'"]
+        n20["Chuyển về trang trước, giao diện ở trạng thái đã đăng nhập"]
+        n21(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3{"[Web] Dữ liệu form hợp lệ?"}
+        n4["[Web] Hiển thị lỗi tại từng ô nhập"]
+        n5["Gửi POST /api/auth/register"]
+        n6{"Dữ liệu hợp lệ?"}
+        n7["Trả 400 Dữ liệu không hợp lệ"]
+        n9{"Email chưa được dùng?"}
+        n10["Trả 409 Email đã được sử dụng"]
+        n11["Băm mật khẩu bằng bcrypt"]
+        n17["Đưa job vào hàng đợi: Gửi email xác thực"]
+        n18["Ký access token (15 phút) và refresh token (7 ngày)"]
+        n19["Trả 201: Token và hồ sơ người dùng"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n8["Truy vấn CSDL: SELECT users"]
+        n12["Bắt đầu transaction"]
+        n13["Tạo tài khoản (status active)"]
+        n14["Tạo phiên đăng nhập"]
+        n15["Commit transaction"]
+        n16["Trigger DB: Gán vai trò user cho tài khoản mới lúc commit"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Không"| n4
+    n3 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Không"| n10
+    n9 -->|"Có"| n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n4 --> n21
+    n7 --> n21
+    n10 --> n21

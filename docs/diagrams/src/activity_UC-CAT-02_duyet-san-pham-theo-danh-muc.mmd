@@ -1,0 +1,36 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Chọn danh mục, bộ lọc, sắp xếp"]
+        n13["Hiển thị lưới sản phẩm hoặc 'Không tìm thấy'"]
+        n14(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&limit="]
+        n4{"Tham số truy vấn hợp lệ?"}
+        n5["Trả 400 Tham số không hợp lệ"]
+        n7{"Danh mục tồn tại và đang bật?"}
+        n8["Trả 404 Không tìm thấy danh mục"]
+        n11["Chuyển Decimal sang number"]
+        n12["Trả 200: Danh sách phân trang và tổng số"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: SELECT categories"]
+        n9["Lấy sản phẩm đã đăng thuộc danh mục và danh mục con, phân trang"]
+        n10["Đếm tổng số"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n5 --> n14
+    n8 --> n14

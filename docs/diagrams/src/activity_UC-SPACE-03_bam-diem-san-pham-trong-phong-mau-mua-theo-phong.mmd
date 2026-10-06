@@ -1,0 +1,27 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm vào hotspot loại sản phẩm trong phòng 360°"]
+        n9["Hiện thẻ sản phẩm; nút 'Xem chi tiết' hoặc 'Thêm vào giỏ' (UC-CART-01); tăng bộ đếm hotspot cục bộ"]
+        n10(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi GET /api/products/:slug"]
+        n5{"Sản phẩm tồn tại, đã đăng và chưa xóa mềm?"}
+        n6["Trả 404 Sản phẩm không còn bán"]
+        n7["Chuyển Decimal sang number"]
+        n8["Trả 200: Thông tin nhanh của sản phẩm"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n4["Truy vấn CSDL: SELECT products"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n8
+    n8 --> n9
+    n9 --> n10
+    n6 --> n10

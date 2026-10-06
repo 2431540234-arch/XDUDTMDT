@@ -1,0 +1,51 @@
+flowchart TD
+    subgraph LANE_A["Cổng thanh toán"]
+        n1(("Bắt đầu"))
+        n2["Gửi thông báo kết quả giao dịch (IPN) tới máy chủ"]
+        n21(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi POST /api/payments/:gateway/ipn"]
+        n4{"Chữ ký HMAC hợp lệ?"}
+        n5["Trả 400 Chữ ký không hợp lệ (RspCode 97)"]
+        n7{"Tìm thấy giao dịch tương ứng và số tiền khớp Order.total?"}
+        n8["Trả 400 Không tìm thấy giao dịch hoặc sai số tiền (RspCode 01 hoặc 04)"]
+        n10{"Giao dịch chưa được xử lý trước đó?"}
+        n11["Trả 200 Đã xử lý (idempotent)"]
+        n15["Đặt ghi chú phiên (không đặt người đổi nên changedBy = NULL)"]
+        n19["(sau commit) Tạo thông báo cho user"]
+        n20["Trả 200: Phản hồi theo chuẩn cổng (ví dụ RspCode 00)"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: SELECT payments"]
+        n9["Truy vấn CSDL: status payments"]
+        n12["Bắt đầu transaction"]
+        n13["Ghi kết quả giao dịch (success, mã giao dịch, phản hồi, thời điểm thanh toán)"]
+        n14["Đồng bộ trạng thái thanh toán của đơn"]
+        n16["Tự chuyển đơn pending sang confirmed"]
+        n17["Trigger DB: Ghi OrderStatusHistory (pending sang confirmed, changedBy NULL)"]
+        n18["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 -->|"Không"| n11
+    n10 -->|"Có"| n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n20 --> n21
+    n5 --> n21
+    n8 --> n21
+    n11 --> n21

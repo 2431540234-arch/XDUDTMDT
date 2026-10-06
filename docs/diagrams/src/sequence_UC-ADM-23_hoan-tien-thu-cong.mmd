@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Chi tiết đơn quản trị (nút "Ghi nhận hoàn tiền")
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminOrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Sau khi đã hoàn tiền ngoài hệ thống, bấm "Ghi nhận hoàn tiền"
+    FE->>G: POST /api/admin/orders/:id/refund
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>S: OrdersService.refund(adminId, id, dto)
+    critical $transaction (Prisma)
+        S->>P: order.findUnique({ where: { id }, include: { payments: true, orderItems: true } })
+        P->>D: SELECT orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Đơn không đủ điều kiện hoàn tiền
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Đơn không đủ điều kiện hoàn tiền
+        end
+        S->>S: Đặt người thực hiện cho trigger - $executeRaw`SELECT set_config('app.current_user_id', ${adminId}, true)`
+        S->>P: order.update({ where: { id }, data: { status: 'refunded', paymentStatus: 'refunded' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+        S->>P: payment.updateMany({ where: { orderId: id, status: 'success' }, data: { status: 'refunded' } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        loop dòng hàng (chỉ khi chọn nhập lại kho)
+            S->>P: productVariant.update({ where: { id: variantId }, data: { stockQuantity: { increment: quantity } } })
+            P->>D: UPDATE product_variants
+            D-->>P: kết quả
+            P-->>S: kết quả
+        end
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'order.refund', targetType: 'orders', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: (sau commit) Thông báo cho user - NotificationsService.create
+    S-->>C: kết quả
+    C-->>FE: 200 Đơn đã hoàn tiền
+    FE-->>A: Hiển thị trạng thái hoàn tiền

@@ -1,0 +1,14 @@
+stateDiagram-v2
+    [*] --> pending: User đặt hàng (UC-ORD-01)
+    pending --> confirmed: Admin xác nhận (UC-ADM-21) hoặc hệ thống khi thanh toán online thành công (UC-PAY-02)
+    pending --> cancelled: User hoặc Admin hủy (UC-ORD-03, UC-ADM-22)
+    confirmed --> processing: Admin xử lý (UC-ADM-21)
+    confirmed --> cancelled: User hoặc Admin hủy
+    processing --> shipping: Admin giao hàng, cần có vận đơn (UC-ADM-21, UC-ADM-25)
+    processing --> cancelled: Chỉ Admin hủy (UC-ADM-22)
+    shipping --> completed: Admin đánh dấu vận đơn delivered, đơn tự hoàn tất (UC-ADM-25)
+    completed --> refunded: Admin ghi nhận hoàn tiền (UC-ADM-23)
+    cancelled --> refunded: Admin hoàn tiền đơn đã thanh toán (UC-ADM-23)
+    refunded --> [*]
+    completed --> [*]
+    cancelled --> [*]

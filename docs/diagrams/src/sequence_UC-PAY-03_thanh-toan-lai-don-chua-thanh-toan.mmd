@@ -1,0 +1,48 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Chi tiết đơn (nút "Thanh toán lại")
+    participant G as JwtAuthGuard
+    participant C as PaymentsController
+    participant S as PaymentsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Thanh toán lại" (có thể đổi phương thức)
+    FE->>G: POST /api/payments/:orderId/retry
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(RetryPaymentDto)
+    alt Không: Phương thức hợp lệ
+        C-->>FE: 400 Phương thức không hợp lệ
+    end
+    C->>S: PaymentsService.retry(userId, orderId, dto)
+    S->>P: order.findFirst({ where: { id: orderId, userId, status: 'pending', paymentStatus: { in: ['unpaid', 'failed'] } } })
+    P->>D: SELECT orders
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 409 Đơn không thể thanh toán lại
+        S-->>C: throw ConflictException
+        C-->>FE: 409 Đơn không thể thanh toán lại
+    end
+    critical $transaction (Prisma)
+        S->>P: payment.updateMany({ where: { orderId, status: 'pending' }, data: { status: 'failed' } })
+        P->>D: UPDATE payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: payment.create({ data: { orderId, method, amount: total, status: 'pending' } })
+        P->>D: INSERT INTO payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: order.update({ where: { id: orderId }, data: { paymentMethod: method, paymentStatus: 'unpaid' } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: Tạo URL thanh toán có chữ ký - GatewayFactory.get(method).buildPaymentUrl(order, payment)
+    S-->>C: kết quả
+    C-->>FE: 200 paymentUrl
+    FE-->>A: Trình duyệt chuyển sang trang thanh toán của cổng

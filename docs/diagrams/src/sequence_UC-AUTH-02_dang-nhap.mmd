@@ -1,0 +1,53 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Trang Đăng nhập (LoginPage)
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhập email, mật khẩu và bấm "Đăng nhập"
+    FE->>C: POST /api/auth/login
+    C->>C: ValidationPipe(LoginDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: AuthService.login(dto, meta)
+    S->>P: user.findFirst({ where: { email, deletedAt: null }, include: { userRoles: { include: { role: true } } } })
+    P->>D: SELECT users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 401 Email hoặc mật khẩu không đúng
+        S-->>C: throw UnauthorizedException
+        C-->>FE: 401 Email hoặc mật khẩu không đúng
+    end
+    S->>P: status === 'active'
+    P->>D: status === 'active'
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 403 Tài khoản bị khóa
+        S-->>C: throw ForbiddenException
+        C-->>FE: 403 Tài khoản bị khóa
+    end
+    S->>P: bcrypt.compare(password, user.passwordHash)
+    P->>D: compare bcrypt
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 401 Email hoặc mật khẩu không đúng
+        S-->>C: throw UnauthorizedException
+        C-->>FE: 401 Email hoặc mật khẩu không đúng
+    end
+    critical $transaction (Prisma)
+        S->>P: userSession.create({ data: { userId, refreshTokenHash, ipAddress, userAgent, deviceName, expiresAt } })
+        P->>D: INSERT INTO user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: user.update({ where: { id }, data: { lastLoginAt: new Date() } })
+        P->>D: UPDATE users
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: Ký access token và refresh token (kèm vai trò) - JwtService.signAsync
+    S-->>C: kết quả
+    C-->>FE: 200 Token và hồ sơ người dùng
+    FE-->>A: Lưu token vào authStore, chuyển hướng (admin tới /dashboard)

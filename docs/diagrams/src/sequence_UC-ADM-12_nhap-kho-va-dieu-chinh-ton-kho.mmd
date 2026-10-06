@@ -1,0 +1,54 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Trang Kho hàng (AdminInventoryPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminInventoryController
+    participant S as InventoryService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn biến thể, loại (nhập kho/điều chỉnh/trả hàng), số lượng, lý do và bấm "Ghi nhận"
+    FE->>G: POST /api/admin/inventory/movements
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateInventoryMovementDto)
+    alt Không: type không phải sale và quantityChange khác 0
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: InventoryService.record(adminId, dto)
+    critical $transaction (Prisma)
+        S->>P: productVariant.findUnique({ where: { id: variantId } })
+        P->>D: SELECT product_variants
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 404 Không tìm thấy biến thể
+            S-->>C: throw NotFoundException
+            Note over S,D: rollback transaction
+            C-->>FE: 404 Không tìm thấy biến thể
+        end
+        S->>P: productVariant.updateMany({ where: { id: variantId, stockQuantity: { gte: minStock } }, data: { stockQuantity: { increment: quantityChange } } })
+        P->>D: UPDATE product_variants
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Tồn kho không đủ
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Tồn kho không đủ
+        end
+        S->>P: inventoryMovement.create({ data: { variantId, type, quantityChange, reason, referenceCode, performedBy: adminId } })
+        P->>D: INSERT INTO inventory_movements
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'inventory.record', targetType: 'product_variants', targetId: variantId } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    Note over D: Trigger trg_product_variants_set_updated_at
+    S-->>C: kết quả
+    C-->>FE: 201 Biến động kho và tồn kho mới
+    FE-->>A: Lịch sử kho và tồn kho được cập nhật

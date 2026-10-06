@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+    actor A as Client (tự động)
+    participant FE as Interceptor của api-client (axios)
+    participant G as JwtRefreshGuard
+    participant C as AuthController
+    participant S as AuthService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Nhận 401 do access token hết hạn, gửi refresh token
+    FE->>G: POST /api/auth/refresh
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(RefreshTokenDto)
+    alt Không: Refresh token hợp lệ về chữ ký và thời hạn
+        C-->>FE: 401 Phiên không hợp lệ
+    end
+    C->>S: AuthService.refresh(refreshToken)
+    S->>P: userSession.findFirst({ where: { refreshTokenHash, revokedAt: null, expiresAt: { gt: now } } })
+    P->>D: SELECT user_sessions
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 401 Phiên hết hạn, yêu cầu đăng nhập lại
+        S-->>C: throw UnauthorizedException
+        C-->>FE: 401 Phiên hết hạn, yêu cầu đăng nhập lại
+    end
+    S->>P: user.findFirst({ where: { id: session.userId, status: 'active', deletedAt: null } })
+    P->>D: SELECT users
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 401 Tài khoản không khả dụng
+        S-->>C: throw UnauthorizedException
+        C-->>FE: 401 Tài khoản không khả dụng
+    end
+    critical $transaction (Prisma)
+        S->>P: userSession.update({ where: { id }, data: { revokedAt: new Date() } })
+        P->>D: UPDATE user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: userSession.create({ data: { userId, refreshTokenHash: newHash, expiresAt } })
+        P->>D: INSERT INTO user_sessions
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: Ký cặp token mới - JwtService.signAsync
+    S-->>C: kết quả
+    C-->>FE: 200 Cặp token mới
+    FE-->>A: Client lưu token mới và gửi lại request ban đầu

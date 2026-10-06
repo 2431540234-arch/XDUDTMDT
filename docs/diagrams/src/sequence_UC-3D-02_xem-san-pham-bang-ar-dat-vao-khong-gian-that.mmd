@@ -1,0 +1,23 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant FE as Nút "Xem trong không gian của bạn"
+    participant C as ProductModelsController
+    participant S as ProductModelsService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Xem trong không gian của bạn" trên thiết bị hỗ trợ AR
+    FE->>C: GET /api/products/:slug/model
+    C->>S: ProductModelsService.getPublicModel(slug, variantId)
+    S->>P: product3DModel.findFirst({ where: { product: { slug, hasAr: true }, isPrimary: true, status: 'ready' }, include: { modelFiles: { include: { media: true } } } })
+    P->>D: SELECT product_3d_models
+    D-->>P: kết quả
+    P-->>S: kết quả
+    alt 404 Sản phẩm chưa hỗ trợ AR
+        S-->>C: throw NotFoundException
+        C-->>FE: 404 Sản phẩm chưa hỗ trợ AR
+    end
+    S->>S: Chọn USDZ cho iOS, GLB cho Android/Web và truyền kích thước thật - ProductModelsService.toPublicDto(model)
+    S-->>C: kết quả
+    C-->>FE: 200 Tệp AR, kích thước thật, vị trí đặt, allowScaling
+    FE-->>A: Mở AR (Quick Look / Scene Viewer / WebXR), ghi nhận phiên AR (UC-3D-07)

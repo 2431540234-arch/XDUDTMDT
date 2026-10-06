@@ -1,0 +1,48 @@
+flowchart TD
+    subgraph LANE_A["Quản trị viên"]
+        n1(("Bắt đầu"))
+        n2["Đối soát sao kê và bấm 'Xác nhận đã nhận tiền'"]
+        n19["Đơn chuyển sang đã xác nhận"]
+        n20(("Kết thúc"))
+    end
+    subgraph LANE_S["Hệ thống (API)"]
+        n3["Gửi PATCH /api/admin/payments/:id/confirm"]
+        n4{"Đã đăng nhập và đủ quyền?"}
+        n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
+        n7{"Giao dịch chuyển khoản đang pending?"}
+        n8["Trả 409 Giao dịch không thể xác nhận"]
+        n12["Đặt người thực hiện cho trigger"]
+        n17["(sau commit) Thông báo cho user"]
+        n18["Trả 200: Giao dịch sau khi xác nhận"]
+    end
+    subgraph LANE_D["Cơ sở dữ liệu"]
+        n6["Truy vấn CSDL: SELECT payments"]
+        n9["Bắt đầu transaction"]
+        n10["Xác nhận thanh toán thành công (mã giao dịch UNIQUE)"]
+        n11["Đồng bộ trạng thái thanh toán của đơn"]
+        n13["Tự chuyển đơn pending sang confirmed"]
+        n14["Trigger DB: Ghi OrderStatusHistory (pending sang confirmed, changedBy = admin)"]
+        n15["Ghi nhật ký hoạt động"]
+        n16["Commit transaction"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n5
+    n4 -->|"Có"| n6
+    n6 --> n7
+    n7 -->|"Không"| n8
+    n7 -->|"Có"| n9
+    n9 --> n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n14
+    n14 --> n15
+    n15 --> n16
+    n16 --> n17
+    n17 --> n18
+    n18 --> n19
+    n19 --> n20
+    n5 --> n20
+    n8 --> n20

@@ -1,0 +1,61 @@
+sequenceDiagram
+    autonumber
+    actor A as Quản trị viên
+    participant FE as Chi tiết đơn quản trị (AdminOrderDetailPage)
+    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
+    participant C as AdminOrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Bấm "Xác nhận", "Bắt đầu xử lý" hoặc "Giao hàng" và ghi chú (nếu có)
+    FE->>G: PATCH /api/admin/orders/:id/status
+    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(UpdateOrderStatusDto)
+    alt Không: status là confirmed, processing hoặc shipping
+        C-->>FE: 409 Hoàn tất khi vận đơn được đánh dấu đã giao (UC-ADM-25)
+    end
+    C->>S: OrdersService.updateStatus(adminId, id, dto)
+    critical $transaction (Prisma)
+        S->>P: order.findUnique({ where: { id }, include: { shipments: true } })
+        P->>D: SELECT orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 404 Không tìm thấy đơn hàng
+            S-->>C: throw NotFoundException
+            Note over S,D: rollback transaction
+            C-->>FE: 404 Không tìm thấy đơn hàng
+        end
+        S->>P: OrdersService.assertTransition(from, to)
+        P->>D: assertTransition OrdersService
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Chuyển trạng thái không hợp lệ
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Chuyển trạng thái không hợp lệ
+        end
+        S->>P: shipments.length > 0
+        P->>D: length shipments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 400 Chưa có vận đơn
+            S-->>C: throw BadRequestException
+            Note over S,D: rollback transaction
+            C-->>FE: 400 Chưa có vận đơn
+        end
+        S->>S: Đặt người thực hiện và ghi chú cho trigger - $executeRaw`SELECT set_config('app.current_user_id', ${adminId}, true)`
+        S->>P: order.update({ where: { id }, data: { status } })
+        P->>D: UPDATE orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_update
+    end
+    S->>S: (sau commit) Tạo thông báo và gửi email cho user - NotificationsService.create, MailService.sendOrderStatus
+    S-->>C: kết quả
+    C-->>FE: 200 Đơn kèm lịch sử trạng thái
+    FE-->>A: Hiển thị trạng thái mới trong dòng thời gian

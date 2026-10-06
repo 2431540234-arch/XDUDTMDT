@@ -1,0 +1,109 @@
+sequenceDiagram
+    autonumber
+    actor A as Người dùng
+    participant FE as Trang Thanh toán (CheckoutPage)
+    participant G as JwtAuthGuard
+    participant C as OrdersController
+    participant S as OrdersService
+    participant P as PrismaService
+    participant D as PostgreSQL
+    A->>FE: Chọn địa chỉ, phương thức thanh toán, nhập mã giảm giá (nếu có) và bấm "Đặt hàng"
+    alt Không: Đã đăng nhập và đã chọn địa chỉ
+        FE-->>A: Yêu cầu đăng nhập hoặc chọn địa chỉ, chưa gọi API
+    end
+    FE->>G: POST /api/orders
+    G->>G: xác thực JWT
+    alt Token thiếu, hết hạn hoặc không đủ quyền
+        G-->>FE: 401 / 403
+        FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
+    end
+    G->>C: request (kèm user từ token)
+    C->>C: ValidationPipe(CreateOrderDto)
+    alt Không: Dữ liệu hợp lệ
+        C-->>FE: 400 Dữ liệu không hợp lệ
+    end
+    C->>S: OrdersService.create(userId, dto)
+    critical $transaction (Prisma)
+        S->>P: address.findFirst({ where: { id: addressId, userId } })
+        P->>D: SELECT addresses
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 404 Không tìm thấy địa chỉ
+            S-->>C: throw NotFoundException
+            Note over S,D: rollback transaction
+            C-->>FE: 404 Không tìm thấy địa chỉ
+        end
+        S->>P: cart.findUnique({ where: { userId }, include: { cartItems: { include: { variant: { include: { product: true } } } } } })
+        P->>D: SELECT carts
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 400 Giỏ hàng trống
+            S-->>C: throw BadRequestException
+            Note over S,D: rollback transaction
+            C-->>FE: 400 Giỏ hàng trống
+        end
+        S->>P: items.every(isSellable)
+        P->>D: every items
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 409 Có sản phẩm không còn bán
+            S-->>C: throw ConflictException
+            Note over S,D: rollback transaction
+            C-->>FE: 409 Có sản phẩm không còn bán
+        end
+        S->>S: Tính subtotal bằng Prisma.Decimal từ salePrice hoặc price - Decimal.sum(unitPrice * quantity)
+        loop dòng giỏ hàng
+            S->>P: productVariant.updateMany({ where: { id: variantId, stockQuantity: { gte: quantity } }, data: { stockQuantity: { decrement: quantity } } })
+            P->>D: UPDATE product_variants
+            D-->>P: kết quả
+            P-->>S: kết quả
+            alt 409 Sản phẩm không đủ tồn kho
+                S-->>C: throw ConflictException
+                Note over S,D: rollback transaction
+                C-->>FE: 409 Sản phẩm không đủ tồn kho
+            end
+            S->>P: inventoryMovement.create({ data: { variantId, type: 'sale', quantityChange: -quantity, referenceCode: orderCode } })
+            P->>D: INSERT INTO inventory_movements
+            D-->>P: kết quả
+            P-->>S: kết quả
+        end
+        S->>P: coupon.updateMany({ where: { id: couponId, isActive: true, usedCount: { lt: usageLimit } }, data: { usedCount: { increment: 1 } } })
+        P->>D: UPDATE coupons
+        D-->>P: kết quả
+        P-->>S: kết quả
+        alt 400 Mã giảm giá không hợp lệ hoặc đã hết lượt
+            S-->>C: throw BadRequestException
+            Note over S,D: rollback transaction
+            C-->>FE: 400 Mã giảm giá không hợp lệ hoặc đã hết lượt
+        end
+        S->>P: setting.findMany({ where: { key: { in: ['default_shipping_fee', 'free_shipping_threshold'] } } })
+        P->>D: SELECT settings
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>S: Tính discountAmount, shippingFee và total = subtotal - discount + shipping - OrdersService.computeTotals()
+        S->>P: order.create({ data: { orderCode, userId, recipientName, shippingAddress, subtotal, discountAmount, shippingFee, total, couponId, paymentMethod } })
+        P->>D: INSERT INTO orders
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_orders_log_status_insert
+        S->>P: orderItem.createMany({ data: items })
+        P->>D: INSERT INTO order_items
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: couponUsage.create({ data: { couponId, userId, orderId } })
+        P->>D: INSERT INTO coupon_usages
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: payment.create({ data: { orderId, method, amount: total, status: 'pending' } })
+        P->>D: INSERT INTO payments
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: cartItem.deleteMany({ where: { cartId } })
+        P->>D: DELETE FROM cart_items
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
+    S->>S: (sau commit) Tạo thông báo và gửi email xác nhận đơn - NotificationsService.create, MailService.sendOrderCreated
+    S-->>C: kết quả
+    C-->>FE: 201 OrderResponseDto của đơn mới
+    FE-->>A: COD hoặc chuyển khoản: trang "Đặt hàng thành công", online: chuyển sang bước thanh toán (UC-PAY-01)
