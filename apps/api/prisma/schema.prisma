@@ -286,7 +286,7 @@ model Media {
   fileName           String           @map("file_name") @db.VarChar(255)
   filePath           String           @unique(map: "uq_media_file_path") @map("file_path") @db.VarChar(500)
   mimeType           String           @map("mime_type") @db.VarChar(100)
-  fileSize           BigInt           @map("file_size")
+  fileSize           Int              @map("file_size")
   altText            String?          @map("alt_text") @db.VarChar(255)
   uploadedBy         Int?             @map("uploaded_by")
   createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)

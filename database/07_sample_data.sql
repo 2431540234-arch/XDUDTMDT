@@ -5,7 +5,7 @@
 -- =====================================================================
 
 -- Hàm tạm (chỉ tồn tại trong phiên): tạo bản ghi media và trả về id
-CREATE OR REPLACE FUNCTION pg_temp.mk_media(p_name text, p_mime text, p_size bigint, p_alt text DEFAULT NULL)
+CREATE OR REPLACE FUNCTION pg_temp.mk_media(p_name text, p_mime text, p_size integer, p_alt text DEFAULT NULL)
 RETURNS integer LANGUAGE sql AS $$
   INSERT INTO media (file_name, file_path, mime_type, file_size, alt_text, uploaded_by)
   VALUES (p_name, 'uploads/sample/' || p_name, p_mime, p_size, p_alt,

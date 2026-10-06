@@ -2,7 +2,7 @@
 
 Website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°.
 Hệ quản trị: **PostgreSQL 15+** (dùng `UNIQUE NULLS NOT DISTINCT` và `ON DELETE SET NULL (cột)`, đã chạy thử trên 16).
-Nguồn mô tả nghiệp vụ: [CAU_TRUC_DB.md](CAU_TRUC_DB.md).
+Nguồn mô tả nghiệp vụ: [CAU_TRUC_DB.md](CAU_TRUC_DB.md). Quy ước khi code: [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md).
 
 > **Nguồn chuẩn cấu trúc CSDL là `apps/api/prisma`** (`schema.prisma` + `migrations/0_init`). Thư mục [`database/`](../database/) chỉ còn là tài liệu tham khảo (SQL thuần, xem [database/README.md](../database/README.md)). Mọi thay đổi về sau làm qua `prisma migrate dev`.
 
@@ -44,7 +44,7 @@ Tài khoản mẫu (mật khẩu băm bcrypt bằng `crypt()`): `admin@aurelia.v
 
 ### Quy ước thiết kế
 
-- Khóa chính và khóa ngoại dùng `INTEGER` (`id INTEGER GENERATED ALWAYS AS IDENTITY`) để Prisma sinh kiểu `Int`/`number`. Ngoại lệ có chủ ý: `media.file_size` là `BIGINT` (dung lượng byte, Prisma trả `BigInt`). Thêm cột `uuid` (UNIQUE, `gen_random_uuid()`) cho `users`, `orders`, `spaces`, `ar_sessions` (và `product_3d_models`) để dùng làm mã công khai ngoài API.
+- Khóa chính và khóa ngoại dùng `INTEGER` (`id INTEGER GENERATED ALWAYS AS IDENTITY`) để Prisma sinh kiểu `Int`/`number`. `media.file_size` cũng là `INTEGER` (byte, tối đa ~2 GB, CHECK ≥ 0). Thêm cột `uuid` (UNIQUE, `gen_random_uuid()`) cho `users`, `orders`, `spaces`, `ar_sessions` (và `product_3d_models`) để dùng làm mã công khai ngoài API.
 - Tiền `NUMERIC(15,2)` có CHECK ≥ 0; kích thước 3D `INTEGER` (mm); góc, tỉ lệ, tọa độ `NUMERIC(9,4)`; email và mã giảm giá `CITEXT`; IP `INET`; dữ liệu linh hoạt `JSONB`.
 - Tên ràng buộc: `pk_`, `fk_<bảng>_<cột>`, `uq_`, `ck_`; tên index: `idx_`.
 - Bảng nhật ký (`activity_logs`, `inventory_movements`, `order_status_history`, `space_views`, `coupon_usages`) chỉ có `created_at`. Bảng có dữ liệu sửa được (kể cả `ar_sessions`, vì các cờ `placed/captured/added_to_cart` được cập nhật khi phiên diễn ra) có thêm `updated_at` (trigger tự cập nhật). Các bảng liên kết/nhật ký khác (`role_permissions`, `user_roles`, `wishlists`, `space_bookmarks`, `order_items`, `notifications`, `password_resets`, `user_sessions`, `permissions`, `variant_attribute_values`) cũng chỉ có `created_at`.
@@ -283,7 +283,7 @@ Kho tệp dùng chung: ảnh sản phẩm, ảnh danh mục, tệp mô hình 3D,
 | `file_name` | varchar(255) | NOT NULL | Tên tệp gốc |
 | `file_path` | varchar(500) | UNIQUE<br>NOT NULL | Đường dẫn/khóa lưu trữ (duy nhất) |
 | `mime_type` | varchar(100) | NOT NULL | Loại tệp (MIME) |
-| `file_size` | bigint | NOT NULL | Dung lượng (byte) |
+| `file_size` | integer | NOT NULL | Dung lượng (byte) |
 | `alt_text` | varchar(255) | — | Mô tả ảnh (SEO/trợ năng) |
 | `uploaded_by` | integer | FK → users.id (set null) | Người tải lên |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
@@ -1122,7 +1122,7 @@ erDiagram
         varchar file_name
         varchar file_path UK
         varchar mime_type
-        bigint file_size
+        integer file_size
         varchar alt_text
         integer uploaded_by FK
         timestamptz created_at
@@ -1755,10 +1755,14 @@ Các việc này cần khóa dòng, trả lỗi nghiệp vụ rõ ràng và ch�
 
 ## 8. Thay đổi
 
-### 8.1. Lần đồng bộ Prisma (bản này)
+### 8.0. Migration `media_file_size_int`
+
+`media.file_size` đổi từ `BIGINT` sang `INTEGER` (CHECK `>= 0` giữ nguyên) để Prisma trả `number` thay vì `BigInt`. `database/03_tables.sql` đã cập nhật cho khớp; `0_init` giữ nguyên (lịch sử).
+
+### 8.1. Lần đồng bộ Prisma
 
 - `ar_sessions` có thêm `updated_at` (kèm trigger `set_updated_at`) vì phiên được cập nhật các cờ khi đang diễn ra. Trigger tăng từ 35 lên 36.
-- Toàn bộ khóa chính và khóa ngoại đổi từ `BIGINT` sang `INTEGER` (giữ nguyên các cột `uuid`); Prisma sinh `Int`. `media.file_size` giữ `BIGINT`.
+- Toàn bộ khóa chính và khóa ngoại đổi từ `BIGINT` sang `INTEGER` (giữ nguyên các cột `uuid`); Prisma sinh `Int`. `media.file_size` ban đầu giữ `BIGINT`, sau đó đổi sang `INTEGER` bằng migration `media_file_size_int`.
 - Đã xóa schema cũ của Prisma (`apps/api/prisma/schema.sql`, `migrations/20261001000000_init`). `schema.prisma` được sinh lại bằng `prisma db pull` từ DB dựng bởi `database/01..05`, rồi đổi tên: model PascalCase số ít (`@@map`), field camelCase (`@map`), quan hệ đặt theo khóa ngoại (`user`, `product`, `variant`...), cặp model có nhiều quan hệ được đặt tên tường minh (`SpaceHotspotPanorama`/`SpaceHotspotTargetPanorama`, `MediaUploadedByUser`/`UserAvatarMedia`...), ENUM đổi sang PascalCase (`@@map`).
 - Migration baseline `prisma/migrations/0_init/migration.sql` = nối nguyên văn `database/01..05` (không gồm seed), đã `migrate resolve --applied`.
 - `prisma/seed.ts` viết lại (idempotent, `bcryptjs`); khai báo `"prisma": { "seed": "ts-node prisma/seed.ts" }` trong `apps/api/package.json`.
@@ -1858,7 +1862,7 @@ Lưu ý khi dùng Prisma Client:
 
 1. **Prisma không thấy** CHECK, partial unique index, trigger, index biểu thức/GIN, generated column, `NULLS NOT DISTINCT`. Chúng nằm trong `0_init`. `migrate dev` về sau không tự bỏ chúng (đã kiểm tra `migrate diff` từ DB sang `schema.prisma` rỗng), nhưng luôn cần đọc lại SQL sinh ra; với CHECK/trigger dùng `--create-only`.
 2. **`order_items.line_total`** là generated column nhưng Prisma Client thấy như cột có default (kiểu `Decimal?`); gán giá trị từ app sẽ bị PostgreSQL từ chối.
-3. **`media.file_size` là `BigInt`** trong Prisma Client (giữ `BIGINT` để chứa tệp > 2 GB). Muốn là `number` thì đổi cột sang `INTEGER` bằng một migration mới.
+3. **`media.file_size` là `INTEGER`** (migration `media_file_size_int`): tối đa khoảng 2 GB mỗi tệp; tệp lớn hơn cần đổi kiểu bằng migration mới.
 4. **`model_material_variants`** chưa ép biến thể cùng sản phẩm với mô hình (cần trigger hoặc cột `product_id` thừa); hiện Service kiểm tra.
 5. **`ON DELETE`**: `categories.parent_id` là `RESTRICT`; media bắt buộc (`product_images`, `model_files`, `space_panoramas`, `ar_snapshots`) là `RESTRICT`; `ar_sessions.user_id`, `space_views.user_id`, `space_hotspots.product_id` là `CASCADE` để không vi phạm CHECK của chính bảng. Xóa cứng user bị chặn khi còn đơn hoặc lượt dùng mã; dùng xóa mềm.
 6. **Dữ liệu mẫu** (`seed.ts`, `07_sample_data.sql`) ghi tay các thay đổi mà Service sẽ làm (trừ kho, `sold_count`, `used_count`); chỉ dùng cho dev (`SEED_SAMPLE=false` để bỏ).

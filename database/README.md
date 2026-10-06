@@ -7,7 +7,7 @@ Thư mục này chỉ giữ bản SQL thuần để đọc, đối chiếu và d
 
 | `database/` | `apps/api/prisma` |
 | --- | --- |
-| `01_extensions.sql` … `05_functions_triggers.sql` | `migrations/0_init/migration.sql` (nối nguyên văn 01 → 05, không gồm seed) |
+| `01_extensions.sql` … `05_functions_triggers.sql` | `migrations/0_init/migration.sql` (nối nguyên văn 01 → 05 lúc baseline, không gồm seed) cộng các migration sau đó; `database/` được cập nhật tay cho khớp (ví dụ `media_file_size_int`) nên có thể chậm hơn migration |
 | `06_seed.sql`, `07_sample_data.sql` | `seed.ts` (chạy bằng `npx prisma db seed`, idempotent) |
 | `run_all.sql`, `00_reset.sql` | không dùng; dev dựng lại bằng `npx prisma migrate reset` |
 
@@ -42,5 +42,7 @@ Quy tắc:
 createdb -U postgres aurelia_ref
 psql -U postgres -d aurelia_ref -v ON_ERROR_STOP=1 -f database/run_all.sql
 ```
+
+Quy ước bắt buộc khi code với CSDL (đúng/sai kèm ví dụ Prisma): [`docs/QUY_UOC_CODE_DB.md`](../docs/QUY_UOC_CODE_DB.md).
 
 Xem mô tả đầy đủ (từ điển dữ liệu, ERD, trigger, nghiệp vụ Service, ánh xạ bảng ↔ model Prisma) tại [`docs/DATABASE_SCHEMA.md`](../docs/DATABASE_SCHEMA.md).

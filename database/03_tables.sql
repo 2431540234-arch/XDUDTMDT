@@ -165,7 +165,7 @@ CREATE TABLE IF NOT EXISTS media (
   file_name   VARCHAR(255) NOT NULL,
   file_path   VARCHAR(500) NOT NULL,
   mime_type   VARCHAR(100) NOT NULL,
-  file_size   BIGINT       NOT NULL,
+  file_size   INTEGER      NOT NULL,
   alt_text    VARCHAR(255),
   uploaded_by INTEGER,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
