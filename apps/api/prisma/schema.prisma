@@ -1,21 +1,22 @@
 // =====================================================================
-// PRISMA SCHEMA — ánh xạ Prisma Client sang DB thật được định nghĩa tại
-// prisma/schema.sql (đây là NGUỒN CHUẨN / source of truth cho cấu trúc DB).
+// PRISMA SCHEMA – Aurelia Living (PostgreSQL 15+)
+// Sinh từ `prisma db pull` rồi chỉnh tên cho dễ dùng; nguồn chuẩn cấu trúc DB là
+// các migration trong prisma/migrations (baseline 0_init). Xem docs/DATABASE_SCHEMA.md.
 //
-// QUAN TRỌNG — những phần CHỈ tồn tại trong schema.sql, Prisma Schema
-// Language (PSL) không có cách biểu diễn, nên KHÔNG xuất hiện ở file này:
-//   - Trigger & hàm PL/pgSQL (set_updated_at, refresh_product_rating,
-//     refresh_product_3d_flags_for, refresh_space_view_count...)
-//   - CHECK constraint (range số, công thức tiền, ràng buộc nhiều cột...)
-//   - Partial unique index (vd: UNIQUE ... WHERE is_primary / is_default)
-//     -> chỉ ghi chú bằng comment tại model liên quan, KHÔNG khai báo
-//     @@index/@@unique thay thế để tránh tạo sai ràng buộc.
-//   - Index biểu thức (f_unaccent(lower(name)) cho tìm kiếm tiếng Việt)
+// CHỈ dùng `prisma migrate dev` / `prisma migrate deploy`. KHÔNG dùng `prisma db push`.
+//
+// Những thứ chỉ tồn tại trong DB (migration SQL), Prisma không biểu diễn được:
+//   - CHECK constraint (tiền >= 0, total = subtotal - discount + shipping, hotspot theo loại...)
+//   - Partial unique index (email chưa xóa mềm, địa chỉ mặc định, ảnh đại diện, mô hình chính, ảnh mở đầu)
+//   - Index biểu thức / GIN trigram (spaces.title không dấu, products.name)
 //   - Generated column (order_items.line_total)
+//   - UNIQUE NULLS NOT DISTINCT (reviews), khóa ngoại SET NULL (cột) (space_product_placements.variant_id)
+//   - Hàm và trigger PL/pgSQL (updated_at, rating, has_3d_model/has_ar, view_count, order_status_history, vai trò mặc định)
+// => Khi `migrate dev` sinh migration mới, LUÔN đọc lại SQL; với CHECK/trigger dùng `--create-only` rồi sửa file.
 //
-// ⚠ CHỈ dùng `prisma migrate dev` / `prisma migrate deploy` cho project này.
-//   KHÔNG dùng `prisma db push` — lệnh đó đồng bộ DB khớp y nguyên schema
-//   này và sẽ XÓA mất toàn bộ phần chỉ có trong schema.sql ở trên.
+// Quy ước: model PascalCase số ít (@@map về tên bảng), field camelCase (@map về tên cột),
+// quan hệ đặt tên theo khóa ngoại (user, product, variant...); cặp model có nhiều quan hệ
+// được đặt tên tường minh (ví dụ "SpaceHotspotPanorama").
 // =====================================================================
 
 generator client {
@@ -26,34 +27,1023 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
-  extensions = [citext, pg_trgm, unaccent]
+  extensions = [citext, pg_trgm, pgcrypto, unaccent]
 }
 
-// ---------------------------------------------------------------------
-// ENUM (ánh xạ 1:1 tới các CREATE TYPE ... AS ENUM trong schema.sql)
-// ---------------------------------------------------------------------
-enum UserStatus {
-  active
-  inactive
-  banned
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ActivityLog {
+  id         Int      @id(map: "pk_activity_logs") @default(autoincrement())
+  actorId    Int?     @map("actor_id")
+  action     String   @db.VarChar(100)
+  targetType String?  @map("target_type") @db.VarChar(100)
+  targetId   Int?     @map("target_id")
+  changes    Json?
+  ipAddress  String?  @map("ip_address") @db.Inet
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  actor      User?    @relation(fields: [actorId], references: [id], onUpdate: NoAction, map: "fk_activity_logs_actor_id")
 
-  @@map("user_status")
+  @@index([actorId], map: "idx_activity_logs_actor_id")
+  @@index([createdAt(sort: Desc)], map: "idx_activity_logs_created")
+  @@index([targetType, targetId], map: "idx_activity_logs_target")
+  @@map("activity_logs")
 }
 
-enum PublishStatus {
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Partial unique index uq_addresses_user_default ON (user_id) WHERE is_default: mỗi user tối đa một địa chỉ mặc định (không có trong schema này).
+model Address {
+  id            Int      @id(map: "pk_addresses") @default(autoincrement())
+  userId        Int      @map("user_id")
+  recipientName String   @map("recipient_name") @db.VarChar(150)
+  phone         String   @db.VarChar(20)
+  province      String   @db.VarChar(100)
+  district      String   @db.VarChar(100)
+  ward          String   @db.VarChar(100)
+  addressLine   String   @map("address_line") @db.VarChar(255)
+  isDefault     Boolean  @default(false) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_addresses_user_id")
+
+  @@index([userId], map: "idx_addresses_user_id")
+  @@map("addresses")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ArSession {
+  id              Int             @id(map: "pk_ar_sessions") @default(autoincrement())
+  uuid            String          @unique(map: "uq_ar_sessions_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          Int?            @map("user_id")
+  visitorId       String?         @map("visitor_id") @db.Uuid
+  productId       Int             @map("product_id")
+  modelId         Int?            @map("model_id")
+  device          String?         @db.VarChar(150)
+  os              String?         @db.VarChar(50)
+  arPlatform      String?         @map("ar_platform") @db.VarChar(50)
+  mode            ArMode
+  durationSeconds Int             @default(0) @map("duration_seconds")
+  placed          Boolean         @default(false)
+  captured        Boolean         @default(false)
+  addedToCart     Boolean         @default(false) @map("added_to_cart")
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  model           Product3DModel? @relation(fields: [modelId], references: [id], onUpdate: NoAction, map: "fk_ar_sessions_model_id")
+  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_sessions_product_id")
+  user            User?           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_sessions_user_id")
+  arSnapshots     ArSnapshot[]
+
+  @@index([modelId], map: "idx_ar_sessions_model_id")
+  @@index([productId, createdAt], map: "idx_ar_sessions_product_id")
+  @@index([userId], map: "idx_ar_sessions_user_id")
+  @@index([visitorId], map: "idx_ar_sessions_visitor_id")
+  @@map("ar_sessions")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ArSnapshot {
+  id          Int        @id(map: "pk_ar_snapshots") @default(autoincrement())
+  userId      Int        @map("user_id")
+  productId   Int        @map("product_id")
+  arSessionId Int?       @map("ar_session_id")
+  mediaId     Int        @map("media_id")
+  isPublic    Boolean    @default(false) @map("is_public")
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  arSession   ArSession? @relation(fields: [arSessionId], references: [id], onUpdate: NoAction, map: "fk_ar_snapshots_ar_session_id")
+  media       Media      @relation(fields: [mediaId], references: [id], onUpdate: NoAction, map: "fk_ar_snapshots_media_id")
+  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_snapshots_product_id")
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_snapshots_user_id")
+
+  @@index([arSessionId], map: "idx_ar_snapshots_ar_session_id")
+  @@index([mediaId], map: "idx_ar_snapshots_media_id")
+  @@index([productId], map: "idx_ar_snapshots_product_id")
+  @@index([userId], map: "idx_ar_snapshots_user_id")
+  @@map("ar_snapshots")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model AttributeValue {
+  id                     Int                     @id(map: "pk_attribute_values") @default(autoincrement())
+  attributeId            Int                     @map("attribute_id")
+  value                  String                  @db.VarChar(150)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  attribute              Attribute               @relation(fields: [attributeId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_attribute_values_attribute_id")
+  variantAttributeValues VariantAttributeValue[]
+
+  @@unique([attributeId, value], map: "uq_attribute_values_attribute_value")
+  @@unique([id, attributeId], map: "uq_attribute_values_id_attribute")
+  @@map("attribute_values")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Attribute {
+  id              Int              @id(map: "pk_attributes") @default(autoincrement())
+  code            String           @unique(map: "uq_attributes_code") @db.VarChar(50)
+  name            String           @unique(map: "uq_attributes_name") @db.VarChar(100)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  attributeValues AttributeValue[]
+
+  @@map("attributes")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Brand {
+  id          Int       @id(map: "pk_brands") @default(autoincrement())
+  name        String    @db.VarChar(150)
+  slug        String    @unique(map: "uq_brands_slug") @db.VarChar(180)
+  logoMediaId Int?      @map("logo_media_id")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+  logoMedia   Media?    @relation(fields: [logoMediaId], references: [id], onUpdate: NoAction, map: "fk_brands_logo_media_id")
+  products    Product[]
+
+  @@index([isActive], map: "idx_brands_active")
+  @@index([logoMediaId], map: "idx_brands_logo_media_id")
+  @@map("brands")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model CartItem {
+  id        Int            @id(map: "pk_cart_items") @default(autoincrement())
+  cartId    Int            @map("cart_id")
+  variantId Int            @map("variant_id")
+  quantity  Int            @default(1)
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  cart      Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cart_items_cart_id")
+  variant   ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_cart_items_variant_id")
+
+  @@unique([cartId, variantId], map: "uq_cart_items_cart_variant")
+  @@index([variantId], map: "idx_cart_items_variant_id")
+  @@map("cart_items")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Cart {
+  id        Int        @id(map: "pk_carts") @default(autoincrement())
+  userId    Int        @unique(map: "uq_carts_user_id") @map("user_id")
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  cartItems CartItem[]
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_carts_user_id")
+
+  @@map("carts")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Category {
+  id              Int        @id(map: "pk_categories") @default(autoincrement())
+  parentId        Int?       @map("parent_id")
+  name            String     @db.VarChar(150)
+  slug            String     @unique(map: "uq_categories_slug") @db.VarChar(180)
+  imageMediaId    Int?       @map("image_media_id")
+  sortOrder       Int        @default(0) @map("sort_order")
+  isActive        Boolean    @default(true) @map("is_active")
+  metaTitle       String?    @map("meta_title") @db.VarChar(255)
+  metaDescription String?    @map("meta_description") @db.VarChar(500)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @default(now()) @map("updated_at") @db.Timestamptz(6)
+  imageMedia      Media?     @relation(fields: [imageMediaId], references: [id], onUpdate: NoAction, map: "fk_categories_image_media_id")
+  parent          Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_categories_parent_id")
+  children        Category[] @relation("CategoryParent")
+  products        Product[]
+  spaces          Space[]
+
+  @@index([imageMediaId], map: "idx_categories_image_media_id")
+  @@index([parentId], map: "idx_categories_parent_id")
+  @@map("categories")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model CouponUsage {
+  id        Int      @id(map: "pk_coupon_usages") @default(autoincrement())
+  couponId  Int      @map("coupon_id")
+  userId    Int      @map("user_id")
+  orderId   Int      @map("order_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onUpdate: NoAction, map: "fk_coupon_usages_coupon_id")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_coupon_usages_order_id")
+  user      User     @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "fk_coupon_usages_user_id")
+
+  @@unique([couponId, orderId], map: "uq_coupon_usages_coupon_order")
+  @@index([orderId], map: "idx_coupon_usages_order_id")
+  @@index([userId, couponId], map: "idx_coupon_usages_user_coupon")
+  @@map("coupon_usages")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Coupon {
+  id            Int           @id(map: "pk_coupons") @default(autoincrement())
+  code          String        @unique(map: "uq_coupons_code") @db.Citext
+  type          CouponType
+  value         Decimal       @db.Decimal(15, 2)
+  maxDiscount   Decimal?      @map("max_discount") @db.Decimal(15, 2)
+  minOrderValue Decimal       @default(0) @map("min_order_value") @db.Decimal(15, 2)
+  usageLimit    Int?          @map("usage_limit")
+  perUserLimit  Int?          @map("per_user_limit")
+  usedCount     Int           @default(0) @map("used_count")
+  startsAt      DateTime      @default(now()) @map("starts_at") @db.Timestamptz(6)
+  endsAt        DateTime?     @map("ends_at") @db.Timestamptz(6)
+  isActive      Boolean       @default(true) @map("is_active")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
+  couponUsages  CouponUsage[]
+  orders        Order[]
+
+  @@index([isActive, startsAt, endsAt], map: "idx_coupons_active")
+  @@map("coupons")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model InventoryMovement {
+  id              Int                   @id(map: "pk_inventory_movements") @default(autoincrement())
+  variantId       Int                   @map("variant_id")
+  type            InventoryMovementType
+  quantityChange  Int                   @map("quantity_change")
+  reason          String?               @db.VarChar(255)
+  referenceCode   String?               @map("reference_code") @db.VarChar(100)
+  performedBy     Int?                  @map("performed_by")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  performedByUser User?                 @relation(fields: [performedBy], references: [id], onUpdate: NoAction, map: "fk_inventory_movements_performed_by")
+  variant         ProductVariant        @relation(fields: [variantId], references: [id], onUpdate: NoAction, map: "fk_inventory_movements_variant_id")
+
+  @@index([performedBy], map: "idx_inventory_movements_performed_by")
+  @@index([variantId, createdAt], map: "idx_inventory_movements_variant_id")
+  @@map("inventory_movements")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Media {
+  id                 Int              @id(map: "pk_media") @default(autoincrement())
+  fileName           String           @map("file_name") @db.VarChar(255)
+  filePath           String           @unique(map: "uq_media_file_path") @map("file_path") @db.VarChar(500)
+  mimeType           String           @map("mime_type") @db.VarChar(100)
+  fileSize           BigInt           @map("file_size")
+  altText            String?          @map("alt_text") @db.VarChar(255)
+  uploadedBy         Int?             @map("uploaded_by")
+  createdAt          DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  arSnapshots        ArSnapshot[]
+  brands             Brand[]
+  categories         Category[]
+  uploadedByUser     User?            @relation("MediaUploadedByUser", fields: [uploadedBy], references: [id], onUpdate: NoAction, map: "fk_media_uploaded_by")
+  modelFiles         ModelFile[]
+  product3dModels    Product3DModel[]
+  productImages      ProductImage[]
+  spacePanoramas     SpacePanorama[]
+  spaces             Space[]
+  usersAsAvatarMedia User[]           @relation("UserAvatarMedia")
+
+  @@index([uploadedBy], map: "idx_media_uploaded_by")
+  @@map("media")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Trigger cập nhật Product.has3dModel / hasAr khi thêm/sửa/xóa file.
+model ModelFile {
+  id                Int             @id(map: "pk_model_files") @default(autoincrement())
+  modelId           Int             @map("model_id")
+  format            ModelFileFormat
+  lod               ModelLod        @default(high)
+  mediaId           Int             @map("media_id")
+  polygonCount      Int?            @map("polygon_count")
+  textureResolution Int?            @map("texture_resolution")
+  isCompressed      Boolean         @default(false) @map("is_compressed")
+  checksum          String?         @db.VarChar(128)
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  media             Media           @relation(fields: [mediaId], references: [id], onUpdate: NoAction, map: "fk_model_files_media_id")
+  model             Product3DModel  @relation(fields: [modelId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_model_files_model_id")
+
+  @@unique([modelId, format, lod], map: "uq_model_files_model_format_lod")
+  @@index([mediaId], map: "idx_model_files_media_id")
+  @@map("model_files")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ModelMaterialVariant {
+  id           Int            @id(map: "pk_model_material_variants") @default(autoincrement())
+  modelId      Int            @map("model_id")
+  variantId    Int            @map("variant_id")
+  materialName String         @map("material_name") @db.VarChar(150)
+  config       Json           @default("{}")
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  model        Product3DModel @relation(fields: [modelId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_model_material_variants_model_id")
+  variant      ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_model_material_variants_variant_id")
+
+  @@unique([modelId, variantId], map: "uq_model_material_variants_model_variant")
+  @@index([variantId], map: "idx_model_material_variants_variant_id")
+  @@map("model_material_variants")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Notification {
+  id        Int       @id(map: "pk_notifications") @default(autoincrement())
+  userId    Int       @map("user_id")
+  title     String    @db.VarChar(255)
+  data      Json      @default("{}")
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_notifications_user_id")
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_notifications_user_id")
+  @@map("notifications")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// lineTotal là generated column (unit_price * quantity) STORED: KHÔNG ghi từ app, Prisma chỉ đọc.
+model OrderItem {
+  id          Int             @id(map: "pk_order_items") @default(autoincrement())
+  orderId     Int             @map("order_id")
+  variantId   Int?            @map("variant_id")
+  productName String          @map("product_name") @db.VarChar(255)
+  sku         String          @db.VarChar(100)
+  unitPrice   Decimal         @map("unit_price") @db.Decimal(15, 2)
+  quantity    Int
+  lineTotal   Decimal?        @default(dbgenerated("(unit_price * (quantity)::numeric)")) @map("line_total") @db.Decimal(15, 2)
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  order       Order           @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_items_order_id")
+  variant     ProductVariant? @relation(fields: [variantId], references: [id], onUpdate: NoAction, map: "fk_order_items_variant_id")
+
+  @@index([orderId], map: "idx_order_items_order_id")
+  @@index([variantId], map: "idx_order_items_variant_id")
+  @@map("order_items")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model OrderStatusHistory {
+  id            Int          @id(map: "pk_order_status_history") @default(autoincrement())
+  orderId       Int          @map("order_id")
+  fromStatus    OrderStatus? @map("from_status")
+  toStatus      OrderStatus  @map("to_status")
+  changedBy     Int?         @map("changed_by")
+  note          String?
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  changedByUser User?        @relation(fields: [changedBy], references: [id], onUpdate: NoAction, map: "fk_order_status_history_changed_by")
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_order_status_history_order_id")
+
+  @@index([changedBy], map: "idx_order_status_history_changed_by")
+  @@index([orderId, createdAt], map: "idx_order_status_history_order")
+  @@map("order_status_history")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Trigger trg_orders_log_status_* tự ghi OrderStatusHistory. Đặt người đổi bằng SET LOCAL app.current_user_id trong transaction.
+model Order {
+  id                 Int                  @id(map: "pk_orders") @default(autoincrement())
+  uuid               String               @unique(map: "uq_orders_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderCode          String               @unique(map: "uq_orders_order_code") @map("order_code") @db.VarChar(30)
+  userId             Int                  @map("user_id")
+  status             OrderStatus          @default(pending)
+  recipientName      String               @map("recipient_name") @db.VarChar(150)
+  recipientPhone     String               @map("recipient_phone") @db.VarChar(20)
+  shippingProvince   String               @map("shipping_province") @db.VarChar(100)
+  shippingDistrict   String               @map("shipping_district") @db.VarChar(100)
+  shippingWard       String               @map("shipping_ward") @db.VarChar(100)
+  shippingAddress    String               @map("shipping_address") @db.VarChar(255)
+  subtotal           Decimal              @db.Decimal(15, 2)
+  discountAmount     Decimal              @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  shippingFee        Decimal              @default(0) @map("shipping_fee") @db.Decimal(15, 2)
+  total              Decimal              @db.Decimal(15, 2)
+  couponId           Int?                 @map("coupon_id")
+  paymentMethod      PaymentMethod        @map("payment_method")
+  paymentStatus      OrderPaymentStatus   @default(unpaid) @map("payment_status")
+  note               String?
+  cancelReason       String?              @map("cancel_reason")
+  createdAt          DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
+  couponUsages       CouponUsage[]
+  orderItems         OrderItem[]
+  orderStatusHistory OrderStatusHistory[]
+  coupon             Coupon?              @relation(fields: [couponId], references: [id], onUpdate: NoAction, map: "fk_orders_coupon_id")
+  user               User                 @relation(fields: [userId], references: [id], onUpdate: NoAction, map: "fk_orders_user_id")
+  payments           Payment[]
+  reviews            Review[]
+  shipments          Shipment[]
+
+  @@index([couponId], map: "idx_orders_coupon_id")
+  @@index([status, createdAt(sort: Desc)], map: "idx_orders_status_created")
+  @@index([userId, createdAt(sort: Desc)], map: "idx_orders_user_created")
+  @@map("orders")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Page {
+  id              Int           @id(map: "pk_pages") @default(autoincrement())
+  title           String        @db.VarChar(255)
+  slug            String        @unique(map: "uq_pages_slug") @db.VarChar(180)
+  content         String?
+  status          ContentStatus @default(draft)
+  metaTitle       String?       @map("meta_title") @db.VarChar(255)
+  metaDescription String?       @map("meta_description") @db.VarChar(500)
+  publishedAt     DateTime?     @map("published_at") @db.Timestamptz(6)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status], map: "idx_pages_status")
+  @@map("pages")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model PasswordReset {
+  id        Int       @id(map: "pk_password_resets") @default(autoincrement())
+  userId    Int       @map("user_id")
+  tokenHash String    @unique(map: "uq_password_resets_token_hash") @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_password_resets_user_id")
+
+  @@index([userId], map: "idx_password_resets_user_id")
+  @@map("password_resets")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Payment {
+  id              Int              @id(map: "pk_payments") @default(autoincrement())
+  orderId         Int              @map("order_id")
+  method          PaymentMethod
+  amount          Decimal          @db.Decimal(15, 2)
+  status          PaymentTxnStatus @default(pending)
+  transactionCode String?          @unique(map: "uq_payments_transaction_code") @map("transaction_code") @db.VarChar(100)
+  gatewayResponse Json?            @map("gateway_response")
+  paidAt          DateTime?        @map("paid_at") @db.Timestamptz(6)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  order           Order            @relation(fields: [orderId], references: [id], onUpdate: NoAction, map: "fk_payments_order_id")
+
+  @@index([orderId], map: "idx_payments_order_id")
+  @@index([status], map: "idx_payments_status")
+  @@map("payments")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Permission {
+  id              Int              @id(map: "pk_permissions") @default(autoincrement())
+  code            String           @unique(map: "uq_permissions_code") @db.VarChar(100)
+  name            String           @db.VarChar(150)
+  description     String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Partial unique index uq_product_3d_models_primary ON (product_id) WHERE is_primary: tối đa một mô hình chính/sản phẩm.
+/// Trigger cập nhật Product.has3dModel / hasAr khi model hoặc ModelFile thay đổi.
+model Product3DModel {
+  id                     Int                     @id(map: "pk_product_3d_models") @default(autoincrement())
+  uuid                   String                  @unique(map: "uq_product_3d_models_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId              Int                     @map("product_id")
+  variantId              Int?                    @map("variant_id")
+  lengthMm               Int                     @map("length_mm")
+  widthMm                Int                     @map("width_mm")
+  heightMm               Int                     @map("height_mm")
+  placement              ModelPlacement          @default(floor)
+  allowScaling           Boolean                 @default(false) @map("allow_scaling")
+  viewerConfig           Json                    @default("{}") @map("viewer_config")
+  posterMediaId          Int?                    @map("poster_media_id")
+  status                 ModelStatus             @default(uploading)
+  version                Int                     @default(1)
+  isPrimary              Boolean                 @default(false) @map("is_primary")
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  arSessions             ArSession[]
+  modelFiles             ModelFile[]
+  modelMaterialVariants  ModelMaterialVariant[]
+  posterMedia            Media?                  @relation(fields: [posterMediaId], references: [id], onUpdate: NoAction, map: "fk_product_3d_models_poster_media_id")
+  product                Product                 @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_product_3d_models_product_id")
+  variant                ProductVariant?         @relation(fields: [variantId, productId], references: [id, productId], onDelete: Cascade, onUpdate: NoAction, map: "fk_product_3d_models_variant_id")
+  spaceProductPlacements SpaceProductPlacement[]
+
+  @@index([posterMediaId], map: "idx_product_3d_models_poster_media_id")
+  @@index([productId], map: "idx_product_3d_models_product_id")
+  @@index([status], map: "idx_product_3d_models_status")
+  @@index([variantId], map: "idx_product_3d_models_variant_id")
+  @@map("product_3d_models")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Partial unique index uq_product_images_primary ON (product_id) WHERE is_primary: tối đa một ảnh đại diện/sản phẩm (không có trong schema này).
+model ProductImage {
+  id        Int             @id(map: "pk_product_images") @default(autoincrement())
+  productId Int             @map("product_id")
+  variantId Int?            @map("variant_id")
+  mediaId   Int             @map("media_id")
+  sortOrder Int             @default(0) @map("sort_order")
+  isPrimary Boolean         @default(false) @map("is_primary")
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  media     Media           @relation(fields: [mediaId], references: [id], onUpdate: NoAction, map: "fk_product_images_media_id")
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_product_images_product_id")
+  variant   ProductVariant? @relation(fields: [variantId, productId], references: [id, productId], onDelete: Cascade, onUpdate: NoAction, map: "fk_product_images_variant_id")
+
+  @@index([mediaId], map: "idx_product_images_media_id")
+  @@index([productId, sortOrder], map: "idx_product_images_product_id")
+  @@index([variantId], map: "idx_product_images_variant_id")
+  @@map("product_images")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model ProductVariant {
+  id                     Int                     @id(map: "pk_product_variants") @default(autoincrement())
+  productId              Int                     @map("product_id")
+  sku                    String                  @unique(map: "uq_product_variants_sku") @db.VarChar(100)
+  price                  Decimal                 @db.Decimal(15, 2)
+  salePrice              Decimal?                @map("sale_price") @db.Decimal(15, 2)
+  stockQuantity          Int                     @default(0) @map("stock_quantity")
+  weightGram             Int?                    @map("weight_gram")
+  isActive               Boolean                 @default(true) @map("is_active")
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  cartItems              CartItem[]
+  inventoryMovements     InventoryMovement[]
+  modelMaterialVariants  ModelMaterialVariant[]
+  orderItems             OrderItem[]
+  product3dModels        Product3DModel[]
+  productImages          ProductImage[]
+  product                Product                 @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_product_variants_product_id")
+  spaceProductPlacements SpaceProductPlacement[]
+  variantAttributeValues VariantAttributeValue[]
+
+  @@unique([id, productId], map: "uq_product_variants_id_product")
+  @@index([productId], map: "idx_product_variants_product_id")
+  @@map("product_variants")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Index GIN trigram idx_products_name_trgm (tìm gần đúng theo tên) không có trong schema này: dùng $queryRaw.
+/// ratingAvg, ratingCount, has3dModel, hasAr do trigger cập nhật: KHÔNG ghi từ app.
+model Product {
+  id                     Int                     @id(map: "pk_products") @default(autoincrement())
+  name                   String                  @db.VarChar(255)
+  slug                   String                  @unique(map: "uq_products_slug") @db.VarChar(280)
+  shortDescription       String?                 @map("short_description") @db.VarChar(500)
+  description            String?
+  categoryId             Int?                    @map("category_id")
+  brandId                Int?                    @map("brand_id")
+  status                 ContentStatus           @default(draft)
+  isFeatured             Boolean                 @default(false) @map("is_featured")
+  ratingAvg              Decimal                 @default(0) @map("rating_avg") @db.Decimal(3, 2)
+  ratingCount            Int                     @default(0) @map("rating_count")
+  soldCount              Int                     @default(0) @map("sold_count")
+  has3dModel             Boolean                 @default(false) @map("has_3d_model")
+  hasAr                  Boolean                 @default(false) @map("has_ar")
+  metaTitle              String?                 @map("meta_title") @db.VarChar(255)
+  metaDescription        String?                 @map("meta_description") @db.VarChar(500)
+  deletedAt              DateTime?               @map("deleted_at") @db.Timestamptz(6)
+  createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  arSessions             ArSession[]
+  arSnapshots            ArSnapshot[]
+  product3dModels        Product3DModel[]
+  productImages          ProductImage[]
+  productVariants        ProductVariant[]
+  brand                  Brand?                  @relation(fields: [brandId], references: [id], onUpdate: NoAction, map: "fk_products_brand_id")
+  category               Category?               @relation(fields: [categoryId], references: [id], onUpdate: NoAction, map: "fk_products_category_id")
+  reviews                Review[]
+  spaceHotspots          SpaceHotspot[]
+  spaceProductPlacements SpaceProductPlacement[]
+  spaceViews             SpaceView[]
+  wishlists              Wishlist[]
+
+  @@index([brandId], map: "idx_products_brand_id")
+  @@index([categoryId, status], map: "idx_products_category_status")
+  @@index([name(ops: raw("gin_trgm_ops"))], map: "idx_products_name_trgm", type: Gin)
+  @@map("products")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Trigger trg_reviews_refresh_rating cập nhật Product.ratingAvg/ratingCount (chỉ review approved).
+/// UNIQUE (user_id, product_id, order_id) khai báo NULLS NOT DISTINCT trong DB (Prisma không biểu diễn được).
+model Review {
+  id        Int          @id(map: "pk_reviews") @default(autoincrement())
+  userId    Int          @map("user_id")
+  productId Int          @map("product_id")
+  orderId   Int?         @map("order_id")
+  rating    Int          @db.SmallInt
+  content   String?
+  status    ReviewStatus @default(pending)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @default(now()) @map("updated_at") @db.Timestamptz(6)
+  order     Order?       @relation(fields: [orderId], references: [id], onUpdate: NoAction, map: "fk_reviews_order_id")
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reviews_product_id")
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_reviews_user_id")
+
+  @@unique([userId, productId, orderId], map: "uq_reviews_user_product_order")
+  @@index([orderId], map: "idx_reviews_order_id")
+  @@index([productId, status], map: "idx_reviews_product_status")
+  @@index([status], map: "idx_reviews_status")
+  @@map("reviews")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model RolePermission {
+  roleId       Int        @map("role_id")
+  permissionId Int        @map("permission_id")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_role_permissions_permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_role_permissions_role_id")
+
+  @@id([roleId, permissionId], map: "pk_role_permissions")
+  @@index([permissionId], map: "idx_role_permissions_permission")
+  @@map("role_permissions")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Role {
+  id              Int              @id(map: "pk_roles") @default(autoincrement())
+  code            String           @unique(map: "uq_roles_code") @db.VarChar(50)
+  name            String           @db.VarChar(100)
+  description     String?
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@map("roles")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Setting {
+  id          Int      @id(map: "pk_settings") @default(autoincrement())
+  key         String   @unique(map: "uq_settings_key") @db.VarChar(100)
+  value       Json
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("settings")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Shipment {
+  id           Int             @id(map: "pk_shipments") @default(autoincrement())
+  orderId      Int             @map("order_id")
+  carrier      ShipmentCarrier
+  trackingCode String?         @map("tracking_code") @db.VarChar(100)
+  status       ShipmentStatus  @default(pending)
+  fee          Decimal         @default(0) @db.Decimal(15, 2)
+  shippedAt    DateTime?       @map("shipped_at") @db.Timestamptz(6)
+  deliveredAt  DateTime?       @map("delivered_at") @db.Timestamptz(6)
+  createdAt    DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  order        Order           @relation(fields: [orderId], references: [id], onUpdate: NoAction, map: "fk_shipments_order_id")
+
+  @@index([orderId], map: "idx_shipments_order_id")
+  @@index([status], map: "idx_shipments_status")
+  @@map("shipments")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model SpaceBookmark {
+  id        Int      @id(map: "pk_space_bookmarks") @default(autoincrement())
+  userId    Int      @map("user_id")
+  spaceId   Int      @map("space_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  space     Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_bookmarks_space_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_bookmarks_user_id")
+
+  @@unique([userId, spaceId], map: "uq_space_bookmarks_user_space")
+  @@index([spaceId], map: "idx_space_bookmarks_space_id")
+  @@map("space_bookmarks")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// CHECK theo loại hotspot (product => product_id, navigation => target_panorama_id, info => content).
+model SpaceHotspot {
+  id               Int            @id(map: "pk_space_hotspots") @default(autoincrement())
+  panoramaId       Int            @map("panorama_id")
+  type             HotspotType
+  yaw              Decimal        @db.Decimal(9, 4)
+  pitch            Decimal        @db.Decimal(9, 4)
+  productId        Int?           @map("product_id")
+  targetPanoramaId Int?           @map("target_panorama_id")
+  title            String?        @db.VarChar(255)
+  content          String?
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
+  panorama         SpacePanorama  @relation("SpaceHotspotPanorama", fields: [panoramaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_hotspots_panorama_id")
+  product          Product?       @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_hotspots_product_id")
+  targetPanorama   SpacePanorama? @relation("SpaceHotspotTargetPanorama", fields: [targetPanoramaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_hotspots_target_panorama_id")
+
+  @@index([panoramaId], map: "idx_space_hotspots_panorama_id")
+  @@index([productId], map: "idx_space_hotspots_product_id")
+  @@index([targetPanoramaId], map: "idx_space_hotspots_target_panorama_id")
+  @@map("space_hotspots")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Partial unique index uq_space_panoramas_start ON (space_id) WHERE is_start: tối đa một ảnh mở đầu/không gian.
+model SpacePanorama {
+  id                            Int                     @id(map: "pk_space_panoramas") @default(autoincrement())
+  spaceId                       Int                     @map("space_id")
+  mediaId                       Int                     @map("media_id")
+  title                         String?                 @db.VarChar(255)
+  defaultYaw                    Decimal                 @default(0) @map("default_yaw") @db.Decimal(9, 4)
+  defaultPitch                  Decimal                 @default(0) @map("default_pitch") @db.Decimal(9, 4)
+  defaultFov                    Decimal                 @default(90) @map("default_fov") @db.Decimal(9, 4)
+  sortOrder                     Int                     @default(0) @map("sort_order")
+  isStart                       Boolean                 @default(false) @map("is_start")
+  createdAt                     DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                     DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
+  spaceHotspotsAsPanorama       SpaceHotspot[]          @relation("SpaceHotspotPanorama")
+  spaceHotspotsAsTargetPanorama SpaceHotspot[]          @relation("SpaceHotspotTargetPanorama")
+  media                         Media                   @relation(fields: [mediaId], references: [id], onUpdate: NoAction, map: "fk_space_panoramas_media_id")
+  space                         Space                   @relation(fields: [spaceId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_panoramas_space_id")
+  spaceProductPlacements        SpaceProductPlacement[]
+
+  @@index([mediaId], map: "idx_space_panoramas_media_id")
+  @@index([spaceId, sortOrder], map: "idx_space_panoramas_space_id")
+  @@map("space_panoramas")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model SpaceProductPlacement {
+  id         Int             @id(map: "pk_space_product_placements") @default(autoincrement())
+  panoramaId Int             @map("panorama_id")
+  productId  Int             @map("product_id")
+  variantId  Int?            @map("variant_id")
+  modelId    Int?            @map("model_id")
+  yaw        Decimal         @db.Decimal(9, 4)
+  pitch      Decimal         @db.Decimal(9, 4)
+  distance   Decimal         @db.Decimal(9, 4)
+  rotationX  Decimal         @default(0) @map("rotation_x") @db.Decimal(9, 4)
+  rotationY  Decimal         @default(0) @map("rotation_y") @db.Decimal(9, 4)
+  rotationZ  Decimal         @default(0) @map("rotation_z") @db.Decimal(9, 4)
+  scale      Decimal         @default(1) @db.Decimal(9, 4)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  model      Product3DModel? @relation(fields: [modelId], references: [id], onUpdate: NoAction, map: "fk_space_product_placements_model_id")
+  panorama   SpacePanorama   @relation(fields: [panoramaId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_product_placements_panorama_id")
+  product    Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_product_placements_product_id")
+  variant    ProductVariant? @relation(fields: [variantId, productId], references: [id, productId], onDelete: SetNull, onUpdate: NoAction, map: "fk_space_product_placements_variant_id")
+
+  @@index([modelId], map: "idx_space_product_placements_model_id")
+  @@index([panoramaId], map: "idx_space_product_placements_panorama_id")
+  @@index([productId], map: "idx_space_product_placements_product_id")
+  @@index([variantId], map: "idx_space_product_placements_variant_id")
+  @@map("space_product_placements")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Trigger tăng Space.viewCount khi INSERT.
+model SpaceView {
+  id                Int      @id(map: "pk_space_views") @default(autoincrement())
+  spaceId           Int      @map("space_id")
+  userId            Int?     @map("user_id")
+  visitorId         String?  @map("visitor_id") @db.Uuid
+  sourceProductId   Int?     @map("source_product_id")
+  hotspotClickCount Int      @default(0) @map("hotspot_click_count")
+  addedToCart       Boolean  @default(false) @map("added_to_cart")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  sourceProduct     Product? @relation(fields: [sourceProductId], references: [id], onUpdate: NoAction, map: "fk_space_views_source_product_id")
+  space             Space    @relation(fields: [spaceId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_views_space_id")
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_space_views_user_id")
+
+  @@index([sourceProductId], map: "idx_space_views_source_product_id")
+  @@index([spaceId, createdAt], map: "idx_space_views_space_created")
+  @@index([userId], map: "idx_space_views_user_id")
+  @@index([visitorId], map: "idx_space_views_visitor_id")
+  @@map("space_views")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+/// Index biểu thức idx_spaces_title_unaccent_trgm (GIN trigram trên immutable_unaccent(title)) phục vụ tìm kiếm không dấu: dùng $queryRaw.
+model Space {
+  id             Int             @id(map: "pk_spaces") @default(autoincrement())
+  uuid           String          @unique(map: "uq_spaces_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title          String          @db.VarChar(255)
+  slug           String          @unique(map: "uq_spaces_slug") @db.VarChar(280)
+  description    String?
+  roomType       RoomType        @default(other) @map("room_type")
+  style          String?         @db.VarChar(100)
+  categoryId     Int?            @map("category_id")
+  coverMediaId   Int?            @map("cover_media_id")
+  status         ContentStatus   @default(draft)
+  viewCount      Int             @default(0) @map("view_count")
+  publishedAt    DateTime?       @map("published_at") @db.Timestamptz(6)
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  spaceBookmarks SpaceBookmark[]
+  spacePanoramas SpacePanorama[]
+  spaceViews     SpaceView[]
+  category       Category?       @relation(fields: [categoryId], references: [id], onUpdate: NoAction, map: "fk_spaces_category_id")
+  coverMedia     Media?          @relation(fields: [coverMediaId], references: [id], onUpdate: NoAction, map: "fk_spaces_cover_media_id")
+
+  @@index([categoryId], map: "idx_spaces_category_id")
+  @@index([coverMediaId], map: "idx_spaces_cover_media_id")
+  @@index([roomType, status], map: "idx_spaces_room_type_status")
+  @@map("spaces")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model UserRole {
+  userId    Int      @map("user_id")
+  roleId    Int      @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  role      Role     @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "fk_user_roles_role_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_roles_user_id")
+
+  @@id([userId, roleId], map: "pk_user_roles")
+  @@index([roleId], map: "idx_user_roles_role_id")
+  @@map("user_roles")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model UserSession {
+  id               Int       @id(map: "pk_user_sessions") @default(autoincrement())
+  userId           Int       @map("user_id")
+  refreshTokenHash String    @unique(map: "uq_user_sessions_refresh_token_hash") @map("refresh_token_hash") @db.VarChar(255)
+  ipAddress        String?   @map("ip_address") @db.Inet
+  userAgent        String?   @map("user_agent")
+  deviceName       String?   @map("device_name") @db.VarChar(150)
+  expiresAt        DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt        DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_sessions_user_id")
+
+  @@index([userId], map: "idx_user_sessions_user_id")
+  @@map("user_sessions")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// KHÔNG khai báo @unique cho email: DB dùng partial unique index uq_users_email_active ON (email) WHERE deleted_at IS NULL (Prisma không biểu diễn được).
+/// => tra cứu theo email dùng findFirst({ where: { email, deletedAt: null } }), không dùng findUnique.
+/// Trigger: trg_users_assign_default_role (deferred) tự gán vai trò "user" nếu cuối transaction chưa có vai trò nào.
+model User {
+  id                    Int                  @id(map: "pk_users") @default(autoincrement())
+  uuid                  String               @unique(map: "uq_users_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName              String               @map("full_name") @db.VarChar(150)
+  email                 String               @db.Citext
+  phone                 String?              @db.VarChar(20)
+  passwordHash          String               @map("password_hash") @db.VarChar(255)
+  avatarMediaId         Int?                 @map("avatar_media_id")
+  status                UserStatus           @default(active)
+  emailVerifiedAt       DateTime?            @map("email_verified_at") @db.Timestamptz(6)
+  lastLoginAt           DateTime?            @map("last_login_at") @db.Timestamptz(6)
+  deletedAt             DateTime?            @map("deleted_at") @db.Timestamptz(6)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
+  activityLogs          ActivityLog[]
+  addresses             Address[]
+  arSessions            ArSession[]
+  arSnapshots           ArSnapshot[]
+  cart                  Cart?
+  couponUsages          CouponUsage[]
+  inventoryMovements    InventoryMovement[]
+  mediaAsUploadedByUser Media[]              @relation("MediaUploadedByUser")
+  notifications         Notification[]
+  orderStatusHistory    OrderStatusHistory[]
+  orders                Order[]
+  passwordResets        PasswordReset[]
+  reviews               Review[]
+  spaceBookmarks        SpaceBookmark[]
+  spaceViews            SpaceView[]
+  userRoles             UserRole[]
+  userSessions          UserSession[]
+  avatarMedia           Media?               @relation("UserAvatarMedia", fields: [avatarMediaId], references: [id], onUpdate: NoAction, map: "fk_users_avatar_media_id")
+  wishlists             Wishlist[]
+
+  @@index([avatarMediaId], map: "idx_users_avatar_media_id")
+  @@map("users")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// Khóa ngoại kép (attribute_value_id, attribute_id) bảo đảm giá trị thuộc đúng thuộc tính.
+model VariantAttributeValue {
+  variantId        Int            @map("variant_id")
+  attributeValueId Int            @map("attribute_value_id")
+  attributeId      Int            @map("attribute_id")
+  createdAt        DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  attributeValue   AttributeValue @relation(fields: [attributeValueId, attributeId], references: [id, attributeId], onDelete: Cascade, onUpdate: NoAction, map: "fk_variant_attribute_values_attribute_value_id")
+  variant          ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_variant_attribute_values_variant_id")
+
+  @@id([variantId, attributeValueId], map: "pk_variant_attribute_values")
+  @@unique([variantId, attributeId], map: "uq_variant_attribute_values_variant_attribute")
+  @@index([attributeValueId], map: "idx_variant_attribute_values_attribute_value")
+  @@map("variant_attribute_values")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model Wishlist {
+  id        Int      @id(map: "pk_wishlists") @default(autoincrement())
+  userId    Int      @map("user_id")
+  productId Int      @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_wishlists_product_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_wishlists_user_id")
+
+  @@unique([userId, productId], map: "uq_wishlists_user_product")
+  @@index([productId], map: "idx_wishlists_product_id")
+  @@map("wishlists")
+}
+
+enum ArMode {
+  view_3d
+  ar
+
+  @@map("ar_mode")
+}
+
+enum ContentStatus {
   draft
   published
   archived
 
-  @@map("publish_status")
+  @@map("content_status")
 }
 
-enum CommentStatus {
-  pending
-  approved
-  spam
+enum CouponType {
+  percent
+  fixed
 
-  @@map("comment_status")
+  @@map("coupon_type")
+}
+
+enum HotspotType {
+  product
+  navigation
+  info
+
+  @@map("hotspot_type")
+}
+
+enum InventoryMovementType {
+  import
+  sale
+  return
+  adjustment
+
+  @@map("inventory_movement_type")
+}
+
+enum ModelFileFormat {
+  glb
+  usdz
+
+  @@map("model_file_format")
+}
+
+enum ModelLod {
+  high
+  medium
+  low
+
+  @@map("model_lod")
+}
+
+enum ModelPlacement {
+  floor
+  wall
+  table
+
+  @@map("model_placement")
+}
+
+enum ModelStatus {
+  uploading
+  processing
+  ready
+  failed
+
+  @@map("model_status")
+}
+
+enum OrderPaymentStatus {
+  unpaid
+  paid
+  refunded
+  failed
+
+  @@map("order_payment_status")
 }
 
 enum OrderStatus {
@@ -68,15 +1058,6 @@ enum OrderStatus {
   @@map("order_status")
 }
 
-enum PaymentStatus {
-  pending
-  paid
-  failed
-  refunded
-
-  @@map("payment_status")
-}
-
 enum PaymentMethod {
   cod
   bank_transfer
@@ -88,945 +1069,59 @@ enum PaymentMethod {
   @@map("payment_method")
 }
 
+enum PaymentTxnStatus {
+  pending
+  success
+  failed
+  refunded
+
+  @@map("payment_txn_status")
+}
+
+enum ReviewStatus {
+  pending
+  approved
+  rejected
+
+  @@map("review_status")
+}
+
+enum RoomType {
+  living_room
+  bedroom
+  kitchen
+  dining_room
+  bathroom
+  office
+  other
+
+  @@map("room_type")
+}
+
+enum ShipmentCarrier {
+  ghn
+  ghtk
+  viettel_post
+  other
+
+  @@map("shipment_carrier")
+}
+
 enum ShipmentStatus {
   pending
   picked_up
   in_transit
   delivered
+  failed
   returned
 
   @@map("shipment_status")
 }
 
-enum DiscountType {
-  percent
-  fixed
-
-  @@map("discount_type")
-}
-
-enum ModelFormat {
-  glb
-  gltf
-  usdz
-  reality
-  fbx
-  obj
-
-  @@map("model_format")
-}
-
-enum ModelLod {
-  high
-  medium
-  low
-
-  @@map("model_lod")
-}
-
-enum ModelStatus {
-  uploading
-  processing
-  ready
-  failed
-
-  @@map("model_status")
-}
-
-enum ArPlacement {
-  floor
-  wall
-  table
-  any
-
-  @@map("ar_placement")
-}
-
-enum ArPlatform {
-  webxr
-  scene_viewer
-  quick_look
-  arcore
-  arkit
-
-  @@map("ar_platform")
-}
-
-enum SpaceRoomType {
-  living_room
-  bedroom
-  kitchen
-  dining_room
-  office
-  kids_room
-  outdoor
-  other
-
-  @@map("space_room_type")
-}
-
-enum SpaceHotspotType {
-  product
-  navigation
-  info
-
-  @@map("space_hotspot_type")
-}
-
-// =====================================================================
-// 1. NGƯỜI DÙNG & PHÂN QUYỀN
-// =====================================================================
-model User {
-  id              String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName        String     @map("full_name") @db.VarChar(150)
-  email           String     @unique @db.Citext
-  phone           String?    @unique @db.VarChar(20)
-  passwordHash    String     @map("password_hash") @db.VarChar(255)
-  avatarUrl       String?    @map("avatar_url")
-  status          UserStatus @default(active)
-  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
-  lastLoginAt     DateTime?  @map("last_login_at") @db.Timestamptz(6)
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime   @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
-
-  roles              UserRole[]
-  passwordResets     PasswordReset[]
-  sessions           UserSession[]
-  addresses          Address[]
-  notifications      Notification[]
-  activityLogs       ActivityLog[]
-  uploadedMedia      Media[]
-  createdModels      Product3dModel[]
-  arSessions         ArSession[]
-  arSnapshots        ArSnapshot[]
-  inventoryMovements InventoryMovement[]
-  reviews            Review[]
-  wishlists          Wishlist[]
-  cart               Cart?
-  orders             Order[]
-  orderStatusChanges OrderStatusHistory[]
-  couponUsages       CouponUsage[]
-  createdSpaces      Space[]
-  spaceBookmarks     SpaceBookmark[]
-  spaceViews         SpaceView[]
-
-  @@map("users")
-}
-
-model Role {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code        String  @unique @db.VarChar(50)
-  name        String  @db.VarChar(100)
-  description String?
-
-  rolePermissions RolePermission[]
-  userRoles       UserRole[]
-
-  @@map("roles")
-}
-
-model Permission {
-  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code String @unique @db.VarChar(100)
-  name String @db.VarChar(150)
-
-  rolePermissions RolePermission[]
-
-  @@map("permissions")
-}
-
-model RolePermission {
-  roleId       String @map("role_id") @db.Uuid
-  permissionId String @map("permission_id") @db.Uuid
-
-  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([roleId, permissionId])
-  @@map("role_permissions")
-}
-
-model UserRole {
-  userId String @map("user_id") @db.Uuid
-  roleId String @map("role_id") @db.Uuid
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([userId, roleId])
-  @@map("user_roles")
-}
-
-model PasswordReset {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
-  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("password_resets")
-}
-
-model UserSession {
-  id           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId       String               @map("user_id") @db.Uuid
-  refreshToken String               @unique @map("refresh_token") @db.VarChar(255)
-  ipAddress    Unsupported("inet")? @map("ip_address")
-  userAgent    String?              @map("user_agent")
-  expiresAt    DateTime             @map("expires_at") @db.Timestamptz(6)
-  revokedAt    DateTime?            @map("revoked_at") @db.Timestamptz(6)
-  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("user_sessions")
-}
-
-model Address {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId        String   @map("user_id") @db.Uuid
-  recipientName String   @map("recipient_name") @db.VarChar(150)
-  phone         String   @db.VarChar(20)
-  province      String   @db.VarChar(100)
-  district      String?  @db.VarChar(100)
-  ward          String?  @db.VarChar(100)
-  street        String   @db.VarChar(255)
-  isDefault     Boolean  @default(false) @map("is_default")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  // NOTE: uq_addresses_default = UNIQUE INDEX ... WHERE is_default (partial) — chỉ ở schema.sql.
-  @@map("addresses")
-}
-
-// =====================================================================
-// 2. HỆ THỐNG CHUNG
-// =====================================================================
-model Setting {
-  key       String   @id @db.VarChar(100)
-  value     Json
-  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  @@map("settings")
-}
-
-model Media {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fileName   String   @map("file_name") @db.VarChar(255)
-  path       String
-  mimeType   String   @map("mime_type") @db.VarChar(100)
-  sizeBytes  BigInt   @map("size_bytes")
-  altText    String?  @map("alt_text") @db.VarChar(255)
-  uploadedBy String?  @map("uploaded_by") @db.Uuid
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  uploader User? @relation(fields: [uploadedBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  categories        Category[]
-  brands            Brand[]
-  productImages     ProductImage[]
-  modelPosters      Product3dModel[] @relation("ModelPosterMedia")
-  modelEnvironments Product3dModel[] @relation("ModelEnvironmentImage")
-  modelFiles        ModelFile[]
-  arSnapshots       ArSnapshot[]
-  spaces            Space[]
-  spacePanoramas    SpacePanorama[]
-
-  @@map("media")
-}
-
-model Notification {
-  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  type      String    @db.VarChar(50)
-  title     String    @db.VarChar(255)
-  data      Json?
-  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  // NOTE: idx_notifications_unread = INDEX ... WHERE read_at IS NULL (partial) — chỉ ở schema.sql.
-  @@map("notifications")
-}
-
-model ActivityLog {
-  id         String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId     String?              @map("user_id") @db.Uuid
-  action     String               @db.VarChar(100)
-  targetType String?              @map("target_type") @db.VarChar(50)
-  targetId   String?              @map("target_id") @db.Uuid
-  changes    Json?
-  ipAddress  Unsupported("inet")? @map("ip_address")
-  createdAt  DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  @@index([targetType, targetId], map: "idx_activity_target")
-  @@map("activity_logs")
-}
-
-// =====================================================================
-// 3. NỘI DUNG: DANH MỤC, TRANG TĨNH
-// =====================================================================
-model Category {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  parentId        String?  @map("parent_id") @db.Uuid
-  type            String   @default("product") @db.VarChar(20) // CHECK: 'product' | 'space' (schema.sql)
-  name            String   @db.VarChar(150)
-  slug            String   @db.VarChar(180)
-  description     String?
-  imageId         String?  @map("image_id") @db.Uuid
-  sortOrder       Int      @default(0) @map("sort_order")
-  isActive        Boolean  @default(true) @map("is_active")
-  metaTitle       String?  @map("meta_title") @db.VarChar(255)
-  metaDescription String?  @map("meta_description") @db.VarChar(500)
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  children Category[] @relation("CategoryParent")
-  image    Media?     @relation(fields: [imageId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  products Product[]
-  spaces   Space[]
-
-  @@unique([type, slug])
-  @@index([parentId], map: "idx_categories_parent")
-  @@map("categories")
-}
-
-model Page {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  title           String        @db.VarChar(255)
-  slug            String        @unique @db.VarChar(280)
-  content         String
-  status          PublishStatus @default(draft)
-  metaTitle       String?       @map("meta_title") @db.VarChar(255)
-  metaDescription String?       @map("meta_description") @db.VarChar(500)
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  @@map("pages")
-}
-
-// =====================================================================
-// 4. SẢN PHẨM
-// =====================================================================
-model Brand {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name      String   @db.VarChar(150)
-  slug      String   @unique @db.VarChar(180)
-  logoId    String?  @map("logo_id") @db.Uuid
-  isActive  Boolean  @default(true) @map("is_active")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  logo     Media?    @relation(fields: [logoId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  products Product[]
-
-  @@map("brands")
-}
-
-model Product {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  categoryId       String?       @map("category_id") @db.Uuid
-  brandId          String?       @map("brand_id") @db.Uuid
-  name             String        @db.VarChar(255)
-  slug             String        @unique @db.VarChar(280)
-  shortDescription String?       @map("short_description")
-  description      String?
-  status           PublishStatus @default(draft)
-  isFeatured       Boolean       @default(false) @map("is_featured")
-  has3d            Boolean       @default(false) @map("has_3d")
-  arEnabled        Boolean       @default(false) @map("ar_enabled")
-  ratingAvg        Decimal       @default(0) @map("rating_avg") @db.Decimal(3, 2)
-  ratingCount      Int           @default(0) @map("rating_count")
-  soldCount        Int           @default(0) @map("sold_count")
-  metaTitle        String?       @map("meta_title") @db.VarChar(255)
-  metaDescription  String?       @map("meta_description") @db.VarChar(500)
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime?     @map("deleted_at") @db.Timestamptz(6)
-
-  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  brand    Brand?    @relation(fields: [brandId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  variants           ProductVariant[]
-  images             ProductImage[]
-  models3d           Product3dModel[]
-  arSessions         ArSession[]
-  arSnapshots        ArSnapshot[]
-  reviews            Review[]
-  wishlists          Wishlist[]
-  spaceHotspots      SpaceHotspot[]
-  spacePlacements    SpaceProductPlacement[]
-  spaceViewReferrals SpaceView[]
-
-  // NOTE: idx_products_category có WHERE deleted_at IS NULL (partial);
-  // idx_products_name_trgm là expression index (f_unaccent + trgm). Cả hai chỉ ở schema.sql.
-  @@index([brandId], map: "idx_products_brand")
-  @@map("products")
-}
-
-model Attribute {
-  id   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name String @unique @db.VarChar(100)
-
-  values AttributeValue[]
-
-  @@map("attributes")
-}
-
-model AttributeValue {
-  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  attributeId String @map("attribute_id") @db.Uuid
-  value       String @db.VarChar(100)
-
-  attribute Attribute               @relation(fields: [attributeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variants  VariantAttributeValue[]
-
-  @@unique([attributeId, value])
-  @@map("attribute_values")
-}
-
-model ProductVariant {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId     String   @map("product_id") @db.Uuid
-  sku           String   @unique @db.VarChar(100)
-  price         Decimal  @db.Decimal(14, 2)
-  salePrice     Decimal? @map("sale_price") @db.Decimal(14, 2)
-  stockQuantity Int      @default(0) @map("stock_quantity")
-  weightGrams   Int?     @map("weight_grams")
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  attributeValues    VariantAttributeValue[]
-  images             ProductImage[]
-  models3d           Product3dModel[]
-  materialVariants   ModelMaterialVariant[]
-  cartItems          CartItem[]
-  orderItems         OrderItem[]
-  inventoryMovements InventoryMovement[]
-  spacePlacements    SpaceProductPlacement[]
-
-  // NOTE: CHECK (sale_price IS NULL OR sale_price <= price) — chỉ ở schema.sql.
-  @@index([productId], map: "idx_variants_product")
-  @@map("product_variants")
-}
-
-model VariantAttributeValue {
-  variantId        String @map("variant_id") @db.Uuid
-  attributeValueId String @map("attribute_value_id") @db.Uuid
-
-  variant        ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  attributeValue AttributeValue @relation(fields: [attributeValueId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@id([variantId, attributeValueId])
-  @@map("variant_attribute_values")
-}
-
-model ProductImage {
-  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId String  @map("product_id") @db.Uuid
-  variantId String? @map("variant_id") @db.Uuid
-  mediaId   String  @map("media_id") @db.Uuid
-  sortOrder Int     @default(0) @map("sort_order")
-  isPrimary Boolean @default(false) @map("is_primary")
-
-  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  media   Media           @relation(fields: [mediaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  // NOTE: uq_product_primary_image = UNIQUE INDEX ... WHERE is_primary (partial) — chỉ ở schema.sql.
-  @@map("product_images")
-}
-
-// =====================================================================
-// 4b. MÔ HÌNH 3D & AR
-// =====================================================================
-model Product3dModel {
-  id                 String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId          String      @map("product_id") @db.Uuid
-  variantId          String?     @map("variant_id") @db.Uuid
-  name               String      @db.VarChar(255)
-  status             ModelStatus @default(uploading)
-  version            Int         @default(1)
-  isPrimary          Boolean     @default(false) @map("is_primary")
-  realWidthMm        Decimal     @map("real_width_mm") @db.Decimal(10, 2)
-  realHeightMm       Decimal     @map("real_height_mm") @db.Decimal(10, 2)
-  realDepthMm        Decimal     @map("real_depth_mm") @db.Decimal(10, 2)
-  arEnabled          Boolean     @default(true) @map("ar_enabled")
-  arPlacement        ArPlacement @default(floor) @map("ar_placement")
-  arAllowScaling     Boolean     @default(false) @map("ar_allow_scaling")
-  posterMediaId      String?     @map("poster_media_id") @db.Uuid
-  cameraOrbit        String?     @map("camera_orbit") @db.VarChar(100)
-  autoRotate         Boolean     @default(true) @map("auto_rotate")
-  environmentImageId String?     @map("environment_image_id") @db.Uuid
-  exposure           Decimal     @default(1.0) @db.Decimal(4, 2)
-  processingError    String?     @map("processing_error")
-  createdBy          String?     @map("created_by") @db.Uuid
-  createdAt          DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime    @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  product          Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variant          ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  posterMedia      Media?          @relation("ModelPosterMedia", fields: [posterMediaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  environmentImage Media?          @relation("ModelEnvironmentImage", fields: [environmentImageId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  creator          User?           @relation(fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  files                  ModelFile[]
-  materialVariants       ModelMaterialVariant[]
-  arSessions             ArSession[]
-  spaceProductPlacements SpaceProductPlacement[]
-
-  // NOTE: uq_3d_models_primary = UNIQUE INDEX ... WHERE is_primary (partial) — chỉ ở schema.sql.
-  @@index([productId], map: "idx_3d_models_product")
-  @@map("product_3d_models")
-}
-
-model ModelFile {
-  id                  String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  modelId             String      @map("model_id") @db.Uuid
-  mediaId             String      @map("media_id") @db.Uuid
-  format              ModelFormat
-  lod                 ModelLod    @default(high)
-  polygonCount        Int?        @map("polygon_count")
-  textureResolution   Int?        @map("texture_resolution")
-  isDracoCompressed   Boolean     @default(false) @map("is_draco_compressed")
-  checksumSha256      String?     @map("checksum_sha256") @db.Char(64)
-  createdAt           DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  model Product3dModel @relation(fields: [modelId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  media Media          @relation(fields: [mediaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@unique([modelId, format, lod])
-  @@map("model_files")
-}
-
-model ModelMaterialVariant {
-  modelId      String @map("model_id") @db.Uuid
-  variantId    String @map("variant_id") @db.Uuid
-  materialName String @map("material_name") @db.VarChar(100)
-
-  model   Product3dModel @relation(fields: [modelId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([modelId, variantId])
-  @@map("model_material_variants")
-}
-
-model ArSession {
-  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  modelId         String      @map("model_id") @db.Uuid
-  productId       String      @map("product_id") @db.Uuid
-  userId          String?     @map("user_id") @db.Uuid
-  sessionKey      String?     @map("session_key") @db.VarChar(100)
-  mode            String      @db.VarChar(10) // CHECK: '3d' | 'ar' (schema.sql)
-  platform        ArPlatform?
-  deviceOs        String?     @map("device_os") @db.VarChar(30)
-  deviceModel     String?     @map("device_model") @db.VarChar(100)
-  startedAt       DateTime    @default(now()) @map("started_at") @db.Timestamptz(6)
-  durationSeconds Int?        @map("duration_seconds")
-  objectPlaced    Boolean     @default(false) @map("object_placed")
-  snapshotTaken   Boolean     @default(false) @map("snapshot_taken")
-  addedToCart     Boolean     @default(false) @map("added_to_cart")
-
-  model     Product3dModel @relation(fields: [modelId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product   Product        @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  snapshots ArSnapshot[]
-
-  // NOTE: CHECK (mode = '3d' OR platform IS NOT NULL) — chỉ ở schema.sql.
-  @@index([productId, startedAt(sort: Desc)], map: "idx_ar_sessions_product")
-  @@map("ar_sessions")
-}
-
-model ArSnapshot {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  arSessionId String?  @map("ar_session_id") @db.Uuid
-  userId      String?  @map("user_id") @db.Uuid
-  productId   String   @map("product_id") @db.Uuid
-  mediaId     String   @map("media_id") @db.Uuid
-  isPublic    Boolean  @default(false) @map("is_public")
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  arSession ArSession? @relation(fields: [arSessionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  media     Media      @relation(fields: [mediaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("ar_snapshots")
-}
-
-model InventoryMovement {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  variantId   String   @map("variant_id") @db.Uuid
-  changeQty   Int      @map("change_qty")
-  reason      String   @db.VarChar(50)
-  referenceId String?  @map("reference_id") @db.Uuid
-  note        String?
-  createdBy   String?  @map("created_by") @db.Uuid
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  creator User?          @relation(fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  @@index([variantId, createdAt(sort: Desc)], map: "idx_inventory_variant")
-  @@map("inventory_movements")
-}
-
-model Review {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  productId   String        @map("product_id") @db.Uuid
-  userId      String        @map("user_id") @db.Uuid
-  orderItemId String?       @map("order_item_id") @db.Uuid
-  rating      Int           @db.SmallInt
-  content     String?
-  status      CommentStatus @default(pending)
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "fk_reviews_order_item")
-
-  @@unique([productId, userId, orderItemId])
-  @@map("reviews")
-}
-
-model Wishlist {
-  userId    String   @map("user_id") @db.Uuid
-  productId String   @map("product_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([userId, productId])
-  @@map("wishlists")
-}
-
-// =====================================================================
-// 5. GIỎ HÀNG, KHUYẾN MÃI, ĐƠN HÀNG
-// =====================================================================
-model Cart {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId    String?  @unique @map("user_id") @db.Uuid
-  sessionId String?  @unique @map("session_id") @db.VarChar(100)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  user  User?      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  items CartItem[]
-
-  // NOTE: CHECK (user_id IS NOT NULL OR session_id IS NOT NULL) — chỉ ở schema.sql.
-  @@map("carts")
-}
-
-model CartItem {
-  cartId    String   @map("cart_id") @db.Uuid
-  variantId String   @map("variant_id") @db.Uuid
-  quantity  Int
-  addedAt   DateTime @default(now()) @map("added_at") @db.Timestamptz(6)
-
-  cart    Cart           @relation(fields: [cartId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([cartId, variantId])
-  @@map("cart_items")
-}
-
-model Coupon {
-  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code           String       @unique @db.VarChar(50)
-  description    String?
-  discountType   DiscountType @map("discount_type")
-  discountValue  Decimal      @map("discount_value") @db.Decimal(14, 2)
-  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(14, 2)
-  minOrderAmount Decimal      @default(0) @map("min_order_amount") @db.Decimal(14, 2)
-  usageLimit     Int?         @map("usage_limit")
-  perUserLimit   Int          @default(1) @map("per_user_limit")
-  usedCount      Int          @default(0) @map("used_count")
-  startsAt       DateTime     @map("starts_at") @db.Timestamptz(6)
-  endsAt         DateTime     @map("ends_at") @db.Timestamptz(6)
-  isActive       Boolean      @default(true) @map("is_active")
-  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  orders Order[]
-  usages CouponUsage[]
-
-  // NOTE: CHECK (ends_at > starts_at); CHECK (discount_type <> 'percent' OR discount_value <= 100) — chỉ ở schema.sql.
-  @@map("coupons")
-}
-
-model Order {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderCode       String        @unique @map("order_code") @db.VarChar(30)
-  userId          String?       @map("user_id") @db.Uuid
-  couponId        String?       @map("coupon_id") @db.Uuid
-  status          OrderStatus   @default(pending)
-  recipientName   String        @map("recipient_name") @db.VarChar(150)
-  recipientPhone  String        @map("recipient_phone") @db.VarChar(20)
-  recipientEmail  String?       @map("recipient_email") @db.Citext
-  shippingAddress String        @map("shipping_address")
-  subtotal        Decimal       @db.Decimal(14, 2)
-  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(14, 2)
-  shippingFee     Decimal       @default(0) @map("shipping_fee") @db.Decimal(14, 2)
-  totalAmount     Decimal       @map("total_amount") @db.Decimal(14, 2)
-  paymentMethod   PaymentMethod @map("payment_method")
-  paymentStatus   PaymentStatus @default(pending) @map("payment_status")
-  note            String?
-  cancelledReason String?       @map("cancelled_reason")
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  coupon Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  items         OrderItem[]
-  couponUsage   CouponUsage?
-  statusHistory OrderStatusHistory[]
-  payments      Payment[]
-  shipments     Shipment[]
-
-  // NOTE: CHECK (total_amount = subtotal - discount_amount + shipping_fee) — chỉ ở schema.sql.
-  @@index([userId, createdAt(sort: Desc)], map: "idx_orders_user")
-  @@index([status, createdAt(sort: Desc)], map: "idx_orders_status")
-  @@map("orders")
-}
-
-model OrderItem {
-  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId     String  @map("order_id") @db.Uuid
-  variantId   String? @map("variant_id") @db.Uuid
-  productName String  @map("product_name") @db.VarChar(255)
-  variantName String? @map("variant_name") @db.VarChar(255)
-  sku         String  @db.VarChar(100)
-  unitPrice   Decimal @map("unit_price") @db.Decimal(14, 2)
-  quantity    Int
-  // Generated column: GENERATED ALWAYS AS (unit_price * quantity) STORED (schema.sql).
-  // KHÔNG set giá trị này từ app — Postgres tự tính, Prisma chỉ đọc lại.
-  // Prisma không hỗ trợ generated column: `prisma migrate diff`/`db pull` sẽ luôn đề
-  // xuất 1 dòng ALTER vô hại (DROP DEFAULT) cho cột này — KHÔNG áp dụng dòng đó.
-  lineTotal   Decimal? @map("line_total") @db.Decimal(14, 2)
-
-  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  reviews Review[]
-
-  @@index([orderId], map: "idx_order_items_order")
-  @@map("order_items")
-}
-
-model CouponUsage {
-  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  couponId String   @map("coupon_id") @db.Uuid
-  userId   String?  @map("user_id") @db.Uuid
-  orderId  String   @unique @map("order_id") @db.Uuid
-  usedAt   DateTime @default(now()) @map("used_at") @db.Timestamptz(6)
-
-  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("coupon_usages")
-}
-
-model OrderStatusHistory {
-  id         String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId    String       @map("order_id") @db.Uuid
-  fromStatus OrderStatus? @map("from_status")
-  toStatus   OrderStatus  @map("to_status")
-  note       String?
-  changedBy  String?      @map("changed_by") @db.Uuid
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  order   Order @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  changer User? @relation(fields: [changedBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  @@map("order_status_history")
-}
-
-model Payment {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId         String        @map("order_id") @db.Uuid
-  method          PaymentMethod
-  amount          Decimal       @db.Decimal(14, 2)
-  status          PaymentStatus @default(pending)
-  transactionId   String?       @unique @map("transaction_id") @db.VarChar(150)
-  gatewayResponse Json?         @map("gateway_response")
-  paidAt          DateTime?     @map("paid_at") @db.Timestamptz(6)
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([orderId], map: "idx_payments_order")
-  @@map("payments")
-}
-
-model Shipment {
-  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId        String         @map("order_id") @db.Uuid
-  carrier        String         @db.VarChar(50)
-  trackingNumber String?        @unique @map("tracking_number") @db.VarChar(100)
-  status         ShipmentStatus @default(pending)
-  fee            Decimal        @default(0) @db.Decimal(14, 2)
-  shippedAt      DateTime?      @map("shipped_at") @db.Timestamptz(6)
-  deliveredAt    DateTime?      @map("delivered_at") @db.Timestamptz(6)
-  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime       @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("shipments")
-}
-
-// =====================================================================
-// 6. KHÔNG GIAN MẪU (SPACES) & PANORAMA 360°
-// =====================================================================
-model Space {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  categoryId      String?       @map("category_id") @db.Uuid
-  name            String        @db.VarChar(255)
-  slug            String        @unique @db.VarChar(280)
-  description     String?
-  roomType        SpaceRoomType @default(other) @map("room_type")
-  style           String?       @db.VarChar(100)
-  coverMediaId    String?       @map("cover_media_id") @db.Uuid
-  status          PublishStatus @default(draft)
-  isFeatured      Boolean       @default(false) @map("is_featured")
-  viewCount       Int           @default(0) @map("view_count")
-  metaTitle       String?       @map("meta_title") @db.VarChar(255)
-  metaDescription String?       @map("meta_description") @db.VarChar(500)
-  createdBy       String?       @map("created_by") @db.Uuid
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  coverMedia Media?    @relation(fields: [coverMediaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  creator    User?     @relation(fields: [createdBy], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  panoramas SpacePanorama[]
-  bookmarks SpaceBookmark[]
-  views     SpaceView[]
-
-  // view_count tự tăng bằng trigger trg_space_views_count khi có SpaceView mới (schema.sql).
-  // idx_spaces_name_trgm là expression index (f_unaccent + trgm) — chỉ ở schema.sql.
-  @@index([roomType], map: "idx_spaces_room_type")
-  @@index([status], map: "idx_spaces_status")
-  @@map("spaces")
-}
-
-model SpacePanorama {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  spaceId      String   @map("space_id") @db.Uuid
-  mediaId      String   @map("media_id") @db.Uuid
-  title        String?  @db.VarChar(150)
-  initialYaw   Decimal  @default(0) @map("initial_yaw") @db.Decimal(6, 2)
-  initialPitch Decimal  @default(0) @map("initial_pitch") @db.Decimal(6, 2)
-  initialFov   Decimal  @default(75) @map("initial_fov") @db.Decimal(5, 2)
-  sortOrder    Int      @default(0) @map("sort_order")
-  isDefault    Boolean  @default(false) @map("is_default")
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  media Media @relation(fields: [mediaId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  hotspots          SpaceHotspot[]          @relation("HotspotPanorama")
-  navigationTargets SpaceHotspot[]          @relation("HotspotTargetPanorama")
-  placements        SpaceProductPlacement[]
-  views             SpaceView[]
-
-  // NOTE: uq_space_panoramas_default = UNIQUE INDEX ... WHERE is_default (partial) — chỉ ở schema.sql.
-  @@index([spaceId], map: "idx_space_panoramas_space")
-  @@map("space_panoramas")
-}
-
-model SpaceHotspot {
-  id               String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  panoramaId       String           @map("panorama_id") @db.Uuid
-  type             SpaceHotspotType
-  yaw              Decimal          @db.Decimal(6, 2)
-  pitch            Decimal          @db.Decimal(6, 2)
-  productId        String?          @map("product_id") @db.Uuid
-  targetPanoramaId String?          @map("target_panorama_id") @db.Uuid
-  label            String?          @db.VarChar(255)
-  icon             String?          @db.VarChar(50)
-  sortOrder        Int              @default(0) @map("sort_order")
-  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  panorama       SpacePanorama  @relation("HotspotPanorama", fields: [panoramaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product        Product?       @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  targetPanorama SpacePanorama? @relation("HotspotTargetPanorama", fields: [targetPanoramaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  // NOTE: CHECK đảm bảo đúng cột đi kèm theo từng loại `type` — chỉ ở schema.sql.
-  // idx_space_hotspots_product có WHERE product_id IS NOT NULL (partial) — chỉ ở schema.sql.
-  @@index([panoramaId], map: "idx_space_hotspots_panorama")
-  @@map("space_hotspots")
-}
-
-model SpaceProductPlacement {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  panoramaId    String   @map("panorama_id") @db.Uuid
-  productId     String   @map("product_id") @db.Uuid
-  variantId     String?  @map("variant_id") @db.Uuid
-  modelId       String?  @map("model_id") @db.Uuid
-  positionYaw   Decimal  @map("position_yaw") @db.Decimal(6, 2)
-  positionPitch Decimal  @map("position_pitch") @db.Decimal(6, 2)
-  distanceM     Decimal  @default(2.0) @map("distance_m") @db.Decimal(6, 2)
-  rotationY     Decimal  @default(0) @map("rotation_y") @db.Decimal(6, 2)
-  scale         Decimal  @default(1.0) @db.Decimal(5, 2)
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
-
-  panorama SpacePanorama   @relation(fields: [panoramaId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  product  Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  variant  ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  model    Product3dModel? @relation(fields: [modelId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  @@index([panoramaId], map: "idx_space_placements_panorama")
-  @@index([productId], map: "idx_space_placements_product")
-  @@map("space_product_placements")
-}
-
-model SpaceBookmark {
-  userId    String   @map("user_id") @db.Uuid
-  spaceId   String   @map("space_id") @db.Uuid
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-
-  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  space Space @relation(fields: [spaceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([userId, spaceId])
-  @@map("space_bookmarks")
-}
-
-model SpaceView {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  spaceId           String   @map("space_id") @db.Uuid
-  panoramaId        String?  @map("panorama_id") @db.Uuid
-  userId            String?  @map("user_id") @db.Uuid
-  sessionKey        String?  @map("session_key") @db.VarChar(100)
-  referrerProductId String?  @map("referrer_product_id") @db.Uuid
-  startedAt         DateTime @default(now()) @map("started_at") @db.Timestamptz(6)
-  durationSeconds   Int?     @map("duration_seconds")
-  hotspotClicks     Int      @default(0) @map("hotspot_clicks")
-  addedToCart       Boolean  @default(false) @map("added_to_cart")
-
-  space           Space          @relation(fields: [spaceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  panorama        SpacePanorama? @relation(fields: [panoramaId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  referrerProduct Product?       @relation(fields: [referrerProductId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-
-  @@index([spaceId, startedAt(sort: Desc)], map: "idx_space_views_space")
-  @@map("space_views")
+enum UserStatus {
+  active
+  suspended
+  banned
+
+  @@map("user_status")
 }
