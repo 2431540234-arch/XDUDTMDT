@@ -11,7 +11,14 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:status": "npm exec -w apps/api -- prisma migrate status",
+    "db:deploy": "npm exec -w apps/api -- prisma migrate deploy",
+    "db:seed": "npm exec -w apps/api -- prisma db seed",
+    "db:studio": "npm exec -w apps/api -- prisma studio",
+    "db:reset": "npm exec -w apps/api -- prisma migrate reset --force"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

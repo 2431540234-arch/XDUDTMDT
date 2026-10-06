@@ -1,4 +1,4 @@
-﻿# --- Node.js / Web / API ---
+# --- Node.js / Web / API ---
 node_modules/
 .next/
 out/
@@ -50,3 +50,7 @@ logs/
 
 # --- Docker volumes ---
 infra/docker/data/
+
+# Mọi file .env (kể cả trong apps/*), trừ file mẫu
+**/.env
+!.env.example
