@@ -1,1 +1,1 @@
-// Decorator lấy thông tin user hiện tại từ request đã xác thực
+export { CurrentUser } from './auth.decorators';

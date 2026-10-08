@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
-    "lint": "turbo run lint",
+    "lint": "eslint . --max-warnings=0",
     "test": "turbo run test",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
@@ -18,11 +18,31 @@
     "db:deploy": "npm exec -w apps/api -- prisma migrate deploy",
     "db:seed": "npm exec -w apps/api -- prisma db seed",
     "db:studio": "npm exec -w apps/api -- prisma studio",
-    "db:reset": "npm exec -w apps/api -- prisma migrate reset --force"
+    "db:reset": "npm exec -w apps/api -- prisma migrate reset --force",
+    "build:types": "npm run build -w @aurelia-living/shared-types",
+    "types:generate": "node scripts/generate-shared-types.mjs",
+    "types:check": "node scripts/generate-shared-types.mjs --check",
+    "typecheck": "turbo run typecheck",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test:e2e": "npm run test:e2e -w @aurelia-living/api",
+    "prepare": "husky || true",
+    "docker:up": "docker compose up -d --no-recreate",
+    "docker:down": "docker compose down"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "eslint": "^8.57.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.3.0",
+    "husky": "^9.1.0",
+    "lint-staged": "^15.2.0",
+    "@commitlint/cli": "^19.5.0",
+    "@commitlint/config-conventional": "^19.5.0"
   },
   "packageManager": "npm@10.0.0",
   "allowScripts": {
