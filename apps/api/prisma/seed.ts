@@ -5,6 +5,7 @@
 // User mẫu (chỉ khi SEED_SAMPLE != false) dùng SEED_SAMPLE_USER_PASSWORD.
 import { PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { ensureSampleObject, storageDriver } from './seed-storage';
 
 const prisma = new PrismaClient();
 
@@ -726,12 +727,29 @@ async function seedSample() {
   }
 }
 
+/** Đưa mọi tệp mẫu (media.file_path bắt đầu bằng uploads/sample/) lên kho nếu chưa có. Chạy lại không tải trùng. */
+async function syncSampleObjects() {
+  const rows = await prisma.media.findMany({ where: { filePath: { startsWith: 'uploads/sample/' } } });
+  let uploaded = 0;
+  for (const m of rows) {
+    const size = await ensureSampleObject(m.filePath, m.mimeType);
+    if (size !== null) {
+      await prisma.media.update({ where: { id: m.id }, data: { fileSize: size } });
+      uploaded++;
+    }
+  }
+  console.log(`Tệp mẫu trên kho (${storageDriver}): ${rows.length} bản ghi, tải lên mới ${uploaded}.`);
+}
+
 async function main() {
   if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
     throw new Error('Môi trường production bắt buộc đặt SEED_ADMIN_PASSWORD.');
   }
   await seedCore();
-  if (process.env.SEED_SAMPLE !== 'false') await seedSample();
+  if (process.env.SEED_SAMPLE !== 'false') {
+    await seedSample();
+    await syncSampleObjects();
+  }
   console.log('Seed hoàn tất.');
 }
 

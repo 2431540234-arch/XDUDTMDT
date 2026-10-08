@@ -6,3 +6,4 @@ export * from './error-codes';
 export * from './api';
 export * from './auth.types';
 export * from './health.types';
+export * from './upload.types';

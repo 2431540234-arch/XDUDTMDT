@@ -10,7 +10,7 @@ export function setupApp(app: INestApplication) {
   const config = app.get(AppConfig);
 
   // /health nằm ngoài prefix để load balancer/docker healthcheck gọi gọn
-  app.setGlobalPrefix('api', { exclude: ['health'] });
+  app.setGlobalPrefix('api', { exclude: ['health', 'admin/queues', 'admin/queues/(.*)'] });
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(json({ limit: '1mb' }));
   app.use(urlencoded({ extended: true, limit: '1mb' }));

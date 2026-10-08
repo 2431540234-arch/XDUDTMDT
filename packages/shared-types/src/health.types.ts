@@ -1,4 +1,6 @@
 // Response của GET /health
+export type CheckStatus = 'up' | 'down';
+
 export interface HealthStatus {
   status: 'ok';
   /** Số giây tiến trình đã chạy. */
@@ -6,6 +8,8 @@ export interface HealthStatus {
   /** Thời điểm kiểm tra, ISO 8601 UTC. */
   timestamp: string;
   checks: {
-    database: 'up';
+    database: CheckStatus;
+    redis: CheckStatus;
+    storage: CheckStatus;
   };
 }
