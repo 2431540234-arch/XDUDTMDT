@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/.env
+!.env.example
+.git
+docs
+database
+apps/mobile
+apps/api/uploads
+apps/api/.tmp-uploads

@@ -2,95 +2,113 @@
 
 Website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°. Monorepo gồm `apps/web` (Next.js), `apps/api` (NestJS + Prisma + PostgreSQL) và `apps/mobile` (Android).
 
-## Cài đặt môi trường
+## Chạy từ đầu trên máy mới
 
 > Mật khẩu và secret trong mục này **chỉ dùng cho máy local khi phát triển**. Không dùng cho môi trường thật.
 
 ### 1. Yêu cầu
 
-- Node.js 24 (đang dùng v24.20.0) và npm 11
-- Docker Desktop (đã chạy PostgreSQL 16 qua Docker, không cần cài PostgreSQL trên máy)
+- Node.js 22 trở lên và npm 10 trở lên
+- Docker Desktop (PostgreSQL 16 và Mailpit chạy bằng Docker, không cần cài riêng)
+- Git
 
-### 2. Cài thư viện
+### 2. Lấy mã và cài thư viện
 
-```powershell
-npm install
+```bash
+git clone <repo> && cd XDUDTMDT
+npm install          # cài workspace + husky (hook git)
 ```
 
-### 3. Khởi động PostgreSQL
+### 3. Tạo file `.env`
 
-Mở Docker Desktop, chờ biểu tượng báo "running", rồi:
-
-```powershell
-npm run db:up
+```bash
+cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
+cp .env apps/api/.env                 # Prisma CLI đọc apps/api/.env
 ```
 
-Lệnh này chỉ bật service `postgres` trong [docker-compose.yml](docker-compose.yml) (user/mật khẩu `aurelia`/`aurelia`, volume `postgres-data` giữ dữ liệu giữa các lần chạy). Bốn extension cần thiết (`citext`, `pg_trgm`, `unaccent`, `pgcrypto`) đã có sẵn trong image và được migration tự bật.
+Sửa trong `.env` (rồi chép lại sang `apps/api/.env`):
 
-### 4. Tạo file `.env`
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: chuỗi ngẫu nhiên tối thiểu 16 ký tự (`openssl rand -hex 32`). Backend **từ chối khởi động** nếu thiếu/ngắn và in rõ biến nào sai.
+- Cổng 5432/4000/1025/8025 bị chiếm: đổi `POSTGRES_PORT` (và cổng trong `DATABASE_URL`), `API_PORT`, `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
 
-Copy `.env.example` thành `.env` ở **thư mục gốc** và thêm một bản **cùng nội dung** vào `apps/api/.env` (Prisma CLI đọc `apps/api/.env`, còn docker compose đọc `.env` ở gốc):
+`.env` đã nằm trong `.gitignore`: **không commit**. Giải thích từng biến: [.env.example](.env.example).
 
-```powershell
-Copy-Item .env.example .env
-Copy-Item .env apps\api\.env
+### 4. Bật hạ tầng, dựng CSDL
+
+```bash
+docker compose up -d --no-recreate postgres mailpit   # PostgreSQL + Mailpit
+npm run db:deploy                                     # áp migration (44 bảng, trigger, CHECK, index)
+npm run db:seed                                       # vai trò, quyền, cấu hình, admin (+ dữ liệu mẫu)
 ```
 
-Sau đó sửa trong `.env` (rồi chép sang `apps/api/.env`):
+`db:seed` chạy lại nhiều lần không lỗi. Đặt `SEED_SAMPLE=false` để chỉ seed dữ liệu bắt buộc; email/mật khẩu admin lấy từ `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD` (production bắt buộc tự đặt mật khẩu).
 
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: thay bằng chuỗi ngẫu nhiên, ví dụ `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
-- Nếu cổng `5432` trên máy đã bị chiếm: đặt `POSTGRES_PORT=<cổng khác>` **và** đổi cổng trong `DATABASE_URL` cho khớp.
-- Nếu muốn dùng tên CSDL khác (mặc định container tạo `aurelia_living`), sửa phần tên DB trong `DATABASE_URL`; DB phải tồn tại (`docker compose exec postgres psql -U aurelia -d postgres -c "CREATE DATABASE <ten>"`).
-- Các biến dịch vụ ngoài (thanh toán MoMo/VNPay/ZaloPay, vận chuyển GHN/GHTK, SMTP, `OPENAI_API_KEY`...) chưa dùng ở giai đoạn này, để trống.
+### 5. Chạy API
 
-File `.env` đã nằm trong `.gitignore`: **không commit**.
+Cách A, trên máy host (dev, có hot reload):
 
-### 5. Dựng CSDL
-
-```powershell
-npm run db:deploy   # áp migration (44 bảng, trigger, CHECK, index)
-npm run db:seed     # vai trò, quyền, cấu hình, tài khoản admin + dữ liệu mẫu
+```bash
+npm run build:types                    # build gói shared-types lần đầu
+npm run start:dev -w @aurelia-living/api
 ```
 
-`db:seed` chạy lại nhiều lần không lỗi và không nhân đôi dữ liệu. Đặt `SEED_SAMPLE=false` trong `.env` để chỉ seed dữ liệu bắt buộc.
+Cách B, trong Docker (cả PostgreSQL, Mailpit, API; API tự chạy `migrate deploy` khi khởi động):
 
-### 6. Chạy API
+```bash
+docker compose up -d --build           # thêm --no-recreate nếu đã có container cũ cần giữ
+```
 
-```powershell
-cd apps\api
-npm run start:dev      # mặc định cổng 4000 (biến PORT)
+Kiểm tra: `curl http://localhost:4000/health` (đổi cổng theo `API_PORT`). Swagger: http://localhost:4000/docs. Xem email dev: http://localhost:8025.
+
+### 6. Kiểm tra chất lượng và test
+
+```bash
+docker compose --profile test up -d postgres-test     # DB riêng cho e2e (cổng 5433, dữ liệu trong RAM)
+npm run lint && npm run typecheck && npm test && npm run test:e2e
 ```
 
 ### 7. Tài khoản mẫu (chỉ dev)
 
-| Vai trò | Email | Mật khẩu |
-| --- | --- | --- |
-| admin | `admin@aurelia.vn` | `Admin@123456` |
-| user | `nguyenvana@example.com` | `User@123456` |
-| user | `tranthib@example.com` | `User@123456` |
+| Vai trò | Email                    | Mật khẩu       |
+| ------- | ------------------------ | -------------- |
+| admin   | `admin@aurelia.vn`       | `Admin@123456` |
+| user    | `nguyenvana@example.com` | `User@123456`  |
+| user    | `tranthib@example.com`   | `User@123456`  |
 
 ### 8. Script npm (thư mục gốc)
 
-| Lệnh | Tác dụng |
-| --- | --- |
-| `npm run db:up` | Bật PostgreSQL (docker compose, chỉ service `postgres`) |
-| `npm run db:down` | Tắt các container của compose (không xóa dữ liệu, không dùng `-v`) |
-| `npm run db:status` | Xem trạng thái migration |
-| `npm run db:deploy` | Áp các migration chưa chạy |
-| `npm run db:seed` | Seed dữ liệu (idempotent) |
-| `npm run db:studio` | Mở Prisma Studio để xem dữ liệu |
-| `npm run db:reset` | **Xóa sạch** DB, dựng lại từ migration và seed lại (chỉ dev) |
+| Lệnh                                     | Tác dụng                                                                                         |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm run lint` / `lint:fix`              | ESLint toàn monorepo                                                                             |
+| `npm run format` / `format:check`        | Prettier                                                                                         |
+| `npm run typecheck`                      | Kiểm tra kiểu mọi package (turbo)                                                                |
+| `npm test` / `npm run test:e2e`          | Unit test / e2e (cần `postgres-test`)                                                            |
+| `npm run build`                          | Build tất cả (shared-types trước)                                                                |
+| `npm run types:generate` / `types:check` | Sinh / kiểm tra kiểu từ `schema.prisma` ([docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md)) |
+| `npm run docker:up` / `docker:down`      | Bật (không tạo lại container cũ) / tắt compose                                                   |
+| `npm run db:up`                          | Bật riêng service `postgres`                                                                     |
+| `npm run db:status` / `db:deploy`        | Trạng thái / áp migration                                                                        |
+| `npm run db:seed`                        | Seed dữ liệu (idempotent)                                                                        |
+| `npm run db:studio`                      | Prisma Studio                                                                                    |
+| `npm run db:reset`                       | **Xóa sạch** DB, dựng lại và seed lại (chỉ dev)                                                  |
+
+Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### 9. Xử lý lỗi thường gặp
 
-| Lỗi | Nguyên nhân / cách xử lý |
-| --- | --- |
-| `P1012` thiếu `DATABASE_URL` | Chưa có `apps/api/.env` hoặc thiếu biến. Làm lại bước 4 |
-| `P1001` không kết nối được | Docker Desktop chưa chạy, container chưa lên (`npm run db:up`, `docker compose ps`), hoặc sai cổng giữa `POSTGRES_PORT` và `DATABASE_URL` |
-| Cổng 5432 (hoặc 4000) bị chiếm | Máy đang có Postgres/ứng dụng khác. Xem `Get-NetTCPConnection -LocalPort 5432`; đặt `POSTGRES_PORT` khác như bước 4. API: đặt `PORT` khác |
-| `EPERM` khi `npm install` | Tắt mọi dev server (`npm run start:dev`, `next dev`), đóng VS Code/terminal đang mở trong project, không để project trong thư mục OneDrive, tạm tắt Windows Defender real-time protection cho thư mục project, rồi chạy lại |
-| Container trùng tên khi `db:up` | Đã có container cùng tên tạo bằng `docker run` hoặc từ project compose khác: `docker ps -a`. Dùng lại nó, hoặc xóa nó nếu chắc chắn không cần dữ liệu (`docker rm -f <ten>`). Không xóa volume khi chưa chắc |
-| `migrate deploy` báo xung đột / drift | DB đã có bảng từ schema cũ. Dùng DB mới (tên khác trong `DATABASE_URL`) hoặc `npm run db:reset` nếu dữ liệu cũ không cần |
+| Lỗi                                   | Nguyên nhân / cách xử lý                                                                                                                                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `P1012` thiếu `DATABASE_URL`          | Chưa có `apps/api/.env` hoặc thiếu biến. Làm lại bước 4                                                                                                                                                                     |
+| `P1001` không kết nối được            | Docker Desktop chưa chạy, container chưa lên (`npm run db:up`, `docker compose ps`), hoặc sai cổng giữa `POSTGRES_PORT` và `DATABASE_URL`                                                                                   |
+| Cổng 5432 (hoặc 4000) bị chiếm        | Máy đang có Postgres/ứng dụng khác. Xem `Get-NetTCPConnection -LocalPort 5432`; đặt `POSTGRES_PORT` khác như bước 4. API: đặt `PORT` khác                                                                                   |
+| `EPERM` khi `npm install`             | Tắt mọi dev server (`npm run start:dev`, `next dev`), đóng VS Code/terminal đang mở trong project, không để project trong thư mục OneDrive, tạm tắt Windows Defender real-time protection cho thư mục project, rồi chạy lại |
+| Container trùng tên khi `db:up`       | Đã có container cùng tên tạo bằng `docker run` hoặc từ project compose khác: `docker ps -a`. Dùng lại nó, hoặc xóa nó nếu chắc chắn không cần dữ liệu (`docker rm -f <ten>`). Không xóa volume khi chưa chắc                |
+| `migrate deploy` báo xung đột / drift | DB đã có bảng từ schema cũ. Dùng DB mới (tên khác trong `DATABASE_URL`) hoặc `npm run db:reset` nếu dữ liệu cũ không cần                                                                                                    |
+
+## Tài liệu
+
+- [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
+- [docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md): kiểu dùng chung FE/BE sinh từ Prisma
 
 ## Tài liệu CSDL
 

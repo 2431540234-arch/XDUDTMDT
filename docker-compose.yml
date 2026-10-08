@@ -1,4 +1,8 @@
-version: "3.9"
+# Môi trường dev. Chạy:  docker compose up -d --no-recreate   (hoặc: npm run docker:up)
+#   mặc định:   postgres + mailpit + api
+#   profile test:   postgres-test (DB riêng cho e2e, dữ liệu nằm trong RAM)
+#   profile later:  redis, minio, worker, web (chưa dùng ở giai đoạn nền tảng)
+# Biến đọc từ .env (xem .env.example). Không đặt bí mật thật vào file này.
 
 services:
   postgres:
@@ -10,33 +14,26 @@ services:
       POSTGRES_DB: aurelia_living
     ports:
       # Cổng host đổi được qua POSTGRES_PORT trong .env (mặc định 5432) khi máy đã có Postgres khác chiếm 5432
-      - "${POSTGRES_PORT:-5432}:5432"
+      - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U aurelia -d aurelia_living"]
+      test: ['CMD-SHELL', 'pg_isready -U aurelia -d aurelia_living']
       interval: 5s
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7-alpine
+  mailpit:
+    image: axllent/mailpit:latest
     restart: unless-stopped
     ports:
-      - "6379:6379"
-
-  minio:
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: aurelia
-      MINIO_ROOT_PASSWORD: aurelia123
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio-data:/data
+      - '${MAILPIT_SMTP_PORT:-1025}:1025' # SMTP: API gửi thư vào đây
+      - '${MAILPIT_UI_PORT:-8025}:8025' # Giao diện xem thư: http://localhost:8025
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -44,14 +41,68 @@ services:
       dockerfile: infra/docker/Dockerfile.api
     restart: unless-stopped
     env_file: .env
+    environment:
+      # Trong mạng compose, API gọi DB/Mailpit bằng tên service (không dùng localhost/cổng host)
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://aurelia:aurelia@postgres:5432/aurelia_living?schema=public}
+      MAIL_HOST: mailpit
+      MAIL_PORT: '1025'
+      PORT: '4000'
+      NODE_ENV: development
     ports:
-      - "4000:4000"
+      - '${API_PORT:-4000}:4000'
     depends_on:
-      - postgres
-      - redis
-      - minio
+      postgres:
+        condition: service_started # CMD của api tự thử lại migrate cho tới khi DB sẵn sàng
+      mailpit:
+        condition: service_started
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  postgres-test:
+    profiles: ['test']
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: aurelia
+      POSTGRES_PASSWORD: aurelia
+      POSTGRES_DB: aurelia_test
+    ports:
+      - '${POSTGRES_TEST_PORT:-5433}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U aurelia -d aurelia_test']
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # ---- Chưa dùng ở giai đoạn nền tảng (bật bằng: docker compose --profile later up) ----
+  redis:
+    profiles: ['later']
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+
+  minio:
+    profiles: ['later']
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: aurelia
+      MINIO_ROOT_PASSWORD: aurelia123
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
 
   worker:
+    profiles: ['later']
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.worker
@@ -63,13 +114,14 @@ services:
       - minio
 
   web:
+    profiles: ['later']
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.web
     restart: unless-stopped
     env_file: .env
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - api
 

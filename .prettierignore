@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+.turbo
+coverage
+package-lock.json
+docs
+database
+apps/api/prisma/migrations
+**/*.generated.ts
+.husky
+.qodo
+.github/modernize
+apps/mobile

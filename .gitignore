@@ -54,3 +54,8 @@ infra/docker/data/
 # Mọi file .env (kể cả trong apps/*), trừ file mẫu
 **/.env
 !.env.example
+
+# Tệp upload local (StorageService)
+apps/api/uploads/
+apps/api/.tmp-uploads/
+uploads/
