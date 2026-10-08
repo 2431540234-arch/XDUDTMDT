@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1820" height="1060" viewBox="0 0 1820 1060"><defs>
+<marker id="open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1,1 L11,6 L1,11" fill="none" stroke="#111" stroke-width="1.4"/></marker>
+<marker id="tri" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M1,1 L13,7 L1,13 Z" fill="#fff" stroke="#111" stroke-width="1.4"/></marker>
+</defs><rect width="100%" height="100%" fill="#fff"/><text x="910.0" y="26" text-anchor="middle" font-size="17" font-weight="700" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Hình 3. Use case khách hàng: tài khoản, thông báo, yêu thích, ảnh AR, không gian mẫu</text>
+<g stroke="#111" stroke-width="1.6" fill="none">
+<circle cx="830" cy="430" r="10" fill="#fff"/>
+<line x1="830" y1="440" x2="830" y2="472"/>
+<line x1="812" y1="452" x2="848" y2="452"/>
+<line x1="830" y1="472" x2="816" y2="496"/>
+<line x1="830" y1="472" x2="844" y2="496"/></g>
+<text x="830" y="516" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="600" fill="#111">Khách thành viên</text>
+<ellipse cx="520" cy="100" rx="52.5" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="520" y="105.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đăng xuất</text>
+<ellipse cx="464" cy="195" rx="109.4" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="464" y="200.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Làm mới access token</text>
+<ellipse cx="430" cy="290" rx="78.4" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="430" y="295.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xác thực email</text>
+<ellipse cx="412" cy="420" rx="114.5" ry="45.9" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="412" y="404.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem và cập nhật hồ sơ</text>
+<line x1="299.0" y1="412.5" x2="525.0" y2="412.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="412" y="429.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="412" y="446.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đổi ảnh đại diện</text>
+<ellipse cx="417" cy="545" rx="68.0" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="417" y="550.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đổi mật khẩu</text>
+<ellipse cx="453" cy="680" rx="124.9" ry="70.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="453" y="647.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Quản lý sổ địa chỉ giao</text>
+<text x="453" y="664.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">hàng</text>
+<line x1="328.8" y1="672.5" x2="577.2" y2="672.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="453" y="689.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="453" y="706.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Thêm, sửa, xóa</text>
+<text x="453" y="723.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đặt địa chỉ mặc định</text>
+<ellipse cx="549" cy="835" rx="124.9" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="549" y="840.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Quản lý phiên đăng nhập</text>
+<ellipse cx="690" cy="940" rx="114.5" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="690" y="945.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Yêu cầu xóa tài khoản</text>
+<ellipse cx="1148" cy="110" rx="119.7" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1148" y="106.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem và đánh dấu đã đọc</text>
+<text x="1148" y="123.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">thông báo</text>
+<ellipse cx="1210" cy="230" rx="114.5" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1210" y="226.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Quản lý danh sách yêu</text>
+<text x="1210" y="243.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">thích</text>
+<ellipse cx="1242" cy="350" rx="124.9" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1242" y="346.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Lưu / bỏ lưu không gian</text>
+<text x="1242" y="363.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">mẫu</text>
+<ellipse cx="1249" cy="490" rx="99.0" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1249" y="495.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Chụp và lưu ảnh AR</text>
+<ellipse cx="1217" cy="650" rx="119.7" ry="58.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1217" y="625.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Quản lý ảnh AR của tôi</text>
+<line x1="1101.9" y1="634.0" x2="1332.1" y2="634.0" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1217" y="650.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="1217" y="667.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Công khai / ẩn</text>
+<text x="1217" y="684.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xóa</text>
+<line x1="811.3" y1="428.9" x2="539.7" y2="122.2" stroke="#111" stroke-width="1.4"/>
+<line x1="808.5" y1="441.4" x2="477.6" y2="309.1" stroke="#111" stroke-width="1.4"/>
+<line x1="808.0" y1="448.4" x2="524.7" y2="428.1" stroke="#111" stroke-width="1.4"/>
+<line x1="808.2" y1="455.0" x2="474.0" y2="531.9" stroke="#111" stroke-width="1.4"/>
+<line x1="809.1" y1="462.7" x2="537.5" y2="628.4" stroke="#111" stroke-width="1.4"/>
+<line x1="812.4" y1="474.1" x2="566.3" y2="811.2" stroke="#111" stroke-width="1.4"/>
+<line x1="819.9" y1="485.5" x2="696.8" y2="916.0" stroke="#111" stroke-width="1.4"/>
+<line x1="849.0" y1="429.7" x2="1122.3" y2="137.5" stroke="#111" stroke-width="1.4"/>
+<line x1="851.0" y1="437.9" x2="1165.3" y2="255.9" stroke="#111" stroke-width="1.4"/>
+<line x1="851.8" y1="444.7" x2="1157.0" y2="370.6" stroke="#111" stroke-width="1.4"/>
+<line x1="852.0" y1="452.1" x2="1156.9" y2="481.2" stroke="#111" stroke-width="1.4"/>
+<line x1="851.2" y1="460.9" x2="1135.2" y2="607.7" stroke="#111" stroke-width="1.4"/>
+<line x1="426.7" y1="314.0" x2="418.3" y2="374.2" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="425.6" y="335.1" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="456.5" y="347.1" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<polygon points="1450,465 1692.96,465 1704.96,477 1704.96,513 1450,513" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1692.96,465 1692.96,477 1704.96,477" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1458" y="484" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Mở rộng của &quot;Xem sản phẩm</text>
+<text x="1458" y="501" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">bằng AR&quot; (Hình 1); cần đăng nhập</text>
+<line x1="1450.0" y1="489.4" x2="1348.0" y2="489.7" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="40,130 239.28000000000003,130 251.28000000000003,142 251.28000000000003,178 40,178" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="239.28000000000003,130 239.28000000000003,142 251.28000000000003,142" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="48" y="149" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Tự động khi token hết hạn;</text>
+<text x="48" y="166" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">refresh token xoay vòng</text>
+<line x1="251.3" y1="167.6" x2="369.7" y2="182.9" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="1450,640 1663.8400000000001,640 1675.8400000000001,652 1675.8400000000001,688 1450,688" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1663.8400000000001,640 1663.8400000000001,652 1675.8400000000001,652" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1458" y="659" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Ảnh công khai hiển thị ở mục</text>
+<text x="1458" y="676" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">&quot;Khách hàng đã trải nghiệm&quot;</text>
+<line x1="1450.0" y1="659.4" x2="1336.3" y2="654.8" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="40,960 210.16000000000003,960 222.16000000000003,972 222.16000000000003,1008 40,1008" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="210.16000000000003,960 210.16000000000003,972 222.16000000000003,972" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="48" y="979" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Đơn hàng được giữ lại:</text>
+<text x="48" y="996" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">chỉ xóa mềm tài khoản</text>
+<line x1="222.2" y1="976.8" x2="582.8" y2="948.4" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="1450,215 1642.0,215 1654.0,227 1654.0,263 1450,263" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1642.0,215 1642.0,227 1654.0,227" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1458" y="234" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Chỉ thao tác trên dữ liệu</text>
+<text x="1458" y="251" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">của chính mình</text>
+<line x1="1450.0" y1="236.3" x2="1323.9" y2="233.0" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/></svg>

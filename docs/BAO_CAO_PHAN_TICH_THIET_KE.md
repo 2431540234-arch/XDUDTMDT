@@ -851,7 +851,7 @@ flowchart TD
         n8(("Kết thúc"))
     end
     subgraph LANE_S["Hệ thống (API)"]
-        n3["Gửi GET /api/products?featured=true&limit=8"]
+        n3["Gửi GET /api/products?featured=true&pageSize=8"]
         n5["Chuyển Decimal sang number"]
         n6["Trả 200: Danh sách sản phẩm nổi bật (frontend gọi thêm danh mục gốc và không gian mới)"]
     end
@@ -4298,7 +4298,7 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     A->>FE: Mở trang chủ
-    FE->>C: GET /api/products?featured=true&limit=8
+    FE->>C: GET /api/products?featured=true&pageSize=8
     C->>S: ProductsService.findAll(query)
     S->>P: product.findMany({ where: { isFeatured: true, status: 'published', deletedAt: null }, include: { productImages: true, productVariants: true } })
     P->>D: SELECT products
@@ -4316,7 +4316,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- |
 | 1 | Giao diện | apps/web/src/app/page.tsx | Trang chủ (HomePage) | Trang/route; đã có (khung rỗng) |
 | 2 | Service gọi API (web) | apps/web/src/services/product.api.ts | getFeatured() | đã có (khung rỗng) |
-| 3 | Controller | apps/api/src/modules/products/products.controller.ts | ProductsController.findAll(query: ProductQueryDto)  [GET /api/products?featured=true&limit=8] | đã có (khung rỗng) |
+| 3 | Controller | apps/api/src/modules/products/products.controller.ts | ProductsController.findAll(query: ProductQueryDto)  [GET /api/products?featured=true&pageSize=8] | đã có (khung rỗng) |
 | 4 | DTO | apps/api/src/modules/products/dto/product-query.dto.ts | ProductQueryDto | [CẦN TẠO MỚI] |
 | 5 | Service | apps/api/src/modules/products/products.service.ts | ProductsService.findAll(query) | đã có (khung rỗng) |
 | 6 | Prisma / PostgreSQL | apps/api/prisma/schema.prisma | product.findMany({ where: { isFeatured: true, status: 'published', deletedAt: null }, include: { productImages: true, productVariants: true } }) | model có sẵn trong schema |
@@ -8302,31 +8302,31 @@ Từ điển dữ liệu chi tiết (kiểu, ràng buộc, mô tả từng cột
 
 ## 6. Danh sách API
 
-Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đăng nhập), `OptionalJwtAuthGuard` (khách hoặc user) [CẦN TẠO MỚI], `RolesGuard('admin')` + `PermissionsGuard` (quyền ghi trong ngoặc) cho `/api/admin/*`. Response là phần dữ liệu (định dạng bọc ngoài do `TransformResponseInterceptor` quyết định, mục 9). URL công khai dùng `slug`; API quản trị dùng `id`.
+Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đăng nhập), `OptionalJwtAuthGuard` (khách hoặc user) [CẦN TẠO MỚI], `RolesGuard('admin')` + `PermissionsGuard` (quyền ghi trong ngoặc) cho `/api/admin/*`. Response là phần dữ liệu (định dạng bọc ngoài do `TransformResponseInterceptor` quyết định, mục 9). URL công khai dùng `slug`; API quản trị dùng `id`. **Định dạng response, lỗi, phân trang, sắp xếp: xem [API_CONVENTIONS.md](API_CONVENTIONS.md)** (mọi response bọc `{ success, data, meta? }`; cột "Response" bên dưới ghi phần `data`; phân trang dùng `page` + `pageSize`, sắp xếp dùng `sort=truong:asc|desc`; DELETE trả 200 với `data: null`, không dùng 204).
 
 | # | Method | URL | Controller.hàm | Guard / Vai trò | Request DTO | Response | Mã UC |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | 1 | GET | `/api/addresses` | AddressesController.findAll | JwtAuthGuard | - | Danh sách địa chỉ | UC-ACC-04 |
 | 2 | POST | `/api/addresses` | AddressesController.create | JwtAuthGuard | CreateAddressDto | 201 địa chỉ | UC-ACC-04 |
-| 3 | DELETE | `/api/addresses/:id` | AddressesController.remove | JwtAuthGuard | - | 204 | UC-ACC-04 |
+| 3 | DELETE | `/api/addresses/:id` | AddressesController.remove | JwtAuthGuard | - | 200 (data: null) | UC-ACC-04 |
 | 4 | PATCH | `/api/addresses/:id` | AddressesController.update | JwtAuthGuard | UpdateAddressDto | 200 địa chỉ | UC-ACC-04 |
 | 5 | PATCH | `/api/addresses/:id/default` | AddressesController.setDefault | JwtAuthGuard (user) | CreateAddressDto, UpdateAddressDto | 200 – Danh sách địa chỉ mới | UC-ACC-04 |
 | 6 | POST | `/api/ar-sessions` | ArSessionsController.create | OptionalJwtAuthGuard (khách hoặc user) | CreateArSessionDto | 201 – uuid phiên | UC-3D-07 |
 | 7 | PATCH | `/api/ar-sessions/:uuid` | ArSessionsController.update | OptionalJwtAuthGuard | UpdateArSessionDto | 200 | UC-3D-07 |
 | 8 | POST | `/api/ar-snapshots` | ArSnapshotsController.create | JwtAuthGuard (user) | CreateArSnapshotDto | 201 – id, imageUrl, isPublic | UC-3D-04 |
-| 9 | DELETE | `/api/ar-snapshots/:id` | ArSnapshotsController.remove | JwtAuthGuard | - | 204 | UC-3D-05 |
+| 9 | DELETE | `/api/ar-snapshots/:id` | ArSnapshotsController.remove | JwtAuthGuard | - | 200 (data: null) | UC-3D-05 |
 | 10 | PATCH | `/api/ar-snapshots/:id` | ArSnapshotsController.update | JwtAuthGuard (user) | UpdateArSnapshotDto | 200 – Ảnh AR sau khi cập nhật | UC-3D-05 |
 | 11 | GET | `/api/ar-snapshots/me` | ArSnapshotsController.findMine | JwtAuthGuard | - | Ảnh AR của tôi | UC-3D-05 |
 | 12 | GET | `/api/ar-snapshots/public?productId=&page=` | ArSnapshotsController.listPublic | Công khai | PublicSnapshotQueryDto | 200 – Danh sách ảnh công khai (không lộ email, điện thoại) | UC-3D-06 |
 | 13 | POST | `/api/auth/forgot-password` | AuthController.forgotPassword | Công khai | ForgotPasswordDto | 200 – Thông báo chung "Nếu email tồn tại, hướng dẫn đã được gửi" | UC-AUTH-05 |
 | 14 | POST | `/api/auth/login` | AuthController.login | Công khai | LoginDto | 200 – Token và hồ sơ người dùng | UC-AUTH-02 |
-| 15 | POST | `/api/auth/logout` | AuthController.logout | JwtAuthGuard (user) | RefreshTokenDto | 204 – Không nội dung | UC-AUTH-04 |
+| 15 | POST | `/api/auth/logout` | AuthController.logout | JwtAuthGuard (user) | RefreshTokenDto | 200 (data: null) – Không nội dung | UC-AUTH-04 |
 | 16 | POST | `/api/auth/refresh` | AuthController.refresh | JwtRefreshGuard | RefreshTokenDto | 200 – Cặp token mới | UC-AUTH-03 |
 | 17 | POST | `/api/auth/register` | AuthController.register | Công khai | RegisterDto | 201 – Token và hồ sơ người dùng | UC-AUTH-01 |
 | 18 | POST | `/api/auth/resend-verification` | AuthController.resendVerification | JwtAuthGuard | - | 200 | UC-AUTH-07 |
 | 19 | POST | `/api/auth/reset-password` | AuthController.resetPassword | Công khai | ResetPasswordDto | 200 – Đổi mật khẩu thành công | UC-AUTH-06 |
 | 20 | GET | `/api/auth/verify-email?token=...` | AuthController.verifyEmail | Công khai | VerifyEmailQueryDto | 200 – Email đã được xác thực | UC-AUTH-07 |
-| 21 | DELETE | `/api/cart` | CartController.clear | JwtAuthGuard | - | 204 | UC-CART-03 |
+| 21 | DELETE | `/api/cart` | CartController.clear | JwtAuthGuard | - | 200 (data: null) | UC-CART-03 |
 | 22 | GET | `/api/cart` | CartController.getCart | JwtAuthGuard (user) | - | 200 – Giỏ hàng (giỏ rỗng nếu chưa có) | UC-CART-02 |
 | 23 | POST | `/api/cart/items` | CartController.addItem | JwtAuthGuard (user) | AddCartItemDto | 201 – Giỏ hàng mới | UC-CART-01 |
 | 24 | DELETE | `/api/cart/items/:id` | CartController.removeItem | JwtAuthGuard | - | 200 giỏ | UC-CART-03 |
@@ -8335,7 +8335,7 @@ Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đ
 | 27 | POST | `/api/coupons/validate` | CouponsController.validate | JwtAuthGuard (user) | ValidateCouponDto | 200 – Số tiền giảm và tổng dự kiến (chưa ghi dữ liệu) | UC-CART-04 |
 | 28 | GET | `/api/notifications` | NotificationsController.findAll | JwtAuthGuard | - | Danh sách và unreadCount | UC-ACC-05 |
 | 29 | PATCH | `/api/notifications/:id/read` | NotificationsController.markRead | JwtAuthGuard (user) | - | 200 – Thông báo đã đọc | UC-ACC-05 |
-| 30 | PATCH | `/api/notifications/read-all` | NotificationsController.markAllRead | JwtAuthGuard | - | 204 | UC-ACC-05 |
+| 30 | PATCH | `/api/notifications/read-all` | NotificationsController.markAllRead | JwtAuthGuard | - | 200 (data: null) | UC-ACC-05 |
 | 31 | GET | `/api/orders` | OrdersController.findAll | JwtAuthGuard | OrderQueryDto | Danh sách đơn của tôi | UC-ORD-02 |
 | 32 | POST | `/api/orders` | OrdersController.create | JwtAuthGuard (user) | CreateOrderDto | 201 – OrderResponseDto của đơn mới | UC-ORD-01 |
 | 33 | POST | `/api/orders/:id/cancel` | OrdersController.cancel | JwtAuthGuard (user) | CancelOrderDto | 200 – Đơn sau khi hủy | UC-ORD-03 |
@@ -8345,57 +8345,57 @@ Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đ
 | 37 | GET | `/api/payments/:gateway/return` | PaymentsController.returnUrl | Công khai | - | Chuyển hướng về /orders/:orderCode | UC-PAY-01 |
 | 38 | POST | `/api/payments/:orderId/checkout` | PaymentsController.checkout | JwtAuthGuard (user) | - | 200 – paymentUrl và thời hạn | UC-PAY-01 |
 | 39 | POST | `/api/payments/:orderId/retry` | PaymentsController.retry | JwtAuthGuard (user) | RetryPaymentDto | 200 – paymentUrl | UC-PAY-03 |
-| 40 | GET | `/api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&limit=` | ProductsController.findAll | Công khai | ProductQueryDto | 200 – Danh sách sản phẩm nổi bật (frontend gọi thêm danh mục gốc và không gian mới) | UC-CAT-01, UC-CAT-02 |
+| 40 | GET | `/api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&pageSize=` | ProductsController.findAll | Công khai | ProductQueryDto | 200 – Danh sách sản phẩm nổi bật (frontend gọi thêm danh mục gốc và không gian mới) | UC-CAT-01, UC-CAT-02 |
 | 41 | GET | `/api/products/:slug` | ProductsController.findBySlug | Công khai | - | 200 – Chi tiết sản phẩm (giá dạng number) | UC-CAT-04, UC-SPACE-03 |
 | 42 | GET | `/api/products/:slug/model` | ProductModelsController.getPublicModel | Công khai | - | 200 – Kích thước thật, viewerConfig, ảnh chờ, danh sách tệp, biến thể vật liệu | UC-3D-01, UC-3D-02 |
 | 43 | GET | `/api/products/:slug/reviews?page=&rating=` | ReviewsController.listByProduct | Công khai | ReviewQueryDto | 200 – Danh sách đánh giá, ratingAvg, ratingCount | UC-REV-01 |
 | 44 | POST | `/api/products/:slug/reviews` | ReviewsController.create | JwtAuthGuard (user) | CreateReviewDto | 201 – Đánh giá đang chờ duyệt | UC-REV-02 |
 | 45 | GET | `/api/products/search?q=...` | ProductsController.search | Công khai | SearchProductsDto | 200 – Danh sách kết quả | UC-CAT-03, UC-CAT-06 |
-| 46 | DELETE | `/api/reviews/:id` | ReviewsController.remove | JwtAuthGuard | - | 204 | UC-REV-03 |
+| 46 | DELETE | `/api/reviews/:id` | ReviewsController.remove | JwtAuthGuard | - | 200 (data: null) | UC-REV-03 |
 | 47 | PATCH | `/api/reviews/:id` | ReviewsController.update | JwtAuthGuard (user) | UpdateReviewDto | 200 – Đánh giá sau khi sửa (quay về pending) | UC-REV-03 |
 | 48 | GET | `/api/settings/public` | SettingsController.getPublic | Công khai | - | Cấu hình công khai (danh sách trắng) | UC-ADM-03 |
 | 49 | GET | `/api/spaces?roomType=&style=&category=&q=&sort=&page=` | SpacesController.findAll | Công khai | SpaceQueryDto | 200 – Danh sách phân trang | UC-SPACE-01, UC-CAT-01 |
 | 50 | GET | `/api/spaces/:slug` | SpacesController.findBySlug | Công khai | - | 200 – Không gian, ảnh 360°, hotspot, placement | UC-SPACE-02 |
-| 51 | DELETE | `/api/spaces/:slug/bookmark` | SpacesController.unbookmark | JwtAuthGuard | - | 204 | UC-SPACE-04 |
-| 52 | PUT | `/api/spaces/:slug/bookmark` | SpacesController.bookmark | JwtAuthGuard (user) | - | 204 – Không nội dung | UC-SPACE-04 |
+| 51 | DELETE | `/api/spaces/:slug/bookmark` | SpacesController.unbookmark | JwtAuthGuard | - | 200 (data: null) | UC-SPACE-04 |
+| 52 | PUT | `/api/spaces/:slug/bookmark` | SpacesController.bookmark | JwtAuthGuard (user) | - | 200 (data: null) – Không nội dung | UC-SPACE-04 |
 | 53 | GET | `/api/spaces/:slug/placements/:placementId/alternatives` | SpacesController.alternatives | Công khai | - | 200 – Sản phẩm thay thế cùng danh mục có mô hình ready | UC-SPACE-05 |
-| 54 | POST | `/api/spaces/:slug/views` | SpacesController.recordView | Công khai | RecordSpaceViewDto | 204 – Không nội dung (gọi bằng navigator.sendBeacon khi rời trang) | UC-SPACE-06 |
+| 54 | POST | `/api/spaces/:slug/views` | SpacesController.recordView | Công khai | RecordSpaceViewDto | 200 (data: null) – Không nội dung (gọi bằng navigator.sendBeacon khi rời trang) | UC-SPACE-06 |
 | 55 | GET | `/api/spaces/bookmarks/me` | SpacesController.myBookmarks | JwtAuthGuard | - | Không gian đã lưu | UC-SPACE-04 |
-| 56 | DELETE | `/api/users/me` | UsersController.deleteMe | JwtAuthGuard (user) | DeleteAccountDto | 204 – Không nội dung | UC-ACC-07 |
+| 56 | DELETE | `/api/users/me` | UsersController.deleteMe | JwtAuthGuard (user) | DeleteAccountDto | 200 (data: null) – Không nội dung | UC-ACC-07 |
 | 57 | GET | `/api/users/me` | UsersController.me | JwtAuthGuard | - | Hồ sơ | UC-ACC-01 |
 | 58 | PATCH | `/api/users/me` | UsersController.updateMe | JwtAuthGuard (user) | UpdateUserDto | 200 – Hồ sơ mới | UC-ACC-01 |
 | 59 | POST | `/api/users/me/change-password` | UsersController.changePassword | JwtAuthGuard (user) | ChangePasswordDto | 200 – Đổi mật khẩu thành công | UC-ACC-02 |
 | 60 | GET | `/api/users/me/sessions` | UsersController.listSessions | JwtAuthGuard | - | Danh sách phiên | UC-ACC-03 |
-| 61 | DELETE | `/api/users/me/sessions/:id` | UsersController.revokeSession | JwtAuthGuard (user) | - | 204 – Không nội dung | UC-ACC-03 |
+| 61 | DELETE | `/api/users/me/sessions/:id` | UsersController.revokeSession | JwtAuthGuard (user) | - | 200 (data: null) – Không nội dung | UC-ACC-03 |
 | 62 | GET | `/api/wishlist` | WishlistController.findAll | JwtAuthGuard | - | Sản phẩm yêu thích | UC-ACC-06 |
-| 63 | DELETE | `/api/wishlist/:slug` | WishlistController.remove | JwtAuthGuard | - | 204 | UC-ACC-06 |
-| 64 | PUT | `/api/wishlist/:slug` | WishlistController.add | JwtAuthGuard (user) | - | 204 – Không nội dung | UC-ACC-06 |
+| 63 | DELETE | `/api/wishlist/:slug` | WishlistController.remove | JwtAuthGuard | - | 200 (data: null) | UC-ACC-06 |
+| 64 | PUT | `/api/wishlist/:slug` | WishlistController.add | JwtAuthGuard (user) | - | 200 (data: null) – Không nội dung | UC-ACC-06 |
 | 65 | GET | `/api/admin/activity-logs` | AdminActivityLogsController.findAll | JwtAuthGuard + RolesGuard(admin) + quyền `manage_settings` | ActivityLogQueryDto | 200 – Danh sách nhật ký phân trang | UC-ADM-27 |
-| 66 | DELETE | `/api/admin/ar-snapshots/:id` | AdminArSnapshotsController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | 204 | UC-ADM-30 |
+| 66 | DELETE | `/api/admin/ar-snapshots/:id` | AdminArSnapshotsController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | 200 (data: null) | UC-ADM-30 |
 | 67 | PATCH | `/api/admin/ar-snapshots/:id` | AdminArSnapshotsController.update | JwtAuthGuard + RolesGuard(admin) + quyền `manage_content` | UpdateArSnapshotDto | 200 – Ảnh AR sau khi ẩn | UC-ADM-30 |
 | 68 | GET | `/api/admin/attributes` | AdminAttributesController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | Thuộc tính và giá trị | UC-ADM-08 |
 | 69 | POST | `/api/admin/attributes` | AdminAttributesController.create | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | CreateAttributeDto, CreateAttributeValueDto | 201 – Thuộc tính mới | UC-ADM-08 |
-| 70 | DELETE | `/api/admin/attributes/:id` | AdminAttributesController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 204 (409 nếu đang dùng) | UC-ADM-08 |
+| 70 | DELETE | `/api/admin/attributes/:id` | AdminAttributesController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) (409 nếu đang dùng) | UC-ADM-08 |
 | 71 | POST | `/api/admin/attributes/:id/values` | AdminAttributesController.addValue | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | CreateAttributeValueDto | 201 | UC-ADM-08 |
 | 72 | GET | `/api/admin/brands` | AdminBrandsController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | Danh sách thương hiệu | UC-ADM-06 |
 | 73 | POST | `/api/admin/brands` | AdminBrandsController.create | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | CreateBrandDto, UpdateBrandDto | 201 – Thương hiệu mới | UC-ADM-06 |
-| 74 | DELETE | `/api/admin/brands/:id` | AdminBrandsController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 204 | UC-ADM-06 |
+| 74 | DELETE | `/api/admin/brands/:id` | AdminBrandsController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) | UC-ADM-06 |
 | 75 | PATCH | `/api/admin/brands/:id` | AdminBrandsController.update | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | UpdateBrandDto | 200 | UC-ADM-06 |
 | 76 | GET | `/api/admin/categories` | AdminCategoriesController.findTree | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | Cây danh mục | UC-ADM-05 |
 | 77 | POST | `/api/admin/categories` | AdminCategoriesController.create | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | CreateCategoryDto, UpdateCategoryDto | 201 – Danh mục mới | UC-ADM-05 |
-| 78 | DELETE | `/api/admin/categories/:id` | AdminCategoriesController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 204 (409 nếu còn con) | UC-ADM-05 |
+| 78 | DELETE | `/api/admin/categories/:id` | AdminCategoriesController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) (409 nếu còn con) | UC-ADM-05 |
 | 79 | PATCH | `/api/admin/categories/:id` | AdminCategoriesController.update | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | UpdateCategoryDto | 200 | UC-ADM-05 |
 | 80 | GET | `/api/admin/coupons` | AdminCouponsController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | Danh sách mã | UC-ADM-19 |
 | 81 | POST | `/api/admin/coupons` | AdminCouponsController.create | JwtAuthGuard + RolesGuard(admin) + quyền `manage_content` | CreateCouponDto | 201 – Mã giảm giá mới | UC-ADM-19 |
 | 82 | PATCH | `/api/admin/coupons/:id` | AdminCouponsController.update | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | UpdateCouponDto | 200 | UC-ADM-19 |
 | 83 | GET | `/api/admin/coupons/:id/usages` | AdminCouponsController.usages | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | Lịch sử sử dụng | UC-ADM-19 |
-| 84 | DELETE | `/api/admin/hotspots/:id` | AdminSpacesController.removeHotspot | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | 204 | UC-ADM-16 |
+| 84 | DELETE | `/api/admin/hotspots/:id` | AdminSpacesController.removeHotspot | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | 200 (data: null) | UC-ADM-16 |
 | 85 | PATCH | `/api/admin/hotspots/:id` | AdminSpacesController.updateHotspot | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | UpdateHotspotDto | 200 | UC-ADM-16 |
 | 86 | GET | `/api/admin/inventory/movements` | AdminInventoryController.findMovements | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | MovementQueryDto | Lịch sử kho | UC-ADM-12 |
 | 87 | POST | `/api/admin/inventory/movements` | AdminInventoryController.record | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | CreateInventoryMovementDto | 201 – Biến động kho và tồn kho mới | UC-ADM-12 |
 | 88 | GET | `/api/admin/media` | AdminMediaController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | MediaQueryDto | Danh sách media | UC-ADM-04 |
 | 89 | POST | `/api/admin/media` | AdminMediaController.upload | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | UploadMediaDto | 201 – id, url, mimeType, fileSize | UC-ADM-04 |
-| 90 | DELETE | `/api/admin/media/:id` | AdminMediaController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 204 (409 nếu đang dùng) | UC-ADM-04 |
+| 90 | DELETE | `/api/admin/media/:id` | AdminMediaController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) (409 nếu đang dùng) | UC-ADM-04 |
 | 91 | PATCH | `/api/admin/media/:id` | AdminMediaController.update | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | UpdateMediaDto | 200 | UC-ADM-04 |
 | 92 | POST | `/api/admin/models/:id/files` | AdminProductModelsController.uploadFile | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | UploadModelFileDto | 202 – Đã nhận tệp, mô hình đang xử lý | UC-ADM-13 |
 | 93 | PUT | `/api/admin/models/:id/material-variants/:variantId` | AdminProductModelsController.upsertMaterialVariant | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | UpsertMaterialVariantDto | 200 – Cấu hình vật liệu theo biến thể | UC-ADM-14 |
@@ -8417,11 +8417,11 @@ Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đ
 | 109 | PATCH | `/api/admin/panoramas/:id/start` | AdminSpacesController.setStart | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | - | 200 | UC-ADM-15 |
 | 110 | GET | `/api/admin/payments` | AdminPaymentsController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (process_orders) | AdminPaymentQueryDto | Danh sách giao dịch | UC-ADM-24 |
 | 111 | PATCH | `/api/admin/payments/:id/confirm` | AdminPaymentsController.confirm | JwtAuthGuard + RolesGuard(admin) + quyền `process_orders` | ConfirmPaymentDto | 200 – Giao dịch sau khi xác nhận | UC-ADM-24 |
-| 112 | DELETE | `/api/admin/product-images/:imageId` | AdminProductsController.removeImage | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 204 | UC-ADM-11 |
+| 112 | DELETE | `/api/admin/product-images/:imageId` | AdminProductsController.removeImage | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) | UC-ADM-11 |
 | 113 | PATCH | `/api/admin/product-images/:imageId/primary` | AdminProductsController.setPrimaryImage | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | - | 200 – Danh sách ảnh của sản phẩm | UC-ADM-11 |
 | 114 | GET | `/api/admin/products` | AdminProductsController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | AdminProductQueryDto | Danh sách sản phẩm | UC-ADM-09 |
 | 115 | POST | `/api/admin/products` | AdminProductsController.create | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | CreateProductDto | 201 – ProductResponseDto | UC-ADM-09 |
-| 116 | DELETE | `/api/admin/products/:id` | AdminProductsController.softDelete | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 204 (xóa mềm) | UC-ADM-09 |
+| 116 | DELETE | `/api/admin/products/:id` | AdminProductsController.softDelete | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) (xóa mềm) | UC-ADM-09 |
 | 117 | PATCH | `/api/admin/products/:id` | AdminProductsController.update | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | UpdateProductDto | 200 | UC-ADM-09 |
 | 118 | POST | `/api/admin/products/:id/images` | AdminProductsController.addImage | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | AddProductImageDto | 201 | UC-ADM-11 |
 | 119 | POST | `/api/admin/products/:id/models` | AdminProductModelsController.create | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | CreateProductModelDto | 201 mô hình (uploading) | UC-ADM-13 |
@@ -8441,7 +8441,7 @@ Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đ
 | 133 | GET | `/api/admin/stats/overview` | AdminStatsController.overview | JwtAuthGuard + RolesGuard(admin) + quyền `view_orders` | StatsQueryDto | 200 – Doanh thu, đơn theo trạng thái, top sản phẩm, người dùng mới | UC-ADM-28 |
 | 134 | GET | `/api/admin/stats/spaces` | AdminStatsController.spaces | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_content) | StatsQueryDto | Phễu không gian mẫu | UC-ADM-29 |
 | 135 | GET | `/api/admin/users` | AdminUsersController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_users) | AdminUserQueryDto | Danh sách người dùng | UC-ADM-01 |
-| 136 | DELETE | `/api/admin/users/:id` | AdminUsersController.softDelete | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_users) | - | 204 | UC-ADM-01 |
+| 136 | DELETE | `/api/admin/users/:id` | AdminUsersController.softDelete | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_users) | - | 200 (data: null) | UC-ADM-01 |
 | 137 | GET | `/api/admin/users/:id` | AdminUsersController.findOne | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_users) | - | Chi tiết người dùng | UC-ADM-01 |
 | 138 | DELETE | `/api/admin/users/:id/roles/admin` | AdminUsersController.revokeAdmin | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_users) | - | 200 | UC-ADM-02 |
 | 139 | PUT | `/api/admin/users/:id/roles/admin` | AdminUsersController.grantAdmin | JwtAuthGuard + RolesGuard(admin) + quyền `manage_users` | - | 200 – Vai trò của người dùng | UC-ADM-02 |
@@ -8843,9 +8843,9 @@ Các quyết định nghiệp vụ đã chốt (mục 12.1) và điểm còn m�
 
 | # | Giả định / điểm | Cách thể hiện trong báo cáo | Cần xác nhận |
 | --- | --- | --- | --- |
-| 1 | Định dạng bọc response (`{ data }`, `{ success, data }`...) chưa có (interceptor còn là khung) | API list ghi phần dữ liệu trả về | Chọn định dạng response chuẩn |
+| 1 | ~~Định dạng bọc response chưa có~~ Đã chốt `{ success, data, meta? }` và lỗi `{ success:false, error }` | API list ghi phần `data`; chi tiết ở API_CONVENTIONS.md | Đã giải quyết |
 | 2 | Controller quản trị tách file riêng `admin-<module>.controller.ts` trong cùng module, dùng chung Service | Tên class `Admin<Tên>Controller` | Đồng ý quy ước? |
-| 3 | `PrismaService` chưa tồn tại | Mọi sequence dùng `PrismaService` | Đồng ý tạo ở `src/prisma/` |
+| 3 | ~~`PrismaService` chưa tồn tại~~ Đã tạo ở `src/prisma/` | Mọi sequence dùng `PrismaService` | Đã giải quyết |
 | 4 | Biến phiên `app.current_user_id`, `app.status_note` đặt bằng `set_config(..., true)` chỉ có hiệu lực TRONG transaction hiện tại | Sequence đặt trong `critical $transaction` | Bắt buộc dùng interactive `$transaction` khi đổi trạng thái đơn |
 | 5 | `OrdersService.completeOrder` dùng chung cho UC-ADM-25 (vận đơn delivered) | Mô tả ở UC-ADM-25 | Đồng ý? |
 | 6 | Thông báo và email gửi SAU commit, lỗi gửi không làm hỏng đơn | Bước `(sau commit)` | Đồng ý? |

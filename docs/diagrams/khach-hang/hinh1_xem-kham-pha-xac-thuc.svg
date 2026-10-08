@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1080" viewBox="0 0 1760 1080"><defs>
+<marker id="open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1,1 L11,6 L1,11" fill="none" stroke="#111" stroke-width="1.4"/></marker>
+<marker id="tri" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M1,1 L13,7 L1,13 Z" fill="#fff" stroke="#111" stroke-width="1.4"/></marker>
+</defs><rect width="100%" height="100%" fill="#fff"/><text x="880.0" y="26" text-anchor="middle" font-size="17" font-weight="700" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Hình 1. Use case khách hàng: xem, tìm kiếm, khám phá và xác thực</text>
+<g stroke="#111" stroke-width="1.6" fill="none">
+<circle cx="85" cy="470" r="10" fill="#fff"/>
+<line x1="85" y1="480" x2="85" y2="512"/>
+<line x1="67" y1="492" x2="103" y2="492"/>
+<line x1="85" y1="512" x2="71" y2="536"/>
+<line x1="85" y1="512" x2="99" y2="536"/></g>
+<text x="85" y="556" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="600" fill="#111">Khách vãng lai</text>
+<ellipse cx="340" cy="100" rx="42.2" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="105.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đăng ký</text>
+<ellipse cx="340" cy="200" rx="52.5" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="205.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đăng nhập</text>
+<ellipse cx="340" cy="300" rx="73.2" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="305.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Quên mật khẩu</text>
+<ellipse cx="690" cy="300" rx="88.7" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="690" y="305.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đặt lại mật khẩu</text>
+<ellipse cx="340" cy="410" rx="73.2" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="415.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem trang chủ</text>
+<ellipse cx="340" cy="500" rx="78.4" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="505.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem trang tĩnh</text>
+<ellipse cx="660" cy="600" rx="119.7" ry="70.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="660" y="567.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem sản phẩm theo danh</text>
+<text x="660" y="584.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">mục</text>
+<line x1="541.0" y1="592.5" x2="779.0" y2="592.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="660" y="609.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="660" y="626.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem chi tiết sản phẩm</text>
+<text x="660" y="643.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Tìm kiếm</text>
+<ellipse cx="660" cy="770" rx="94.6" ry="45.9" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="660" y="754.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Tìm kiếm sản phẩm</text>
+<line x1="566.7" y1="762.5" x2="753.3" y2="762.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="660" y="779.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="660" y="796.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Tìm không dấu</text>
+<ellipse cx="1010" cy="600" rx="114.5" ry="70.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1010" y="567.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem chi tiết sản phẩm</text>
+<line x1="902.7" y1="575.5" x2="1117.3" y2="575.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1010" y="592.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="1010" y="609.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem mô hình 3D</text>
+<text x="1010" y="626.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem bằng AR</text>
+<text x="1010" y="643.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem đánh giá</text>
+<ellipse cx="1390" cy="440" rx="94.6" ry="45.9" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1390" y="424.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem mô hình 3D</text>
+<line x1="1296.7" y1="432.5" x2="1483.3" y2="432.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1390" y="449.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="1390" y="466.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Đổi màu/chất liệu</text>
+<ellipse cx="1390" cy="590" rx="109.4" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1390" y="595.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem sản phẩm bằng AR</text>
+<ellipse cx="1390" cy="720" rx="114.5" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1390" y="725.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem đánh giá sản phẩm</text>
+<ellipse cx="340" cy="880" rx="124.9" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="876.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Duyệt và tìm không gian</text>
+<text x="340" y="893.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">mẫu</text>
+<ellipse cx="760" cy="940" rx="124.9" ry="70.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="760" y="907.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem không gian mẫu 360°</text>
+<line x1="643.0" y1="915.5" x2="877.0" y2="915.5" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="760" y="932.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="700" fill="#0b1f33">extension points</text>
+<text x="760" y="949.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Bấm điểm sản phẩm</text>
+<text x="760" y="966.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Thử đổi món đồ</text>
+<text x="760" y="983.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Ghi nhận lượt xem</text>
+<ellipse cx="340" cy="595" rx="109.4" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="340" y="600.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem ảnh AR công khai</text>
+<line x1="101.8" y1="464.3" x2="325.3" y2="122.5" stroke="#111" stroke-width="1.4"/>
+<line x1="103.7" y1="468.8" x2="320.4" y2="222.3" stroke="#111" stroke-width="1.4"/>
+<line x1="105.4" y1="474.8" x2="310.5" y2="322.0" stroke="#111" stroke-width="1.4"/>
+<line x1="106.7" y1="483.2" x2="287.1" y2="426.6" stroke="#111" stroke-width="1.4"/>
+<line x1="107.0" y1="490.9" x2="262.3" y2="497.0" stroke="#111" stroke-width="1.4"/>
+<line x1="106.9" y1="494.2" x2="546.2" y2="578.2" stroke="#111" stroke-width="1.4"/>
+<line x1="101.8" y1="515.7" x2="321.8" y2="852.2" stroke="#111" stroke-width="1.4"/>
+<line x1="106.5" y1="498.8" x2="288.6" y2="573.8" stroke="#111" stroke-width="1.4"/>
+<line x1="601.3" y1="300.0" x2="413.2" y2="300.0" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="476.4" y="291.0" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="507.2" y="303.0" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="895.5" y1="600.0" x2="779.7" y2="600.0" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="806.7" y="577.0" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="837.6" y="589.0" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="660.0" y1="724.1" x2="660.0" y2="670.0" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="629.1" y="688.1" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="660.0" y="700.1" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="1318.6" y1="470.1" x2="1104.3" y2="560.3" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="1180.6" y="496.2" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="1211.4" y="508.2" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="1281.4" y1="592.9" x2="1124.4" y2="597.0" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="1172.0" y="585.9" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="1202.9" y="597.9" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="1326.7" y1="700.0" x2="1111.8" y2="632.1" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="1188.3" y="667.1" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="1219.2" y="679.1" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="639.0" y1="922.7" x2="445.5" y2="895.1" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="511.3" y="907.9" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="542.2" y="919.9" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<polygon points="920,400 1119.28,400 1131.28,412 1131.28,448 920,448" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1119.28,400 1119.28,412 1131.28,412" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="928" y="419" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Tên, giá, biến thể, mô tả,</text>
+<text x="928" y="436" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">ảnh, tồn kho, đánh giá</text>
+<line x1="1023.5" y1="448.0" x2="1016.2" y2="530.1" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="1230,300 1472.96,300 1484.96,312 1484.96,348 1230,348" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1472.96,300 1472.96,312 1484.96,312" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1238" y="319" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Xem 3D/AR ghi nhận thống kê</text>
+<text x="1238" y="336" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">ẩn danh bằng visitorId (tự động)</text>
+<line x1="1364.2" y1="348.0" x2="1377.3" y2="394.5" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="1000,1000 1257.52,1000 1269.52,1012 1269.52,1048 1000,1048" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1257.52,1000 1257.52,1012 1269.52,1012" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1008" y="1019" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Lượt xem ghi MỘT lần khi người xem</text>
+<text x="1008" y="1036" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">rời trang (sendBeacon)</text>
+<line x1="1027.7" y1="1000.0" x2="876.0" y2="966.0" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="60,1000 378,1000 390,1012 390,1048 60,1048" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="378,1000 378,1012 390,1012" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="68" y="1019" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Khách chỉ xem; thêm giỏ, mua, yêu thích,</text>
+<text x="68" y="1036" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">đánh giá, lưu phòng cần đăng nhập (Hình 2, 3)</text></svg>
