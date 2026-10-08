@@ -7,12 +7,12 @@ flowchart LR
         CTRL["Controllers"]
         SVC["Services (nghiệp vụ, prisma.$transaction)"]
         PRISMA["PrismaService"]
-        JOBS["modules/jobs (BullMQ processors)"]
+        JOBS["modules/jobs (BullMQ: model-processing, image-processing)"]
     end
     subgraph DATA["Dữ liệu"]
         PG[("PostgreSQL 16<br>44 bảng, 36 trigger")]
         RD[("Redis")]
-        S3[("MinIO / S3")]
+        S3[("MinIO<br>bucket public và private")]
     end
     subgraph EXT["Hệ thống ngoài"]
         GW["Cổng thanh toán"]
@@ -25,6 +25,7 @@ flowchart LR
     JOBS --> S3
     JOBS --> PRISMA
     SVC --> S3
+    WEB -. "PUT presigned URL (3D, panorama)" .-> S3
     SVC --> SMTP
     WEB -. "redirect" .-> GW
     GW -- "IPN" --> CTRL

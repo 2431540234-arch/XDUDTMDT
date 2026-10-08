@@ -6,7 +6,7 @@ flowchart TD
         n8(("Kết thúc"))
     end
     subgraph LANE_S["Hệ thống (API)"]
-        n3["Gửi GET /api/products?featured=true&limit=8"]
+        n3["Gửi GET /api/products?featured=true&pageSize=8"]
         n5["Chuyển Decimal sang number"]
         n6["Trả 200: Danh sách sản phẩm nổi bật (frontend gọi thêm danh mục gốc và không gian mới)"]
     end

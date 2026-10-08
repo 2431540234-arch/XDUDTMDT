@@ -6,7 +6,7 @@ flowchart TD
         n14(("Kết thúc"))
     end
     subgraph LANE_S["Hệ thống (API)"]
-        n3["Gửi GET /api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&limit="]
+        n3["Gửi GET /api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&pageSize="]
         n4{"Tham số truy vấn hợp lệ?"}
         n5["Trả 400 Tham số không hợp lệ"]
         n7{"Danh mục tồn tại và đang bật?"}

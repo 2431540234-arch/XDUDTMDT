@@ -6,7 +6,7 @@ sequenceDiagram
     participant S as AuthService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant W as Hàng đợi BullMQ / Worker
+    participant W as MailService / SMTP (Mailpit)
     A->>FE: Nhập email và bấm "Gửi liên kết đặt lại"
     FE->>C: POST /api/auth/forgot-password
     C->>C: ValidationPipe(ForgotPasswordDto)

@@ -2,60 +2,72 @@ sequenceDiagram
     autonumber
     actor A as Quản trị viên
     participant FE as Mục Mô hình 3D ở trang sửa sản phẩm
-    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
-    participant C as AdminProductModelsController
+    participant G as JwtAuthGuard + RolesGuard
+    participant C as AdminModelsController
     participant S as ProductModelsService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant X as MinIO/S3
-    participant W as Hàng đợi BullMQ / Worker
-    A->>FE: Tải tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm "Tải lên"
-    FE->>G: POST /api/admin/models/:id/files (multipart: file, format, lod)
-    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    participant X as MinIO (bucket private và public)
+    participant Q as Redis (hàng đợi model-processing)
+    participant W as Worker BullMQ (cùng tiến trình API)
+    A->>FE: Chọn tệp GLB hoặc USDZ và bấm "Tải lên"
+    FE->>G: POST /api/admin/models/:id/files/presign (format, lod, fileName, size)
+    G->>G: xác thực JWT, kiểm tra vai trò admin
     alt Token thiếu, hết hạn hoặc không đủ quyền
         G-->>FE: 401 / 403
         FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
     end
     G->>C: request (kèm user từ token)
-    C->>C: ValidationPipe(UploadModelFileDto)
-    alt Không: Định dạng glb hoặc usdz và LOD hợp lệ
-        C-->>FE: 400/413 Tệp không hợp lệ
-    end
-    C->>S: ProductModelsService.addFile(adminId, id, file, dto)
+    C->>C: ValidationPipe(PresignModelFileDto)
+    C->>S: ProductModelsService.presignFile(id, dto)
     S->>P: product3DModel.findUnique({ where: { id } })
     P->>D: SELECT product_3d_models
     D-->>P: kết quả
     P-->>S: kết quả
     alt 404 Không tìm thấy mô hình
-        S-->>C: throw NotFoundException
-        C-->>FE: 404 Không tìm thấy mô hình
+        S-->>FE: 404 Không tìm thấy mô hình
     end
-    S->>P: modelFile.findUnique({ where: { modelId_format_lod: { modelId: id, format, lod } } })
-    P->>D: SELECT model_files
+    alt 413 Tệp vượt UPLOAD_MAX_MODEL_MB
+        S-->>FE: 413 PAYLOAD_TOO_LARGE
+    end
+    S->>X: presignPut(models/incoming/:id/uuid.glb, bucket private, Content-Type, Content-Length)
+    X-->>S: URL ký (hiệu lực 15 phút)
+    S-->>FE: 200 { key, uploadUrl, headers }
+    FE->>X: PUT uploadUrl (tệp, trực tiếp, không qua API)
+    X-->>FE: 200
+    FE->>G: POST /api/admin/models/:id/files/confirm (key, format, lod, fileName)
+    G->>C: request
+    C->>S: ProductModelsService.confirmFile(id, dto, adminId)
+    S->>X: headObject(key) kiểm tra tồn tại và dung lượng
+    alt 404 chưa có tệp / 413 vượt giới hạn
+        S-->>FE: 404 / 413
+    end
+    S->>P: product3DModel.update({ where: { id }, data: { status: 'processing' } })
+    P->>D: UPDATE product_3d_models
     D-->>P: kết quả
     P-->>S: kết quả
-    alt 409 Tệp định dạng và LOD này đã tồn tại
-        S-->>C: throw ConflictException
-        C-->>FE: 409 Tệp định dạng và LOD này đã tồn tại
-    end
-    S->>X: putObject(file)
-    X-->>S: URL tệp
-    critical $transaction (Prisma)
-        S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, uploadedBy: adminId } })
-        P->>D: INSERT INTO media
-        D-->>P: kết quả
-        P-->>S: kết quả
-        S->>P: modelFile.create({ data: { modelId: id, format, lod, mediaId } })
-        P->>D: INSERT INTO model_files
-        D-->>P: kết quả
-        P-->>S: kết quả
-        S->>P: product3DModel.update({ where: { id }, data: { status: 'processing' } })
-        P->>D: UPDATE product_3d_models
-        D-->>P: kết quả
-        P-->>S: kết quả
-    end
-    Note over D: Trigger trg_model_files_refresh_flags, trg_product_3d_models_refresh_flags
-    S-)W: Đưa job optimize-3d-model rồi generate-ar-metadata vào hàng đợi media-processing (BullMQ Queue.add)
+    S-)Q: Queue.add('process', { modelId, format, lod, sourceKey }) (attempts 3, backoff mũ)
     S-->>C: kết quả
-    C-->>FE: 202 Đã nhận tệp, mô hình đang xử lý
-    FE-->>A: Hiển thị trạng thái processing, worker cập nhật ready hoặc failed (đo polygon, texture, checksum, nén)
+    C-->>FE: 202 { modelId, jobId, status: processing }
+    FE-->>A: Hiển thị trạng thái processing
+    Q-)W: giao job
+    W->>X: getObject(sourceKey) từ bucket private
+    X-->>W: tệp gốc
+    W->>W: GLB: kiểm tra hợp lệ (gltf-transform), đo polygonCount, textureResolution, sinh LOD high/medium/low, nén Meshopt, SHA-256
+    alt Tệp hỏng
+        W->>P: product3DModel.update({ status: 'failed' })
+        P->>D: UPDATE product_3d_models
+    end
+    W->>X: putObject các LOD vào bucket public (models/:id/tên-lod.glb)
+    critical $transaction (Prisma)
+        W->>P: media.upsert({ where: { filePath }, ... })
+        P->>D: INSERT INTO media
+        W->>P: modelFile.upsert({ where: { modelId_format_lod }, ... polygonCount, textureResolution, isCompressed, checksum })
+        P->>D: INSERT INTO model_files
+    end
+    W->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } })
+    P->>D: UPDATE product_3d_models
+    Note over D: Trigger trg_model_files_refresh_flags, trg_product_3d_models_refresh_flags
+    FE->>C: GET trạng thái mô hình (lặp lại)
+    C-->>FE: status ready hoặc failed
+    FE-->>A: Hiển thị ready hoặc failed

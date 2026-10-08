@@ -6,7 +6,7 @@ sequenceDiagram
     participant S as AuthService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant W as Hàng đợi BullMQ / Worker
+    participant W as MailService / SMTP (Mailpit)
     A->>FE: Nhập họ tên, email, số điện thoại, mật khẩu và bấm "Đăng ký"
     alt Không: Dữ liệu form hợp lệ
         FE-->>A: Hiển thị lỗi tại từng ô nhập

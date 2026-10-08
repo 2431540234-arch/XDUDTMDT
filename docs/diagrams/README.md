@@ -14,11 +14,13 @@ docs/diagrams/
 
 1. Chèn PNG theo thứ tự các bảng dưới đây (cột "Thứ tự"). Sơ đồ Sequence và ERD tổng quan rộng: chèn ở trang xoay ngang (landscape) hoặc dùng bản SVG.
 2. Chú thích hình: dùng cột "Mục trong báo cáo" làm tiêu đề hình.
-3. Cập nhật sơ đồ: sửa file `.mmd` trong `src/` (hoặc sửa tài liệu gốc rồi xuất lại), rồi chạy lại:
+3. Cập nhật sơ đồ: sửa tài liệu gốc rồi chạy `python scripts/extract-diagrams.py --write` để trích lại các file `.mmd` (script báo file nào lệch, và kiểm tra `src/` khớp tài liệu), hoặc sửa trực tiếp file `.mmd`; sau đó xuất ảnh:
 
 ```bash
 npx -y @mermaid-js/mermaid-cli -i docs/diagrams/src/<ten>.mmd -o docs/diagrams/png/<ten>.png -b white -s 2
 ```
+
+**Lần xuất gần nhất: 2026-10-08 (Đợt 0b)**, toàn bộ 144 sơ đồ được trích lại từ tài liệu và xuất lại. Đã cập nhật theo kiến trúc Redis + MinIO + BullMQ: kiến trúc tổng quan, UC-ADM-04, UC-ADM-13 (presigned PUT, queue, worker), email gửi trực tiếp, `pageSize` thay `limit`, và sơ đồ trạng thái thanh toán. `src/` không còn `limit=`.
 
 Lưu ý: các sơ đồ lấy nội dung từ hai tài liệu `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md` và `docs/BAO_CAO_PHAN_TICH_THIET_KE.md`; khi đổi thiết kế, cập nhật tài liệu gốc và file `.mmd` cùng lúc.
 

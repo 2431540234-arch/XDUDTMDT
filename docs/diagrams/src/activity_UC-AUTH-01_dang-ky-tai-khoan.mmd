@@ -14,7 +14,7 @@ flowchart TD
         n9{"Email chưa được dùng?"}
         n10["Trả 409 Email đã được sử dụng"]
         n11["Băm mật khẩu bằng bcrypt"]
-        n17["Đưa job vào hàng đợi: Gửi email xác thực"]
+        n17["Gửi email xác thực qua MailService (lỗi chỉ ghi log)"]
         n18["Ký access token (15 phút) và refresh token (7 ngày)"]
         n19["Trả 201: Token và hồ sơ người dùng"]
     end

@@ -471,6 +471,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     A(["Quản trị viên"]):::actor
+    WK(["Worker xử lý nền"]):::ext
     subgraph SG_ADM["Quản trị"]
         UC_ADM_01(["UC-ADM-01 Quản lý người dùng"])
         UC_ADM_02(["UC-ADM-02 Quản lý vai trò và phân quyền"])
@@ -501,6 +502,7 @@ flowchart LR
     A --- UC_ADM_12
     A --- UC_ADM_13
     A --- UC_ADM_14
+    UC_ADM_13 --- WK
     classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
     classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3
 ```
@@ -783,7 +785,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Luồng chính** | 1. Khách: Ở trang chi tiết bấm tab "Xem 3D".<br>2. Hệ thống: `GET /api/products/:slug/model`.<br>3. Hệ thống: `ProductModelsService.getPublicModel(slug, variantId?)` trả mô hình chính (`isPrimary`, `status = ready`), danh sách `ModelFile` (GLB theo LOD), kích thước thật, `viewerConfig`, ảnh chờ `posterMediaId`.<br>4. Hệ thống: Trình xem hiển thị ảnh chờ, tải tệp GLB theo LOD phù hợp thiết bị (`ModelLoader`), áp `viewerConfig` (góc camera, tự xoay, ánh sáng).<br>5. Hệ thống: Ghi nhận phiên (UC-3D-07).<br>6. Khách: Xoay/phóng to; chọn biến thể màu/chất liệu → UC-3D-03. |
 | **Luồng thay thế** | 3a. Sản phẩm không có mô hình `ready` → ẩn nút "Xem 3D".<br>4a. Thiết bị yếu/mạng chậm → dùng LOD `low`/`medium`.<br>4b. Tải lỗi → hiển thị ảnh chờ và thông báo. |
 | **Ngoại lệ** | • Mô hình đang `processing`/`failed` → không công khai. |
-| **Quy tắc nghiệp vụ** | • Chỉ mô hình `ready` được công khai; mỗi sản phẩm tối đa một mô hình chính (`uq_product_3d_models_primary`).<br>• Tệp lấy qua URL của `Media` (StorageService (local)). |
+| **Quy tắc nghiệp vụ** | • Chỉ mô hình `ready` được công khai; mỗi sản phẩm tối đa một mô hình chính (`uq_product_3d_models_primary`).<br>• Tệp lấy qua URL của `Media` (MinIO/S3). |
 | **Dữ liệu vào** | • productId (bắt buộc): sản phẩm có mô hình<br>• variantId (tuỳ chọn): biến thể để chọn mô hình riêng |
 | **Dữ liệu ra** | • 200: `{ model: { uuid, lengthMm, widthMm, heightMm, placement, allowScaling, viewerConfig, posterUrl }, files: [{ format, lod, url, polygonCount }], materialVariants[] }` |
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>Media (media): R<br>ModelMaterialVariant (model_material_variants): R |
@@ -1290,7 +1292,7 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | Trong phiên AR, user đăng nhập chụp ảnh sản phẩm đặt trong phòng và lưu vào tài khoản. |
 | **Tiền điều kiện** | Đang trong phiên AR; đã đăng nhập. |
 | **Hậu điều kiện** | Có `Media` (ảnh) và `ArSnapshot` (`isPublic = false`); `ArSession.captured = true`. |
-| **Luồng chính** | 1. Người dùng: Bấm nút chụp trong chế độ AR.<br>2. Hệ thống: Frontend kiểm tra đăng nhập rồi gửi `POST /api/ar-snapshots` (multipart: ảnh, `productId`, `arSessionUuid`).<br>3. Hệ thống: `MediaService` lưu ảnh lên StorageService (local), tạo `Media`; job nén ảnh chạy nền (`compress-image.processor`).<br>4. Hệ thống: `ArSnapshotsService.create(userId, dto)` tạo `ArSnapshot`; đặt `captured = true` cho phiên.<br>5. Hệ thống: Trả 201; giao diện cho phép chia sẻ/đặt công khai (UC-3D-05). |
+| **Luồng chính** | 1. Người dùng: Bấm nút chụp trong chế độ AR.<br>2. Hệ thống: Frontend kiểm tra đăng nhập rồi gửi `POST /api/ar-snapshots` (multipart: ảnh, `productId`, `arSessionUuid`).<br>3. Hệ thống: `MediaService` lưu ảnh lên MinIO/S3, tạo `Media`; job nén ảnh chạy nền (`compress-image.processor`).<br>4. Hệ thống: `ArSnapshotsService.create(userId, dto)` tạo `ArSnapshot`; đặt `captured = true` cho phiên.<br>5. Hệ thống: Trả 201; giao diện cho phép chia sẻ/đặt công khai (UC-3D-05). |
 | **Luồng thay thế** | 2a. Khách chưa đăng nhập → yêu cầu đăng nhập để lưu (có thể lưu cục bộ trên thiết bị). |
 | **Ngoại lệ** | • Ảnh > 10 MB hoặc sai định dạng → 400/413. |
 | **Quy tắc nghiệp vụ** | • `ArSnapshot.userId` bắt buộc (khách không lưu ảnh lên hệ thống).<br>• Ảnh mặc định riêng tư (`isPublic = false`). |
@@ -1396,10 +1398,10 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products` hoặc `manage_content`) |
 | **Mô tả** | Tải lên, xem, sửa mô tả ảnh (alt) và xóa tệp trong kho media dùng chung. |
 | **Tiền điều kiện** | Admin đã đăng nhập, có quyền. |
-| **Hậu điều kiện** | Tệp lưu trên StorageService (local); có bản ghi `Media`. |
-| **Luồng chính** | 1. Admin: Mở thư viện media, chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và tải lên.<br>2. Hệ thống: `POST /api/admin/media` (multipart) → `MediaService.upload(file, adminId)`.<br>3. Hệ thống: Kiểm tra loại MIME và dung lượng; lưu lên StorageService (local) theo `filePath`; tạo `Media` (`fileName`, `filePath`, `mimeType`, `fileSize`, `uploadedBy`).<br>4. Hệ thống: Không xử lý nền (ảnh dùng nguyên bản đã tải lên).<br>5. Hệ thống: Trả 201 `{ id, url, ... }`.<br>6. Admin: Sửa `altText` → `PATCH /api/admin/media/:id`; xóa → `DELETE /api/admin/media/:id`. |
+| **Hậu điều kiện** | Tệp lưu trên MinIO (bucket public hoặc private); có bản ghi `Media` (`file_path` là object key, không phải URL). |
+| **Luồng chính** | 1. Admin: Mở thư viện media, chọn ảnh (≤ `UPLOAD_MAX_IMAGE_MB` = 5 MB) hoặc ảnh 360° (≤ `UPLOAD_MAX_PANORAMA_MB` = 20 MB).<br>2a. Ảnh thường: `POST /api/admin/media` (multipart, trường `file`) → `MediaService.uploadImage`; API kiểm tra MIME/dung lượng rồi ghi lên bucket public bằng `putObject`.<br>2b. Panorama: `POST /api/admin/media/presign` (`kind = panorama`, `fileName`, `mimeType`, `size`) → API kiểm tra và trả `uploadUrl` (presigned PUT); trình duyệt `PUT` thẳng lên MinIO bucket public; `POST /api/admin/media/confirm` xác nhận (API `head` tệp rồi tạo `Media`).<br>3. Hệ thống: Tạo `Media` (`fileName`, `filePath` = object key, `mimeType`, `fileSize`, `uploadedBy`). URL công khai = `STORAGE_PUBLIC_URL` + key.<br>4. Hệ thống: Đưa job vào hàng đợi `image-processing` (tạo `<key>.webp` và `<key>_thumb.webp` bằng `sharp`).<br>5. Hệ thống: Trả 201 `{ id, url, ... }`.<br>6. Admin: Sửa `altText` → `PATCH /api/admin/media/:id`; xóa → `DELETE /api/admin/media/:id`. Tệp mô hình 3D không tải ở đây mà theo UC-ADM-13. |
 | **Luồng thay thế** | 2a. Loại tệp không cho phép → 400; quá dung lượng → 413.<br>6a. Tệp đang được dùng (ảnh sản phẩm, model, panorama...) → 409 vì khóa ngoại `RESTRICT`. |
-| **Ngoại lệ** | • Ghi tệp lỗi → 500, không tạo `Media`. |
+| **Ngoại lệ** | • MinIO lỗi → 502, không tạo `Media`.<br>• Ảnh/panorama vượt giới hạn → 413 (`PAYLOAD_TOO_LARGE`); sai loại tệp → 415.<br>• Xác nhận khi tệp chưa có trên MinIO → 404. |
 | **Quy tắc nghiệp vụ** | • `filePath` UNIQUE; `fileSize` ≥ 0 và tối đa 2 GB (cột INTEGER).<br>• Xóa `Media` làm `SET NULL` ở tham chiếu tùy chọn (ảnh danh mục, logo, avatar...) nhưng bị chặn ở tham chiếu bắt buộc. |
 | **Dữ liệu vào** | • file (bắt buộc): ảnh ≤ 10 MB; GLB/USDZ ≤ 100 MB [ĐỀ XUẤT]<br>• altText (tuỳ chọn): ≤ 255 ký tự |
 | **Dữ liệu ra** | • 201: `{ id, fileName, url, mimeType, fileSize, altText }` |
@@ -1555,18 +1557,18 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | Mục | Nội dung |
 | --- | --- |
 | **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files) |
-| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) |
+| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) · phụ: Worker xử lý nền (BullMQ, chạy cùng tiến trình API), MinIO |
 | **Mô tả** | Khai báo kích thước thật, vị trí đặt AR, cấu hình trình xem; tải tệp GLB/USDZ; hệ thống tối ưu và đưa mô hình sang trạng thái sẵn sàng. |
 | **Tiền điều kiện** | Sản phẩm tồn tại; admin có quyền. |
 | **Hậu điều kiện** | Mô hình `ready` (hoặc `failed`); cờ `has3dModel`/`hasAr` của sản phẩm được trigger cập nhật. |
-| **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Tải tệp GLB và USDZ (mỗi định dạng có thể có LOD high/medium/low).<br>4. Hệ thống: `POST /api/admin/models/:id/files` (multipart: `format`, `lod`) → `MediaService.upload` rồi tạo `ModelFile`.<br>5. Hệ thống (đồng bộ trong cùng request): Kiểm tra định dạng (đuôi, MIME, chữ ký tệp GLB/USDZ) và dung lượng (≤ `UPLOAD_MAX_MODEL_MB`), tính `checksum`, ghi `fileSize`.<br>6. Hệ thống: Lưu tệp qua `StorageService`, tạo `Media` và `ModelFile` trong `$transaction`.<br>7. Hệ thống: Hợp lệ → `Product3DModel.status = ready`; tệp lỗi cấu trúc → `failed` kèm lý do. Không có bước xử lý nền, không tối ưu/nén/sinh LOD tự động (admin tự tải bản LOD).<br>8. CSDL: Trigger cập nhật `Product.has3dModel`, `Product.hasAr`.<br>9. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; tải lại tệp khi `failed`. |
-| **Luồng thay thế** | 4a. Định dạng/LOD đã tồn tại → 409 (UNIQUE `(modelId, format, lod)`).<br>7a. Tệp lỗi cấu trúc → `failed`; admin tải lại tệp hợp lệ (cùng định dạng và LOD thì thay tệp, `version` tăng) → `ready`. |
+| **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Chọn tệp GLB hoặc USDZ (≤ `UPLOAD_MAX_MODEL_MB` = 100 MB); USDZ có thể kèm LOD.<br>4. Hệ thống: `POST /api/admin/models/:id/files/presign` (`format`, `lod`, `fileName`, `size`): kiểm tra quyền admin, mô hình tồn tại, dung lượng; trả `uploadUrl` (presigned PUT, hiệu lực `PRESIGN_EXPIRES_SECONDS` = 900 giây, ký cả `Content-Type` và `Content-Length`) vào bucket PRIVATE `aurelia-private`, khóa `models/incoming/:id/<uuid>.<glb\|usdz>`.<br>5. Trình duyệt: `PUT` tệp thẳng lên MinIO (không qua API; MinIO bật CORS cho `http://localhost:3000`).<br>6. Frontend: `POST /api/admin/models/:id/files/confirm` (`key`, `format`, `lod`, `fileName`).<br>7. Hệ thống: `head` tệp trên MinIO (tồn tại, không vượt giới hạn), đặt `status = processing`, đẩy job vào hàng đợi `model-processing`, trả 202 `{ modelId, jobId, status }`.<br>8. Worker (`modules/jobs`): tải tệp gốc từ bucket private. GLB: kiểm tra hợp lệ bằng `@gltf-transform/core`, đo `polygonCount`, `textureResolution`, sinh 3 LOD high/medium/low (dedup, prune, simplify bằng Meshopt, thu nhỏ texture bằng `sharp`, nén Meshopt), tải lên bucket public `aurelia-public` (`models/:id/<tên>-<lod>.glb`), tạo `Media` + `ModelFile` (`isCompressed`, `checksum` SHA-256) trong `$transaction`. USDZ (admin tải thủ công từng LOD): chỉ kiểm tra chữ ký ZIP, tính checksum, chép sang bucket public.<br>9. Worker: thành công → `Product3DModel.status = ready`; lỗi → `failed` (tệp hỏng: không thử lại; lỗi tạm thời: thử lại 3 lần, backoff mũ).<br>10. CSDL: Trigger cập nhật `Product.has3dModel`, `Product.hasAr`.<br>11. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; thử lại khi `failed`. |
+| **Luồng thay thế** | 4a. Tệp vượt giới hạn → 413 `PAYLOAD_TOO_LARGE`; không phải GLB/USDZ → 400/415.<br>7a. Chưa thấy tệp trên MinIO khi xác nhận → 404.<br>9a. Xử lý lỗi → `failed`; admin tải lại tệp hợp lệ hoặc bấm "Xử lý lại" (`POST /api/admin/models/:id/reprocess`) → `processing`. Tải lại cùng định dạng/LOD thì ghi đè bản ghi `ModelFile` cũ (upsert, không nhân đôi). |
 | **Ngoại lệ** | • Tệp sai định dạng/quá lớn → 400/413.<br>• Kích thước ≤ 0 → 400 (CHECK `ck_product_3d_models_size`). |
-| **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Xử lý ĐỒNG BỘ trong API: không Redis/BullMQ/worker. Trạng thái `processing` của enum `model_status` không được dùng (giữ trong CSDL để mở rộng). |
+| **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Xử lý nền chạy trong `apps/api/src/modules/jobs` bằng BullMQ + Redis (compose mặc định có `redis`). Worker chạy CÙNG tiến trình API; processor chỉ là lớp mỏng gọi `ModelProcessingService` nên có thể tách sang `apps/worker` mà không sửa logic.<br>• Tệp gốc nằm ở bucket private (chỉ presigned GET), bản đã xử lý ở bucket public. `media.file_path` lưu object key.<br>• Job thất bại được giữ lại để xem ở Bull Board `/admin/queues` (chỉ admin). |
 | **Dữ liệu vào** | • lengthMm, widthMm, heightMm (bắt buộc): số nguyên > 0<br>• placement (bắt buộc): `floor`, `wall`, `table`<br>• allowScaling (tuỳ chọn): boolean<br>• viewerConfig (tuỳ chọn): JSON<br>• posterMediaId, variantId (tuỳ chọn): id hợp lệ (biến thể phải thuộc sản phẩm)<br>• format, lod, file (khi tải tệp) (bắt buộc): `glb |
 | **Dữ liệu ra** | • 201: `Product3DModel` kèm `files[]` và `status` |
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): C,R,U,D<br>ModelFile (model_files): C,R,U,D<br>Media (media): C,R<br>Product (products): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags`, `trg_product_3d_models_set_updated_at`.<br>• Service: kiểm tra tệp, chuyển trạng thái `ready`/`failed`, tạo `ModelFile`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags`, `trg_product_3d_models_set_updated_at`.<br>• Service: cấp presigned URL, đặt `processing`, đẩy job. Worker: kiểm tra tệp, sinh LOD, tạo `Media`/`ModelFile`, đặt `ready`/`failed`. |
 
 #### UC-ADM-14 – Cấu hình biến thể chất liệu cho mô hình 3D
 
@@ -1587,7 +1589,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Tạo không gian mẫu, tải các ảnh 360°, chọn ảnh mở đầu, đăng/lưu trữ. |
 | **Tiền điều kiện** | Admin có quyền. |
 | **Hậu điều kiện** | Không gian có ít nhất một ảnh và đúng một ảnh mở đầu khi `published`. |
-| **Luồng chính** | 1. Admin: Mở `/admin/spaces` → "Thêm không gian": tiêu đề, slug, mô tả, loại phòng, phong cách, danh mục, ảnh bìa.<br>2. Hệ thống: `POST /api/admin/spaces` (CreateSpaceDto) tạo không gian `draft`.<br>3. Admin: Thêm ảnh 360° (tải lên hoặc chọn từ media), nhập tiêu đề, góc nhìn mặc định (yaw, pitch, fov), thứ tự.<br>4. Hệ thống: `POST /api/admin/spaces/:id/panoramas`; chọn ảnh mở đầu: `PATCH /api/admin/panoramas/:id/start` (`$transaction`: bỏ cờ `isStart` cũ rồi đặt mới).<br>5. Admin: Đăng không gian: `PATCH /api/admin/spaces/:id/status` → `published`.<br>6. Hệ thống: Kiểm tra có ≥ 1 ảnh và đúng một `isStart`; đặt `publishedAt`; ghi `ActivityLog`. |
+| **Luồng chính** | 1. Admin: Mở `/admin/spaces` → "Thêm không gian": tiêu đề, slug, mô tả, loại phòng, phong cách, danh mục, ảnh bìa.<br>2. Hệ thống: `POST /api/admin/spaces` (CreateSpaceDto) tạo không gian `draft`.<br>3. Admin: Thêm ảnh 360° (tải lên bằng presigned PUT theo UC-ADM-04, hoặc chọn từ media), nhập tiêu đề, góc nhìn mặc định (yaw, pitch, fov), thứ tự.<br>4. Hệ thống: `POST /api/admin/spaces/:id/panoramas`; chọn ảnh mở đầu: `PATCH /api/admin/panoramas/:id/start` (`$transaction`: bỏ cờ `isStart` cũ rồi đặt mới).<br>5. Admin: Đăng không gian: `PATCH /api/admin/spaces/:id/status` → `published`.<br>6. Hệ thống: Kiểm tra có ≥ 1 ảnh và đúng một `isStart`; đặt `publishedAt`; ghi `ActivityLog`. |
 | **Luồng thay thế** | 2a. Slug trùng → 409.<br>6a. Chưa có ảnh/ảnh mở đầu → 400 không cho đăng. |
 | **Ngoại lệ** | • Ảnh 360° không đúng tỉ lệ 2:1 → cảnh báo [ĐỀ XUẤT]. |
 | **Quy tắc nghiệp vụ** | • Tối đa một ảnh mở đầu mỗi không gian (partial unique `uq_space_panoramas_start`).<br>• `defaultFov` trong (0, 180) (CHECK).<br>• Xóa không gian xóa dây chuyền ảnh, hotspot, placement (`CASCADE`) và lượt xem.<br>• `viewCount` do trigger DB, không sửa tay. |
@@ -1937,10 +1939,11 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
     [*] --> uploading: Admin tạo mô hình (UC-ADM-13)
-    uploading --> ready: Tải tệp, API kiểm tra hợp lệ (đồng bộ)
-    uploading --> failed: Tệp lỗi cấu trúc/định dạng
-    failed --> ready: Admin tải lại tệp hợp lệ
-    ready --> ready: Admin thay tệp, version tăng
+    uploading --> processing: Đủ tệp, đưa job vào hàng đợi
+    processing --> ready: Worker xử lý xong
+    processing --> failed: Worker lỗi
+    failed --> processing: Admin xử lý lại
+    ready --> processing: Admin thay tệp, version tăng
 ```
 
 Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi đủ GLB và USDZ).
@@ -1999,11 +2002,11 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | Đặt hàng | Xác nhận đơn | UC-ORD-01 |
 | Đổi trạng thái đơn / giao hàng / hoàn tiền | Cập nhật tiến trình | UC-ADM-21, UC-ADM-23, UC-ADM-25 |
 
-Gửi qua SMTP (dev: Mailpit) bằng `MailService`, không dùng hàng đợi; lỗi gửi chỉ ghi log và không làm hỏng luồng chính (với luồng không quan trọng, gọi không `await`). `MailService` đã có ở `apps/api/src/mail/`; biến môi trường `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`.
+Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps/api/src/mail`), không dùng hàng đợi; lỗi gửi chỉ ghi log và không làm hỏng luồng chính (luồng không quan trọng gọi không `await`). Biến môi trường `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`. Chuyển sang hàng đợi `mail` là hướng phát triển.
 
 ### 11.4. Lưu trữ tệp và xử lý nền
 
-StorageService (driver `local`) lưu ảnh, GLB, USDZ, ảnh 360° trong thư mục `STORAGE_LOCAL_DIR`, API phục vụ tại `/uploads`. Không có xử lý nền: mô hình 3D và ảnh được kiểm tra và lưu ĐỒNG BỘ trong request. Giới hạn tải lên theo biến `UPLOAD_MAX_IMAGE_MB` (5), `UPLOAD_MAX_MODEL_MB` (100), `UPLOAD_MAX_PANORAMA_MB` (20). `modules/jobs` (khung BullMQ) không dùng trong phạm vi đồ án.
+`StorageService` có hai driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev) và `local`. MinIO có hai bucket: `aurelia-public` (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh qua `STORAGE_PUBLIC_URL`) và `aurelia-private` (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập bằng presigned GET). Ảnh ≤ 5 MB tải qua API (multipart); mô hình 3D (≤ 100 MB) và panorama (≤ 20 MB) tải bằng presigned PUT thẳng lên MinIO rồi gọi API xác nhận. Hàng đợi BullMQ + Redis (`modules/jobs`): queue `model-processing` (kiểm tra GLB, đo đa giác/texture, sinh LOD, tính checksum) và `image-processing` (webp + thumbnail bằng `sharp`); mỗi job thử lại tối đa 3 lần với backoff mũ, job thất bại được giữ lại; Bull Board tại `/admin/queues` (chỉ admin). Worker chạy cùng tiến trình API, thiết kế để tách sang `apps/worker`. Redis cũng lưu bộ đếm giới hạn tốc độ (`@nestjs/throttler`). Quyết định: `docs/DECISIONS.md` D-T21..D-T23.
 
 
 ## 12. Quyết định nghiệp vụ và điểm còn mở
@@ -2018,8 +2021,8 @@ StorageService (driver `local`) lưu ảnh, GLB, USDZ, ảnh 360° trong thư m�
 | 4 | Không bắt buộc xác thực email để đặt hàng; **bắt buộc** xác thực email mới được đánh giá | UC-AUTH-07, UC-REV-02 |
 | 5 | Trừ tồn kho khi tạo đơn, trong `$transaction`, không phải khi thanh toán | UC-ORD-01 |
 | 6 | Đánh giá chỉ khi có `OrderItem` của sản phẩm thuộc đơn `completed` của chính user; review mới `pending`, admin duyệt | UC-REV-02, UC-ADM-18 |
-| 7 | Mô hình 3D: `uploading` → `ready`/`failed`; kiểm tra và xử lý ĐỒNG BỘ trong API (không `processing`, không hàng đợi) | UC-ADM-13 |
-| 8 | **Không dùng Redis/BullMQ/worker/MinIO** trong phạm vi đồ án (quyết định 2026-10-08, xem `docs/DECISIONS.md` D-T01). `modules/jobs` giữ làm khung, ghi rõ "không dùng". Lưu trữ tệp chỉ có driver `local` | UC-ADM-13, UC-ADM-04 |
+| 7 | Mô hình 3D: `uploading` → `processing` → `ready`/`failed`; xử lý bởi processor nền | UC-ADM-13 |
+| 8 | **Xử lý nền** bằng BullMQ + Redis trong `apps/api/src/modules/jobs` (queue `model-processing`, `image-processing`); worker chạy cùng tiến trình API. Lưu trữ tệp bằng MinIO (2 bucket public/private) qua `StorageService`; mô hình 3D và panorama tải bằng presigned PUT. Redis và MinIO nằm trong profile mặc định của `docker-compose.yml`. (Thay thế quyết định tạm "không dùng Redis/MinIO" ngày 2026-10-08.) | UC-ADM-13, UC-ADM-04 |
 | 9 | **Xác thực email**: JWT ký riêng mục đích `verify_email`, không thêm bảng | UC-AUTH-07 |
 | 10 | **Setting**: danh sách trắng khóa công khai trong Service, không thêm cột | UC-ADM-03 |
 | 11 | **Ghi lượt xem không gian mẫu**: MỘT lần khi người xem rời trang bằng `navigator.sendBeacon` (kèm `hotspotClickCount`, `addedToCart`); bỏ `viewToken` | UC-SPACE-06 |
@@ -2037,7 +2040,7 @@ StorageService (driver `local`) lưu ảnh, GLB, USDZ, ảnh 360° trong thư m�
 | # | Điểm | Mặc định đang áp dụng |
 | --- | --- | --- |
 | 1 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNN`, thử lại khi trùng (UC-ORD-01) |
-| 2 | Giới hạn tệp | Ảnh ≤ 5 MB, panorama ≤ 20 MB, GLB/USDZ ≤ 100 MB (biến `UPLOAD_MAX_*_MB`); `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
+| 2 | Giới hạn tệp | Ảnh ≤ 5 MB, panorama ≤ 20 MB, GLB/USDZ ≤ 100 MB (biến `UPLOAD_MAX_IMAGE_MB`, `UPLOAD_MAX_PANORAMA_MB`, `UPLOAD_MAX_MODEL_MB`); `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
 | 3 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Trả 429; chưa quyết định triển khai ở giai đoạn nào |
 | 4 | Thông báo tự động (đổi trạng thái đơn, duyệt đánh giá) | Service tạo `Notification`; không có trigger |
 | 5 | Gộp giỏ khách vào giỏ user sau đăng nhập | Không gộp (khách không có giỏ); client chỉ nhớ ý định thêm vào giỏ để thực hiện lại sau khi đăng nhập |
@@ -2062,8 +2065,7 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 | Module AI (gợi ý sản phẩm, mô tả tự động; OpenAI/Ollama) | `apps/api/src/modules/ai` | Tuỳ chọn, chưa có yêu cầu nghiệp vụ |
 | Module overlay AR cho mobile | `apps/api/src/modules/ar-overlay` | Sinh dữ liệu/metadata overlay cho ứng dụng Android |
 | Ứng dụng Android (camera AR overlay, catalog, giỏ hàng, chi tiết sản phẩm) | `apps/mobile` | Kotlin, dùng cùng API |
-| Xử lý nền bằng Redis/BullMQ + worker (nén ảnh, tối ưu/sinh LOD mô hình 3D, sinh metadata AR) | `apps/api/src/modules/jobs`, `infra/docker/Dockerfile.worker` | Hiện xử lý đồng bộ trong API; khung được giữ lại |
-| Lưu trữ MinIO/S3 | `src/storage` | Chỉ có driver `local`; thêm `MinioStorageService` cùng giao diện `StorageService` |
+| Tách worker BullMQ sang `apps/worker` (tiến trình riêng) | `infra/docker/Dockerfile.worker`, `apps/api/src/modules/jobs` | Hiện worker chạy cùng tiến trình API; processor đã tách logic nên chuyển được mà không sửa |
 | Webhook đơn vị vận chuyển, đồng bộ trạng thái tự động | UC-ADM-25 | Hiện nhập tay |
 | Hoàn tiền qua API cổng thanh toán | UC-ADM-23 | Hiện ghi nhận thủ công |
 | Gộp giỏ khách vào giỏ user | UC-CART-01 | Hiện không có |

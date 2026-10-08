@@ -7,7 +7,7 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     A->>FE: Chọn danh mục, bộ lọc, sắp xếp
-    FE->>C: GET /api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&limit=
+    FE->>C: GET /api/products?category=&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&pageSize=
     C->>C: ValidationPipe(ProductQueryDto)
     alt Không: Tham số truy vấn hợp lệ
         C-->>FE: 400 Tham số không hợp lệ

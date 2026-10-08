@@ -7,7 +7,7 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     A->>FE: Mở trang chủ
-    FE->>C: GET /api/products?featured=true&limit=8
+    FE->>C: GET /api/products?featured=true&pageSize=8
     C->>S: ProductsService.findAll(query)
     S->>P: product.findMany({ where: { isFeatured: true, status: 'published', deletedAt: null }, include: { productImages: true, productVariants: true } })
     P->>D: SELECT products

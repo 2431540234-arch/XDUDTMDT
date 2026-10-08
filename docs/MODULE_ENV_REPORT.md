@@ -1,5 +1,7 @@
 # Báo cáo module và môi trường triển khai
 
+> **ĐÃ LỖI THỜI MỘT PHẦN (cập nhật 2026-10-08, Đợt 0 và 0b).** Báo cáo này phản ánh trạng thái lúc quét. Từ đó: đã bật Redis + MinIO + BullMQ + throttler (M05, M12, M13 không còn thiếu hạ tầng; xem DECISIONS D-T21..D-T28); `next build` đã qua (trang quản trị về `/admin`, route `[slug]`, Tailwind/PostCSS); một file `.env` duy nhất; đã có khung 14 module; API là 144 endpoint (thêm presign/confirm). Trạng thái hiện tại theo module và theo UC: **[TIEN_DO.md](TIEN_DO.md)**. Phần còn đúng: danh sách 14 module, phụ thuộc, thứ tự triển khai, thiếu VNPay sandbox (M10).
+
 Ngày quét: 2026-10-08. Phạm vi: toàn bộ workspace `C:\Users\Dell\XDUDTMDT` (bỏ qua `node_modules`, `.git`, `dist`, `.next`, `.turbo`). Báo cáo chỉ đọc và chạy lệnh kiểm tra; không sửa file nào ngoài file này. Giá trị secret trong `.env` không được ghi lại (chỉ "có / rỗng / không có").
 
 ## 1. Tóm tắt

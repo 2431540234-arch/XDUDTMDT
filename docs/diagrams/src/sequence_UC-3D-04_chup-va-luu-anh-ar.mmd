@@ -41,7 +41,7 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
     end
-    S-)W: Nén ảnh nền (compress-image.processor)
+    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
     S-->>C: kết quả
     C-->>FE: 201 id, imageUrl, isPublic
     FE-->>A: Hiển thị ảnh đã lưu, cho phép chia sẻ hoặc đặt công khai

@@ -1,35 +1,36 @@
 flowchart TD
     subgraph LANE_A["Quản trị viên"]
         n1(("Bắt đầu"))
-        n2["Tải tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm 'Tải lên'"]
-        n23["Hiển thị trạng thái processing; worker cập nhật ready hoặc failed (đo polygon, texture, checksum, nén)"]
+        n2["Chọn tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm 'Tải lên'"]
+        n20a["Tệp được PUT thẳng lên MinIO"]
+        n23["Theo dõi trạng thái processing, rồi ready hoặc failed"]
         n24(("Kết thúc"))
     end
     subgraph LANE_S["Hệ thống (API)"]
-        n3["Gửi POST /api/admin/models/:id/files"]
+        n3["Gửi POST /api/admin/models/:id/files/presign"]
         n4{"Đã đăng nhập và đủ quyền?"}
         n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
-        n6{"Định dạng glb hoặc usdz và LOD hợp lệ?"}
-        n7["Trả 400/413 Tệp không hợp lệ"]
+        n6{"Định dạng glb hoặc usdz và dung lượng trong giới hạn?"}
+        n7["Trả 413/400 Tệp không hợp lệ"]
         n9{"Mô hình tồn tại?"}
         n10["Trả 404 Không tìm thấy mô hình"]
-        n12{"Chưa có tệp cùng định dạng và LOD?"}
-        n13["Trả 409 Tệp định dạng và LOD này đã tồn tại"]
-        n21["Đưa job vào hàng đợi: Đưa job optimize-3d-model rồi generate-ar-metadata vào hàng đợi media-processing"]
-        n22["Trả 202: Đã nhận tệp, mô hình đang xử lý"]
+        n12["Trả 200: uploadUrl (presigned PUT), key"]
+        n13["Gửi POST /api/admin/models/:id/files/confirm"]
+        n14{"Tệp có trên MinIO và trong giới hạn?"}
+        n14b["Trả 404/413"]
+        n21["Đẩy job vào hàng đợi model-processing"]
+        n22["Trả 202: modelId, jobId, status processing"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT product_3d_models"]
-        n11["Truy vấn CSDL: SELECT model_files"]
-        n15["Bắt đầu transaction"]
-        n16["Tạo bản ghi media"]
-        n17["Tạo ModelFile"]
         n18["Chuyển mô hình sang processing"]
-        n19["Commit transaction"]
-        n20["Trigger DB: Cập nhật cờ has3dModel và hasAr của sản phẩm"]
     end
-    subgraph LANE_X["MinIO/S3"]
-        n14["Lưu tệp lên MinIO/S3"]
+    subgraph LANE_X["MinIO / Redis / Worker"]
+        n15["Kiểm tra GLB, đo đa giác và texture, sinh LOD high, medium, low"]
+        n16["Tải các LOD lên bucket public, tạo media và model_files"]
+        n17{"Xử lý thành công?"}
+        n19["Mô hình ready; trigger DB cập nhật has3dModel, hasAr"]
+        n20["Mô hình failed (sau tối đa 3 lần thử hoặc tệp hỏng)"]
     end
     n1 --> n2
     n2 --> n3
@@ -40,21 +41,23 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
-    n11 --> n12
-    n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
-    n14 --> n15
+    n9 -->|"Có"| n12
+    n12 --> n20a
+    n20a --> n13
+    n13 --> n14
+    n14 -->|"Không"| n14b
+    n14 -->|"Có"| n18
+    n18 --> n21
+    n21 --> n22
+    n22 --> n15
     n15 --> n16
     n16 --> n17
-    n17 --> n18
-    n18 --> n19
-    n19 --> n20
-    n20 --> n21
-    n21 --> n22
-    n22 --> n23
+    n17 -->|"Có"| n19
+    n17 -->|"Không"| n20
+    n19 --> n23
+    n20 --> n23
     n23 --> n24
     n5 --> n24
     n7 --> n24
     n10 --> n24
-    n13 --> n24
+    n14b --> n24

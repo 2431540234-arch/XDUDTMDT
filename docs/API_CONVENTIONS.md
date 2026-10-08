@@ -142,10 +142,48 @@ async list(@Query() q: ProductQueryDto) {
 - Endpoint quản trị: controller `Admin<X>Controller` trong `admin-<module>.controller.ts`, đặt `@Roles('admin')` ở cấp class, URL bắt đầu `/api/admin/...`.
 - Thao tác ghi của admin ghi nhật ký qua `ActivityLogService.log({ actorId, action: 'product.update', targetType, targetId, changes })`, nên truyền `tx` để cùng transaction.
 
-## 8. Tệp và email
+## 8. Tệp, hàng đợi và email
 
-- Module nghiệp vụ chỉ inject `STORAGE_SERVICE` (`upload`, `delete`, `getUrl`) và `MAIL_SERVICE` (`send`); driver chọn bằng biến môi trường (`STORAGE_DRIVER=local`). Thêm MinIO sau này chỉ cần một lớp mới implement `StorageService`.
-- Dev: thư gửi vào Mailpit, xem tại http://localhost:8025.
+### 8.1. StorageService
+
+Module nghiệp vụ chỉ inject `STORAGE_SERVICE` (`upload`, `download`, `delete`, `head`, `getUrl`, `presignPut`, `presignGet`); driver chọn bằng `STORAGE_DRIVER` (`minio` mặc định dev, `local` dự phòng).
+
+- Hai bucket: **`aurelia-public`** (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh) và **`aurelia-private`** (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập qua presigned GET).
+- `media.file_path` lưu **object key** (ví dụ `images/2026/10/<uuid>.png`), không lưu URL. URL công khai = `STORAGE_PUBLIC_URL` + `/` + key (`storage.getUrl(key)`).
+- Driver `local` không hỗ trợ presigned URL (lưu trong `<STORAGE_LOCAL_DIR>/public` và `/private`).
+
+### 8.2. Hai cách tải tệp lên
+
+| Loại | Giới hạn | Cách | Luồng |
+| --- | --- | --- | --- |
+| Ảnh thường | `UPLOAD_MAX_IMAGE_MB` = 5 | Qua API (multipart, bộ nhớ) | `POST /api/admin/media` (trường `file`) → API ghi bucket public → tạo `media` → job `image-processing` |
+| Panorama | `UPLOAD_MAX_PANORAMA_MB` = 20 | Presigned PUT vào bucket public | `POST /api/admin/media/presign` → trình duyệt `PUT` → `POST /api/admin/media/confirm` |
+| Mô hình 3D (GLB/USDZ) | `UPLOAD_MAX_MODEL_MB` = 100 | Presigned PUT vào bucket **private** | `POST /api/admin/models/:id/files/presign` → trình duyệt `PUT` → `POST /api/admin/models/:id/files/confirm` (202) → job `model-processing` |
+
+Quy tắc presigned PUT:
+
+1. Bước **presign** kiểm tra quyền admin, loại tệp và dung lượng khai báo (vượt giới hạn: `413 PAYLOAD_TOO_LARGE`; sai loại: `415 UNSUPPORTED_MEDIA_TYPE`) rồi trả `{ key, uploadUrl, method: 'PUT', headers, expiresIn }`. URL hiệu lực `PRESIGN_EXPIRES_SECONDS` (900 giây) và **ký cả `Content-Type` lẫn `Content-Length`**, nên client phải gửi đúng header trong `headers` và đúng dung lượng.
+2. Client `PUT` thẳng lên MinIO, không qua API (MinIO bật CORS cho `CORS_ORIGINS`).
+3. Bước **confirm** `head` tệp trên kho (tồn tại, dung lượng thật) rồi tạo bản ghi/đẩy job. Chưa có tệp: `404`.
+
+Kiểu dùng chung: `PresignUploadRequest`, `PresignedUpload`, `ConfirmUploadRequest`, `PresignModelFileRequest`, `ConfirmModelFileRequest`, `ModelProcessingAccepted` (`packages/shared-types/src/upload.types.ts`).
+
+### 8.3. Hàng đợi (BullMQ + Redis)
+
+- Đẩy job qua `JobsService` (`enqueueModel`, `enqueueImage`); không dùng BullMQ trực tiếp ở module nghiệp vụ.
+- Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. USDZ: chỉ kiểm tra ZIP + checksum.
+- Queue `image-processing`: tạo `<key>.webp` và `<key>_thumb.webp` bằng `sharp`.
+- Mỗi job thử lại 3 lần, backoff mũ; tệp hỏng không thử lại; job thất bại được giữ để xem tại **Bull Board** `/admin/queues` (chỉ admin: header `Authorization: Bearer`, cookie `bq_token`, hoặc `?token=` lần đầu).
+- Worker chạy cùng tiến trình API; processor chỉ gọi `ModelProcessingService`/`ImageProcessingService` nên tách sang `apps/worker` không cần sửa logic.
+- Giới hạn tốc độ: `@nestjs/throttler` lưu bộ đếm trong Redis (mặc định 120 yêu cầu/phút/IP; endpoint nhạy cảm siết chặt bằng `@Throttle`, trả `429 RATE_LIMITED`).
+
+### 8.4. Email
+
+Module nghiệp vụ inject `MAIL_SERVICE` (`send`). Dev: thư vào Mailpit, xem tại http://localhost:8025. Gửi trực tiếp, lỗi gửi chỉ ghi log (không dùng hàng đợi).
+
+### 8.5. Kiểm tra sức khỏe
+
+`GET /health` (không tiền tố `/api`, công khai) trả `checks: { database, redis, storage }` đều `up`; nếu một thành phần `down` thì `503 SERVICE_UNAVAILABLE` kèm `details.checks`.
 
 ## 9. Kiểm thử một endpoint mới
 

@@ -1,7 +1,7 @@
 flowchart TD
     subgraph LANE_A["Quản trị viên"]
         n1(("Bắt đầu"))
-        n2["Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm 'Tải lên'"]
+        n2["Chọn ảnh (≤ 5 MB) hoặc ảnh 360° (≤ 20 MB, tải bằng presigned PUT) và bấm 'Tải lên'"]
         n13["Tệp xuất hiện trong thư viện"]
         n14(("Kết thúc"))
     end
@@ -11,7 +11,7 @@ flowchart TD
         n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
         n6{"Loại MIME và dung lượng cho phép?"}
         n7["Trả 400/413 Tệp không hợp lệ"]
-        n10["Đưa job vào hàng đợi: Nén ảnh nền (chỉ với ảnh)"]
+        n10["Đưa job vào hàng đợi image-processing: tạo webp và thumbnail"]
         n12["Trả 201: id, url, mimeType, fileSize"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]

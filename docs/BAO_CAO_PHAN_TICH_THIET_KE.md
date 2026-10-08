@@ -15,10 +15,10 @@ Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO
 | Frontend (`apps/web`) | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, React Three Fiber/drei (xem 3D, panorama), Zustand (store), TanStack Query (gọi API) |
 | Backend (`apps/api`) | NestJS 10, TypeScript, Passport JWT, class-validator, Swagger |
 | ORM / CSDL | Prisma 5.22, PostgreSQL 16 (44 bảng, 36 trigger, extension citext, pg_trgm, unaccent, pgcrypto) |
-| Hàng đợi / cache | Không dùng trong phạm vi đồ án (xử lý đồng bộ trong API; Redis/BullMQ là hướng phát triển) |
-| Lưu trữ tệp | StorageService, driver `local` (đĩa cục bộ): ảnh, GLB, USDZ, ảnh 360°. MinIO là hướng phát triển |
+| Hàng đợi / cache | BullMQ + Redis 7: queue `model-processing` (kiểm tra GLB, sinh LOD), `image-processing` (webp, thumbnail); throttler lưu bộ đếm trong Redis. Worker chạy cùng tiến trình API |
+| Lưu trữ tệp | MinIO (S3 tương thích) qua `StorageService`: bucket public (ảnh, panorama, mô hình đã xử lý) và private (tệp gốc, ảnh AR chưa công khai); driver `local` dự phòng. Mô hình 3D và panorama tải bằng presigned PUT |
 | Tích hợp ngoài | Cổng thanh toán MoMo, VNPay, ZaloPay; đơn vị vận chuyển GHN, GHTK, Viettel Post; SMTP gửi email |
-| Hạ tầng dev | Docker Compose (postgres, mailpit, api; profile test: postgres-test) |
+| Hạ tầng dev | Docker Compose (postgres, redis, minio, minio-init, mailpit, api; profile test: postgres-test) |
 
 ### 1.2. Kiến trúc
 
@@ -32,10 +32,12 @@ flowchart LR
         CTRL["Controllers"]
         SVC["Services (nghiệp vụ, prisma.$transaction)"]
         PRISMA["PrismaService"]
+        JOBS["modules/jobs (BullMQ: model-processing, image-processing)"]
     end
     subgraph DATA["Dữ liệu"]
         PG[("PostgreSQL 16<br>44 bảng, 36 trigger")]
-        FS[("Kho tệp local<br>StorageService")]
+        RD[("Redis")]
+        S3[("MinIO<br>bucket public và private")]
     end
     subgraph EXT["Hệ thống ngoài"]
         GW["Cổng thanh toán"]
@@ -43,7 +45,12 @@ flowchart LR
         SMTP["Dịch vụ email"]
     end
     WEB -- "HTTPS /api" --> GUARD --> CTRL --> SVC --> PRISMA --> PG
-    SVC --> FS
+    SVC -- "đưa job" --> RD
+    RD --> JOBS
+    JOBS --> S3
+    JOBS --> PRISMA
+    SVC --> S3
+    WEB -. "PUT presigned URL (3D, panorama)" .-> S3
     SVC --> SMTP
     WEB -. "redirect" .-> GW
     GW -- "IPN" --> CTRL
@@ -1965,7 +1972,7 @@ flowchart TD
         n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
         n8{"Tệp ảnh hợp lệ (jpeg/png/webp, tối đa 10 MB)?"}
         n9["Trả 400/413 Tệp không hợp lệ"]
-        n16["Giữ nguyên ảnh đã tải lên (không nén nền)"]
+        n16["Đưa job vào hàng đợi image-processing: tạo webp và thumbnail"]
         n17["Trả 201: id, imageUrl, isPublic"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -1975,8 +1982,8 @@ flowchart TD
         n14["Đánh dấu phiên AR đã chụp ảnh"]
         n15["Commit transaction"]
     end
-    subgraph LANE_X["StorageService (local)"]
-        n10["Lưu ảnh lên StorageService (local)"]
+    subgraph LANE_X["MinIO/S3"]
+        n10["Lưu ảnh lên MinIO/S3"]
     end
     n1 --> n2
     n2 --> n3
@@ -2379,14 +2386,14 @@ flowchart TD
 | Tác nhân | Quản trị viên (quyền `manage_products` hoặc `manage_content`) |
 | Ưu tiên · Nhóm | Bắt buộc · Quản trị |
 | Tiền điều kiện | Admin đã đăng nhập, có quyền. |
-| Hậu điều kiện | Tệp lưu trên StorageService (local); có bản ghi `Media`. |
+| Hậu điều kiện | Tệp lưu trên MinIO/S3; có bản ghi `Media`. |
 | Đặc tả chi tiết | [UC-ADM-04](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) |
 
 ```mermaid
 flowchart TD
     subgraph LANE_A["Quản trị viên"]
         n1(("Bắt đầu"))
-        n2["Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm 'Tải lên'"]
+        n2["Chọn ảnh (≤ 5 MB) hoặc ảnh 360° (≤ 20 MB, tải bằng presigned PUT) và bấm 'Tải lên'"]
         n13["Tệp xuất hiện trong thư viện"]
         n14(("Kết thúc"))
     end
@@ -2396,15 +2403,15 @@ flowchart TD
         n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
         n6{"Loại MIME và dung lượng cho phép?"}
         n7["Trả 400/413 Tệp không hợp lệ"]
-        n10["Giữ nguyên ảnh đã tải lên (không nén nền)"]
+        n10["Đưa job vào hàng đợi image-processing: tạo webp và thumbnail"]
         n12["Trả 201: id, url, mimeType, fileSize"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n9["Tạo bản ghi media"]
         n11["Ghi nhật ký hoạt động"]
     end
-    subgraph LANE_X["StorageService (local)"]
-        n8["Lưu tệp lên StorageService (local)"]
+    subgraph LANE_X["MinIO/S3"]
+        n8["Lưu tệp lên MinIO/S3"]
     end
     n1 --> n2
     n2 --> n3
@@ -2892,7 +2899,7 @@ flowchart TD
 
 | Mục | Nội dung |
 | --- | --- |
-| Tác nhân | Quản trị viên (quyền `manage_products`) |
+| Tác nhân | Quản trị viên (quyền `manage_products`) \| phụ: Worker BullMQ, MinIO |
 | Ưu tiên · Nhóm | Nên có · Quản trị |
 | Tiền điều kiện | Sản phẩm tồn tại; admin có quyền. |
 | Hậu điều kiện | Mô hình `ready` (hoặc `failed`); cờ `has3dModel`/`hasAr` của sản phẩm được trigger cập nhật. |
@@ -2902,35 +2909,36 @@ flowchart TD
 flowchart TD
     subgraph LANE_A["Quản trị viên"]
         n1(("Bắt đầu"))
-        n2["Tải tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm 'Tải lên'"]
-        n23["Hiển thị trạng thái ready (hoặc failed nếu tệp lỗi)"]
+        n2["Chọn tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm 'Tải lên'"]
+        n20a["Tệp được PUT thẳng lên MinIO"]
+        n23["Theo dõi trạng thái processing, rồi ready hoặc failed"]
         n24(("Kết thúc"))
     end
     subgraph LANE_S["Hệ thống (API)"]
-        n3["Gửi POST /api/admin/models/:id/files"]
+        n3["Gửi POST /api/admin/models/:id/files/presign"]
         n4{"Đã đăng nhập và đủ quyền?"}
         n5["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
-        n6{"Định dạng glb hoặc usdz và LOD hợp lệ?"}
-        n7["Trả 400/413 Tệp không hợp lệ"]
+        n6{"Định dạng glb hoặc usdz và dung lượng trong giới hạn?"}
+        n7["Trả 413/400 Tệp không hợp lệ"]
         n9{"Mô hình tồn tại?"}
         n10["Trả 404 Không tìm thấy mô hình"]
-        n12{"Chưa có tệp cùng định dạng và LOD?"}
-        n13["Trả 409 Tệp định dạng và LOD này đã tồn tại"]
-        n21["Kiểm tra cấu trúc tệp GLB/USDZ, tính checksum và kích thước ngay trong API"]
-        n22["Trả 201: Đã lưu tệp, mô hình sẵn sàng"]
+        n12["Trả 200: uploadUrl (presigned PUT), key"]
+        n13["Gửi POST /api/admin/models/:id/files/confirm"]
+        n14{"Tệp có trên MinIO và trong giới hạn?"}
+        n14b["Trả 404/413"]
+        n21["Đẩy job vào hàng đợi model-processing"]
+        n22["Trả 202: modelId, jobId, status processing"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT product_3d_models"]
-        n11["Truy vấn CSDL: SELECT model_files"]
-        n15["Bắt đầu transaction"]
-        n16["Tạo bản ghi media"]
-        n17["Tạo ModelFile"]
-        n18["Chuyển mô hình sang ready (hoặc failed nếu tệp lỗi)"]
-        n19["Commit transaction"]
-        n20["Trigger DB: Cập nhật cờ has3dModel và hasAr của sản phẩm"]
+        n18["Chuyển mô hình sang processing"]
     end
-    subgraph LANE_X["StorageService (local)"]
-        n14["Lưu tệp lên StorageService (local)"]
+    subgraph LANE_X["MinIO / Redis / Worker"]
+        n15["Kiểm tra GLB, đo đa giác và texture, sinh LOD high, medium, low"]
+        n16["Tải các LOD lên bucket public, tạo media và model_files"]
+        n17{"Xử lý thành công?"}
+        n19["Mô hình ready; trigger DB cập nhật has3dModel, hasAr"]
+        n20["Mô hình failed (sau tối đa 3 lần thử hoặc tệp hỏng)"]
     end
     n1 --> n2
     n2 --> n3
@@ -2941,24 +2949,26 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
-    n11 --> n12
-    n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
-    n14 --> n15
+    n9 -->|"Có"| n12
+    n12 --> n20a
+    n20a --> n13
+    n13 --> n14
+    n14 -->|"Không"| n14b
+    n14 -->|"Có"| n18
+    n18 --> n21
+    n21 --> n22
+    n22 --> n15
     n15 --> n16
     n16 --> n17
-    n17 --> n18
-    n18 --> n19
-    n19 --> n20
-    n20 --> n21
-    n21 --> n22
-    n22 --> n23
+    n17 -->|"Có"| n19
+    n17 -->|"Không"| n20
+    n19 --> n23
+    n20 --> n23
     n23 --> n24
     n5 --> n24
     n7 --> n24
     n10 --> n24
-    n13 --> n24
+    n14b --> n24
 ```
 
 ### A.52 UC-ADM-15 – Quản lý không gian mẫu và ảnh 360°
@@ -3599,7 +3609,7 @@ flowchart TD
 
 ## 4. Phần 2 – Mô hình tuần tự chức năng (Sequence Diagram)
 
-Quy ước: participant theo thứ tự **Tác nhân → Frontend (trang thật) → Guard → Controller → Service → PrismaService → PostgreSQL** (thêm hệ thống ngoài, kho tệp khi có). Thông điệp `->>` ghi endpoint, hàm kèm DTO, lệnh Prisma chính; `-->>` là trả về kèm mã HTTP. `alt` là nhánh lỗi, `loop` là lặp, `critical $transaction` là một `prisma.$transaction` (lỗi trong khối này rollback toàn bộ). `Note over PostgreSQL` là trigger CSDL tự chạy (không phải việc của Service). `-)` là gửi bất đồng bộ (hàng đợi).
+Quy ước: participant theo thứ tự **Tác nhân → Frontend (trang thật) → Guard → Controller → Service → PrismaService → PostgreSQL** (thêm hệ thống ngoài, hàng đợi/worker khi có). Thông điệp `->>` ghi endpoint, hàm kèm DTO, lệnh Prisma chính; `-->>` là trả về kèm mã HTTP. `alt` là nhánh lỗi, `loop` là lặp, `critical $transaction` là một `prisma.$transaction` (lỗi trong khối này rollback toàn bộ). `Note over PostgreSQL` là trigger CSDL tự chạy (không phải việc của Service). `-)` là gửi bất đồng bộ (hàng đợi).
 
 ### S.1 UC-AUTH-01 – Đăng ký tài khoản
 
@@ -5442,7 +5452,8 @@ sequenceDiagram
     participant S as ArSnapshotsService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant X as StorageService (local)
+    participant X as MinIO/S3
+    participant W as Hàng đợi BullMQ / Worker
     A->>FE: Bấm nút chụp trong chế độ AR
     alt Không: Đã đăng nhập
         FE-->>A: Yêu cầu đăng nhập để lưu ảnh, chưa gọi API
@@ -5459,7 +5470,7 @@ sequenceDiagram
         C-->>FE: 400/413 Tệp không hợp lệ
     end
     C->>S: ArSnapshotsService.create(userId, file, dto)
-    S->>X: upload(file)
+    S->>X: putObject(file)
     X-->>S: URL tệp
     critical $transaction (Prisma)
         S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, uploadedBy: userId } })
@@ -5475,6 +5486,7 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
     end
+    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
     S-->>C: kết quả
     C-->>FE: 201 id, imageUrl, isPublic
     FE-->>A: Hiển thị ảnh đã lưu, cho phép chia sẻ hoặc đặt công khai
@@ -5894,7 +5906,8 @@ sequenceDiagram
     participant S as MediaService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant X as StorageService (local)
+    participant X as MinIO/S3
+    participant W as Hàng đợi BullMQ / Worker
     A->>FE: Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm "Tải lên"
     FE->>G: POST /api/admin/media (multipart: file, altText)
     G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
@@ -5908,12 +5921,13 @@ sequenceDiagram
         C-->>FE: 400/413 Tệp không hợp lệ
     end
     C->>S: MediaService.upload(adminId, file, dto)
-    S->>X: upload(file)
+    S->>X: putObject(file)
     X-->>S: URL tệp
     S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, altText, uploadedBy: adminId } })
     P->>D: INSERT INTO media
     D-->>P: kết quả
     P-->>S: kết quả
+    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
     S->>P: activityLog.create({ data: { actorId: adminId, action: 'media.upload', targetType: 'media', targetId } })
     P->>D: INSERT INTO activity_logs
     D-->>P: kết quả
@@ -6457,61 +6471,75 @@ sequenceDiagram
     autonumber
     actor A as Quản trị viên
     participant FE as Mục Mô hình 3D ở trang sửa sản phẩm
-    participant G as JwtAuthGuard + RolesGuard + PermissionsGuard
-    participant C as AdminProductModelsController
+    participant G as JwtAuthGuard + RolesGuard
+    participant C as AdminModelsController
     participant S as ProductModelsService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant X as StorageService (local)
-    A->>FE: Tải tệp GLB hoặc USDZ cho mô hình (đã khai báo kích thước thật) và bấm "Tải lên"
-    FE->>G: POST /api/admin/models/:id/files (multipart: file, format, lod)
-    G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
+    participant X as MinIO (bucket private và public)
+    participant Q as Redis (hàng đợi model-processing)
+    participant W as Worker BullMQ (cùng tiến trình API)
+    A->>FE: Chọn tệp GLB hoặc USDZ và bấm "Tải lên"
+    FE->>G: POST /api/admin/models/:id/files/presign (format, lod, fileName, size)
+    G->>G: xác thực JWT, kiểm tra vai trò admin
     alt Token thiếu, hết hạn hoặc không đủ quyền
         G-->>FE: 401 / 403
         FE-->>A: yêu cầu đăng nhập / báo không đủ quyền
     end
     G->>C: request (kèm user từ token)
-    C->>C: ValidationPipe(UploadModelFileDto)
-    alt Không: Định dạng glb hoặc usdz và LOD hợp lệ
-        C-->>FE: 400/413 Tệp không hợp lệ
-    end
-    C->>S: ProductModelsService.addFile(adminId, id, file, dto)
+    C->>C: ValidationPipe(PresignModelFileDto)
+    C->>S: ProductModelsService.presignFile(id, dto)
     S->>P: product3DModel.findUnique({ where: { id } })
     P->>D: SELECT product_3d_models
     D-->>P: kết quả
     P-->>S: kết quả
     alt 404 Không tìm thấy mô hình
-        S-->>C: throw NotFoundException
-        C-->>FE: 404 Không tìm thấy mô hình
+        S-->>FE: 404 Không tìm thấy mô hình
     end
-    S->>P: modelFile.findUnique({ where: { modelId_format_lod: { modelId: id, format, lod } } })
-    P->>D: SELECT model_files
+    alt 413 Tệp vượt UPLOAD_MAX_MODEL_MB
+        S-->>FE: 413 PAYLOAD_TOO_LARGE
+    end
+    S->>X: presignPut(models/incoming/:id/uuid.glb, bucket private, Content-Type, Content-Length)
+    X-->>S: URL ký (hiệu lực 15 phút)
+    S-->>FE: 200 { key, uploadUrl, headers }
+    FE->>X: PUT uploadUrl (tệp, trực tiếp, không qua API)
+    X-->>FE: 200
+    FE->>G: POST /api/admin/models/:id/files/confirm (key, format, lod, fileName)
+    G->>C: request
+    C->>S: ProductModelsService.confirmFile(id, dto, adminId)
+    S->>X: headObject(key) kiểm tra tồn tại và dung lượng
+    alt 404 chưa có tệp / 413 vượt giới hạn
+        S-->>FE: 404 / 413
+    end
+    S->>P: product3DModel.update({ where: { id }, data: { status: 'processing' } })
+    P->>D: UPDATE product_3d_models
     D-->>P: kết quả
     P-->>S: kết quả
-    alt 409 Tệp định dạng và LOD này đã tồn tại
-        S-->>C: throw ConflictException
-        C-->>FE: 409 Tệp định dạng và LOD này đã tồn tại
-    end
-    S->>X: upload(file)
-    X-->>S: URL tệp
-    critical $transaction (Prisma)
-        S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, uploadedBy: adminId } })
-        P->>D: INSERT INTO media
-        D-->>P: kết quả
-        P-->>S: kết quả
-        S->>P: modelFile.create({ data: { modelId: id, format, lod, mediaId } })
-        P->>D: INSERT INTO model_files
-        D-->>P: kết quả
-        P-->>S: kết quả
-        S->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } }) // hoặc 'failed' nếu tệp lỗi
-        P->>D: UPDATE product_3d_models
-        D-->>P: kết quả
-        P-->>S: kết quả
-    end
-    Note over D: Trigger trg_model_files_refresh_flags, trg_product_3d_models_refresh_flags
+    S-)Q: Queue.add('process', { modelId, format, lod, sourceKey }) (attempts 3, backoff mũ)
     S-->>C: kết quả
-    C-->>FE: 201 Đã lưu tệp, mô hình sẵn sàng
-    FE-->>A: Hiển thị trạng thái ready (hoặc failed nếu tệp lỗi)
+    C-->>FE: 202 { modelId, jobId, status: processing }
+    FE-->>A: Hiển thị trạng thái processing
+    Q-)W: giao job
+    W->>X: getObject(sourceKey) từ bucket private
+    X-->>W: tệp gốc
+    W->>W: GLB: kiểm tra hợp lệ (gltf-transform), đo polygonCount, textureResolution, sinh LOD high/medium/low, nén Meshopt, SHA-256
+    alt Tệp hỏng
+        W->>P: product3DModel.update({ status: 'failed' })
+        P->>D: UPDATE product_3d_models
+    end
+    W->>X: putObject các LOD vào bucket public (models/:id/tên-lod.glb)
+    critical $transaction (Prisma)
+        W->>P: media.upsert({ where: { filePath }, ... })
+        P->>D: INSERT INTO media
+        W->>P: modelFile.upsert({ where: { modelId_format_lod }, ... polygonCount, textureResolution, isCompressed, checksum })
+        P->>D: INSERT INTO model_files
+    end
+    W->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } })
+    P->>D: UPDATE product_3d_models
+    Note over D: Trigger trg_model_files_refresh_flags, trg_product_3d_models_refresh_flags
+    FE->>C: GET trạng thái mô hình (lặp lại)
+    C-->>FE: status ready hoặc failed
+    FE-->>A: Hiển thị ready hoặc failed
 ```
 
 **Đặc tả cài đặt**
@@ -8290,7 +8318,7 @@ Từ điển dữ liệu chi tiết (kiểu, ràng buộc, mô tả từng cột
 
 ## 6. Danh sách API
 
-Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đăng nhập), `OptionalJwtAuthGuard` (khách hoặc user) [CẦN TẠO MỚI], `RolesGuard('admin')` + `PermissionsGuard` (quyền ghi trong ngoặc) cho `/api/admin/*`. Response là phần dữ liệu (định dạng bọc ngoài do `TransformResponseInterceptor` quyết định, mục 9). URL công khai dùng `slug`; API quản trị dùng `id`. **Định dạng response, lỗi, phân trang, sắp xếp: xem [API_CONVENTIONS.md](API_CONVENTIONS.md)** (mọi response bọc `{ success, data, meta? }`; cột "Response" bên dưới ghi phần `data`; phân trang dùng `page` + `pageSize`, sắp xếp dùng `sort=truong:asc|desc`; DELETE trả 200 với `data: null`, không dùng 204).
+Tiền tố `/api`. Tổng **144 endpoint**. Guard: `JwtAuthGuard` (user đã đăng nhập), `OptionalJwtAuthGuard` (khách hoặc user) [CẦN TẠO MỚI], `RolesGuard('admin')` + `PermissionsGuard` (quyền ghi trong ngoặc) cho `/api/admin/*`. Response là phần dữ liệu (định dạng bọc ngoài do `TransformResponseInterceptor` quyết định, mục 9). URL công khai dùng `slug`; API quản trị dùng `id`. **Định dạng response, lỗi, phân trang, sắp xếp: xem [API_CONVENTIONS.md](API_CONVENTIONS.md)** (mọi response bọc `{ success, data, meta? }`; cột "Response" bên dưới ghi phần `data`; phân trang dùng `page` + `pageSize`, sắp xếp dùng `sort=truong:asc|desc`; DELETE trả 200 với `data: null`, không dùng 204).
 
 | # | Method | URL | Controller.hàm | Guard / Vai trò | Request DTO | Response | Mã UC |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -8382,10 +8410,10 @@ Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đ
 | 86 | GET | `/api/admin/inventory/movements` | AdminInventoryController.findMovements | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | MovementQueryDto | Lịch sử kho | UC-ADM-12 |
 | 87 | POST | `/api/admin/inventory/movements` | AdminInventoryController.record | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | CreateInventoryMovementDto | 201 – Biến động kho và tồn kho mới | UC-ADM-12 |
 | 88 | GET | `/api/admin/media` | AdminMediaController.findAll | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | MediaQueryDto | Danh sách media | UC-ADM-04 |
-| 89 | POST | `/api/admin/media` | AdminMediaController.upload | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | UploadMediaDto | 201 – id, url, mimeType, fileSize | UC-ADM-04 |
+| 89 | POST | `/api/admin/media` | AdminMediaController.uploadImage | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | multipart `file` (ảnh ≤ 5 MB) | 201 – id, url, mimeType, fileSize, jobId | UC-ADM-04 |
 | 90 | DELETE | `/api/admin/media/:id` | AdminMediaController.remove | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 (data: null) (409 nếu đang dùng) | UC-ADM-04 |
 | 91 | PATCH | `/api/admin/media/:id` | AdminMediaController.update | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | UpdateMediaDto | 200 | UC-ADM-04 |
-| 92 | POST | `/api/admin/models/:id/files` | AdminProductModelsController.uploadFile | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | UploadModelFileDto | 202 – Đã nhận tệp, mô hình đang xử lý | UC-ADM-13 |
+| 92 | POST | `/api/admin/models/:id/files/presign` | AdminProductModelsController.presignFile | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | PresignModelFileDto | 200 – `{ key, uploadUrl, headers, expiresIn }` (PUT thẳng lên MinIO) | UC-ADM-13 |
 | 93 | PUT | `/api/admin/models/:id/material-variants/:variantId` | AdminProductModelsController.upsertMaterialVariant | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | UpsertMaterialVariantDto | 200 – Cấu hình vật liệu theo biến thể | UC-ADM-14 |
 | 94 | PATCH | `/api/admin/models/:id/primary` | AdminProductModelsController.setPrimary | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 200 | UC-ADM-13 |
 | 95 | POST | `/api/admin/models/:id/reprocess` | AdminProductModelsController.reprocess | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | - | 202 | UC-ADM-13 |
@@ -8435,6 +8463,9 @@ Tiền tố `/api`. Tổng **141 endpoint**. Guard: `JwtAuthGuard` (user đã đ
 | 139 | PUT | `/api/admin/users/:id/roles/admin` | AdminUsersController.grantAdmin | JwtAuthGuard + RolesGuard(admin) + quyền `manage_users` | - | 200 – Vai trò của người dùng | UC-ADM-02 |
 | 140 | PATCH | `/api/admin/users/:id/status` | AdminUsersController.setStatus | JwtAuthGuard + RolesGuard(admin) + quyền `manage_users` | UpdateUserStatusDto | 200 – Hồ sơ người dùng sau khi đổi | UC-ADM-01 |
 | 141 | PATCH | `/api/admin/variants/:id` | AdminProductsController.updateVariant | JwtAuthGuard + RolesGuard + PermissionsGuard (manage_products) | UpdateVariantDto | 200 | UC-ADM-10 |
+| 142 | POST | `/api/admin/models/:id/files/confirm` | AdminProductModelsController.confirmFile | JwtAuthGuard + RolesGuard(admin) + quyền `manage_products` | ConfirmModelFileDto | 202 – `{ modelId, jobId, status: processing }` | UC-ADM-13 |
+| 143 | POST | `/api/admin/media/presign` | AdminMediaController.presign | JwtAuthGuard + RolesGuard(admin) + quyền `manage_content` | PresignUploadDto | 200 – `{ key, uploadUrl, headers, expiresIn }` (panorama) | UC-ADM-04, UC-ADM-15 |
+| 144 | POST | `/api/admin/media/confirm` | AdminMediaController.confirm | JwtAuthGuard + RolesGuard(admin) + quyền `manage_content` | ConfirmUploadDto | 201 – media + `jobId` | UC-ADM-04, UC-ADM-15 |
 
 ## 7. Ánh xạ vào code
 
@@ -8738,8 +8769,8 @@ Trạng thái: **đã có** = file tồn tại trong khung nhưng chỉ có dòn
 | CurrentUser decorator | `apps/api/src/common/decorators/current-user.decorator.ts` | đã có (khung) | lấy `user` từ request |
 | serialize() | `apps/api/src/common/utils/serialize.ts` | đã có | Decimal → number |
 | JwtStrategy, RefreshStrategy | `apps/api/src/modules/auth/strategies/` | đã có (khung) | xác minh access/refresh token |
-| MailModule/MailService | `apps/api/src/modules/mail/` | [CẦN TẠO MỚI] | gửi email xác thực, đặt lại mật khẩu, đơn hàng (trực tiếp qua SMTP, không hàng đợi) |
-| Jobs | `apps/api/src/modules/jobs/` | khung có sẵn | KHÔNG dùng trong phạm vi đồ án (không Redis/BullMQ), giữ làm hướng phát triển |
+| MailModule/MailService | `apps/api/src/modules/mail/` | [CẦN TẠO MỚI] | gửi email xác thực, đặt lại mật khẩu, đơn hàng (trực tiếp qua SMTP) |
+| Jobs | `apps/api/src/modules/jobs/` (queue `model-processing`, `image-processing`; processor mỏng gọi `ModelProcessingService`, `ImageProcessingService`) | đã có | worker chạy cùng tiến trình API, tách `apps/worker` sau này không sửa logic |
 | Web: services/hooks/store | `apps/web/src/services/*.api.ts`, `hooks/`, `store/` | đã có (khung) cho auth, cart, media, product, space; còn lại [CẦN TẠO MỚI] | gọi API tương ứng bảng mục 6 |
 | Web: đổi route theo slug | `apps/web/src/app/(shop)/products/[id]` → `[slug]`; `spaces/[id]` → `[slug]` | [CẦN SỬA] | đổi tên thư mục và lấy tham số `slug` |
 | Migration mới | `apps/api/prisma/migrations/<timestamp>_products_name_unaccent_index` | [CẦN TẠO MỚI] | `CREATE INDEX idx_products_name_unaccent_trgm ... USING gin (immutable_unaccent(name) gin_trgm_ops)` (UC-CAT-06), dùng `--create-only` |
@@ -8755,10 +8786,10 @@ Thứ tự: auth → catalog → cart → order + payment → review → 3D/AR �
 
 - [ ] `PrismaModule`/`PrismaService`
 - [ ] `main.ts`: `setGlobalPrefix('api')`, `ValidationPipe`, `HttpExceptionFilter`, `TransformResponseInterceptor` (dùng `serialize`), Swagger
-- [ ] `ConfigModule` đọc `.env`; cấu hình JWT, storage, mail
+- [ ] `ConfigModule` đọc `.env`; cấu hình JWT, Redis, S3
 - [ ] Guard: `JwtAuthGuard`, `RolesGuard`, `OptionalJwtAuthGuard`, `PermissionsGuard`; decorator `CurrentUser`, `RequirePermission`
 - [ ] `ActivityLogInterceptor`
-- [ ] `MailModule` (gửi email trực tiếp qua SMTP)
+- [ ] `MailModule` (gửi email trực tiếp qua SMTP; đã có `MailService`)
 
 ### Giai đoạn 1 – Xác thực và tài khoản
 
@@ -8773,7 +8804,7 @@ Use case: UC-AUTH-01..07, UC-ACC-01..07
 
 Use case: UC-CAT-01..06, UC-ADM-04..11, UC-ADM-12, UC-ADM-03, UC-ADM-07
 
-- [ ] Module `categories`, `brands`, `pages`, `attributes`, `products` (công khai + admin), `media` (StorageService local), `inventory`, `settings`
+- [ ] Module `categories`, `brands`, `pages`, `attributes`, `products` (công khai + admin), `media` (MinIO), `inventory`, `settings`
 - [ ] Tìm kiếm trigram và không dấu (`$queryRaw`), migration index `immutable_unaccent(name)`
 - [ ] Web: đổi route `products/[slug]`, trang danh sách, chi tiết, tìm kiếm; trang admin sản phẩm
 
@@ -8807,7 +8838,7 @@ Use case: UC-REV-01..03, UC-ADM-18
 Use case: UC-3D-01..07, UC-ADM-13, UC-ADM-14, UC-ADM-30
 
 - [ ] Module `product-models` (công khai + admin), `ar-sessions`, `ar-snapshots`
-- [ ] Xử lý mô hình 3D ĐỒNG BỘ trong module `product-models`: kiểm tra định dạng/dung lượng, lưu, đặt `Product3DModel.status` = `ready`/`failed` (không dùng `jobs`)
+- [x] `jobs`: `model-processing` (kiểm tra GLB, LOD, checksum, cập nhật `ModelFile`, `Product3DModel.status`), `image-processing` (webp, thumbnail) bằng BullMQ + Redis
 - [ ] Web: `ProductViewer3D`, `ModelLoader`, chọn GLB/USDZ theo nền tảng, WebXR/Quick Look/Scene Viewer
 
 ### Giai đoạn 7 – Không gian mẫu 360°

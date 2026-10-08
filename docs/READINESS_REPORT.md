@@ -1,5 +1,7 @@
 # Báo cáo đánh giá mức sẵn sàng viết code
 
+> **ĐÃ LỖI THỜI (ghi chú 2026-10-08).** Báo cáo này lập trước khi có nền tảng backend, quy ước API (`API_CONVENTIONS.md`), đồng bộ shared-types, lint/test/CI, Redis + MinIO + hàng đợi và khung 14 module. Các mâu thuẫn M1-M4, M7-M8, M10 đã được xử lý. Xem hiện trạng: [MODULE_ENV_REPORT.md](MODULE_ENV_REPORT.md), [TIEN_DO.md](TIEN_DO.md), [DECISIONS.md](DECISIONS.md).
+
 Dự án: **Aurelia Living** (website thương mại điện tử nội thất B2C, tích hợp xem 3D, AR và không gian mẫu 360°).
 Phạm vi rà soát: toàn bộ workspace `C:\Users\Dell\XDUDTMDT` (chỉ đọc; file này là file duy nhất được tạo).
 
