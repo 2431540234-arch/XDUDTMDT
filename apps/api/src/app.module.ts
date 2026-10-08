@@ -9,6 +9,7 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
 import { ConfigModule } from './config/config.module';
 import { HealthModule } from './health/health.module';
 import { MailModule } from './mail/mail.module';
+import { FEATURE_MODULES } from './modules';
 import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 
@@ -22,6 +23,7 @@ import { StorageModule } from './storage/storage.module';
     MailModule,
     ActivityLogModule,
     HealthModule,
+    ...FEATURE_MODULES,
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
