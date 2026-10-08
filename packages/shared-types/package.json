@@ -1,0 +1,16 @@
+{
+  "name": "@aurelia-living/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kiểu dữ liệu dùng chung giữa API và web (entity sinh từ schema Prisma, DTO, kiểu response, mã lỗi)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "generate": "node ../../scripts/generate-shared-types.mjs"
+  }
+}
