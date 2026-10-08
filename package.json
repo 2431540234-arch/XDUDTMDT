@@ -12,7 +12,7 @@
     "build": "turbo run build",
     "lint": "eslint . --max-warnings=0",
     "test": "turbo run test",
-    "db:up": "docker compose up -d postgres",
+    "db:up": "npm run infra:up",
     "db:down": "docker compose down",
     "db:status": "npm run db:status -w @aurelia-living/api",
     "db:deploy": "npm run db:deploy -w @aurelia-living/api",
@@ -29,7 +29,9 @@
     "test:e2e": "npm run test:e2e -w @aurelia-living/api",
     "prepare": "husky || true",
     "docker:up": "docker compose up -d --no-recreate",
-    "docker:down": "docker compose down"
+    "docker:down": "docker compose down",
+    "infra:up": "docker compose up -d --no-recreate postgres redis minio minio-init mailpit",
+    "infra:down": "docker compose stop postgres redis minio mailpit"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

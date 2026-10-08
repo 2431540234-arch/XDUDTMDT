@@ -1,7 +1,7 @@
 # Môi trường dev. Chạy:  docker compose up -d --no-recreate   (hoặc: npm run docker:up)
-#   mặc định:   postgres + mailpit + api
+#   mặc định:   postgres + redis + minio (+ minio-init chạy một lần) + mailpit + api
 #   profile test:   postgres-test (DB riêng cho e2e, dữ liệu nằm trong RAM)
-#   profile later:  redis, minio, worker, web (chưa dùng ở giai đoạn nền tảng)
+#   profile later:  worker, web (chưa dùng; worker hiện chạy cùng tiến trình API)
 # Biến đọc từ .env (xem .env.example). Không đặt bí mật thật vào file này.
 
 services:
@@ -11,14 +11,14 @@ services:
     environment:
       POSTGRES_USER: aurelia
       POSTGRES_PASSWORD: aurelia
-      POSTGRES_DB: aurelia_living
+      POSTGRES_DB: ${POSTGRES_DB:-aurelia_living}
     ports:
       # Cổng host đổi được qua POSTGRES_PORT trong .env (mặc định 5432) khi máy đã có Postgres khác chiếm 5432
       - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U aurelia -d aurelia_living']
+      test: ['CMD-SHELL', 'pg_isready -U aurelia -d ${POSTGRES_DB:-aurelia_living}']
       interval: 5s
       timeout: 5s
       retries: 10
@@ -35,6 +35,66 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Ảnh chính thức minio/minio (Docker Hub, quay.io) đã bị gỡ; dùng bản đóng gói của Bitnami, GHIM bản 2025-04-22
+  # (bản cuối còn Console web; từ 2025-05-24 upstream đã gỡ Console khỏi bản community)
+  # (MinIO thật, kèm mc). Xem docs/DECISIONS.md D-T22. Đổi sang ảnh khác chỉ cần sửa dòng image.
+  minio:
+    image: bitnamilegacy/minio:2025.4.22-debian-12-r2
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-aurelia}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-aurelia123}
+      # Trình duyệt (web http://localhost:3000) PUT thẳng lên MinIO bằng presigned URL nên cần CORS
+      MINIO_API_CORS_ALLOW_ORIGIN: ${CORS_ORIGINS:-http://localhost:3000}
+    ports:
+      - '${MINIO_PORT:-9000}:9000' # S3 API
+      - '${MINIO_CONSOLE_PORT:-9001}:9001' # Console web
+    volumes:
+      - minio-data:/bitnami/minio/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Chạy một lần: tạo 2 bucket, bucket public cho đọc ẩn danh, bucket private giữ nguyên (chỉ presigned URL)
+  minio-init:
+    image: bitnamilegacy/minio:2025.4.22-debian-12-r2 # dùng lại ảnh trên vì đã có sẵn mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: 'no'
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-aurelia}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-aurelia123}
+      S3_BUCKET_PUBLIC: ${S3_BUCKET_PUBLIC:-aurelia-public}
+      S3_BUCKET_PRIVATE: ${S3_BUCKET_PRIVATE:-aurelia-private}
+      MC_CONFIG_DIR: /tmp/.mc
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mc alias set local http://minio:9000 "$$S3_ACCESS_KEY" "$$S3_SECRET_KEY"
+        mc mb --ignore-existing "local/$$S3_BUCKET_PUBLIC"
+        mc mb --ignore-existing "local/$$S3_BUCKET_PRIVATE"
+        mc anonymous set download "local/$$S3_BUCKET_PUBLIC"
+        mc anonymous set none "local/$$S3_BUCKET_PRIVATE"
+        echo "MinIO sẵn sàng: $$S3_BUCKET_PUBLIC (public), $$S3_BUCKET_PRIVATE (private)"
+
   api:
     build:
       context: .
@@ -43,9 +103,13 @@ services:
     env_file: .env
     environment:
       # Trong mạng compose, API gọi DB/Mailpit bằng tên service (không dùng localhost/cổng host)
-      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://aurelia:aurelia@postgres:5432/aurelia_living?schema=public}
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql://aurelia:aurelia@postgres:5432/${POSTGRES_DB:-aurelia_living}?schema=public}
       MAIL_HOST: mailpit
       MAIL_PORT: '1025'
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      # API gọi MinIO bằng tên service; URL ký cho trình duyệt (S3_PUBLIC_ENDPOINT) vẫn là localhost
+      S3_ENDPOINT: http://minio:9000
       PORT: '4000'
       NODE_ENV: development
     ports:
@@ -55,6 +119,12 @@ services:
         condition: service_started # CMD của api tự thử lại migrate cho tới khi DB sẵn sàng
       mailpit:
         condition: service_started
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://localhost:4000/health']
       interval: 10s
@@ -80,27 +150,6 @@ services:
       retries: 10
 
   # ---- Chưa dùng ở giai đoạn nền tảng (bật bằng: docker compose --profile later up) ----
-  redis:
-    profiles: ['later']
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - '6379:6379'
-
-  minio:
-    profiles: ['later']
-    image: minio/minio:latest
-    restart: unless-stopped
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: aurelia
-      MINIO_ROOT_PASSWORD: aurelia123
-    ports:
-      - '9000:9000'
-      - '9001:9001'
-    volumes:
-      - minio-data:/data
-
   worker:
     profiles: ['later']
     build:
@@ -127,4 +176,5 @@ services:
 
 volumes:
   postgres-data:
+  redis-data:
   minio-data:
