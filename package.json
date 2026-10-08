@@ -14,11 +14,11 @@
     "test": "turbo run test",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
-    "db:status": "npm exec -w apps/api -- prisma migrate status",
-    "db:deploy": "npm exec -w apps/api -- prisma migrate deploy",
-    "db:seed": "npm exec -w apps/api -- prisma db seed",
-    "db:studio": "npm exec -w apps/api -- prisma studio",
-    "db:reset": "npm exec -w apps/api -- prisma migrate reset --force",
+    "db:status": "npm run db:status -w @aurelia-living/api",
+    "db:deploy": "npm run db:deploy -w @aurelia-living/api",
+    "db:seed": "npm run db:seed -w @aurelia-living/api",
+    "db:studio": "npm run db:studio -w @aurelia-living/api",
+    "db:reset": "npm run db:reset -w @aurelia-living/api",
     "build:types": "npm run build -w @aurelia-living/shared-types",
     "types:generate": "node scripts/generate-shared-types.mjs",
     "types:check": "node scripts/generate-shared-types.mjs --check",
@@ -44,10 +44,13 @@
     "@commitlint/cli": "^19.5.0",
     "@commitlint/config-conventional": "^19.5.0"
   },
-  "packageManager": "npm@10.0.0",
+  "packageManager": "npm@11.19.0",
   "allowScripts": {
     "prisma@5.22.0": true,
     "@prisma/client@5.22.0": true,
     "@prisma/engines@5.22.0": true
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

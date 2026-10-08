@@ -12,3 +12,5 @@ apps/api/prisma/migrations
 .qodo
 .github/modernize
 apps/mobile
+
+next-env.d.ts

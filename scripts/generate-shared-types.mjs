@@ -106,7 +106,8 @@ const targets = [
 
 let drift = false;
 for (const [file, content] of targets) {
-  const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
+  // So sánh không phân biệt kiểu xuống dòng (Windows có thể chuyển LF thành CRLF khi checkout)
+  const current = existsSync(file) ? readFileSync(file, 'utf8').split('\r\n').join('\n') : '';
   if (current !== content) {
     drift = true;
     if (!check) writeFileSync(file, content);

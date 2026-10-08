@@ -2,6 +2,9 @@
 import { z } from 'zod';
 
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
+// Biến tùy chọn: chuỗi rỗng trong .env được coi như chưa đặt
+const optional = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -19,6 +22,17 @@ export const envSchema = z.object({
   STORAGE_DRIVER: z.enum(['local']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('./uploads'),
   STORAGE_PUBLIC_URL: z.string().default('http://localhost:4000/uploads'),
+
+  UPLOAD_MAX_IMAGE_MB: z.coerce.number().positive().default(5),
+  UPLOAD_MAX_MODEL_MB: z.coerce.number().positive().default(100),
+  UPLOAD_MAX_PANORAMA_MB: z.coerce.number().positive().default(20),
+
+  // VNPay sandbox: tùy chọn cho tới khi làm module thanh toán
+  VNPAY_TMN_CODE: optional(z.string()),
+  VNPAY_HASH_SECRET: optional(z.string()),
+  VNPAY_URL: optional(z.string().url()),
+  VNPAY_RETURN_URL: optional(z.string().url()),
+  VNPAY_IPN_URL: optional(z.string().url()),
 
   MAIL_HOST: z.string().default('localhost'),
   MAIL_PORT: z.coerce.number().int().positive().default(1025),

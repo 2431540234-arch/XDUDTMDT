@@ -8,7 +8,7 @@ Website thương mại điện tử nội thất, tích hợp xem 3D, AR và kh�
 
 ### 1. Yêu cầu
 
-- Node.js 22 trở lên và npm 10 trở lên
+- Node.js 22 trở lên (khai báo `engines` trong `package.json`, file `.nvmrc` = 22; máy dev đang dùng Node 24) và npm 11.19 (`packageManager`)
 - Docker Desktop (PostgreSQL 16 và Mailpit chạy bằng Docker, không cần cài riêng)
 - Git
 
@@ -19,17 +19,19 @@ git clone <repo> && cd XDUDTMDT
 npm install          # cài workspace + husky (hook git)
 ```
 
-### 3. Tạo file `.env`
+### 3. Tạo file `.env` (chỉ MỘT file, ở thư mục gốc)
 
 ```bash
 cp .env.example .env          # Windows PowerShell: Copy-Item .env.example .env
-cp .env apps/api/.env                 # Prisma CLI đọc apps/api/.env
 ```
 
-Sửa trong `.env` (rồi chép lại sang `apps/api/.env`):
+Không cần `apps/api/.env`: API, Prisma CLI (qua `dotenv-cli` trong các script `db:*`), seed, test và web (qua `@next/env` trong `apps/web/next.config.js`) đều đọc `.env` ở gốc.
 
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: chuỗi ngẫu nhiên tối thiểu 16 ký tự (`openssl rand -hex 32`). Backend **từ chối khởi động** nếu thiếu/ngắn và in rõ biến nào sai.
-- Cổng 5432/4000/1025/8025 bị chiếm: đổi `POSTGRES_PORT` (và cổng trong `DATABASE_URL`), `API_PORT`, `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
+Sửa trong `.env`:
+
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: chuỗi ngẫu nhiên tối thiểu 16 ký tự (`openssl rand -hex 32`). Backend **từ chối khởi động** nếu thiếu/ngắn và in rõ biến nào sai. Web từ chối khởi động nếu thiếu `NEXT_PUBLIC_API_URL`.
+- Cổng mặc định: **API 4000, web 3000**. Nếu bị chiếm, đổi đồng bộ `PORT`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `STORAGE_PUBLIC_URL`, `CORS_ORIGINS`. PostgreSQL: `POSTGRES_PORT` và cổng trong `DATABASE_URL`; Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
+- Biến `VNPAY_*` để trống cho tới khi làm module thanh toán.
 
 `.env` đã nằm trong `.gitignore`: **không commit**. Giải thích từng biến: [.env.example](.env.example).
 
@@ -50,6 +52,7 @@ Cách A, trên máy host (dev, có hot reload):
 ```bash
 npm run build:types                    # build gói shared-types lần đầu
 npm run start:dev -w @aurelia-living/api
+npm run dev -w @aurelia-living/web      # web tại http://localhost:3000 (trang quản trị: /admin/...)
 ```
 
 Cách B, trong Docker (cả PostgreSQL, Mailpit, API; API tự chạy `migrate deploy` khi khởi động):
@@ -58,7 +61,7 @@ Cách B, trong Docker (cả PostgreSQL, Mailpit, API; API tự chạy `migrate d
 docker compose up -d --build           # thêm --no-recreate nếu đã có container cũ cần giữ
 ```
 
-Kiểm tra: `curl http://localhost:4000/health` (đổi cổng theo `API_PORT`). Swagger: http://localhost:4000/docs. Xem email dev: http://localhost:8025.
+Kiểm tra: `curl http://localhost:4000/health` (cổng `API_PORT`, mặc định 4000). Swagger: http://localhost:4000/docs. Xem email dev: http://localhost:8025.
 
 ### 6. Kiểm tra chất lượng và test
 
@@ -98,7 +101,7 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 | Lỗi                                   | Nguyên nhân / cách xử lý                                                                                                                                                                                                    |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `P1012` thiếu `DATABASE_URL`          | Chưa có `apps/api/.env` hoặc thiếu biến. Làm lại bước 4                                                                                                                                                                     |
+| `P1012` thiếu `DATABASE_URL`          | Chưa có `.env` ở thư mục gốc hoặc thiếu `DATABASE_URL`. Làm lại bước 3                                                                                                                                                      |
 | `P1001` không kết nối được            | Docker Desktop chưa chạy, container chưa lên (`npm run db:up`, `docker compose ps`), hoặc sai cổng giữa `POSTGRES_PORT` và `DATABASE_URL`                                                                                   |
 | Cổng 5432 (hoặc 4000) bị chiếm        | Máy đang có Postgres/ứng dụng khác. Xem `Get-NetTCPConnection -LocalPort 5432`; đặt `POSTGRES_PORT` khác như bước 4. API: đặt `PORT` khác                                                                                   |
 | `EPERM` khi `npm install`             | Tắt mọi dev server (`npm run start:dev`, `next dev`), đóng VS Code/terminal đang mở trong project, không để project trong thư mục OneDrive, tạm tắt Windows Defender real-time protection cho thư mục project, rồi chạy lại |
@@ -108,6 +111,8 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Tài liệu
 
 - [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
+- [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật (không Redis/MinIO, VNPay sandbox, ...)
+- [docs/MODULE_ENV_REPORT.md](docs/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường
 - [docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md): kiểu dùng chung FE/BE sinh từ Prisma
 
 ## Tài liệu CSDL

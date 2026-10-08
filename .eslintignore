@@ -8,3 +8,5 @@ apps/mobile
 apps/api/prisma/migrations
 .qodo
 .github
+
+next-env.d.ts
