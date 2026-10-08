@@ -1,0 +1,38 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as CameraScreen (Compose)
+    participant VM as CameraViewModel
+    participant R as ProductRepository
+    participant RT as Retrofit (AureliaApiService)
+    participant API as API NestJS
+    participant CX as CameraX
+    A->>SC: Bấm "Thử trong camera" ở chi tiết sản phẩm (slug)
+    SC->>SC: Kiểm tra quyền CAMERA
+    alt Chưa cấp quyền
+        SC-->>A: Hộp thoại xin quyền của hệ điều hành
+        alt Từ chối
+            SC-->>A: Màn hướng dẫn mở Cài đặt ứng dụng
+        end
+    end
+    SC->>VM: load(slug)
+    VM->>R: getProduct(slug)
+    R->>RT: getProductBySlug(slug)
+    RT->>API: GET /api/products/:slug
+    API-->>RT: 200 { success, data: { ..., overlayImageUrl } }
+    RT-->>R: ProductDto
+    R-->>VM: Product (mô hình miền)
+    alt Không có overlayImageUrl
+        VM-->>SC: state NoOverlay
+        SC-->>A: Thông báo sản phẩm chưa hỗ trợ xem qua camera
+    end
+    VM-->>SC: state Ready(product, overlayImageUrl)
+    SC->>CX: ProcessCameraProvider.bindToLifecycle(Preview, ImageCapture)
+    CX-->>SC: Luồng hình preview
+    SC->>SC: OverlayCanvas tải PNG (Coil) và vẽ phía trên PreviewView
+    loop Mỗi cử chỉ
+        A->>SC: Kéo, xoay, chụm để phóng/thu
+        SC->>VM: onTransform(offset, scale, rotation)
+        VM-->>SC: OverlayState (scale giới hạn 0,2-5)
+    end
+    SC-->>A: Hiển thị camera kèm overlay

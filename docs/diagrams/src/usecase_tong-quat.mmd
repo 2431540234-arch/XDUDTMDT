@@ -15,6 +15,7 @@ flowchart LR
     G_REV(["Đánh giá (3 UC)"])
     G_D3(["3D & AR (7 UC)"])
     G_SPACE(["Không gian mẫu (6 UC)"])
+    G_MOB(["Ứng dụng Android (4 UC)"])
     G_ADM(["Quản trị (30 UC)"])
     K --- G_AUTH
     N --- G_AUTH
@@ -34,6 +35,9 @@ flowchart LR
     N --- G_D3
     A --- G_D3
     K --- G_SPACE
+    K --- G_MOB
+    N --- G_MOB
+    A --- G_MOB
     N --- G_SPACE
     A --- G_SPACE
     A --- G_ADM

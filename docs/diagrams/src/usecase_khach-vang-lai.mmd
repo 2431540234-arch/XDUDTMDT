@@ -32,6 +32,12 @@ flowchart LR
         UC_SPACE_05(["UC-SPACE-05 Thử đổi món đồ trong phòng mẫu"])
         UC_SPACE_06(["UC-SPACE-06 Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)"])
     end
+    subgraph SG_MOB["Ứng dụng Android"]
+        UC_MOB_01(["UC-MOB-01 Xem danh mục và danh sách sản phẩm trên app Android"])
+        UC_MOB_02(["UC-MOB-02 Xem chi tiết sản phẩm trên app Android"])
+        UC_MOB_03(["UC-MOB-03 Xem sản phẩm qua camera với overlay ảnh"])
+        UC_MOB_04(["UC-MOB-04 Chụp ảnh ghép và lưu vào máy"])
+    end
     K --- UC_AUTH_01
     K --- UC_AUTH_02
     K --- UC_AUTH_05
@@ -53,6 +59,10 @@ flowchart LR
     K --- UC_SPACE_03
     K --- UC_SPACE_05
     K --- UC_SPACE_06
+    K --- UC_MOB_01
+    K --- UC_MOB_02
+    K --- UC_MOB_03
+    K --- UC_MOB_04
     UC_AUTH_01 --- EM
     UC_AUTH_05 --- EM
     UC_CAT_06 -. "«extend»" .-> UC_CAT_03
@@ -60,5 +70,7 @@ flowchart LR
     UC_3D_02 -. "«include»" .-> UC_3D_07
     UC_SPACE_02 -. "«include»" .-> UC_SPACE_06
     UC_SPACE_03 -. "«extend»" .-> UC_SPACE_02
+    UC_MOB_03 -. "«extend»" .-> UC_MOB_02
+    UC_MOB_04 -. "«extend»" .-> UC_MOB_03
     classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
     classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3

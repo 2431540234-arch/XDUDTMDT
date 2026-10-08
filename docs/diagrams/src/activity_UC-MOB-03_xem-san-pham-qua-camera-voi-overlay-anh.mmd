@@ -1,0 +1,41 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Thử trong camera' ở chi tiết sản phẩm"]
+        n12["Kéo, xoay, chụm để phóng/thu ảnh sản phẩm trên khung hình"]
+        n15["Xem kết quả, có thể chụp (UC-MOB-04)"]
+        n16(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (CameraScreen, CameraViewModel)"]
+        n3{"Đã có quyền CAMERA?"}
+        n4["Hiện hộp thoại xin quyền của hệ điều hành"]
+        n5{"Được cấp quyền?"}
+        n6["Hiện hướng dẫn mở Cài đặt ứng dụng"]
+        n7["Lấy sản phẩm GET /api/products/:slug"]
+        n8{"Có overlayImageUrl?"}
+        n9["Thông báo sản phẩm chưa hỗ trợ"]
+        n11["Tải ảnh PNG overlay (Coil) và vẽ lên preview"]
+        n13["Cập nhật OverlayState (offset, scale 0,2-5, rotation)"]
+    end
+    subgraph LANE_X["CameraX / API"]
+        n10["Mở Preview + ImageCapture gắn vòng đời màn hình"]
+        n14["API trả sản phẩm (nếu có mạng)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Chưa"| n4
+    n3 -->|"Rồi"| n7
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n14
+    n14 --> n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n15
+    n15 --> n16
+    n6 --> n16
+    n9 --> n16

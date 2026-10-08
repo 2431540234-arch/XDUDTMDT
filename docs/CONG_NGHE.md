@@ -4,6 +4,8 @@ Ngày kiểm tra: 2026-10-08, commit `57deef2`. Kiểm tra chỉ đọc: không 
 
 Ký hiệu: ✅ có, đã cấu hình, đang dùng đúng vai trò · 🟡 đã cài/khai báo nhưng chưa cấu hình hoặc chưa dùng · ❌ thiếu · ⚠️ dùng khác vai trò mục tiêu hoặc mâu thuẫn tài liệu · ➖ không áp dụng ở môi trường hiện tại.
 
+> **Cập nhật 2026-10-08:** chủ dự án đã trả lời 8 câu ở mục 8 (xem bảng "Đã trả lời" ở đó). Mục 6 là bảng nộp chính thức. Các mục 2-5 phản ánh hiện trạng lúc kiểm tra.
+
 ## 1. Tóm tắt
 
 | Trạng thái | Số công nghệ | Công nghệ |
@@ -156,7 +158,7 @@ Chưa có phân chia thực tế (cả hai rỗng). Đề xuất quy ước:
 | `@react-three/drei` (đã có) | `useGLTF` (đọc GLB, **tự giải nén Meshopt** nên khớp đầu ra của job), `OrbitControls`, `Environment`, `Html` | M12, M13 | Đã có |
 | `react-hook-form` + `@hookform/resolvers` + `zod` | Form đăng ký/đăng nhập/thanh toán/admin; `lib/validators.ts` đang rỗng | M02, M09, mọi trang admin | Cao |
 | `recharts` (hoặc `chart.js`) | Biểu đồ dashboard, phễu AR và không gian mẫu | M14: UC-ADM-28/29 | Trung bình |
-| Trình soạn nội dung (`@tiptap/react`) | Soạn trang tĩnh | M06: UC-ADM-07 | Thấp |
+| ~~Trình soạn nội dung (`@tiptap/react`)~~ **Không dùng**: trang tĩnh soạn bằng textarea Markdown | Soạn trang tĩnh | M06: UC-ADM-07 | Bỏ |
 | `@tanstack/react-query-devtools` | Gỡ lỗi truy vấn khi dev | Web | Thấp |
 | Vitest + Testing Library, Playwright | Test giao diện và e2e web (hiện web chưa có test runner) | Web | Trung bình |
 | `@nestjs/schedule` | Dọn tệp dở dang trong `models/incoming/`, hết hạn phiên | M05, M12, M02 | Trung bình |
@@ -192,9 +194,9 @@ Khai báo nhưng chưa dùng, cân nhắc gỡ: `passport`, `passport-jwt`, `@ne
 | Mermaid CLI | `@mermaid-js/mermaid-cli` (npx) | Xuất sơ đồ UML | Không (công cụ tài liệu) |
 | Mobile (nếu đưa vào): Hilt 2.51.1, Retrofit 2.11.0 + Gson, Coil 2.6.0, Material3, KSP | | DI, gọi API, tải ảnh, giao diện | Nếu có mobile |
 
-## 6. Bảng công nghệ đề xuất để nộp giảng viên
+## 6. Bảng công nghệ nộp giảng viên (CHÍNH THỨC)
 
-Chỉ gồm thứ dự án đã dùng hoặc sẽ dùng theo kế hoạch đã chốt.
+Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36. Chỉ gồm công nghệ dự án đã dùng hoặc sẽ dùng theo kế hoạch đã chốt; mục chưa cài (model-viewer, react-hook-form, recharts...) được cài đúng đợt cần dùng.
 
 ### Web
 
@@ -203,22 +205,24 @@ Chỉ gồm thứ dự án đã dùng hoặc sẽ dùng theo kế hoạch đã c
 | Next.js 14 | Web | Framework xây website (App Router) |
 | TypeScript | Web, Backend | Ngôn ngữ lập trình, kiểu dùng chung giữa web và API |
 | Tailwind CSS | Web | Thiết kế giao diện |
-| Zustand | Web | Quản lý state phía client (giao diện, token, cấu hình trình xem) |
+| Zustand | Web | Quản lý client state (giao diện, token, cấu hình trình xem 3D) |
 | TanStack Query | Web | Gọi và cache API (dữ liệu từ server, kể cả giỏ hàng) |
 | Three.js | Web | Xử lý 3D |
-| React Three Fiber (+ drei) | Web | Kết nối React với Three.js, xem mô hình 3D và ảnh 360° |
+| React Three Fiber (+ drei) | Web | Kết nối React với Three.js: xem mô hình GLB (`useGLTF`), ảnh 360° (mặt cầu + `TextureLoader`), hotspot (`Html`) |
+| `@google/model-viewer` | Web | Xem sản phẩm bằng AR trên điện thoại (Scene Viewer, Quick Look) |
+| React Hook Form + Zod | Web | Biểu mẫu và kiểm tra dữ liệu |
+| Recharts | Web | Biểu đồ thống kê quản trị |
 
-Nếu chọn thêm AR trên điện thoại: `model-viewer` (Android Scene Viewer / iOS Quick Look), ghi sau khi quyết định ở mục câu hỏi.
-
-### Mobile (chỉ nộp nếu quyết định đưa mobile vào phạm vi)
+### Mobile
 
 | Công nghệ | Nền tảng | Vai trò |
 | --- | --- | --- |
-| Android | Mobile | Nền tảng ứng dụng |
+| Android | Mobile | Nền tảng ứng dụng (minSdk 26) |
 | Kotlin | Mobile | Ngôn ngữ lập trình |
 | Jetpack Compose | Mobile | Xây giao diện |
-| CameraX | Mobile | Xử lý camera |
-| Overlay (Compose Canvas) | Mobile | Đặt ảnh sản phẩm lên camera |
+| CameraX | Mobile | Xử lý camera (Preview, ImageCapture) |
+| Overlay (Compose Canvas + Coil) | Mobile | Đặt ảnh PNG sản phẩm lên camera, kéo/xoay/phóng to |
+| Retrofit + Hilt | Mobile | Gọi API công khai, tiêm phụ thuộc |
 
 ### Backend và hạ tầng
 
@@ -227,10 +231,15 @@ Nếu chọn thêm AR trên điện thoại: `model-viewer` (Android Scene Viewe
 | NestJS | Framework backend | Controller, service, guard, pipe cho 144 endpoint |
 | PostgreSQL | Database chính | User, Product, Order (44 bảng, 36 trigger) |
 | Prisma | Backend làm việc với PostgreSQL | Query Product, tạo Order trong transaction |
-| Redis | Queue state và giới hạn tốc độ (cache là kế hoạch ở mục 3.3) | Trạng thái hàng đợi BullMQ, giới hạn đăng nhập, cache danh mục |
-| BullMQ | Hàng đợi xử lý nền | Sinh LOD mô hình 3D, tạo webp/thumbnail, (email, thông báo nếu đồng ý) |
+| Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Cache danh mục và sản phẩm nổi bật, trạng thái BullMQ, giới hạn đăng nhập |
+| BullMQ | Hàng đợi xử lý nền | `model-processing` (LOD mô hình 3D), `image-processing` (webp, thumbnail), `mail`, `notification` |
 | MinIO | Lưu file (dev) | JPG, WebP, PNG, GLB, USDZ, panorama |
-| S3 | Object storage production | Ảnh và mô hình sản phẩm (cần sửa nhỏ, mục 3.5) |
+| S3 | Object storage production | Ảnh và mô hình sản phẩm (chỉ đổi biến môi trường) |
+| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 144 endpoint |
+| Jest + Supertest | Kiểm thử | Unit test, e2e với PostgreSQL, Redis, MinIO thật |
+| sharp | Xử lý ảnh | Tạo webp và thumbnail, thu nhỏ texture |
+| glTF-Transform (+ Meshopt) | Xử lý mô hình 3D | Kiểm tra GLB, đo đa giác, sinh LOD, nén |
+| Nodemailer + Mailpit | Gửi email, hộp thư giả khi dev | Xác thực email, đặt lại mật khẩu, đơn hàng |
 | Docker Compose | Môi trường dev | postgres, redis, minio, mailpit, api |
 | GitHub Actions | CI | Lint, typecheck, test, build |
 
@@ -251,20 +260,23 @@ Nếu chọn thêm AR trên điện thoại: `model-viewer` (Android Scene Viewe
 | Biểu đồ dashboard | `recharts` | `src/app/admin/dashboard/page.tsx` | 6 | Đợt M14 |
 | Test web | `vitest`, `@testing-library/react`, `playwright` | `apps/web/package.json`, `vitest.config.ts` | 8 | Song song |
 | `CacheService` Redis + áp dụng cho 4-5 endpoint công khai, xóa khóa khi admin sửa | (dùng `ioredis` sẵn có) | `apps/api/src/cache/*`, service M06, M07, M01 | 8 | Đợt M06, M07 |
-| Queue `mail`, `notification` (nếu đồng ý) | (đã có `bullmq`) | `apps/api/src/modules/jobs/*`, `mail/smtp-mail.service.ts` | 6 | Đợt M02, M09 |
+| Queue `mail` (đợt M02) và `notification` (đợt M09), retry 3 lần, backoff mũ | (đã có `bullmq`) | `apps/api/src/modules/jobs/*`, `mail/smtp-mail.service.ts` | 6 | Đợt M02, M09 |
 | Throttler siết cho đăng nhập, quên mật khẩu, đăng ký | (đã có) | `modules/auth/auth.controller.ts` | 2 | Đợt M02 |
 | Driver `s3` và biến `S3_FORCE_PATH_STYLE` | (đã có SDK) | `storage.module.ts`, `minio-storage.service.ts`, `env.validation.ts` | 3 | Trước khi triển khai production |
-| Dọn gói không dùng (`passport*`, `cookie-parser`) | gỡ | `apps/api/package.json` | 0,5 | Bất kỳ |
+| ~~Dọn gói không dùng (`passport*`, `cookie-parser`)~~ **Đã gỡ 2026-10-08** | gỡ | `apps/api/package.json` | 0,5 | Xong |
 | `@nestjs/schedule` dọn tệp dở dang | `@nestjs/schedule` | `apps/api/src/modules/media` | 3 | Đợt M05, M12 |
-| Mobile (nếu đưa vào, phương án B) | xem mục 3.1 | `apps/mobile/**` | ~70 | Sau M02, M07 |
+| Mobile (phương án B, đã chọn) | xem mục 3.1 | `apps/mobile/**` | ~70 | Sau M07 (và M12 nếu kịp) |
 
-## 8. Câu hỏi cần quyết định
+## 8. Quyết định đã nhận
 
-1. **Mobile:** giữ ngoài phạm vi (A), đưa vào tối thiểu camera + overlay (B, ~70 giờ), hay đầy đủ (C, ~118 giờ)? Nếu B hoặc C, thêm UC mobile vào đặc tả?
-2. **Redis OTP/session:** giữ PostgreSQL (A, khuyến nghị), chuyển hẳn sang Redis (B), hay kết hợp (C: PG lưu phiên, Redis lưu OTP và đếm số lần thử)?
-3. **Redis cache:** có làm `CacheService` cho danh mục, sản phẩm nổi bật, settings, trang tĩnh (mục 3.3) không? TTL như đề xuất được không?
-4. **BullMQ email/thông báo:** thêm queue `mail` và `notification` (retry 3 lần) hay giữ gửi trực tiếp?
-5. **AR/360° web:** dùng `@google/model-viewer` cho AR? Ảnh 360° tự dựng bằng R3F hay dùng `@photo-sphere-viewer`?
-6. **S3 production:** có cần thực sự triển khai S3 (thêm driver `s3`, ~3 giờ) hay chỉ ghi "đổi cấu hình" trong báo cáo?
-7. **Bảng nộp giảng viên:** đồng ý thêm NestJS, Docker Compose, GitHub Actions và các mục "Nên" ở mục 5? Có ghi mobile hay không (phụ thuộc câu 1)?
-8. **Overlay mobile (nếu đưa vào):** ảnh sản phẩm PNG nền trong suốt sẽ tự chuẩn bị bằng tay hay khôi phục bước tách nền tự động?
+| # | Câu hỏi | Quyết định | Ghi vào |
+| --- | --- | --- | --- |
+| 1 | Mobile | **Phương án B** (tối thiểu: danh mục, chi tiết, camera + overlay, chụp và lưu); làm SAU M07 (và M12 nếu kịp); không đăng nhập, giỏ hàng, đặt hàng | D-P06, D-P07; DAC_TA nhóm UC-MOB |
+| 2 | Redis OTP/session | **Phương án A**: giữ PostgreSQL. Redis = "cache, trạng thái hàng đợi, giới hạn tốc độ" | D-T29 |
+| 3 | Redis cache | **Có** `CacheService` (ioredis), TTL như mục 3.3, xóa khóa khi admin sửa; đợt M06/M07 (M01 cho settings) | D-T30 |
+| 4 | BullMQ | **Có** queue `mail` (đợt M02) và `notification` (đợt M09), thử lại 3 lần, backoff mũ | D-T31 |
+| 5 | AR web, 360° | `@google/model-viewer`; ảnh 360° tự dựng bằng R3F (mặt cầu + `TextureLoader` + drei `Html`, `useGLTF`) | D-T32 |
+| 6 | S3 | Không triển khai thật; cuối dự án sửa nhỏ (driver `s3`, `S3_FORCE_PATH_STYLE`, `S3_ENDPOINT` tùy chọn) | D-T33 |
+| 7 | Bảng nộp | Đồng ý thêm NestJS, Docker Compose, GitHub Actions, Swagger, Jest + Supertest, sharp, gltf-transform, model-viewer, Nodemailer + Mailpit; CÓ nhóm Mobile | D-T34; mục 6 |
+| 8 | Ảnh overlay | Chủ dự án tự chuẩn bị PNG nền trong suốt cho 5-10 sản phẩm; nơi lưu trong CSDL **đang chờ chọn** | D-T36, O-06 |
+| + | Gỡ gói; thư viện web | Gỡ `passport*`, `cookie-parser`; web: `react-hook-form` + `@hookform/resolvers` + `zod` (M02), `recharts` (M14); không Tiptap (trang tĩnh: textarea Markdown); cài đúng đợt | D-T35 |

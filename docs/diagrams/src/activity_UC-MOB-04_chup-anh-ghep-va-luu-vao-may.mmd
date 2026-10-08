@@ -1,0 +1,38 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm nút chụp"]
+        n14["Thấy thông báo đã lưu, có thể chia sẻ"]
+        n15(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (CameraViewModel, BitmapUtils)"]
+        n3["Gọi ImageCapture.takePicture"]
+        n5["Ghép overlay lên ảnh chụp theo vị trí, tỉ lệ, góc xoay"]
+        n6{"Android 10 trở lên?"}
+        n7{"Đã có quyền ghi bộ nhớ?"}
+        n8["Xin quyền WRITE_EXTERNAL_STORAGE"]
+        n9["Báo không lưu được, giữ ảnh tạm để thử lại"]
+        n11["Thông báo 'Đã lưu vào thư viện ảnh'"]
+        n12["Thông báo 'Không chụp được, thử lại'"]
+    end
+    subgraph LANE_X["CameraX / MediaStore"]
+        n4{"Chụp thành công?"}
+        n10["Ghi JPEG vào MediaStore (Pictures/AureliaLiving)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n12
+    n4 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Có"| n10
+    n6 -->|"Không"| n7
+    n7 -->|"Rồi"| n10
+    n7 -->|"Chưa"| n8
+    n8 -->|"Từ chối"| n9
+    n8 -->|"Đồng ý"| n10
+    n10 --> n11
+    n11 --> n14
+    n14 --> n15
+    n12 --> n15
+    n9 --> n15

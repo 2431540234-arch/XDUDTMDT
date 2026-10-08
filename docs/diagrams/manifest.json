@@ -1150,5 +1150,37 @@
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "5.8. Nhóm 7 – Không gian mẫu",
   "lines": 121
+ },
+ {
+  "name": "activity_UC-MOB-03_xem-san-pham-qua-camera-voi-overlay-anh",
+  "kind": "Activity",
+  "uc": "UC-MOB-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.62 UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh",
+  "lines": 41
+ },
+ {
+  "name": "activity_UC-MOB-04_chup-anh-ghep-va-luu-vao-may",
+  "kind": "Activity",
+  "uc": "UC-MOB-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy",
+  "lines": 38
+ },
+ {
+  "name": "sequence_UC-MOB-03_xem-san-pham-qua-camera-voi-overlay-anh",
+  "kind": "Sequence",
+  "uc": "UC-MOB-03",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.62 UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh",
+  "lines": 38
+ },
+ {
+  "name": "sequence_UC-MOB-04_chup-anh-ghep-va-luu-vao-may",
+  "kind": "Sequence",
+  "uc": "UC-MOB-04",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy",
+  "lines": 32
  }
 ]

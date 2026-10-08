@@ -4,7 +4,7 @@ Aurelia Living: website thương mại điện tử nội thất, tích hợp xe
 
 Tài liệu gồm ba mô hình theo yêu cầu của giảng viên: **(1) mô hình hoạt động chức năng** (Activity Diagram), **(2) mô hình tuần tự chức năng** (Sequence Diagram), **(3) mô hình quan hệ dữ liệu theo hướng đối tượng** (Class Diagram), kèm danh sách API, ánh xạ vào code và lộ trình triển khai. Đồng thời là bản thiết kế để code theo: tên module, class, hàm, endpoint, DTO, model khớp với project (`apps/api`, `apps/web`) và với `apps/api/prisma/schema.prisma`.
 
-Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) (đặc tả 76 use case), [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) (từ điển dữ liệu, trigger), [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) (quy ước code với CSDL).
+Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) (đặc tả 80 use case), [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) (từ điển dữ liệu, trigger), [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) (quy ước code với CSDL).
 
 ## 1. Tổng quan
 
@@ -13,6 +13,7 @@ Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO
 | Tầng | Công nghệ |
 | --- | --- |
 | Frontend (`apps/web`) | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, React Three Fiber/drei (xem 3D, panorama), Zustand (store), TanStack Query (gọi API) |
+| Mobile (`apps/mobile`) | Android (Kotlin 2.2), Jetpack Compose, CameraX, Hilt, Retrofit, Coil; chỉ xem sản phẩm, camera overlay, chụp ảnh (UC-MOB) |
 | Backend (`apps/api`) | NestJS 10, TypeScript, Passport JWT, class-validator, Swagger |
 | ORM / CSDL | Prisma 5.22, PostgreSQL 16 (44 bảng, 36 trigger, extension citext, pg_trgm, unaccent, pgcrypto) |
 | Hàng đợi / cache | BullMQ + Redis 7: queue `model-processing` (kiểm tra GLB, sinh LOD), `image-processing` (webp, thumbnail); throttler lưu bộ đếm trong Redis. Worker chạy cùng tiến trình API |
@@ -26,6 +27,9 @@ Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO
 flowchart LR
     subgraph Client["Trình duyệt"]
         WEB["apps/web (Next.js)<br>pages, components, hooks, store, services"]
+    end
+    subgraph Phone["Điện thoại Android"]
+        APP["apps/mobile (Kotlin)<br>Compose, CameraX, Retrofit"]
     end
     subgraph API["apps/api (NestJS)"]
         GUARD["Guards, Pipes, Filters, Interceptors"]
@@ -45,6 +49,8 @@ flowchart LR
         SMTP["Dịch vụ email"]
     end
     WEB -- "HTTPS /api" --> GUARD --> CTRL --> SVC --> PRISMA --> PG
+    APP -- "HTTPS /api (đọc danh mục, sản phẩm)" --> GUARD
+    APP -. "tải ảnh overlay" .-> S3
     SVC -- "đưa job" --> RD
     RD --> JOBS
     JOBS --> S3
@@ -81,13 +87,13 @@ apps/
 │               payments/ shipments/ inventory/ settings/ stats/ activity-logs/ ar-sessions/ ar-snapshots/ mail/   [CẦN TẠO MỚI]
 ├── web/                              Next.js 14
 │   └── src/ app/{(admin),(auth),(shop)}, components/{cart,layout,product,ui,viewer}, hooks, lib, services, store, types
-└── mobile/                           Android (Kotlin), ngoài phạm vi
+└── mobile/                           Android (Kotlin, Compose, CameraX): UC-MOB-01..04
 ```
 
 
 ## 2. Use case đã mô hình hóa
 
-61 use case Bắt buộc (29) và Nên có (32) có đủ Activity (mục 3) và Sequence (mục 4). 15 use case Mở rộng chỉ liệt kê (mô tả ở tài liệu đặc tả). Số thứ tự `A.n` và `S.n` là mục của sơ đồ.
+63 use case Bắt buộc và Nên có có đủ Activity (mục 3) và Sequence (mục 4): 61 UC web/quản trị và 2 UC ứng dụng Android (UC-MOB-03, UC-MOB-04). UC-MOB-01 và UC-MOB-02 dùng lại luồng API của UC-CAT-02 và UC-CAT-04 (chỉ khác giao diện Compose) nên không vẽ lại. 15 use case Mở rộng chỉ liệt kê (mô tả ở tài liệu đặc tả). Số thứ tự `A.n` và `S.n` là mục của sơ đồ.
 
 | STT | Mã | Tên | Ưu tiên | Vai trò | Activity | Sequence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -152,6 +158,8 @@ apps/
 | 59 | UC-ADM-23 | Hoàn tiền thủ công | Nên có | Quản trị viên | A.59 | S.59 |
 | 60 | UC-ADM-24 | Quản lý thanh toán (xác nhận chuyển khoản) | Nên có | Quản trị viên | A.60 | S.60 |
 | 61 | UC-ADM-25 | Quản lý vận chuyển | Bắt buộc | Quản trị viên | A.61 | S.61 |
+| 62 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Nên có | Khách vãng lai (app Android) | A.62 | S.62 |
+| 63 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | Nên có | Khách vãng lai (app Android) | A.63 | S.63 |
 
 **Use case Mở rộng (chỉ liệt kê):**
 
@@ -3605,6 +3613,111 @@ flowchart TD
     n5 --> n26
     n7 --> n26
     n12 --> n26
+```
+
+### A.62 UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh
+
+| Mục | Nội dung |
+| --- | --- |
+| Tác nhân | Khách vãng lai (app Android) \| phụ: CameraX |
+| Ưu tiên · Nhóm | Nên có · Ứng dụng Android |
+| Tiền điều kiện | Đang ở chi tiết sản phẩm có ảnh overlay (UC-MOB-02); điện thoại có camera. |
+| Hậu điều kiện | Không đổi CSDL; trạng thái overlay chỉ nằm trong bộ nhớ app. |
+| Đặc tả chi tiết | [UC-MOB-03](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) |
+
+```mermaid
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm 'Thử trong camera' ở chi tiết sản phẩm"]
+        n12["Kéo, xoay, chụm để phóng/thu ảnh sản phẩm trên khung hình"]
+        n15["Xem kết quả, có thể chụp (UC-MOB-04)"]
+        n16(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (CameraScreen, CameraViewModel)"]
+        n3{"Đã có quyền CAMERA?"}
+        n4["Hiện hộp thoại xin quyền của hệ điều hành"]
+        n5{"Được cấp quyền?"}
+        n6["Hiện hướng dẫn mở Cài đặt ứng dụng"]
+        n7["Lấy sản phẩm GET /api/products/:slug"]
+        n8{"Có overlayImageUrl?"}
+        n9["Thông báo sản phẩm chưa hỗ trợ"]
+        n11["Tải ảnh PNG overlay (Coil) và vẽ lên preview"]
+        n13["Cập nhật OverlayState (offset, scale 0,2-5, rotation)"]
+    end
+    subgraph LANE_X["CameraX / API"]
+        n10["Mở Preview + ImageCapture gắn vòng đời màn hình"]
+        n14["API trả sản phẩm (nếu có mạng)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 -->|"Chưa"| n4
+    n3 -->|"Rồi"| n7
+    n4 --> n5
+    n5 -->|"Không"| n6
+    n5 -->|"Có"| n7
+    n7 --> n14
+    n14 --> n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 --> n12
+    n12 --> n13
+    n13 --> n15
+    n15 --> n16
+    n6 --> n16
+    n9 --> n16
+```
+
+### A.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy
+
+| Mục | Nội dung |
+| --- | --- |
+| Tác nhân | Khách vãng lai (app Android) \| phụ: CameraX, MediaStore |
+| Ưu tiên · Nhóm | Nên có · Ứng dụng Android |
+| Tiền điều kiện | Đang ở màn hình camera có overlay (UC-MOB-03). |
+| Hậu điều kiện | Tệp JPEG trong `Pictures/AureliaLiving`; không có dữ liệu nào lên máy chủ. |
+| Đặc tả chi tiết | [UC-MOB-04](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) |
+
+```mermaid
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Bấm nút chụp"]
+        n14["Thấy thông báo đã lưu, có thể chia sẻ"]
+        n15(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (CameraViewModel, BitmapUtils)"]
+        n3["Gọi ImageCapture.takePicture"]
+        n5["Ghép overlay lên ảnh chụp theo vị trí, tỉ lệ, góc xoay"]
+        n6{"Android 10 trở lên?"}
+        n7{"Đã có quyền ghi bộ nhớ?"}
+        n8["Xin quyền WRITE_EXTERNAL_STORAGE"]
+        n9["Báo không lưu được, giữ ảnh tạm để thử lại"]
+        n11["Thông báo 'Đã lưu vào thư viện ảnh'"]
+        n12["Thông báo 'Không chụp được, thử lại'"]
+    end
+    subgraph LANE_X["CameraX / MediaStore"]
+        n4{"Chụp thành công?"}
+        n10["Ghi JPEG vào MediaStore (Pictures/AureliaLiving)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 -->|"Không"| n12
+    n4 -->|"Có"| n5
+    n5 --> n6
+    n6 -->|"Có"| n10
+    n6 -->|"Không"| n7
+    n7 -->|"Rồi"| n10
+    n7 -->|"Chưa"| n8
+    n8 -->|"Từ chối"| n9
+    n8 -->|"Đồng ý"| n10
+    n10 --> n11
+    n11 --> n14
+    n14 --> n15
+    n12 --> n15
+    n9 --> n15
 ```
 
 ## 4. Phần 2 – Mô hình tuần tự chức năng (Sequence Diagram)
@@ -7246,6 +7359,110 @@ sequenceDiagram
 | 8 | Prisma / PostgreSQL | apps/api/prisma/schema.prisma | shipment.findUnique({ where: { id }, include: { order: { include: { orderItems: true, payments: true } } } }); shipment.update({ where: { id }, data: { status, deliveredAt: new Date() } }); order.update({ where: { id: orderId }, data: { status: 'completed' } }); product.update({ where: { id: product | model có sẵn trong schema |
 | 9 | DB trigger | migrations/0_init | trg_orders_log_status_update | DB tự làm, không code lại |
 
+### S.62 UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as CameraScreen (Compose)
+    participant VM as CameraViewModel
+    participant R as ProductRepository
+    participant RT as Retrofit (AureliaApiService)
+    participant API as API NestJS
+    participant CX as CameraX
+    A->>SC: Bấm "Thử trong camera" ở chi tiết sản phẩm (slug)
+    SC->>SC: Kiểm tra quyền CAMERA
+    alt Chưa cấp quyền
+        SC-->>A: Hộp thoại xin quyền của hệ điều hành
+        alt Từ chối
+            SC-->>A: Màn hướng dẫn mở Cài đặt ứng dụng
+        end
+    end
+    SC->>VM: load(slug)
+    VM->>R: getProduct(slug)
+    R->>RT: getProductBySlug(slug)
+    RT->>API: GET /api/products/:slug
+    API-->>RT: 200 { success, data: { ..., overlayImageUrl } }
+    RT-->>R: ProductDto
+    R-->>VM: Product (mô hình miền)
+    alt Không có overlayImageUrl
+        VM-->>SC: state NoOverlay
+        SC-->>A: Thông báo sản phẩm chưa hỗ trợ xem qua camera
+    end
+    VM-->>SC: state Ready(product, overlayImageUrl)
+    SC->>CX: ProcessCameraProvider.bindToLifecycle(Preview, ImageCapture)
+    CX-->>SC: Luồng hình preview
+    SC->>SC: OverlayCanvas tải PNG (Coil) và vẽ phía trên PreviewView
+    loop Mỗi cử chỉ
+        A->>SC: Kéo, xoay, chụm để phóng/thu
+        SC->>VM: onTransform(offset, scale, rotation)
+        VM-->>SC: OverlayState (scale giới hạn 0,2-5)
+    end
+    SC-->>A: Hiển thị camera kèm overlay
+```
+
+**Đặc tả cài đặt**
+
+| Bước | Thành phần | File | Hàm / Endpoint | Ghi chú |
+| --- | --- | --- | --- | --- |
+| 1 | Màn hình (Compose) | apps/mobile/app/src/main/java/com/aurelia/ui/camera/CameraScreen.kt | CameraScreen(slug) | Đã có (khung rỗng) |
+| 2 | Cử chỉ | apps/mobile/app/src/main/java/com/aurelia/ui/camera/OverlayGestureHandler.kt | detectTransformGestures | Đã có (khung rỗng) |
+| 3 | Vẽ overlay | apps/mobile/app/src/main/java/com/aurelia/ui/camera/OverlayCanvas.kt | OverlayCanvas(state, imageUrl) | Đã có (khung rỗng) |
+| 4 | ViewModel | apps/mobile/app/src/main/java/com/aurelia/ui/camera/CameraViewModel.kt | load(slug), onTransform | Đã có (khung rỗng) |
+| 5 | Repository | apps/mobile/app/src/main/java/com/aurelia/data/repository/ProductRepositoryImpl.kt | getProduct(slug) | Đã có (khung rỗng) |
+| 6 | Retrofit | apps/mobile/app/src/main/java/com/aurelia/data/remote/AureliaApiService.kt | getProductBySlug | Đã có (khung rỗng) |
+| 7 | API | apps/api/src/modules/products/products.controller.ts | ProductsController.findOne  [GET /api/products/:slug] | Đã có (khung rỗng); UC-CAT-04; thêm `overlayImageUrl` khi chốt O-06 |
+| 8 | Thư viện | gradle/libs.versions.toml | CameraX 1.3.4, Coil 2.6.0 | Đã khai báo; cần thêm navigation-compose, coroutines |
+
+### S.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as CameraScreen (Compose)
+    participant VM as CameraViewModel
+    participant CX as CameraX
+    participant R as GalleryRepository
+    participant MS as MediaStore (hệ điều hành)
+    A->>SC: Bấm nút chụp
+    SC->>VM: onCapture()
+    VM->>CX: ImageCapture.takePicture(executor, callback)
+    CX-->>VM: Ảnh gốc + rotationDegrees
+    alt Lỗi chụp (ImageCaptureException)
+        VM-->>SC: state Error
+        SC-->>A: Thông báo "Không chụp được, thử lại"
+    end
+    VM->>VM: BitmapUtils.compose(ảnh, overlayBitmap, OverlayState, kích thước preview)
+    VM->>R: saveToGallery(bitmap)
+    alt Android 8-9 và chưa có quyền ghi bộ nhớ
+        R-->>SC: Cần quyền WRITE_EXTERNAL_STORAGE
+        SC-->>A: Hộp thoại xin quyền
+        alt Từ chối
+            SC-->>A: Báo không lưu được, giữ ảnh tạm
+        end
+    end
+    R->>MS: ContentResolver.insert(Images, Pictures/AureliaLiving, IS_PENDING=1)
+    MS-->>R: Uri
+    R->>MS: ghi JPEG vào OutputStream, IS_PENDING=0
+    MS-->>R: hoàn tất
+    R-->>VM: Uri ảnh đã lưu
+    VM-->>SC: state Saved(uri)
+    SC-->>A: Thông báo "Đã lưu vào thư viện ảnh" (kèm nút Chia sẻ)
+```
+
+**Đặc tả cài đặt**
+
+| Bước | Thành phần | File | Hàm / Endpoint | Ghi chú |
+| --- | --- | --- | --- | --- |
+| 1 | Màn hình (Compose) | apps/mobile/app/src/main/java/com/aurelia/ui/camera/CameraScreen.kt | Nút chụp | Đã có (khung rỗng) |
+| 2 | ViewModel | apps/mobile/app/src/main/java/com/aurelia/ui/camera/CameraViewModel.kt | onCapture() | Đã có (khung rỗng) |
+| 3 | Ghép ảnh | apps/mobile/app/src/main/java/com/aurelia/util/BitmapUtils.kt | compose(photo, overlay, state, previewSize) | Đã có (khung rỗng) |
+| 4 | Repository | apps/mobile/app/src/main/java/com/aurelia/data/repository/GalleryRepository.kt | saveToGallery(bitmap) | [CẦN TẠO MỚI] |
+| 5 | Quyền | apps/mobile/app/src/main/AndroidManifest.xml | WRITE_EXTERNAL_STORAGE (maxSdkVersion 28) | [CẦN TẠO MỚI]; CAMERA đã có |
+| 6 | API | (không gọi API) | | Ảnh chỉ lưu cục bộ |
+
 ## 5. Phần 3 – Mô hình quan hệ dữ liệu theo hướng đối tượng (Class Diagram)
 
 Sinh từ `apps/api/prisma/schema.prisma`: mỗi **class** là một model Prisma (bảng trong ngoặc ở mục 5.10); thuộc tính dùng kiểu Prisma, `«PK»` khóa chính, `«FK»` khóa ngoại, `«UK»` duy nhất; phần dưới là **phương thức nghiệp vụ** (khái niệm thiết kế, hiện thực trong Service, không phải method của Prisma Client). Quan hệ: **composition** `*--` (con không tồn tại độc lập với cha), **aggregation** `o--` (tham chiếu giữ lịch sử/tùy chọn), **association** `--`. Bội số ghi hai đầu. Bảng liên kết nhiều-nhiều (`RolePermission`, `UserRole`, `VariantAttributeValue`) được vẽ thành lớp liên kết. Enum vẽ `<<enumeration>>`.
@@ -8856,6 +9073,17 @@ Use case: UC-ADM-01, UC-ADM-02, UC-ADM-26..29
 - [ ] Quản lý người dùng, vai trò (chỉ `admin`, `user`), thông báo, nhật ký, thống kê doanh thu, thống kê AR và phễu không gian mẫu
 - [ ] Hoàn thiện Swagger, kiểm thử e2e, rà soát bảo mật (giới hạn tốc độ, CORS, kích thước tải lên)
 
+### Giai đoạn Mobile – Ứng dụng Android (làm SAU M07, và M12 nếu kịp)
+
+Use case: UC-MOB-01..04. Phụ thuộc: API công khai danh mục, sản phẩm (M06, M07) đã chạy; ảnh PNG overlay (chủ dự án chuẩn bị 5-10 sản phẩm) và quyết định nơi lưu (giả định 11).
+
+- [ ] Dọn Gradle, nâng Hilt/AGP cho build được; thêm `navigation-compose`, `lifecycle-viewmodel-compose`, coroutines, OkHttp logging
+- [ ] Lớp mạng: Retrofit + Gson parse `{ success, data, meta }`, xử lý lỗi theo `ErrorCode`
+- [ ] `CatalogScreen`, `ProductDetailScreen` (UC-MOB-01, 02)
+- [ ] `CameraScreen` (CameraX Preview + ImageCapture), `OverlayCanvas`, `OverlayGestureHandler` (UC-MOB-03)
+- [ ] Ghép ảnh `BitmapUtils.compose`, `GalleryRepository` (MediaStore) (UC-MOB-04)
+- [ ] Test ViewModel và giao diện cơ bản
+
 ## 9. Giả định và điểm cần xác nhận
 
 Các quyết định nghiệp vụ đã chốt (mục 12.1) và điểm còn mở (mục 12.2) nằm trong [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md). Các giả định riêng của báo cáo này:
@@ -8872,3 +9100,5 @@ Các quyết định nghiệp vụ đã chốt (mục 12.1) và điểm còn m�
 | 8 | Dữ liệu `include` Prisma dùng đúng tên quan hệ trong `schema.prisma` (ví dụ `orderItems`, `productImages`, `spaceHotspotsAsPanorama`) | Các lệnh Prisma trong sơ đồ | — |
 | 9 | Truy cập Prisma Client: `product3DModel` (model `Product3DModel`) | Sơ đồ UC 3D | — |
 | 10 | Quan hệ composition/aggregation trong class diagram là phân loại thiết kế, không phải thuộc tính của Prisma | Mục 5 | Đồng ý phân loại? |
+| 11 | Nơi lưu ảnh overlay PNG của sản phẩm cho app Android chưa có trong CSDL | A.62 gọi chung là `overlayImageUrl` trong `GET /api/products/:slug` | Chủ dự án chọn phương án (DECISIONS O-06) |
+| 12 | App Android chỉ dùng API công khai, không đăng nhập, không ghi `ArSession`; ảnh chụp lưu cục bộ | A.62, A.63 | Đồng ý? |

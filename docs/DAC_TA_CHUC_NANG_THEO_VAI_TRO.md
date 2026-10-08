@@ -34,7 +34,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 | Vai trò | Lưu trong CSDL | Phạm vi |
 | --- | --- | --- |
-| Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `Role`) | CHỈ xem: trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/AR, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt, ảnh AR công khai. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá, lưu không gian đều yêu cầu đăng nhập. Lượt xem được ghi ẩn danh (`ArSession`, `SpaceView` với `visitorId`) |
+| Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `Role`) | CHỈ xem (trên web hoặc app Android UC-MOB): trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/AR, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt, ảnh AR công khai. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá, lưu không gian đều yêu cầu đăng nhập. Lượt xem được ghi ẩn danh (`ArSession`, `SpaceView` với `visitorId`) |
 | Người dùng (user) | `User (users)` + `Role (roles)` = `user` | Mọi quyền của khách + hồ sơ, đổi mật khẩu, quản lý phiên đăng nhập, sổ địa chỉ, giỏ hàng, áp mã, đặt hàng, thanh toán, theo dõi/hủy đơn, đánh giá sản phẩm đã mua, yêu thích, chụp/công khai ảnh AR, lưu không gian mẫu, thông báo. Chỉ thao tác dữ liệu của chính mình |
 | Quản trị viên (admin) | `User (users)` + `Role (roles)` = `admin`, có đủ 6 quyền | Toàn bộ quản trị: người dùng, vai trò, cài đặt, media, danh mục, trang tĩnh, thương hiệu, thuộc tính, sản phẩm, biến thể, ảnh, tồn kho, mô hình 3D, không gian mẫu, đánh giá, mã giảm giá, đơn hàng, thanh toán, vận chuyển, nhật ký, thống kê |
 | Tác nhân ngoài | Không lưu | Cổng thanh toán (MoMo, VNPay, ZaloPay), đơn vị vận chuyển (GHN, GHTK, Viettel Post), dịch vụ email |
@@ -46,7 +46,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 ## 3. Danh sách use case
 
-Tổng: **76 UC** (29 Bắt buộc, 32 Nên có, 15 Mở rộng).
+Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 UC thuộc nhóm **UC-MOB** (ứng dụng Android, mục 7.1).
 
 | Mã | Tên | Nhóm | Vai trò | Ưu tiên | Model liên quan | Nguồn |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -126,6 +126,10 @@ Tổng: **76 UC** (29 Bắt buộc, 32 Nên có, 15 Mở rộng).
 | UC-ADM-28 | Xem thống kê tổng quan | Quản trị | Admin | Mở rộng | Order, OrderItem, Product, User | [ĐỀ XUẤT] (orders, order_items, users) |
 | UC-ADM-29 | Thống kê AR và phễu không gian mẫu | Quản trị | Admin | Mở rộng | ArSession, SpaceView, Space, Product | CSDL (ar_sessions, space_views) |
 | UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | Quản trị | Admin | Mở rộng | ArSnapshot | [ĐỀ XUẤT] (ar_snapshots) |
+| UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Category, Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-02 (categories, products) |
+| UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-04 (products) |
+| UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductImage, Media | [ĐỀ XUẤT] (ảnh overlay: xem 12.2 #11) |
+| UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | Ứng dụng Android | Khách, User, Admin | Nên có | Không dùng bảng (lưu cục bộ trên điện thoại) | [ĐỀ XUẤT] (không ghi CSDL) |
 
 ## 4. Ma trận phân quyền
 
@@ -211,6 +215,10 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-ADM-28 | Xem thống kê tổng quan | ✘ | ✘ | ✔ |
 | UC-ADM-29 | Thống kê AR và phễu không gian mẫu | ✘ | ✘ | ✔ |
 | UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | ✘ | ✘ | ✔ |
+| UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | ✔ | ✔ | ✔ |
+| UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | ✔ | ✔ | ✔ |
+| UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | ✔ | ✔ | ✔ |
+| UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | ✔ | ✔ | ✔ |
 
 ### 4.2. CRUD: 44 model × 3 vai trò
 
@@ -285,6 +293,7 @@ flowchart LR
     G_REV(["Đánh giá (3 UC)"])
     G_D3(["3D & AR (7 UC)"])
     G_SPACE(["Không gian mẫu (6 UC)"])
+    G_MOB(["Ứng dụng Android (4 UC)"])
     G_ADM(["Quản trị (30 UC)"])
     K --- G_AUTH
     N --- G_AUTH
@@ -304,6 +313,9 @@ flowchart LR
     N --- G_D3
     A --- G_D3
     K --- G_SPACE
+    K --- G_MOB
+    N --- G_MOB
+    A --- G_MOB
     N --- G_SPACE
     A --- G_SPACE
     A --- G_ADM
@@ -351,6 +363,12 @@ flowchart LR
         UC_SPACE_05(["UC-SPACE-05 Thử đổi món đồ trong phòng mẫu"])
         UC_SPACE_06(["UC-SPACE-06 Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)"])
     end
+    subgraph SG_MOB["Ứng dụng Android"]
+        UC_MOB_01(["UC-MOB-01 Xem danh mục và danh sách sản phẩm trên app Android"])
+        UC_MOB_02(["UC-MOB-02 Xem chi tiết sản phẩm trên app Android"])
+        UC_MOB_03(["UC-MOB-03 Xem sản phẩm qua camera với overlay ảnh"])
+        UC_MOB_04(["UC-MOB-04 Chụp ảnh ghép và lưu vào máy"])
+    end
     K --- UC_AUTH_01
     K --- UC_AUTH_02
     K --- UC_AUTH_05
@@ -372,6 +390,10 @@ flowchart LR
     K --- UC_SPACE_03
     K --- UC_SPACE_05
     K --- UC_SPACE_06
+    K --- UC_MOB_01
+    K --- UC_MOB_02
+    K --- UC_MOB_03
+    K --- UC_MOB_04
     UC_AUTH_01 --- EM
     UC_AUTH_05 --- EM
     UC_CAT_06 -. "«extend»" .-> UC_CAT_03
@@ -379,6 +401,8 @@ flowchart LR
     UC_3D_02 -. "«include»" .-> UC_3D_07
     UC_SPACE_02 -. "«include»" .-> UC_SPACE_06
     UC_SPACE_03 -. "«extend»" .-> UC_SPACE_02
+    UC_MOB_03 -. "«extend»" .-> UC_MOB_02
+    UC_MOB_04 -. "«extend»" .-> UC_MOB_03
     classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
     classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3
 ```
@@ -804,7 +828,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:slug/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
 | **Luồng thay thế** | 2a. Thiết bị không hỗ trợ AR → hiển thị hướng dẫn và chuyển sang xem 3D (UC-3D-01).<br>3a. Thiếu một trong hai định dạng → `hasAr = false`, ẩn nút AR. |
 | **Ngoại lệ** | • Người dùng từ chối quyền camera → thông báo hướng dẫn cấp quyền. |
-| **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên mobile app, dữ liệu overlay AR do module `ar-overlay` cung cấp (ngoài phạm vi UC này). |
+| **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên app Android, xem sản phẩm qua camera là overlay ảnh 2D (UC-MOB-03), không dùng module `ar-overlay` của backend. |
 | **Dữ liệu vào** | • productId (bắt buộc): sản phẩm có `hasAr` |
 | **Dữ liệu ra** | • 200: như UC-3D-01 + `arSessionUuid` |
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>ArSession (ar_sessions): C,U |
@@ -956,6 +980,88 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Dữ liệu ra** | • 201: `{ accessToken, refreshToken, user: { id, uuid, fullName, email, roles } }` |
 | **Model + C/R/U/D** | User (users): C<br>UserSession (user_sessions): C<br>UserRole (user_roles): C (trigger) |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_users_assign_default_role` (gán vai trò user), `trg_users_set_updated_at`.<br>• Service: băm mật khẩu, tạo phiên, gửi email xác thực; bọc `prisma.$transaction`. |
+
+### 7.1. Ứng dụng Android (nhóm UC-MOB)
+
+Ứng dụng Android (`apps/mobile`, Kotlin, Jetpack Compose, CameraX) dành cho **khách vãng lai**: không có đăng nhập, không giỏ hàng, không đặt hàng, không gọi API ghi. App chỉ gọi các API công khai đã có của web (`GET /api/categories`, `GET /api/products`, `GET /api/products/:slug`), nên **không phát sinh endpoint mới**. Người dùng đã đăng nhập trên web và quản trị viên cũng dùng app như khách (kế thừa quyền). Quyết định: `docs/DECISIONS.md` D-P06, D-P07.
+
+Ảnh overlay là ảnh PNG nền trong suốt của sản phẩm do chủ dự án chuẩn bị (5-10 sản phẩm demo). Nơi lưu ảnh này trong CSDL **chưa chốt** (điểm mở 12.2 #11); các UC dưới đây gọi chung là `overlayImageUrl`.
+
+#### UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: dùng lại API UC-CAT-02 |
+| **Tác nhân chính / phụ** | Khách vãng lai (dùng app Android) |
+| **Mô tả** | Khách duyệt danh mục và lưới sản phẩm đã đăng trên điện thoại, chọn sản phẩm để xem chi tiết. |
+| **Tiền điều kiện** | Điện thoại Android 8.0 trở lên (`minSdk` 26), có kết nối mạng. |
+| **Hậu điều kiện** | Không đổi dữ liệu. |
+| **Luồng chính** | 1. Khách: Mở app (`MainActivity` → `AureliaNavGraph` → `CatalogScreen`).<br>2. Hệ thống: `CatalogViewModel` gọi `ProductRepository.getCategories()` và `getProducts(categorySlug, page, pageSize)` qua Retrofit (`AureliaApiService`).<br>3. Hệ thống: App gọi `GET /api/categories` và `GET /api/products?category=<slug>&page=&pageSize=20`; API chỉ trả sản phẩm `published`, `deletedAt = null`, bọc `{ success, data, meta }`.<br>4. Hệ thống: App hiển thị lưới sản phẩm (ảnh tải bằng Coil, tên, giá thấp nhất), cuộn đến cuối thì tải trang kế theo `meta.totalPages`.<br>5. Khách: Đổi danh mục (lặp bước 3-4) hoặc chọn một sản phẩm → UC-MOB-02. |
+| **Luồng thay thế** | 3a. Mất mạng hoặc API lỗi → `ErrorView` kèm nút "Thử lại", giữ danh sách đã tải.<br>4a. Danh mục không có sản phẩm → hiển thị trạng thái rỗng. |
+| **Ngoại lệ** | • API trả 5xx hoặc quá thời gian chờ (10 giây) → thông báo lỗi chung. |
+| **Quy tắc nghiệp vụ** | • Dùng đúng quy ước API (`docs/API_CONVENTIONS.md`): `pageSize` tối đa 100, app dùng 20.<br>• Giá là số nguyên VND, định dạng hiển thị phía app.<br>• Không lưu dữ liệu đăng nhập; không gửi `Authorization`. |
+| **Dữ liệu vào** | • categorySlug (tuỳ chọn): slug danh mục<br>• page (mặc định 1), pageSize (mặc định 20, ≤ 100)<br>• q (tuỳ chọn): từ khóa tìm kiếm |
+| **Dữ liệu ra** | • 200: danh sách sản phẩm `{ id, name, slug, thumbnailUrl, minPrice }` kèm `meta` |
+| **Model + C/R/U/D** | Category (categories): R<br>Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Media (media): R |
+| **DB trigger / việc Service tự làm** | • Không có (chỉ đọc). |
+| **Quan hệ UC** | Dùng lại logic API của UC-CAT-02, UC-CAT-03; cho phép UC-MOB-02 |
+
+#### UC-MOB-02 – Xem chi tiết sản phẩm trên app Android
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: dùng lại API UC-CAT-04 |
+| **Tác nhân chính / phụ** | Khách vãng lai (dùng app Android) |
+| **Mô tả** | Khách xem ảnh, mô tả, giá và biến thể của một sản phẩm, rồi chuyển sang chế độ camera nếu sản phẩm có ảnh overlay. |
+| **Tiền điều kiện** | Sản phẩm `published`. |
+| **Hậu điều kiện** | Không đổi dữ liệu. |
+| **Luồng chính** | 1. Khách: Chọn sản phẩm ở `CatalogScreen`.<br>2. Hệ thống: `ProductDetailViewModel` gọi `ProductRepository.getProduct(slug)` → `GET /api/products/:slug`.<br>3. Hệ thống: App hiển thị `ProductDetailScreen`: ảnh (vuốt ngang), tên, mô tả, khoảng giá, danh sách biến thể (màu, chất liệu) chỉ để xem.<br>4. Hệ thống: Nếu phản hồi có `overlayImageUrl`, hiện nút "Thử trong camera".<br>5. Khách: Bấm nút → UC-MOB-03. |
+| **Luồng thay thế** | 2a. Không tìm thấy (404) → quay lại danh sách kèm thông báo.<br>4a. Sản phẩm chưa có ảnh overlay → ẩn nút "Thử trong camera". |
+| **Ngoại lệ** | • Lỗi mạng → `ErrorView` với nút thử lại. |
+| **Quy tắc nghiệp vụ** | • App không thêm giỏ hàng/đặt hàng; muốn mua, khách mở website.<br>• Không ghi `ArSession` (không thống kê). |
+| **Dữ liệu vào** | • slug (bắt buộc) |
+| **Dữ liệu ra** | • 200: sản phẩm kèm ảnh, biến thể và `overlayImageUrl` (tuỳ chọn) |
+| **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Media (media): R |
+| **DB trigger / việc Service tự làm** | • Không có (chỉ đọc). |
+| **Quan hệ UC** | Dùng lại logic API của UC-CAT-04; UC-MOB-03 extend UC-MOB-02 |
+
+#### UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] |
+| **Tác nhân chính / phụ** | Khách vãng lai (dùng app Android) · phụ: CameraX |
+| **Mô tả** | Khách mở camera điện thoại và đặt ảnh PNG của sản phẩm lên khung hình, kéo, xoay, phóng to/thu nhỏ để hình dung sản phẩm trong không gian của mình. Đây là overlay 2D minh họa, không phải AR đo đạc thật. |
+| **Tiền điều kiện** | Đang ở chi tiết một sản phẩm có ảnh overlay (UC-MOB-02); điện thoại có camera. |
+| **Hậu điều kiện** | Không đổi CSDL. Trạng thái overlay (vị trí, kích thước, góc xoay) chỉ nằm trong bộ nhớ của app. |
+| **Luồng chính** | 1. Khách: Bấm "Thử trong camera".<br>2. Hệ thống: `CameraScreen` kiểm tra quyền `CAMERA`; chưa có thì hiện hộp thoại xin quyền của hệ điều hành.<br>3. Hệ thống: `CameraViewModel.load(slug)` lấy sản phẩm qua `ProductRepository` → `GET /api/products/:slug` (hoặc dùng dữ liệu đã có từ UC-MOB-02) và đọc `overlayImageUrl`.<br>4. Hệ thống: CameraX mở `Preview` + `ImageCapture` gắn vào vòng đời màn hình (`ProcessCameraProvider.bindToLifecycle`); hình hiển thị trong `PreviewView`.<br>5. Hệ thống: `OverlayCanvas` (Compose) tải ảnh PNG overlay bằng Coil và vẽ phía trên preview, đặt giữa màn hình, kích thước mặc định 50% chiều rộng.<br>6. Khách: Kéo 1 ngón để di chuyển; chụm/giãn 2 ngón để thu/phóng; xoay 2 ngón để xoay (`OverlayGestureHandler`, `detectTransformGestures`).<br>7. Hệ thống: `CameraViewModel` cập nhật `OverlayState { offset, scale, rotation }`, giới hạn `scale` trong 0,2-5; giao diện vẽ lại theo state.<br>8. Khách: Có thể đổi camera trước/sau, ẩn/hiện overlay, đặt lại vị trí; bấm nút chụp → UC-MOB-04. |
+| **Luồng thay thế** | 2a. Khách từ chối quyền camera → màn hướng dẫn kèm nút mở Cài đặt ứng dụng.<br>3a. Sản phẩm không có `overlayImageUrl` → thông báo "Sản phẩm chưa hỗ trợ xem qua camera", quay lại.<br>5a. Không tải được ảnh overlay → báo lỗi và nút thử lại, vẫn giữ preview camera. |
+| **Ngoại lệ** | • Camera đang bị ứng dụng khác dùng hoặc lỗi phần cứng → thông báo và thoát màn hình.<br>• Thiết bị không có camera (`uses-feature camera required`) không cài được app. |
+| **Quy tắc nghiệp vụ** | • Hình từ camera không gửi lên máy chủ.<br>• Overlay chỉ minh họa; không dùng kích thước thật của sản phẩm.<br>• Ảnh overlay là PNG nền trong suốt, tải từ URL công khai (bucket public) và được Coil cache.<br>• Không cần đăng nhập, không ghi CSDL. |
+| **Dữ liệu vào** | • slug sản phẩm (từ UC-MOB-02)<br>• cử chỉ: vị trí, tỉ lệ (0,2-5), góc xoay |
+| **Dữ liệu ra** | • Màn hình camera có overlay; `OverlayState` trong bộ nhớ |
+| **Model + C/R/U/D** | Product (products): R<br>ProductImage (product_images): R<br>Media (media): R |
+| **DB trigger / việc Service tự làm** | • Không có. |
+| **Quan hệ UC** | extend: UC-MOB-02 |
+
+#### UC-MOB-04 – Chụp ảnh ghép và lưu vào máy
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] |
+| **Tác nhân chính / phụ** | Khách vãng lai (dùng app Android) · phụ: CameraX, MediaStore (hệ điều hành) |
+| **Mô tả** | Khách chụp khung hình hiện tại cùng overlay, ảnh ghép được lưu vào thư viện ảnh của điện thoại. |
+| **Tiền điều kiện** | Đang ở màn hình camera với overlay (UC-MOB-03), đã có quyền camera. |
+| **Hậu điều kiện** | Có một tệp JPEG trong thư mục `Pictures/AureliaLiving` của điện thoại. Không có dữ liệu nào lên máy chủ. |
+| **Luồng chính** | 1. Khách: Bấm nút chụp.<br>2. Hệ thống: `CameraViewModel.onCapture()` gọi `ImageCapture.takePicture` (CameraX); nhận ảnh gốc kèm `rotationDegrees`.<br>3. Hệ thống: `BitmapUtils.compose` vẽ ảnh overlay lên ảnh chụp, quy đổi vị trí/tỉ lệ/góc xoay từ khung preview sang kích thước ảnh chụp.<br>4. Hệ thống: `GalleryRepository.save` ghi JPEG vào `MediaStore.Images` (`Pictures/AureliaLiving`), đánh dấu `IS_PENDING` rồi hoàn tất.<br>5. Hệ thống: Hiển thị thông báo "Đã lưu vào thư viện ảnh" kèm nút "Chia sẻ" (tuỳ chọn, dùng hộp chia sẻ của Android). |
+| **Luồng thay thế** | 2a. Lỗi chụp (`ImageCaptureException`) → thông báo "Không chụp được, thử lại".<br>4a. Điện thoại Android 8-9 (API 26-28) chưa cấp quyền ghi bộ nhớ → xin quyền `WRITE_EXTERNAL_STORAGE`; từ chối thì không lưu, giữ ảnh tạm trong bộ nhớ để thử lại.<br>4b. Bộ nhớ đầy → thông báo lỗi. |
+| **Ngoại lệ** | • Hết bộ nhớ khi ghép ảnh (độ phân giải cao) → giảm kích thước ảnh ghép và thử lại một lần. |
+| **Quy tắc nghiệp vụ** | • Ảnh lưu CỤC BỘ trên điện thoại, không tải lên máy chủ (khác UC-3D-04 trên web: lưu `ArSnapshot` cần đăng nhập).<br>• Từ Android 10 (API 29) trở lên ghi qua `MediaStore` không cần quyền lưu trữ. |
+| **Dữ liệu vào** | • ảnh chụp từ CameraX, `OverlayState`, ảnh overlay |
+| **Dữ liệu ra** | • Tệp JPEG trong `Pictures/AureliaLiving`; thông báo kết quả |
+| **Model + C/R/U/D** | Không dùng bảng nào. |
+| **DB trigger / việc Service tự làm** | • Không có. |
+| **Quan hệ UC** | extend: UC-MOB-03 |
 
 ## 8. Người dùng
 
@@ -2033,7 +2139,8 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 16 | **Áp mã giảm giá chỉ xem trước**; mã được ghi khi đặt hàng và kiểm tra lại trong transaction | UC-CART-04, UC-ORD-01 |
 | 17 | **Phương thức `card`** đi qua cổng VNPay | UC-PAY-01 |
 | 18 | **Tìm kiếm sản phẩm không dấu** (Nên có): cần thêm MỘT migration (index GIN trigram trên `immutable_unaccent(name)`), làm khi code | UC-CAT-06 |
-| 19 | **Ngoài phạm vi UC**: module `ai`, `ar-overlay`, ứng dụng `apps/mobile`; đưa vào "Hướng phát triển" (mục 13) | — |
+| 19 | **Ngoài phạm vi UC**: module backend `ai` và `ar-overlay`; đưa vào "Hướng phát triển" (mục 13). (Ứng dụng `apps/mobile` đã được đưa VÀO phạm vi theo quyết định 20.) | — |
+| 20 | **Ứng dụng Android (phương án tối thiểu)**: làm SAU khi web xong M07 (và M12 nếu kịp). Phạm vi: danh mục, chi tiết sản phẩm, camera CameraX + overlay ảnh (kéo, xoay, phóng to), chụp ảnh ghép và lưu vào máy. Không đăng nhập, không giỏ hàng/đặt hàng trên app. Chỉ dùng API công khai sẵn có. Tác nhân: khách vãng lai. Ảnh overlay là PNG nền trong suốt do chủ dự án chuẩn bị cho 5-10 sản phẩm demo | UC-MOB-01..04 |
 
 ### 12.2. Điểm còn mở (đang áp dụng mặc định, chờ phản hồi)
 
@@ -2049,6 +2156,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 8 | Vận đơn `failed`/`returned` khi đơn đang `shipping` | Chưa chốt; đề xuất cho admin hủy/hoàn tiền đơn khi vận đơn `returned` (mở rộng UC-ADM-22 cho trường hợp này) |
 | 9 | `userId` của lượt xem không gian khi dùng `sendBeacon` (không gửi được header Authorization) | Gửi `accessToken` tuỳ chọn trong body; không có thì ghi ẩn danh |
 | 10 | Đã xác thực email hay chưa với tài khoản cũ khi bật tính năng | Chưa có dữ liệu cũ; không áp dụng |
+| 11 | Nơi lưu ảnh overlay của sản phẩm trong CSDL (UC-MOB-02, UC-MOB-03) | **CHƯA CHỐT**: cần chủ dự án chọn một trong 3 phương án (quy ước tiền tố `overlays/`; cột/enum loại ảnh trong `product_images`; cột `products.overlay_media_id`). Xem `docs/DECISIONS.md` O-06. Trong lúc chờ, tài liệu gọi chung là `overlayImageUrl` |
 
 ### 12.3. Thành phần cần tạo mới / cần sửa / cần migration (tóm tắt; chi tiết ở Giai đoạn 2)
 
@@ -2063,8 +2171,8 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 | Thành phần | Vị trí | Ghi chú |
 | --- | --- | --- |
 | Module AI (gợi ý sản phẩm, mô tả tự động; OpenAI/Ollama) | `apps/api/src/modules/ai` | Tuỳ chọn, chưa có yêu cầu nghiệp vụ |
-| Module overlay AR cho mobile | `apps/api/src/modules/ar-overlay` | Sinh dữ liệu/metadata overlay cho ứng dụng Android |
-| Ứng dụng Android (camera AR overlay, catalog, giỏ hàng, chi tiết sản phẩm) | `apps/mobile` | Kotlin, dùng cùng API |
+| Module overlay AR phía backend | `apps/api/src/modules/ar-overlay` | Sinh dữ liệu/metadata overlay; hiện app dùng ảnh PNG, không cần module này |
+| Mở rộng ứng dụng Android: đăng nhập, giỏ hàng, đặt hàng, thông báo | `apps/mobile` | Phạm vi hiện tại chỉ có xem sản phẩm, camera overlay, chụp ảnh (UC-MOB) |
 | Tách worker BullMQ sang `apps/worker` (tiến trình riêng) | `infra/docker/Dockerfile.worker`, `apps/api/src/modules/jobs` | Hiện worker chạy cùng tiến trình API; processor đã tách logic nên chuyển được mà không sửa |
 | Webhook đơn vị vận chuyển, đồng bộ trạng thái tự động | UC-ADM-25 | Hiện nhập tay |
 | Hoàn tiền qua API cổng thanh toán | UC-ADM-23 | Hiện ghi nhận thủ công |
@@ -2075,17 +2183,18 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 
 | Chỉ số | Giá trị |
 | --- | --- |
-| Tổng UC | 76 |
-| UC Khách vãng lai | 21 |
-| UC Người dùng (gồm kế thừa Khách) | 44 |
-| UC Quản trị viên | 55 |
+| Tổng UC | 80 |
+| UC Khách vãng lai | 25 |
+| UC Người dùng (gồm kế thừa Khách) | 48 |
+| UC Quản trị viên | 59 |
 | UC Tác nhân ngoài | 1 |
 | UC riêng của Khách (chỉ dành cho khách chưa đăng nhập) | 1 |
 | UC chung (mục 6) | 22 |
+| UC ứng dụng Android (mục 7.1) | 4 |
 | UC riêng của User (mục 8) | 22 |
 | UC Quản trị (mục 9) | 30 |
 | Ưu tiên Bắt buộc | 29 |
-| Ưu tiên Nên có | 32 |
+| Ưu tiên Nên có | 36 |
 | Ưu tiên Mở rộng | 15 |
 | Model được ít nhất 1 UC sử dụng | 44/44 |
 

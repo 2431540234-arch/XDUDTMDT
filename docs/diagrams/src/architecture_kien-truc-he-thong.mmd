@@ -2,6 +2,9 @@ flowchart LR
     subgraph Client["Trình duyệt"]
         WEB["apps/web (Next.js)<br>pages, components, hooks, store, services"]
     end
+    subgraph Phone["Điện thoại Android"]
+        APP["apps/mobile (Kotlin)<br>Compose, CameraX, Retrofit"]
+    end
     subgraph API["apps/api (NestJS)"]
         GUARD["Guards, Pipes, Filters, Interceptors"]
         CTRL["Controllers"]
@@ -20,6 +23,8 @@ flowchart LR
         SMTP["Dịch vụ email"]
     end
     WEB -- "HTTPS /api" --> GUARD --> CTRL --> SVC --> PRISMA --> PG
+    APP -- "HTTPS /api (đọc danh mục, sản phẩm)" --> GUARD
+    APP -. "tải ảnh overlay" .-> S3
     SVC -- "đưa job" --> RD
     RD --> JOBS
     JOBS --> S3

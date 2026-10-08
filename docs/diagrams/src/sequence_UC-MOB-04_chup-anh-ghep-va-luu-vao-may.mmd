@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as CameraScreen (Compose)
+    participant VM as CameraViewModel
+    participant CX as CameraX
+    participant R as GalleryRepository
+    participant MS as MediaStore (hệ điều hành)
+    A->>SC: Bấm nút chụp
+    SC->>VM: onCapture()
+    VM->>CX: ImageCapture.takePicture(executor, callback)
+    CX-->>VM: Ảnh gốc + rotationDegrees
+    alt Lỗi chụp (ImageCaptureException)
+        VM-->>SC: state Error
+        SC-->>A: Thông báo "Không chụp được, thử lại"
+    end
+    VM->>VM: BitmapUtils.compose(ảnh, overlayBitmap, OverlayState, kích thước preview)
+    VM->>R: saveToGallery(bitmap)
+    alt Android 8-9 và chưa có quyền ghi bộ nhớ
+        R-->>SC: Cần quyền WRITE_EXTERNAL_STORAGE
+        SC-->>A: Hộp thoại xin quyền
+        alt Từ chối
+            SC-->>A: Báo không lưu được, giữ ảnh tạm
+        end
+    end
+    R->>MS: ContentResolver.insert(Images, Pictures/AureliaLiving, IS_PENDING=1)
+    MS-->>R: Uri
+    R->>MS: ghi JPEG vào OutputStream, IS_PENDING=0
+    MS-->>R: hoàn tất
+    R-->>VM: Uri ảnh đã lưu
+    VM-->>SC: state Saved(uri)
+    SC-->>A: Thông báo "Đã lưu vào thư viện ảnh" (kèm nút Chia sẻ)

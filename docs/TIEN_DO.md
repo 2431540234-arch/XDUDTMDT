@@ -1,12 +1,12 @@
 # Tiến độ triển khai
 
-Cập nhật: 2026-10-08 (sau Đợt 0b: hạ tầng Redis + MinIO + hàng đợi). Nguồn số liệu: `docs/MODULE_ENV_REPORT.md` (14 module, 76 UC, 144 API, 44 bảng), `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
+Cập nhật: 2026-10-08 (sau quyết định đưa Mobile vào phạm vi). Nguồn số liệu: `docs/MODULE_ENV_REPORT.md` (14 module backend/web) cộng M15 Mobile theo quyết định D-P06: 15 module, 80 UC, 144 API, 44 bảng, `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
 
 Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **Xong FE** · **Đã test** (đã có test tự động cho luồng chính). Khung rỗng (module/controller/service chỉ có comment) tính là **Chưa làm**.
 
 ## 1. Tổng quan
 
-- UC: 76, **Xong BE: 0**, **Đang làm: 2**, **Chưa làm: 74**.
+- UC: 80, **Xong BE: 0**, **Đang làm: 2**, **Chưa làm: 78**.
 - Nền tảng dùng chung đã xong và có test: response/lỗi chuẩn, guard JWT + roles, Prisma, `StorageService` (local + MinIO), `MailService`, `ActivityLogService`, BullMQ + Redis, throttler Redis, Swagger, Bull Board.
 - Frontend: toàn bộ trang và component còn là khung rỗng; Tailwind/PostCSS đã cấu hình, `next build` qua.
 
@@ -28,7 +28,8 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 | M12 | Mô hình 3D và AR | 10 | 14 | 5 | Đang làm | Chưa làm | e2e (`storage-jobs.e2e-spec.ts`): GLB hợp lệ, GLB hỏng, USDZ | Xong: presign/confirm tệp mô hình, job `model-processing` (kiểm tra GLB, LOD, checksum, USDZ). Chưa: CRUD mô hình, mô hình chính, biến thể chất liệu, xem 3D/AR, ảnh AR, thống kê phiên. |
 | M13 | Không gian mẫu 360° | 9 | 16 | 6 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M14 | Thông báo và thống kê quản trị | 3 | 4 | 1 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
-| | **Tổng** | **76** | **144** | **44** | | | | |
+| M15 | Ứng dụng Android (Mobile) | 4 | 0 | 0 | Chưa làm | Chưa làm | Chưa có | Khung Gradle/Compose/CameraX có sẵn (41 file Kotlin, 90 dòng mã thật). Làm SAU M07 (và M12 nếu kịp). Không thêm API: dùng API công khai của M06/M07. Chờ chọn nơi lưu ảnh overlay (O-06). |
+| | **Tổng** | **80** | **144** | **44** | | | | |
 
 ## 3. Bảng use case
 
@@ -110,12 +111,17 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 | UC-ADM-26 | Gửi thông báo cho người dùng | M14 | Chưa làm |  |
 | UC-ADM-28 | Xem thống kê tổng quan | M14 | Chưa làm |  |
 | UC-ADM-29 | Thống kê AR và phễu không gian mẫu | M14 | Chưa làm |  |
+| UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | M15 | Chưa làm |  |
+| UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | M15 | Chưa làm |  |
+| UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | M15 | Chưa làm |  |
+| UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | M15 | Chưa làm |  |
 
 ## 4. Việc tiếp theo (theo thứ tự đề xuất)
 
 1. M04 + M02 (xác thực, vai trò) và M01 (settings, nhật ký) để có đăng nhập thật.
 2. Hoàn thiện M05 (list/sửa/xóa media), rồi M03, M06, M07.
 3. M08, M12 (phần còn lại), M09, M13, M10, M11, M14.
+3b. M15 Mobile sau M07 (và M12 nếu kịp); chọn nơi lưu ảnh overlay (O-06) trước khi làm UC-MOB-02/03.
 4. Wireframe và dựng khung giao diện web song song với bước 1-2.
 
 Cập nhật file này khi một UC đổi trạng thái (cùng commit với code).
