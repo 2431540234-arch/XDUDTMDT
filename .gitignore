@@ -64,3 +64,31 @@ uploads/
 apps/web/playwright-report/
 apps/web/test-results/
 apps/web/coverage/
+
+# Kh�a k� app, kh�a ri�ng, ch?ng ch?
+*.jks
+*.keystore
+keystore.properties
+*.pem
+*.key
+*.p12
+google-services.json
+
+# B?n sao luu CSDL
+*.dump
+*.sql.gz
+backup/
+
+# Khóa ký app, khóa riêng, chứng chỉ
+*.jks
+*.keystore
+keystore.properties
+*.pem
+*.key
+*.p12
+google-services.json
+
+# Bản sao lưu CSDL
+*.dump
+*.sql.gz
+backup/
