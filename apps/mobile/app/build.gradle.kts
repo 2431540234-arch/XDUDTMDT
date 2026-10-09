@@ -5,6 +5,12 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+// URL gốc của API. Debug mặc định trỏ API chạy trên máy tính: máy ảo Android thấy máy chủ qua 10.0.2.2.
+// Máy thật cùng mạng Wi-Fi: chạy  ./gradlew assembleDebug -Paurelia.apiBaseUrl=http://<IP-máy-tính>:4000/api/
+// Release: đặt -Paurelia.releaseApiBaseUrl=https://... khi build (mặc định là địa chỉ giữ chỗ, chưa có máy chủ thật).
+val debugApiBaseUrl = providers.gradleProperty("aurelia.apiBaseUrl").orElse("http://10.0.2.2:4000/api/")
+val releaseApiBaseUrl = providers.gradleProperty("aurelia.releaseApiBaseUrl").orElse("https://api.aurelia.example/api/")
+
 android {
     namespace = "com.aurelia"
 
@@ -21,10 +27,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "API_BASE_URL", "\"${debugApiBaseUrl.get()}\"")
+        }
         release {
             optimization {
                 enable = false
             }
+            buildConfigField("String", "API_BASE_URL", "\"${releaseApiBaseUrl.get()}\"")
         }
     }
     compileOptions {
@@ -33,6 +43,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -53,6 +64,12 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+    // Điều hướng, ViewModel, bất đồng bộ, lưu cấu hình
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.datastore.preferences)
+
     // CameraX
     implementation(libs.androidx.camera.core)
     implementation(libs.androidx.camera.camera2)
@@ -64,9 +81,10 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // Retrofit
+    // Mạng: Retrofit + OkHttp
     implementation(libs.retrofit.core)
     implementation(libs.retrofit.gson)
+    implementation(libs.okhttp.logging.interceptor)
 
     // Coil
     implementation(libs.coil.compose)

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CHỈ bản debug: cho phép HTTP (không mã hóa) để gọi API chạy trên máy tính khi phát triển
+     (máy ảo: http://10.0.2.2:4000, máy thật: http://<IP máy tính>:4000). KHÔNG đưa vào bản release. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

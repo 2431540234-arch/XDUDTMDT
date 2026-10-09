@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bản chính thức (release): chỉ cho phép HTTPS. Bản debug ghi đè tệp cùng tên ở src/debug/res/xml. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>
