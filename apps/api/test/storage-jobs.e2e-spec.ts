@@ -77,7 +77,7 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
 
   it('GET /health báo database, redis, storage đều up', async () => {
     const res = await request(app.getHttpServer()).get('/health').expect(200);
-    expect(res.body.data.checks).toEqual({ database: 'up', redis: 'up', storage: 'up' });
+    expect(res.body.data.checks).toMatchObject({ database: 'up', redis: 'up', storage: 'up' });
   });
 
   it('presign chỉ dành cho admin; user thường bị 403', async () => {

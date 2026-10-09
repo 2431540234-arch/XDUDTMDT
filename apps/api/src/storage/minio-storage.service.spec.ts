@@ -103,3 +103,40 @@ describe('MinioStorageService', () => {
     );
   });
 });
+
+describe('MinioStorageService.createClient (cấu hình S3 và MinIO)', () => {
+  const cfg = (v: Record<string, unknown>) => ({ get: (k: string) => v[k] }) as unknown as AppConfig;
+
+  it('minio: path-style, có endpoint và khóa', async () => {
+    const c = MinioStorageService.createClient(
+      cfg({
+        STORAGE_DRIVER: 'minio',
+        S3_ENDPOINT: 'http://localhost:9000',
+        S3_REGION: 'us-east-1',
+        S3_ACCESS_KEY: 'k',
+        S3_SECRET_KEY: 's',
+      }),
+      false,
+    );
+    expect(c.config.forcePathStyle).toBe(true);
+    expect((await c.config.endpoint?.())?.hostname).toBe('localhost');
+  });
+
+  it('s3: không ép path-style, không endpoint, không khóa (dùng IAM role)', async () => {
+    const c = MinioStorageService.createClient(
+      cfg({ STORAGE_DRIVER: 's3', S3_REGION: 'ap-southeast-1' }),
+      false,
+    );
+    expect(c.config.forcePathStyle).toBe(false);
+    expect(c.config.endpoint).toBeUndefined();
+    expect(await c.config.region()).toBe('ap-southeast-1');
+  });
+
+  it('S3_FORCE_PATH_STYLE ghi đè mặc định', () => {
+    const c = MinioStorageService.createClient(
+      cfg({ STORAGE_DRIVER: 's3', S3_REGION: 'us-east-1', S3_FORCE_PATH_STYLE: true }),
+      false,
+    );
+    expect(c.config.forcePathStyle).toBe(true);
+  });
+});

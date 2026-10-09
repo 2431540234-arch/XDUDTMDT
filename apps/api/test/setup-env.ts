@@ -23,3 +23,12 @@ process.env.S3_SECRET_KEY ??= 'aurelia123';
 process.env.S3_BUCKET_PUBLIC = 'aurelia-test-public';
 process.env.S3_BUCKET_PRIVATE = 'aurelia-test-private';
 process.env.STORAGE_PUBLIC_URL = `${process.env.S3_ENDPOINT}/aurelia-test-public`;
+
+// Hạ tầng dùng chung: cô lập khóa Redis của test, hạn mức auth thấp để test 429 nhanh, email đi qua queue
+process.env.THROTTLE_AUTH_LIMIT = '3';
+process.env.THROTTLE_AUTH_TTL_SECONDS = '60';
+process.env.THROTTLE_DEFAULT_LIMIT = '1000';
+process.env.CACHE_KEY_PREFIX = 'cache-test:';
+process.env.CACHE_ENABLED = 'true';
+process.env.MAIL_TRANSPORT = 'queue';
+process.env.MAILPIT_API_URL ??= `http://localhost:${process.env.MAILPIT_UI_PORT ?? '8025'}`;
