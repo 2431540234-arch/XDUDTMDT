@@ -36,14 +36,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Danh mục cha không hợp lệ
     end
-    S->>P: category.create({ data: { name, slug, parentId, imageMediaId, sortOrder, isActive, metaTitle, metaDescription } })
-    P->>D: INSERT INTO categories
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'category.create', targetType: 'categories' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: category.create({ data: { name, slug, parentId, imageMediaId, sortOrder, isActive, metaTitle, metaDescription } })
+        P->>D: INSERT INTO categories
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'category.create', targetType: 'categories' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Danh mục mới
     FE-->>A: Cây danh mục được cập nhật

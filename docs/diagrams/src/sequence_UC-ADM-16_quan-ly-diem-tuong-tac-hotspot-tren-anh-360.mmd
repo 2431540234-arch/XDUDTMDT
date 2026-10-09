@@ -36,14 +36,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Ảnh đích không hợp lệ
     end
-    S->>P: spaceHotspot.create({ data: { panoramaId: id, type, yaw, pitch, productId, targetPanoramaId, title, content } })
-    P->>D: INSERT INTO space_hotspots
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'hotspot.create', targetType: 'space_hotspots' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: spaceHotspot.create({ data: { panoramaId: id, type, yaw, pitch, productId, targetPanoramaId, title, content } })
+        P->>D: INSERT INTO space_hotspots
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'hotspot.create', targetType: 'space_hotspots' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     Note over D: Trigger trg_space_hotspots_set_updated_at
     S-->>C: kết quả
     C-->>FE: 201 Hotspot mới

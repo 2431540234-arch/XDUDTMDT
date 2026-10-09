@@ -1,3 +1,7 @@
+---
+config:
+  layout: elk
+---
 flowchart LR
     subgraph Client["Trình duyệt"]
         WEB["apps/web (Next.js)<br>pages, components, hooks, store, services"]
@@ -38,14 +42,10 @@ flowchart LR
     APP -. "tải ảnh overlay" .-> S3
     GUARD -- "đếm yêu cầu" --> RL
     SVC --> CACHE --> RC
-    SVC -- "đưa job media" --> Q1
-    SVC -- "đưa job media" --> Q2
-    SVC --> MAILSVC -- "đưa job email" --> Q3
-    SVC -- "việc nền chậm" --> Q4
-    Q1 --> WORKER
-    Q2 --> WORKER
-    Q3 --> WORKER
-    Q4 --> WORKER
+    SVC --> MAILSVC
+    MAILSVC -- "đưa job email" --> QUEUES
+    SVC -- "đưa job media, việc nền chậm" --> QUEUES
+    QUEUES --> WORKER
     WORKER --> S3
     WORKER --> PRISMA
     WORKER -- "gửi email" --> SMTP

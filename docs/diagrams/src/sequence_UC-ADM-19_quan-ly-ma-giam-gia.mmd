@@ -28,14 +28,16 @@ sequenceDiagram
         S-->>C: throw ConflictException
         C-->>FE: 409 Mã giảm giá đã tồn tại
     end
-    S->>P: coupon.create({ data: { code, type, value, maxDiscount, minOrderValue, usageLimit, perUserLimit, startsAt, endsAt, isActive } })
-    P->>D: INSERT INTO coupons
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'coupon.create', targetType: 'coupons' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: coupon.create({ data: { code, type, value, maxDiscount, minOrderValue, usageLimit, perUserLimit, startsAt, endsAt, isActive } })
+        P->>D: INSERT INTO coupons
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'coupon.create', targetType: 'coupons' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Mã giảm giá mới
     FE-->>A: Danh sách mã được cập nhật

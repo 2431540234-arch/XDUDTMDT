@@ -20,8 +20,10 @@ flowchart TD
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT space_panoramas"]
         n11["Truy vấn CSDL: SELECT space_panoramas"]
+        n20["Bắt đầu transaction"]
         n14["Tạo hotspot"]
         n15["Ghi nhật ký hoạt động"]
+        n21["Commit transaction"]
         n16["Trigger DB: Cập nhật updated_at"]
     end
     n1 --> n2
@@ -36,9 +38,11 @@ flowchart TD
     n9 -->|"Có"| n11
     n11 --> n12
     n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
+    n12 -->|"Có"| n20
+    n20 --> n14
     n14 --> n15
-    n15 --> n16
+    n15 --> n21
+    n21 --> n16
     n16 --> n17
     n17 --> n18
     n18 --> n19

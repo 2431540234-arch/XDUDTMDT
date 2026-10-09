@@ -36,14 +36,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Cần ảnh 360° và một ảnh mở đầu trước khi đăng
     end
-    S->>P: space.update({ where: { id }, data: { status, publishedAt: new Date() } })
-    P->>D: UPDATE spaces
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'space.set_status', targetType: 'spaces', targetId: id } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: space.update({ where: { id }, data: { status, publishedAt: new Date() } })
+        P->>D: UPDATE spaces
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'space.set_status', targetType: 'spaces', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     Note over D: Trigger trg_spaces_set_updated_at
     S-->>C: kết quả
     C-->>FE: 200 Không gian sau khi đổi trạng thái

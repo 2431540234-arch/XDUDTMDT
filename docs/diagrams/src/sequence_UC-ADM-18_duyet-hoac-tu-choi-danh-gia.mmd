@@ -28,19 +28,21 @@ sequenceDiagram
         S-->>C: throw NotFoundException
         C-->>FE: 404 Không tìm thấy đánh giá
     end
-    S->>P: review.update({ where: { id }, data: { status } })
-    P->>D: UPDATE reviews
-    D-->>P: kết quả
-    P-->>S: kết quả
-    Note over D: Trigger trg_reviews_refresh_rating
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'review.moderate', targetType: 'reviews', targetId: id } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: notification.create({ data: { userId, type, title, body } })
-    P->>D: INSERT INTO notifications
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: review.update({ where: { id }, data: { status } })
+        P->>D: UPDATE reviews
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_reviews_refresh_rating
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'review.moderate', targetType: 'reviews', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 200 Đánh giá sau khi duyệt
     FE-->>A: Đánh giá rời hàng đợi chờ duyệt

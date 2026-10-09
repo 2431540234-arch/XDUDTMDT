@@ -20,8 +20,10 @@ flowchart TD
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT categories"]
         n11["Truy vấn CSDL: isDescendant CategoriesService"]
+        n19["Bắt đầu transaction"]
         n14["Tạo danh mục"]
         n15["Ghi nhật ký hoạt động"]
+        n20["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -35,9 +37,11 @@ flowchart TD
     n9 -->|"Có"| n11
     n11 --> n12
     n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
+    n12 -->|"Có"| n19
+    n19 --> n14
     n14 --> n15
-    n15 --> n16
+    n15 --> n20
+    n20 --> n16
     n16 --> n17
     n17 --> n18
     n5 --> n18

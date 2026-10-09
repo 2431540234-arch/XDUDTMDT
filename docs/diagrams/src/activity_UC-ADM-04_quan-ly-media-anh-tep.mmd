@@ -15,8 +15,10 @@ flowchart TD
         n12["Trả 201: id, url, mimeType, fileSize"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
+        n15["Bắt đầu transaction"]
         n9["Tạo bản ghi media"]
         n11["Ghi nhật ký hoạt động"]
+        n16["Commit transaction"]
     end
     subgraph LANE_X["MinIO/S3"]
         n8["Lưu tệp lên MinIO/S3"]
@@ -28,10 +30,12 @@ flowchart TD
     n4 -->|"Có"| n6
     n6 -->|"Không"| n7
     n6 -->|"Có"| n8
-    n8 --> n9
-    n9 --> n10
-    n10 --> n11
-    n11 --> n12
+    n8 --> n15
+    n15 --> n9
+    n9 --> n11
+    n11 --> n16
+    n16 --> n10
+    n10 --> n12
     n12 --> n13
     n13 --> n14
     n5 --> n14

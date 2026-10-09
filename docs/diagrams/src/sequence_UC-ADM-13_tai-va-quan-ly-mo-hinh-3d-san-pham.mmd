@@ -59,10 +59,21 @@ sequenceDiagram
         P->>D: UPDATE product_3d_models
     end
     alt LOD dùng cho web vượt MODEL_SERVE_MAX_MB (5 MB, NFR02)
-        W->>P: product3DModel.update({ status: 'failed' })
-        P->>D: UPDATE product_3d_models
-        W->>P: notification.create({ data: { userId: adminId, type, title, body } })
-        P->>D: INSERT INTO notifications
+        critical $transaction (Prisma)
+            W->>P: product3DModel.update({ where: { id }, data: { status: 'failed' } })
+            P->>D: UPDATE product_3d_models
+            D-->>P: kết quả
+            P-->>W: kết quả
+            W->>P: activityLog.create({ data: { actorId: uploadedBy, action: 'model.processing_failed', targetType: 'product_3d_models', targetId: modelId } })
+            P->>D: INSERT INTO activity_logs
+            D-->>P: kết quả
+            P-->>W: kết quả
+            W->>P: notification.create({ data: { userId: uploadedBy, type, title, body } })
+            P->>D: INSERT INTO notifications
+            D-->>P: kết quả
+            P-->>W: kết quả
+        end
+        Note over W: Dừng job, thông báo gửi cho admin đã tải mô hình (uploadedBy trong dữ liệu job)
     end
     W->>X: putObject các LOD vào bucket public (models/:id/tên-lod.glb)
     critical $transaction (Prisma)
@@ -70,9 +81,9 @@ sequenceDiagram
         P->>D: INSERT INTO media
         W->>P: modelFile.upsert({ where: { modelId_format_lod }, ... polygonCount, textureResolution, isCompressed, checksum })
         P->>D: INSERT INTO model_files
+        W->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } })
+        P->>D: UPDATE product_3d_models
     end
-    W->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } })
-    P->>D: UPDATE product_3d_models
     Note over D: Trigger trg_model_files_refresh_flags, trg_product_3d_models_refresh_flags
     FE->>C: GET trạng thái mô hình (lặp lại)
     C-->>FE: status ready hoặc failed

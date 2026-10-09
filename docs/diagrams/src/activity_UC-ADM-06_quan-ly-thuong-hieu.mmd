@@ -17,8 +17,10 @@ flowchart TD
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT brands"]
+        n16["Bắt đầu transaction"]
         n11["Tạo thương hiệu"]
         n12["Ghi nhật ký hoạt động"]
+        n17["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -29,9 +31,11 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
+    n9 -->|"Có"| n16
+    n16 --> n11
     n11 --> n12
-    n12 --> n13
+    n12 --> n17
+    n17 --> n13
     n13 --> n14
     n14 --> n15
     n5 --> n15

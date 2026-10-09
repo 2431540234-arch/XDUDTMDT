@@ -13,11 +13,13 @@ flowchart TD
         n7["Trả 400 Trạng thái không hợp lệ"]
         n9{"Đánh giá tồn tại?"}
         n10["Trả 404 Không tìm thấy đánh giá"]
-        n14["Tạo thông báo cho người viết (Service tạo trực tiếp)"]
+        n14["Tạo thông báo cho người viết (cùng transaction)"]
         n15["Trả 200: Đánh giá sau khi duyệt"]
+        n19["Commit transaction"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT reviews"]
+        n18["Bắt đầu transaction"]
         n11["Đổi trạng thái đánh giá"]
         n12["Trigger DB: Tính lại ratingAvg và ratingCount (chỉ review approved)"]
         n13["Ghi nhật ký hoạt động"]
@@ -31,11 +33,13 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
+    n9 -->|"Có"| n18
+    n18 --> n11
     n11 --> n12
     n12 --> n13
     n13 --> n14
-    n14 --> n15
+    n14 --> n19
+    n19 --> n15
     n15 --> n16
     n16 --> n17
     n5 --> n17

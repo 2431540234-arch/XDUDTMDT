@@ -29,14 +29,16 @@ sequenceDiagram
         C-->>FE: 409 Slug đã tồn tại
     end
     S->>S: Làm sạch HTML trước khi lưu - sanitizeHtml(content)
-    S->>P: page.create({ data: { title, slug, content, status, metaTitle, metaDescription, publishedAt } })
-    P->>D: INSERT INTO pages
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'page.create', targetType: 'pages' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: page.create({ data: { title, slug, content, status, metaTitle, metaDescription, publishedAt } })
+        P->>D: INSERT INTO pages
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'page.create', targetType: 'pages' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Trang mới
     FE-->>A: Danh sách trang được cập nhật
