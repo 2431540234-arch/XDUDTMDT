@@ -1,0 +1,37 @@
+name: Mobile
+
+# Chỉ chạy khi apps/mobile (hoặc chính workflow này) thay đổi
+on:
+  push:
+    branches: [main]
+    paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
+  pull_request:
+    paths: ['apps/mobile/**', '.github/workflows/mobile.yml']
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  assemble-debug:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      # Gradle 9 + AGP 9 cần JDK 17 trở lên; gradle/gradle-daemon-jvm.properties yêu cầu JDK 21 cho daemon nên cài cả hai
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4 # cache Gradle
+      - name: Build bản debug
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --console=plain
+      - name: Chạy unit test
+        run: ./gradlew testDebugUnitTest --console=plain
