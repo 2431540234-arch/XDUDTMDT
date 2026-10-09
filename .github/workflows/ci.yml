@@ -47,7 +47,9 @@ jobs:
       - run: npm ci
       - name: Khởi động MinIO (ảnh Bitnami, ghim bản 2025-04-22)
         run: |
-          docker run -d --name minio -p 9000:9000             -e MINIO_ROOT_USER=aurelia -e MINIO_ROOT_PASSWORD=aurelia123             bitnamilegacy/minio:2025.4.22-debian-12-r2
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=aurelia -e MINIO_ROOT_PASSWORD=aurelia123 \
+            bitnamilegacy/minio:2025.4.22-debian-12-r2
           for i in $(seq 1 30); do curl -fsS http://localhost:9000/minio/health/live && break; sleep 2; done
       - name: Khởi động Mailpit (SMTP 1025, API 8025)
         run: |
@@ -66,15 +68,9 @@ jobs:
         run: npm test -w @aurelia-living/web
       - name: Unit test
         run: npm run test
-      - name: E2E test (PostgreSQL service)
+      - name: Cài trình duyệt cho Playwright (đúng phiên bản của apps/web)
+        run: npx -w @aurelia-living/web playwright install --with-deps chromium
+      - name: E2E test (PostgreSQL service + Playwright)
         run: npm run test:e2e
-
-      - name: Cài trình duyệt cho Playwright
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/web
-
-      - name: Chạy test E2E
-        run: npm run test:e2e
-
       - name: Build (shared-types, api, web)
         run: npm run build
