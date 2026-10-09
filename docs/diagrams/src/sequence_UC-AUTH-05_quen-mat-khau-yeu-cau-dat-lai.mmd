@@ -6,7 +6,10 @@ sequenceDiagram
     participant S as AuthService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant W as MailService / SMTP (Mailpit)
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Nhập email và bấm "Gửi liên kết đặt lại"
     FE->>C: POST /api/auth/forgot-password
     C->>C: ValidationPipe(ForgotPasswordDto)
@@ -23,7 +26,11 @@ sequenceDiagram
     P->>D: INSERT INTO password_resets
     D-->>P: kết quả
     P-->>S: kết quả
-    S-)W: Gửi email chứa liên kết đặt lại (MailService.sendPasswordReset(user, token))
+    S->>M: Gửi email chứa liên kết đặt lại (MailService.sendPasswordReset(user, token))
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S-->>C: kết quả
     C-->>FE: 200 Thông báo chung "Nếu email tồn tại, hướng dẫn đã được gửi"
     FE-->>A: Hiển thị thông báo đã gửi hướng dẫn

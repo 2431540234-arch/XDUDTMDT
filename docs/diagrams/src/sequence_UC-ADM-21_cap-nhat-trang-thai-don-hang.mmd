@@ -7,6 +7,10 @@ sequenceDiagram
     participant S as OrdersService
     participant P as PrismaService
     participant D as PostgreSQL
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Bấm "Xác nhận", "Bắt đầu xử lý" hoặc "Giao hàng" và ghi chú (nếu có)
     FE->>G: PATCH /api/admin/orders/:id/status
     G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
@@ -54,8 +58,16 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
         Note over D: Trigger trg_orders_log_status_update
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo và gửi email cho user - NotificationsService.create, MailService.sendOrderStatus
+    S->>M: Gửi email cập nhật trạng thái đơn (MailService.sendOrderStatus)
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S-->>C: kết quả
     C-->>FE: 200 Đơn kèm lịch sử trạng thái
     FE-->>A: Hiển thị trạng thái mới trong dòng thời gian

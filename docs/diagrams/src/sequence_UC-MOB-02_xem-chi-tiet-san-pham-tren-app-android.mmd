@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as ProductDetailScreen (Compose)
+    participant VM as ProductDetailViewModel
+    participant R as ProductRepository
+    participant RT as Retrofit (AureliaApiService)
+    participant API as API NestJS (công khai)
+    A->>SC: Chọn sản phẩm ở CatalogScreen (slug)
+    SC->>VM: load(slug)
+    VM->>R: getProduct(slug)
+    R->>RT: getProductBySlug(slug)
+    RT->>API: GET /api/products/:slug
+    alt 404 Không tìm thấy
+        API-->>RT: 404 { success: false, error }
+        RT-->>VM: lỗi NotFound
+        VM-->>SC: state NotFound
+        SC-->>A: Quay lại danh sách kèm thông báo
+    end
+    alt Lỗi mạng
+        VM-->>SC: state Error
+        SC-->>A: ErrorView kèm nút "Thử lại"
+    end
+    API-->>RT: 200 { success, data: { ..., overlayImageUrl } }
+    RT-->>R: ProductDto
+    R-->>VM: Product (mô hình miền)
+    VM-->>SC: state Success(product)
+    SC-->>A: Hiển thị ảnh (vuốt ngang), tên, mô tả, khoảng giá, biến thể
+    alt Có overlayImageUrl
+        SC-->>A: Hiện nút "Thử trong camera"
+        A->>SC: Bấm nút (UC-MOB-03)
+    end

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="420" viewBox="0 0 1760 420"><defs>
+<marker id="open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M1,1 L11,6 L1,11" fill="none" stroke="#111" stroke-width="1.4"/></marker>
+<marker id="tri" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M1,1 L13,7 L1,13 Z" fill="#fff" stroke="#111" stroke-width="1.4"/></marker>
+</defs><rect width="100%" height="100%" fill="#fff"/><text x="880.0" y="26" text-anchor="middle" font-size="17" font-weight="700" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Hình 4. Use case ứng dụng Android: xem sản phẩm, camera với overlay, chụp ảnh ghép</text>
+<g stroke="#111" stroke-width="1.6" fill="none">
+<circle cx="85" cy="200" r="10" fill="#fff"/>
+<line x1="85" y1="210" x2="85" y2="242"/>
+<line x1="67" y1="222" x2="103" y2="222"/>
+<line x1="85" y1="242" x2="71" y2="266"/>
+<line x1="85" y1="242" x2="99" y2="266"/></g>
+<text x="85" y="286" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="600" fill="#111">Khách vãng lai (app)</text>
+<ellipse cx="360" cy="180" rx="109.4" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="360" y="176.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem danh mục và danh</text>
+<text x="360" y="193.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">sách sản phẩm</text>
+<ellipse cx="720" cy="180" rx="114.5" ry="24.0" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="720" y="185.1" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem chi tiết sản phẩm</text>
+<ellipse cx="1080" cy="180" rx="124.9" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1080" y="176.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Xem sản phẩm qua camera</text>
+<text x="1080" y="193.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">với overlay ảnh</text>
+<ellipse cx="1470" cy="180" rx="109.4" ry="28.1" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.4"/>
+<text x="1470" y="176.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">Chụp ảnh ghép và lưu</text>
+<text x="1470" y="193.6" text-anchor="middle" font-size="13" font-family="Segoe UI, Arial, sans-serif" font-weight="400" fill="#0b1f33">vào máy</text>
+<line x1="106.9" y1="216.8" x2="264.8" y2="193.8" stroke="#111" stroke-width="1.4"/>
+<line x1="107.0" y1="218.6" x2="610.3" y2="186.9" stroke="#111" stroke-width="1.4"/>
+<line x1="955.1" y1="180.0" x2="834.5" y2="180.0" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="864.0" y="171.0" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="894.8" y="183.0" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<line x1="1360.6" y1="180.0" x2="1204.9" y2="180.0" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
+<rect x="1251.9" y="171.0" width="61.8" height="16" fill="#fff" opacity="0.9"/>
+<text x="1282.8" y="183.0" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
+<polygon points="60,310 438,310 450,322 450,358 60,358" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="438,310 438,322 450,322" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="68" y="329" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Chỉ dùng API công khai, không đăng nhập;</text>
+<text x="68" y="346" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">ảnh chụp lưu cục bộ (MediaStore), không lên máy chủ</text>
+<polygon points="900,300 1218,300 1230,312 1230,348 900,348" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1218,300 1218,312 1230,312" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="908" y="319" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Chỉ sản phẩm có ảnh overlay mới hiện</text>
+<text x="908" y="336" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">nút &quot;Thử trong camera&quot;</text>
+<line x1="1067.5" y1="300.0" x2="1077.1" y2="208.1" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/></svg>

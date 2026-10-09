@@ -37,7 +37,10 @@ sequenceDiagram
     P->>D: INSERT INTO activity_logs
     D-->>P: kết quả
     P-->>S: kết quả
-    S->>S: (sau commit) Thông báo cho người viết - NotificationsService.create
+    S->>P: notification.create({ data: { userId, type, title, body } })
+    P->>D: INSERT INTO notifications
+    D-->>P: kết quả
+    P-->>S: kết quả
     S-->>C: kết quả
     C-->>FE: 200 Đánh giá sau khi duyệt
     FE-->>A: Đánh giá rời hàng đợi chờ duyệt

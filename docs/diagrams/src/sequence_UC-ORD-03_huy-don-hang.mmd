@@ -67,8 +67,11 @@ sequenceDiagram
         P->>D: UPDATE payments
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Đơn sau khi hủy
     FE-->>A: Hiển thị đơn đã hủy (đơn đã thanh toán: chờ cửa hàng hoàn tiền thủ công)

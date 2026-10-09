@@ -13,7 +13,7 @@ flowchart TD
         n10{"Giao dịch chưa được xử lý trước đó?"}
         n11["Trả 200 Đã xử lý (idempotent)"]
         n15["Đặt ghi chú phiên (không đặt người đổi nên changedBy = NULL)"]
-        n19["(sau commit) Tạo thông báo cho user"]
+        n19["Tạo thông báo cho user (cùng transaction)"]
         n20["Trả 200: Phản hồi theo chuẩn cổng (ví dụ RspCode 00)"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -42,9 +42,9 @@ flowchart TD
     n14 --> n15
     n15 --> n16
     n16 --> n17
-    n17 --> n18
-    n18 --> n19
-    n19 --> n20
+    n17 --> n19
+    n19 --> n18
+    n18 --> n20
     n20 --> n21
     n5 --> n21
     n8 --> n21

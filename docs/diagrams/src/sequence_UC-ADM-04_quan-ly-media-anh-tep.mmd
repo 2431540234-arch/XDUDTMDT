@@ -8,7 +8,8 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     participant X as MinIO/S3
-    participant W as Hàng đợi BullMQ / Worker
+    participant Q as Redis (hàng đợi image-processing)
+    participant W as Worker BullMQ (cùng tiến trình API)
     A->>FE: Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm "Tải lên"
     FE->>G: POST /api/admin/media (multipart: file, altText)
     G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
@@ -28,7 +29,9 @@ sequenceDiagram
     P->>D: INSERT INTO media
     D-->>P: kết quả
     P-->>S: kết quả
-    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    S->>Q: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    Q-)W: Giao job (bất đồng bộ, thử lại 3 lần)
+    W->>X: putObject {key}.webp và {key}_thumb.webp
     S->>P: activityLog.create({ data: { actorId: adminId, action: 'media.upload', targetType: 'media', targetId } })
     P->>D: INSERT INTO activity_logs
     D-->>P: kết quả

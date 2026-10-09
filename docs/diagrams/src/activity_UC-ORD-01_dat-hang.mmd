@@ -27,7 +27,8 @@ flowchart TD
         n29{"Mã giảm giá (nếu có) còn hợp lệ và giữ được lượt dùng?"}
         n30["Trả 400 Mã giảm giá không hợp lệ hoặc đã hết lượt"]
         n32["Tính discountAmount, shippingFee và total = subtotal - discount + shipping"]
-        n40["(sau commit) Tạo thông báo và gửi email xác nhận đơn"]
+        n40["Đưa email vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
+        n44["Tạo thông báo cho user (cùng transaction)"]
         n41["Trả 201: OrderResponseDto của đơn mới"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -90,7 +91,8 @@ flowchart TD
     n35 --> n36
     n36 --> n37
     n37 --> n38
-    n38 --> n39
+    n38 --> n44
+    n44 --> n39
     n39 --> n40
     n40 --> n41
     n41 --> n42

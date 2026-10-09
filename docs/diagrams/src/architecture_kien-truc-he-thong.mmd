@@ -6,32 +6,51 @@ flowchart LR
         APP["apps/mobile (Kotlin)<br>Compose, CameraX, Retrofit"]
     end
     subgraph API["apps/api (NestJS)"]
-        GUARD["Guards, Pipes, Filters, Interceptors"]
+        GUARD["Guards (Throttler, JwtAuth, Roles), Pipes, Filters, Interceptors"]
         CTRL["Controllers"]
         SVC["Services (nghiệp vụ, prisma.$transaction)"]
+        CACHE["CacheService"]
+        MAILSVC["MailService (queue hoặc direct)"]
         PRISMA["PrismaService"]
-        JOBS["modules/jobs (BullMQ: model-processing, image-processing)"]
+        WORKER["Worker BullMQ (cùng tiến trình API)<br>processor: model, image, mail, notification"]
     end
     subgraph DATA["Dữ liệu"]
         PG[("PostgreSQL 16<br>44 bảng, 36 trigger")]
-        RD[("Redis")]
-        S3[("MinIO<br>bucket public và private")]
+        subgraph REDIS["Redis 7"]
+            RC[("Cache")]
+            RL[("Bộ đếm giới hạn tốc độ")]
+            subgraph QUEUES["Trạng thái hàng đợi"]
+                Q1["model-processing"]
+                Q2["image-processing"]
+                Q3["mail"]
+                Q4["notification"]
+            end
+        end
+        S3[("MinIO / S3<br>bucket public và private")]
     end
     subgraph EXT["Hệ thống ngoài"]
-        GW["Cổng thanh toán"]
+        GW["Cổng thanh toán (VNPay sandbox)"]
         SH["Đơn vị vận chuyển"]
-        SMTP["Dịch vụ email"]
+        SMTP["Máy chủ SMTP (Mailpit khi dev)"]
     end
     WEB -- "HTTPS /api" --> GUARD --> CTRL --> SVC --> PRISMA --> PG
     APP -- "HTTPS /api (đọc danh mục, sản phẩm)" --> GUARD
     APP -. "tải ảnh overlay" .-> S3
-    SVC -- "đưa job" --> RD
-    RD --> JOBS
-    JOBS --> S3
-    JOBS --> PRISMA
+    GUARD -- "đếm yêu cầu" --> RL
+    SVC --> CACHE --> RC
+    SVC -- "đưa job media" --> Q1
+    SVC -- "đưa job media" --> Q2
+    SVC --> MAILSVC -- "đưa job email" --> Q3
+    SVC -- "việc nền chậm" --> Q4
+    Q1 --> WORKER
+    Q2 --> WORKER
+    Q3 --> WORKER
+    Q4 --> WORKER
+    WORKER --> S3
+    WORKER --> PRISMA
+    WORKER -- "gửi email" --> SMTP
     SVC --> S3
     WEB -. "PUT presigned URL (3D, panorama)" .-> S3
-    SVC --> SMTP
     WEB -. "redirect" .-> GW
     GW -- "IPN" --> CTRL
     SVC -. "nhập tay / webhook" .-> SH

@@ -10,7 +10,7 @@ flowchart TD
         n4{"Email đúng định dạng?"}
         n5["Trả 400 Email không hợp lệ"]
         n7["Sinh token ngẫu nhiên và băm SHA-256"]
-        n9["Gửi email chứa liên kết đặt lại qua MailService (lỗi chỉ ghi log)"]
+        n9["Đưa email liên kết đặt lại vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
         n10["Trả 200: Thông báo chung 'Nếu email tồn tại, hướng dẫn đã được gửi'"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]

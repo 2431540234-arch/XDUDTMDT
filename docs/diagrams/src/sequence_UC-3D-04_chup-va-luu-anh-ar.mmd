@@ -8,8 +8,10 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     participant X as MinIO/S3
-    participant W as Hàng đợi BullMQ / Worker
+    participant Q as Redis (hàng đợi image-processing)
+    participant W as Worker BullMQ (cùng tiến trình API)
     A->>FE: Bấm nút chụp trong chế độ AR
+    Note over FE: Mô hình đang xem là LOD ≤ 5 MB (NFR02), do job model-processing bảo đảm khi xử lý (UC-ADM-13)
     alt Không: Đã đăng nhập
         FE-->>A: Yêu cầu đăng nhập để lưu ảnh, chưa gọi API
     end
@@ -41,7 +43,9 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
     end
-    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    S->>Q: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    Q-)W: Giao job (bất đồng bộ, thử lại 3 lần)
+    W->>X: putObject {key}.webp và {key}_thumb.webp
     S-->>C: kết quả
     C-->>FE: 201 id, imageUrl, isPublic
     FE-->>A: Hiển thị ảnh đã lưu, cho phép chia sẻ hoặc đặt công khai

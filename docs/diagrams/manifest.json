@@ -5,7 +5,7 @@
   "uc": "—",
   "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
   "heading": "5.1. Sơ đồ tổng quát (theo nhóm chức năng)",
-  "lines": 44
+  "lines": 48
  },
  {
   "name": "usecase_khach-vang-lai",
@@ -13,7 +13,7 @@
   "uc": "—",
   "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
   "heading": "5.2. Khách vãng lai",
-  "lines": 64
+  "lines": 76
  },
  {
   "name": "usecase_nguoi-dung",
@@ -69,7 +69,7 @@
   "uc": "—",
   "doc": "DAC_TA_CHUC_NANG_THEO_VAI_TRO.md",
   "heading": "10.3. Payment (`PaymentTxnStatus`) và Order.paymentStatus (`OrderPaymentStatus`)",
-  "lines": 6
+  "lines": 8
  },
  {
   "name": "state_shipment",
@@ -109,7 +109,7 @@
   "uc": "—",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "1.2. Kiến trúc",
-  "lines": 31
+  "lines": 56
  },
  {
   "name": "activity_UC-AUTH-01_dang-ky-tai-khoan",
@@ -293,7 +293,7 @@
   "uc": "UC-ORD-01",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "A.23 UC-ORD-01 – Đặt hàng",
-  "lines": 101
+  "lines": 103
  },
  {
   "name": "activity_UC-ORD-02_xem-va-theo-doi-don-hang-cua-toi",
@@ -373,7 +373,7 @@
   "uc": "UC-3D-04",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "A.33 UC-3D-04 – Chụp và lưu ảnh AR",
-  "lines": 49
+  "lines": 51
  },
  {
   "name": "activity_UC-3D-05_quan-ly-anh-ar-cua-toi-cong-khai-an-xoa",
@@ -517,7 +517,7 @@
   "uc": "UC-ADM-13",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "A.51 UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm",
-  "lines": 60
+  "lines": 68
  },
  {
   "name": "activity_UC-ADM-15_quan-ly-khong-gian-mau-va-anh-360",
@@ -565,7 +565,7 @@
   "uc": "UC-ADM-21",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "A.57 UC-ADM-21 – Cập nhật trạng thái đơn hàng",
-  "lines": 63
+  "lines": 65
  },
  {
   "name": "activity_UC-ADM-22_huy-don-hang-quan-tri",
@@ -605,7 +605,7 @@
   "uc": "UC-AUTH-01",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.1 UC-AUTH-01 – Đăng ký tài khoản",
-  "lines": 44
+  "lines": 51
  },
  {
   "name": "sequence_UC-AUTH-02_dang-nhap",
@@ -637,7 +637,7 @@
   "uc": "UC-AUTH-05",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.5 UC-AUTH-05 – Quên mật khẩu (yêu cầu đặt lại)",
-  "lines": 29
+  "lines": 36
  },
  {
   "name": "sequence_UC-AUTH-06_dat-lai-mat-khau",
@@ -781,7 +781,7 @@
   "uc": "UC-ORD-01",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.23 UC-ORD-01 – Đặt hàng",
-  "lines": 109
+  "lines": 121
  },
  {
   "name": "sequence_UC-ORD-02_xem-va-theo-doi-don-hang-cua-toi",
@@ -797,7 +797,7 @@
   "uc": "UC-ORD-03",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.25 UC-ORD-03 – Hủy đơn hàng",
-  "lines": 74
+  "lines": 77
  },
  {
   "name": "sequence_UC-PAY-01_thanh-toan-don-hang-online",
@@ -813,7 +813,7 @@
   "uc": "UC-PAY-02",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.27 UC-PAY-02 – Nhận callback/IPN từ cổng thanh toán",
-  "lines": 49
+  "lines": 52
  },
  {
   "name": "sequence_UC-PAY-03_thanh-toan-lai-don-chua-thanh-toan",
@@ -861,7 +861,7 @@
   "uc": "UC-3D-04",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.33 UC-3D-04 – Chụp và lưu ảnh AR",
-  "lines": 47
+  "lines": 51
  },
  {
   "name": "sequence_UC-3D-05_quan-ly-anh-ar-cua-toi-cong-khai-an-xoa",
@@ -933,7 +933,7 @@
   "uc": "UC-ADM-04",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.42 UC-ADM-04 – Quản lý media (ảnh, tệp)",
-  "lines": 38
+  "lines": 41
  },
  {
   "name": "sequence_UC-ADM-05_quan-ly-danh-muc-san-pham",
@@ -1005,7 +1005,7 @@
   "uc": "UC-ADM-13",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.51 UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm",
-  "lines": 61
+  "lines": 79
  },
  {
   "name": "sequence_UC-ADM-15_quan-ly-khong-gian-mau-va-anh-360",
@@ -1029,7 +1029,7 @@
   "uc": "UC-ADM-18",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.54 UC-ADM-18 – Duyệt hoặc từ chối đánh giá",
-  "lines": 43
+  "lines": 46
  },
  {
   "name": "sequence_UC-ADM-19_quan-ly-ma-giam-gia",
@@ -1053,7 +1053,7 @@
   "uc": "UC-ADM-21",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.57 UC-ADM-21 – Cập nhật trạng thái đơn hàng",
-  "lines": 61
+  "lines": 73
  },
  {
   "name": "sequence_UC-ADM-22_huy-don-hang-quan-tri",
@@ -1061,7 +1061,7 @@
   "uc": "UC-ADM-22",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.58 UC-ADM-22 – Hủy đơn hàng (quản trị)",
-  "lines": 69
+  "lines": 72
  },
  {
   "name": "sequence_UC-ADM-23_hoan-tien-thu-cong",
@@ -1069,7 +1069,7 @@
   "uc": "UC-ADM-23",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.59 UC-ADM-23 – Hoàn tiền thủ công",
-  "lines": 53
+  "lines": 56
  },
  {
   "name": "sequence_UC-ADM-24_quan-ly-thanh-toan-xac-nhan-chuyen-khoan",
@@ -1077,7 +1077,7 @@
   "uc": "UC-ADM-24",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.60 UC-ADM-24 – Quản lý thanh toán (xác nhận chuyển khoản)",
-  "lines": 50
+  "lines": 53
  },
  {
   "name": "sequence_UC-ADM-25_quan-ly-van-chuyen",
@@ -1085,7 +1085,7 @@
   "uc": "UC-ADM-25",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.61 UC-ADM-25 – Quản lý vận chuyển",
-  "lines": 61
+  "lines": 64
  },
  {
   "name": "class_tong-quan",
@@ -1168,6 +1168,22 @@
   "lines": 38
  },
  {
+  "name": "activity_UC-MOB-01_xem-danh-muc-va-danh-sach-san-pham-tren-app-andr",
+  "kind": "Activity",
+  "uc": "UC-MOB-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.64 UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android",
+  "lines": 35
+ },
+ {
+  "name": "activity_UC-MOB-02_xem-chi-tiet-san-pham-tren-app-android",
+  "kind": "Activity",
+  "uc": "UC-MOB-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "A.65 UC-MOB-02 – Xem chi tiết sản phẩm trên app Android",
+  "lines": 34
+ },
+ {
   "name": "sequence_UC-MOB-03_xem-san-pham-qua-camera-voi-overlay-anh",
   "kind": "Sequence",
   "uc": "UC-MOB-03",
@@ -1181,6 +1197,22 @@
   "uc": "UC-MOB-04",
   "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
   "heading": "S.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy",
+  "lines": 32
+ },
+ {
+  "name": "sequence_UC-MOB-01_xem-danh-muc-va-danh-sach-san-pham-tren-app-andr",
+  "kind": "Sequence",
+  "uc": "UC-MOB-01",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.64 UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android",
+  "lines": 39
+ },
+ {
+  "name": "sequence_UC-MOB-02_xem-chi-tiet-san-pham-tren-app-android",
+  "kind": "Sequence",
+  "uc": "UC-MOB-02",
+  "doc": "BAO_CAO_PHAN_TICH_THIET_KE.md",
+  "heading": "S.65 UC-MOB-02 – Xem chi tiết sản phẩm trên app Android",
   "lines": 32
  }
 ]

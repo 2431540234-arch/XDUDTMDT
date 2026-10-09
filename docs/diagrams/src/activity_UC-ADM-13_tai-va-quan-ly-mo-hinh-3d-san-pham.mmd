@@ -27,6 +27,8 @@ flowchart TD
     end
     subgraph LANE_X["MinIO / Redis / Worker"]
         n15["Kiểm tra GLB, đo đa giác và texture, sinh LOD high, medium, low"]
+        n15b{"Mỗi LOD dùng cho web ≤ MODEL_SERVE_MAX_MB (5 MB, NFR02)?"}
+        n15c["Tạo thông báo cho admin: LOD vượt giới hạn"]
         n16["Tải các LOD lên bucket public, tạo media và model_files"]
         n17{"Xử lý thành công?"}
         n19["Mô hình ready; trigger DB cập nhật has3dModel, hasAr"]
@@ -50,7 +52,10 @@ flowchart TD
     n18 --> n21
     n21 --> n22
     n22 --> n15
-    n15 --> n16
+    n15 --> n15b
+    n15b -->|"Có"| n16
+    n15b -->|"Không"| n15c
+    n15c --> n20
     n16 --> n17
     n17 -->|"Có"| n19
     n17 -->|"Không"| n20

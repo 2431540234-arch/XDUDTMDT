@@ -1,0 +1,39 @@
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as CatalogScreen (Compose)
+    participant VM as CatalogViewModel
+    participant R as ProductRepository
+    participant RT as Retrofit (AureliaApiService)
+    participant API as API NestJS (công khai)
+    A->>SC: Mở app (MainActivity, AureliaNavGraph)
+    SC->>VM: load()
+    VM->>R: getCategories()
+    R->>RT: getCategories()
+    RT->>API: GET /api/categories
+    API-->>RT: 200 { success, data }
+    RT-->>R: List CategoryDto
+    R-->>VM: danh mục
+    VM->>R: getProducts(categorySlug, page, pageSize = 20)
+    R->>RT: getProducts(category, page, pageSize)
+    RT->>API: GET /api/products?category=&page=&pageSize=20
+    API-->>RT: 200 { success, data, meta }
+    RT-->>R: ProductListDto
+    R-->>VM: Product (mô hình miền) và meta
+    alt Lỗi mạng hoặc 5xx
+        VM-->>SC: state Error
+        SC-->>A: ErrorView kèm nút "Thử lại"
+    end
+    VM-->>SC: state Success(categories, products)
+    SC-->>A: Hiển thị lưới sản phẩm (ảnh Coil, tên, giá thấp nhất)
+    loop Cuộn đến cuối còn trang
+        A->>SC: Cuộn xuống cuối lưới
+        SC->>VM: loadNextPage()
+        VM->>R: getProducts(categorySlug, page + 1, 20)
+        R->>RT: getProducts(...)
+        RT->>API: GET /api/products?category=&page=&pageSize=20
+        API-->>RT: 200 { success, data, meta }
+        RT-->>VM: thêm vào danh sách
+        VM-->>SC: state Success cập nhật
+    end
+    A->>SC: Chọn một sản phẩm (UC-MOB-02)

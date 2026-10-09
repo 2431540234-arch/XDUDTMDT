@@ -18,7 +18,8 @@ flowchart TD
         n17{"Sang shipping thì đã có vận đơn?"}
         n18["Trả 400 Chưa có vận đơn"]
         n19["Đặt người thực hiện và ghi chú cho trigger"]
-        n23["(sau commit) Tạo thông báo và gửi email cho user"]
+        n23["Đưa email vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
+        n27["Tạo thông báo cho user (cùng transaction)"]
         n24["Trả 200: Đơn kèm lịch sử trạng thái"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -53,7 +54,8 @@ flowchart TD
     n17 -->|"Có"| n19
     n19 --> n20
     n20 --> n21
-    n21 --> n22
+    n21 --> n27
+    n27 --> n22
     n22 --> n23
     n23 --> n24
     n24 --> n25

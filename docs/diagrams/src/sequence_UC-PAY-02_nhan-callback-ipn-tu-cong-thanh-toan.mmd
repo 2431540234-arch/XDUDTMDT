@@ -43,7 +43,10 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
         Note over D: Trigger trg_orders_log_status_update
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>A: 200 Phản hồi theo chuẩn cổng (ví dụ RspCode 00)

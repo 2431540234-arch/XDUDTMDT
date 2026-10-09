@@ -7,6 +7,10 @@ sequenceDiagram
     participant S as OrdersService
     participant P as PrismaService
     participant D as PostgreSQL
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Chọn địa chỉ, phương thức thanh toán, nhập mã giảm giá (nếu có) và bấm "Đặt hàng"
     alt Không: Đã đăng nhập và đã chọn địa chỉ
         FE-->>A: Yêu cầu đăng nhập hoặc chọn địa chỉ, chưa gọi API
@@ -102,8 +106,16 @@ sequenceDiagram
         P->>D: DELETE FROM cart_items
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo và gửi email xác nhận đơn - NotificationsService.create, MailService.sendOrderCreated
+    S->>M: Gửi email xác nhận đơn (MailService.sendOrderCreated)
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S-->>C: kết quả
     C-->>FE: 201 OrderResponseDto của đơn mới
     FE-->>A: COD hoặc chuyển khoản: trang "Đặt hàng thành công", online: chuyển sang bước thanh toán (UC-PAY-01)

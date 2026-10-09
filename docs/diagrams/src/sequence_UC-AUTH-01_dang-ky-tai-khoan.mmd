@@ -6,7 +6,10 @@ sequenceDiagram
     participant S as AuthService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant W as MailService / SMTP (Mailpit)
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Nhập họ tên, email, số điện thoại, mật khẩu và bấm "Đăng ký"
     alt Không: Dữ liệu form hợp lệ
         FE-->>A: Hiển thị lỗi tại từng ô nhập
@@ -37,7 +40,11 @@ sequenceDiagram
         P-->>S: kết quả
     end
     Note over D: Trigger trg_users_assign_default_role
-    S-)W: Gửi email xác thực (MailService.sendVerification(user))
+    S->>M: Gửi email xác thực (MailService.sendVerification(user))
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S->>S: Ký access token (15 phút) và refresh token (7 ngày) - JwtService.signAsync
     S-->>C: kết quả
     C-->>FE: 201 Token và hồ sơ người dùng

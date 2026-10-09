@@ -18,7 +18,7 @@ flowchart TD
         n16["Đặt biến phiên người thực hiện"]
         n19["Với mỗi phần tử: dòng hàng còn variantId"]
         n22{"Còn phần tử khác?"}
-        n27["(sau commit) Tạo thông báo cho user"]
+        n27["Tạo thông báo cho user (cùng transaction)"]
         n28["Trả 200: Đơn sau khi hủy"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -61,9 +61,9 @@ flowchart TD
     n22 -->|"Không"| n23
     n23 --> n24
     n24 --> n25
-    n25 --> n26
-    n26 --> n27
-    n27 --> n28
+    n25 --> n27
+    n27 --> n26
+    n26 --> n28
     n28 --> n29
     n29 --> n30
     n5 --> n30

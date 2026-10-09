@@ -1,6 +1,6 @@
 # Sơ đồ UML đã xuất ảnh
 
-Bảng này giúp chèn ảnh vào báo cáo Word theo đúng thứ tự. Có **148 sơ đồ**, xuất ảnh thành công **148/148** (PNG, độ phân giải ×2). Sơ đồ lớn khó đọc khi in có thêm bản **SVG** (vector, phóng to không vỡ).
+Bảng này giúp chèn ảnh vào báo cáo Word theo đúng thứ tự. Có **152 sơ đồ**, xuất ảnh thành công **152/152** (PNG, độ phân giải ×2). Sơ đồ lớn khó đọc khi in có thêm bản **SVG** (vector, phóng to không vỡ).
 
 ```text
 docs/diagrams/
@@ -20,7 +20,7 @@ docs/diagrams/
 npx -y @mermaid-js/mermaid-cli -i docs/diagrams/src/<ten>.mmd -o docs/diagrams/png/<ten>.png -b white -s 2
 ```
 
-**Lần xuất gần nhất: 2026-10-08 (Đợt 0b)**, toàn bộ 144 sơ đồ được trích lại từ tài liệu và xuất lại. Cập nhật cùng ngày cho ứng dụng Android (nhóm UC-MOB): thêm 4 sơ đồ activity/sequence cho UC-MOB-03, UC-MOB-04 và sửa sơ đồ kiến trúc, use case tổng quát, use case khách vãng lai. Đã cập nhật theo kiến trúc Redis + MinIO + BullMQ: kiến trúc tổng quan, UC-ADM-04, UC-ADM-13 (presigned PUT, queue, worker), email gửi trực tiếp, `pageSize` thay `limit`, và sơ đồ trạng thái thanh toán. `src/` không còn `limit=`.
+**Lần xuất gần nhất: 2026-10-09 (Lượt 2)**: vẽ lại sơ đồ kiến trúc (Redis cache, giới hạn tốc độ, 4 hàng đợi, worker, email qua hàng đợi `mail`); sequence/activity UC-AUTH-01, UC-AUTH-05, UC-ORD-01, UC-ADM-21 (email qua hàng đợi `mail`); các luồng thông báo UC-ORD-01, UC-ORD-03, UC-PAY-02, UC-ADM-18, UC-ADM-21..25 (Service tạo `notifications` trong cùng transaction, D-T47); UC-ADM-04, UC-3D-04 (hàng đợi `image-processing`), UC-ADM-13 và UC-3D-04 (kiểm tra LOD ≤ 5 MB, NFR02); thêm activity/sequence riêng cho UC-MOB-01, UC-MOB-02; thêm `khach-hang/hinh4_ung-dung-android` và sửa ghi chú thanh toán ở Hình 2 (D-N20). Lần xuất trước: 2026-10-08 (Đợt 0b), toàn bộ 144 sơ đồ được trích lại từ tài liệu và xuất lại. Cập nhật cùng ngày cho ứng dụng Android (nhóm UC-MOB): thêm 4 sơ đồ activity/sequence cho UC-MOB-03, UC-MOB-04 và sửa sơ đồ kiến trúc, use case tổng quát, use case khách vãng lai. Đã cập nhật theo kiến trúc Redis + MinIO + BullMQ: kiến trúc tổng quan, UC-ADM-04, UC-ADM-13 (presigned PUT, queue, worker), email gửi trực tiếp, `pageSize` thay `limit`, và sơ đồ trạng thái thanh toán. `src/` không còn `limit=`.
 
 Lưu ý: các sơ đồ lấy nội dung từ hai tài liệu `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md` và `docs/BAO_CAO_PHAN_TICH_THIET_KE.md`; khi đổi thiết kế, cập nhật tài liệu gốc và file `.mmd` cùng lúc.
 
@@ -86,7 +86,7 @@ Lưu ý: các sơ đồ lấy nội dung từ hai tài liệu `docs/DAC_TA_CHUC_
 | 48 | `png/activity_UC-ADM-10_quan-ly-bien-the-san-pham.png` | Activity | UC-ADM-10 | A.48 UC-ADM-10 – Quản lý biến thể sản phẩm | — |
 | 49 | `png/activity_UC-ADM-11_quan-ly-anh-san-pham.png` | Activity | UC-ADM-11 | A.49 UC-ADM-11 – Quản lý ảnh sản phẩm | — |
 | 50 | `png/activity_UC-ADM-12_nhap-kho-va-dieu-chinh-ton-kho.png` | Activity | UC-ADM-12 | A.50 UC-ADM-12 – Nhập kho và điều chỉnh tồn kho | — |
-| 51 | `png/activity_UC-ADM-13_tai-va-quan-ly-mo-hinh-3d-san-pham.png` | Activity | UC-ADM-13 | A.51 UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm | — |
+| 51 | `png/activity_UC-ADM-13_tai-va-quan-ly-mo-hinh-3d-san-pham.png` | Activity | UC-ADM-13 | A.51 UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm | có |
 | 52 | `png/activity_UC-ADM-15_quan-ly-khong-gian-mau-va-anh-360.png` | Activity | UC-ADM-15 | A.52 UC-ADM-15 – Quản lý không gian mẫu và ảnh 360° | — |
 | 53 | `png/activity_UC-ADM-16_quan-ly-diem-tuong-tac-hotspot-tren-anh-360.png` | Activity | UC-ADM-16 | A.53 UC-ADM-16 – Quản lý điểm tương tác (hotspot) trên ảnh 360° | — |
 | 54 | `png/activity_UC-ADM-18_duyet-hoac-tu-choi-danh-gia.png` | Activity | UC-ADM-18 | A.54 UC-ADM-18 – Duyệt hoặc từ chối đánh giá | — |
@@ -99,6 +99,8 @@ Lưu ý: các sơ đồ lấy nội dung từ hai tài liệu `docs/DAC_TA_CHUC_
 | 61 | `png/activity_UC-ADM-25_quan-ly-van-chuyen.png` | Activity | UC-ADM-25 | A.61 UC-ADM-25 – Quản lý vận chuyển | có |
 | 62 | `png/activity_UC-MOB-03_xem-san-pham-qua-camera-voi-overlay-anh.png` | Activity | UC-MOB-03 | A.62 UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh | — |
 | 63 | `png/activity_UC-MOB-04_chup-anh-ghep-va-luu-vao-may.png` | Activity | UC-MOB-04 | A.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy | — |
+| 64 | `png/activity_UC-MOB-01_xem-danh-muc-va-danh-sach-san-pham-tren-app-andr.png` | Activity | UC-MOB-01 | A.64 UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android | — |
+| 65 | `png/activity_UC-MOB-02_xem-chi-tiet-san-pham-tren-app-android.png` | Activity | UC-MOB-02 | A.65 UC-MOB-02 – Xem chi tiết sản phẩm trên app Android | — |
 
 ## A.3. Mô hình tuần tự – Sequence Diagram (mục 4)
 
@@ -167,6 +169,8 @@ Lưu ý: các sơ đồ lấy nội dung từ hai tài liệu `docs/DAC_TA_CHUC_
 | 61 | `png/sequence_UC-ADM-25_quan-ly-van-chuyen.png` | Sequence | UC-ADM-25 | S.61 UC-ADM-25 – Quản lý vận chuyển | có |
 | 62 | `png/sequence_UC-MOB-03_xem-san-pham-qua-camera-voi-overlay-anh.png` | Sequence | UC-MOB-03 | S.62 UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh | — |
 | 63 | `png/sequence_UC-MOB-04_chup-anh-ghep-va-luu-vao-may.png` | Sequence | UC-MOB-04 | S.63 UC-MOB-04 – Chụp ảnh ghép và lưu vào máy | — |
+| 64 | `png/sequence_UC-MOB-01_xem-danh-muc-va-danh-sach-san-pham-tren-app-andr.png` | Sequence | UC-MOB-01 | S.64 UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android | — |
+| 65 | `png/sequence_UC-MOB-02_xem-chi-tiet-san-pham-tren-app-android.png` | Sequence | UC-MOB-02 | S.65 UC-MOB-02 – Xem chi tiết sản phẩm trên app Android | — |
 
 ## A.4. Mô hình quan hệ dữ liệu hướng đối tượng – Class Diagram (mục 5)
 

@@ -12,7 +12,7 @@ flowchart TD
         n7{"Giao dịch chuyển khoản đang pending?"}
         n8["Trả 409 Giao dịch không thể xác nhận"]
         n12["Đặt người thực hiện cho trigger"]
-        n17["(sau commit) Thông báo cho user"]
+        n17["Tạo thông báo cho user (cùng transaction)"]
         n18["Trả 200: Giao dịch sau khi xác nhận"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -39,9 +39,9 @@ flowchart TD
     n12 --> n13
     n13 --> n14
     n14 --> n15
-    n15 --> n16
-    n16 --> n17
-    n17 --> n18
+    n15 --> n17
+    n17 --> n16
+    n16 --> n18
     n18 --> n19
     n19 --> n20
     n5 --> n20

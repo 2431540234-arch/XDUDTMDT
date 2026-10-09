@@ -58,6 +58,12 @@ sequenceDiagram
         W->>P: product3DModel.update({ status: 'failed' })
         P->>D: UPDATE product_3d_models
     end
+    alt LOD dùng cho web vượt MODEL_SERVE_MAX_MB (5 MB, NFR02)
+        W->>P: product3DModel.update({ status: 'failed' })
+        P->>D: UPDATE product_3d_models
+        W->>P: notification.create({ data: { userId: adminId, type, title, body } })
+        P->>D: INSERT INTO notifications
+    end
     W->>X: putObject các LOD vào bucket public (models/:id/tên-lod.glb)
     critical $transaction (Prisma)
         W->>P: media.upsert({ where: { filePath }, ... })

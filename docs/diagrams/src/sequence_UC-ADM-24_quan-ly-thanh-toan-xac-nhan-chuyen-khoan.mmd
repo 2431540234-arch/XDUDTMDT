@@ -43,8 +43,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Giao dịch sau khi xác nhận
     FE-->>A: Đơn chuyển sang đã xác nhận

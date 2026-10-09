@@ -62,8 +62,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo user, đơn đã thanh toán cần hoàn tiền thủ công - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Đơn đã hủy
     FE-->>A: Hiển thị đơn đã hủy (cảnh báo hoàn tiền nếu đã thanh toán)

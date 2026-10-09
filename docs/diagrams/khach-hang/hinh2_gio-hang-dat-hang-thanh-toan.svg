@@ -86,11 +86,11 @@
 <line x1="1352.9" y1="902.3" x2="1116.5" y2="840.1" stroke="#111" stroke-width="1.2" stroke-dasharray="6 4" marker-end="url(#open)"/>
 <rect x="1203.8" y="862.2" width="61.8" height="16" fill="#fff" opacity="0.9"/>
 <text x="1234.7" y="874.2" text-anchor="middle" font-size="12" font-family="Segoe UI, Arial, sans-serif" fill="#111">«extend»</text>
-<polygon points="1230,750 1414.72,750 1426.72,762 1426.72,798 1230,798" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
-<polyline points="1414.72,750 1414.72,762 1426.72,762" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
-<text x="1238" y="769" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">COD, chuyển khoản, MoMo,</text>
-<text x="1238" y="786" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">VNPay, ZaloPay, thẻ</text>
-<line x1="1346.1" y1="750.0" x2="1402.6" y2="673.6" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
+<polygon points="1230,750 1588,750 1600,762 1600,798 1230,798" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
+<polyline points="1588,750 1588,762 1600,762" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
+<text x="1238" y="769" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">COD, chuyển khoản, VNPay sandbox.</text>
+<text x="1238" y="786" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">MoMo, ZaloPay, thẻ quốc tế: hướng phát triển (FR11)</text>
+<line x1="1416.0" y1="750.0" x2="1419.0" y2="674.0" stroke="#1f4e79" stroke-width="1.1" stroke-dasharray="5 4"/>
 <polygon points="60,770 408,770 420,782 420,818 60,818" fill="#72cdf8" stroke="#1f4e79" stroke-width="1.2"/>
 <polyline points="408,770 408,782 420,782" fill="none" stroke="#1f4e79" stroke-width="1.2"/>
 <text x="68" y="789" font-size="12.5" font-family="Segoe UI, Arial, sans-serif" fill="#0b1f33">Trạng thái đơn: chờ xác nhận, đã xác nhận,</text>

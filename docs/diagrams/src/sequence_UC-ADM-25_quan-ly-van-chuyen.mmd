@@ -54,8 +54,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo user đơn đã giao - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Vận đơn và đơn sau khi cập nhật
     FE-->>A: Đơn hiển thị trạng thái hoàn tất

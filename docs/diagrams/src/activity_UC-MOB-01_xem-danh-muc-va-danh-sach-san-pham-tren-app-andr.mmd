@@ -1,0 +1,35 @@
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Mở app, vào màn danh mục"]
+        n12["Cuộn lưới sản phẩm, đổi danh mục hoặc chọn một sản phẩm (UC-MOB-02)"]
+        n13(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (CatalogScreen, CatalogViewModel, ProductRepository)"]
+        n3["CatalogViewModel gọi getCategories và getProducts(categorySlug, page, pageSize 20)"]
+        n4["Retrofit gửi GET /api/categories và GET /api/products"]
+        n6{"Gọi API thành công?"}
+        n7["Hiện ErrorView kèm nút Thử lại, giữ danh sách đã tải"]
+        n8{"Danh mục có sản phẩm?"}
+        n9["Hiển thị trạng thái rỗng"]
+        n10["Hiển thị lưới sản phẩm (ảnh Coil, tên, giá thấp nhất)"]
+        n11{"Cuộn đến cuối và còn trang (meta.totalPages)?"}
+    end
+    subgraph LANE_X["API NestJS (công khai)"]
+        n5["Trả { success, data, meta } chỉ gồm sản phẩm published"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Có"| n3
+    n11 -->|"Không"| n12
+    n12 --> n13
+    n7 --> n13
+    n9 --> n13

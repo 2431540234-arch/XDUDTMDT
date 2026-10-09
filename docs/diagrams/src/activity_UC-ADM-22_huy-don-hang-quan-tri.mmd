@@ -16,7 +16,7 @@ flowchart TD
         n13["Đặt người thực hiện cho trigger"]
         n16["Với mỗi phần tử: dòng hàng còn variantId"]
         n19{"Còn phần tử khác?"}
-        n25["(sau commit) Thông báo user; đơn đã thanh toán cần hoàn tiền thủ công"]
+        n25["Tạo thông báo cho user, đơn đã thanh toán cần hoàn tiền thủ công (cùng transaction)"]
         n26["Trả 200: Đơn đã hủy"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -56,9 +56,9 @@ flowchart TD
     n20 --> n21
     n21 --> n22
     n22 --> n23
-    n23 --> n24
-    n24 --> n25
-    n25 --> n26
+    n23 --> n25
+    n25 --> n24
+    n24 --> n26
     n26 --> n27
     n27 --> n28
     n5 --> n28

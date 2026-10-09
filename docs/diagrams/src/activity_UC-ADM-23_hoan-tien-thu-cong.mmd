@@ -14,7 +14,7 @@ flowchart TD
         n11["Đặt người thực hiện cho trigger"]
         n15["Với mỗi phần tử: dòng hàng (chỉ khi chọn nhập lại kho)"]
         n17{"Còn phần tử khác?"}
-        n20["(sau commit) Thông báo cho user"]
+        n20["Tạo thông báo cho user (cùng transaction)"]
         n21["Trả 200: Đơn đã hoàn tiền"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -46,9 +46,9 @@ flowchart TD
     n16 --> n17
     n17 -->|"Có"| n15
     n17 -->|"Không"| n18
-    n18 --> n19
-    n19 --> n20
-    n20 --> n21
+    n18 --> n20
+    n20 --> n19
+    n19 --> n21
     n21 --> n22
     n22 --> n23
     n5 --> n23

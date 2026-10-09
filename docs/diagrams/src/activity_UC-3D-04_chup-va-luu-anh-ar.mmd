@@ -8,6 +8,7 @@ flowchart TD
     subgraph LANE_S["Hệ thống (API)"]
         n3{"[Web] Đã đăng nhập?"}
         n4["[Web] Yêu cầu đăng nhập để lưu ảnh, chưa gọi API"]
+        n20["Mô hình đang xem là LOD ≤ 5 MB (NFR02, đã bảo đảm bởi job model-processing)"]
         n5["Gửi POST /api/ar-snapshots"]
         n6{"Đã đăng nhập?"}
         n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
@@ -27,7 +28,8 @@ flowchart TD
         n10["Lưu ảnh lên MinIO/S3"]
     end
     n1 --> n2
-    n2 --> n3
+    n2 --> n20
+    n20 --> n3
     n3 -->|"Không"| n4
     n3 -->|"Có"| n5
     n5 --> n6
