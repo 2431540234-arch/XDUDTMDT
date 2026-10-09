@@ -196,76 +196,74 @@ Khai báo nhưng chưa dùng, cân nhắc gỡ: `passport`, `passport-jwt`, `@ne
 
 ## 6. Bảng công nghệ nộp giảng viên (CHÍNH THỨC)
 
-Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36. Chỉ gồm công nghệ dự án đã dùng hoặc sẽ dùng theo kế hoạch đã chốt; mục chưa cài (model-viewer, react-hook-form, recharts...) được cài đúng đợt cần dùng.
+Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nhật cột "Trạng thái" ngày 2026-10-09 sau khi cấu hình toàn bộ môi trường (D-T37). Trạng thái: **Đã dùng** = đang chạy trong code thật; **Đã cấu hình** = đã cài, cấu hình và kiểm tra chạy được, chờ code nghiệp vụ dùng; **Theo kế hoạch** = chưa có trong code, đã chốt sẽ làm.
 
 ### Web
 
-| Công nghệ | Nền tảng | Vai trò |
-| --- | --- | --- |
-| Next.js 14 | Web | Framework xây website (App Router) |
-| TypeScript | Web, Backend | Ngôn ngữ lập trình, kiểu dùng chung giữa web và API |
-| Tailwind CSS | Web | Thiết kế giao diện |
-| Zustand | Web | Quản lý client state (giao diện, token, cấu hình trình xem 3D) |
-| TanStack Query | Web | Gọi và cache API (dữ liệu từ server, kể cả giỏ hàng) |
-| Three.js | Web | Xử lý 3D |
-| React Three Fiber (+ drei) | Web | Kết nối React với Three.js: xem mô hình GLB (`useGLTF`), ảnh 360° (mặt cầu + `TextureLoader`), hotspot (`Html`) |
-| `@google/model-viewer` | Web | Xem sản phẩm bằng AR trên điện thoại (Scene Viewer, Quick Look) |
-| React Hook Form + Zod | Web | Biểu mẫu và kiểm tra dữ liệu |
-| Recharts | Web | Biểu đồ thống kê quản trị |
+| Công nghệ | Nền tảng | Vai trò | Trạng thái |
+| --- | --- | --- | --- |
+| Next.js 14 | Web | Framework xây website (App Router) | Đã dùng |
+| TypeScript | Web, Backend | Ngôn ngữ lập trình, kiểu dùng chung giữa web và API | Đã dùng |
+| Tailwind CSS | Web | Thiết kế giao diện (màu thương hiệu nối từ `theme.ts`) | Đã dùng |
+| Zustand | Web | Quản lý client state (giao diện, token, cấu hình trình xem 3D) | Đã cấu hình (4 store rỗng) |
+| TanStack Query | Web | Gọi và cache API (dữ liệu từ server, kể cả giỏ hàng) | Đã cấu hình (Provider + devtools đã gắn, chưa có truy vấn) |
+| Three.js | Web | Xử lý 3D | Đã cấu hình (test dựng scene qua) |
+| React Three Fiber (+ drei) | Web | Kết nối React với Three.js: xem mô hình GLB (`useGLTF`), ảnh 360° (mặt cầu + `TextureLoader`), hotspot (`Html`) | Đã cấu hình (`<Canvas>` render được trong test) |
+| `@google/model-viewer` | Web | Xem sản phẩm bằng AR trên điện thoại (Scene Viewer, Quick Look) | Đã cấu hình (bọc client-only, build qua) |
+| React Hook Form + Zod | Web | Biểu mẫu và kiểm tra dữ liệu | Đã cấu hình (đã cài, chưa có form) |
+| Recharts | Web | Biểu đồ thống kê quản trị | Đã cấu hình (đã cài, chưa có biểu đồ) |
+| Vitest + Testing Library, Playwright | Web | Kiểm thử đơn vị/component và e2e trình duyệt | Đã dùng (3 test đơn vị, 2 test e2e) |
 
 ### Mobile
 
-| Công nghệ | Nền tảng | Vai trò |
-| --- | --- | --- |
-| Android | Mobile | Nền tảng ứng dụng (minSdk 26) |
-| Kotlin | Mobile | Ngôn ngữ lập trình |
-| Jetpack Compose | Mobile | Xây giao diện |
-| CameraX | Mobile | Xử lý camera (Preview, ImageCapture) |
-| Overlay (Compose Canvas + Coil) | Mobile | Đặt ảnh PNG sản phẩm lên camera, kéo/xoay/phóng to |
-| Retrofit + Hilt | Mobile | Gọi API công khai, tiêm phụ thuộc |
+| Công nghệ | Nền tảng | Vai trò | Trạng thái |
+| --- | --- | --- | --- |
+| Android | Mobile | Nền tảng ứng dụng (minSdk 26) | Đã cấu hình (`assembleDebug` thành công) |
+| Kotlin | Mobile | Ngôn ngữ lập trình | Đã cấu hình |
+| Jetpack Compose | Mobile | Xây giao diện | Đã cấu hình (màn hình hiện tên ứng dụng) |
+| CameraX | Mobile | Xử lý camera (Preview, ImageCapture) | Đã cấu hình (khai báo, quyền CAMERA; chưa có màn hình) |
+| Overlay (Compose Canvas + Coil) | Mobile | Đặt ảnh PNG sản phẩm lên camera, kéo/xoay/phóng to | Theo kế hoạch |
+| Retrofit + Hilt | Mobile | Gọi API công khai, tiêm phụ thuộc | Đã cấu hình |
 
 ### Backend và hạ tầng
 
-| Công nghệ | Dùng để | Ví dụ AURELIA |
-| --- | --- | --- |
-| NestJS | Framework backend | Controller, service, guard, pipe cho 144 endpoint |
-| PostgreSQL | Database chính | User, Product, Order (44 bảng, 36 trigger) |
-| Prisma | Backend làm việc với PostgreSQL | Query Product, tạo Order trong transaction |
-| Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Cache danh mục và sản phẩm nổi bật, trạng thái BullMQ, giới hạn đăng nhập |
-| BullMQ | Hàng đợi xử lý nền | `model-processing` (LOD mô hình 3D), `image-processing` (webp, thumbnail), `mail`, `notification` |
-| MinIO | Lưu file (dev) | JPG, WebP, PNG, GLB, USDZ, panorama |
-| S3 | Object storage production | Ảnh và mô hình sản phẩm (chỉ đổi biến môi trường) |
-| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 144 endpoint |
-| Jest + Supertest | Kiểm thử | Unit test, e2e với PostgreSQL, Redis, MinIO thật |
-| sharp | Xử lý ảnh | Tạo webp và thumbnail, thu nhỏ texture |
-| glTF-Transform (+ Meshopt) | Xử lý mô hình 3D | Kiểm tra GLB, đo đa giác, sinh LOD, nén |
-| Nodemailer + Mailpit | Gửi email, hộp thư giả khi dev | Xác thực email, đặt lại mật khẩu, đơn hàng |
-| Docker Compose | Môi trường dev | postgres, redis, minio, mailpit, api |
-| GitHub Actions | CI | Lint, typecheck, test, build |
+| Công nghệ | Dùng để | Ví dụ AURELIA | Trạng thái |
+| --- | --- | --- | --- |
+| NestJS | Framework backend | Controller, service, guard, pipe cho 144 endpoint | Đã dùng |
+| PostgreSQL | Database chính | User, Product, Order (44 bảng, 36 trigger) | Đã dùng |
+| Prisma | Backend làm việc với PostgreSQL | Query Product, tạo Order trong transaction | Đã dùng |
+| Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Cache danh mục và sản phẩm nổi bật, trạng thái BullMQ, giới hạn đăng nhập | Đã dùng (queue, throttler); cache Đã cấu hình |
+| BullMQ | Hàng đợi xử lý nền | `model-processing`, `image-processing`, `mail`, `notification` | Đã dùng (4 queue chạy, hiện trên Bull Board) |
+| MinIO | Lưu file (dev) | JPG, WebP, PNG, GLB, USDZ, panorama | Đã dùng |
+| S3 | Object storage production | Ảnh và mô hình sản phẩm (chỉ đổi biến môi trường) | Đã cấu hình (driver `s3`, chưa triển khai thật) |
+| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 144 endpoint | Đã dùng |
+| Jest + Supertest | Kiểm thử | Unit test (29), e2e với PostgreSQL, Redis, MinIO, Mailpit thật (23) | Đã dùng |
+| sharp | Xử lý ảnh | Tạo webp và thumbnail, thu nhỏ texture | Đã dùng |
+| glTF-Transform (+ Meshopt) | Xử lý mô hình 3D | Kiểm tra GLB, đo đa giác, sinh LOD, nén | Đã dùng |
+| Nodemailer + Mailpit | Gửi email, hộp thư giả khi dev | Xác thực email, đặt lại mật khẩu, đơn hàng (qua queue `mail`) | Đã dùng (e2e: thư tới Mailpit) |
+| Docker Compose | Môi trường dev | postgres, redis, minio, mailpit, api | Đã dùng |
+| GitHub Actions | CI | Lint, typecheck, test (API, web), build; build Android riêng | Đã cấu hình (chưa chạy trên GitHub) |
 
-## 7. Kế hoạch cài đặt và cấu hình cho mục 🟡 và ❌
+## 7. Kế hoạch cài đặt và cấu hình (cập nhật 2026-10-09: ĐÃ HOÀN TẤT theo D-T37)
 
-Đợt theo lộ trình module (xem `docs/TIEN_DO.md`, `docs/MODULE_ENV_REPORT.md` mục 4).
-
-| Việc | Gói | File | Giờ | Phụ thuộc đợt |
-| --- | --- | --- | --- | --- |
-| Gắn `QueryClientProvider`, dựng `api-client` (fetch + bóc `{success,data,meta}` + lỗi theo `ErrorCode`) | (đã có) | `apps/web/src/app/layout.tsx`, `src/services/api-client.ts`, `src/lib/query-client.ts` | 4 | Đợt M02 |
-| Hook `useAuth`, `authStore` (Zustand), tự làm mới token | (đã có) | `src/store/authStore.ts`, `src/hooks/useAuth.ts` | 6 | Đợt M02 |
-| Bỏ/thu nhỏ `cartStore`, viết `useCart` bằng Query + optimistic update | (đã có) | `src/store/cartStore.ts`, `src/hooks/useCart.ts` | 4 | Đợt M08 |
-| Nối `theme.ts` vào `tailwind.config.ts` (màu thương hiệu) | (đã có) | `apps/web/tailwind.config.ts`, `src/styles/theme.ts` | 1 | Khung giao diện |
-| Form + validate | `react-hook-form`, `@hookform/resolvers`, `zod` | `src/lib/validators.ts` | 3 | Đợt M02 |
-| Trình xem 3D: `<Canvas>`, `useGLTF`, `OrbitControls`, chọn LOD theo thiết bị | (đã có) | `src/components/viewer/ProductViewer3D.tsx`, `ModelLoader.tsx` | 10 | Đợt M12 |
-| AR trên điện thoại | `@google/model-viewer` | `src/components/viewer/` (thêm `ArButton.tsx`), `next.config.js` (transpile) | 8 | Đợt M12 |
-| Ảnh 360° + hotspot | tự dựng bằng R3F, hoặc `@photo-sphere-viewer/*` | `src/components/viewer/SpacePanorama.tsx`, `Hotspot.tsx` | 14 | Đợt M13 |
-| Biểu đồ dashboard | `recharts` | `src/app/admin/dashboard/page.tsx` | 6 | Đợt M14 |
-| Test web | `vitest`, `@testing-library/react`, `playwright` | `apps/web/package.json`, `vitest.config.ts` | 8 | Song song |
-| `CacheService` Redis + áp dụng cho 4-5 endpoint công khai, xóa khóa khi admin sửa | (dùng `ioredis` sẵn có) | `apps/api/src/cache/*`, service M06, M07, M01 | 8 | Đợt M06, M07 |
-| Queue `mail` (đợt M02) và `notification` (đợt M09), retry 3 lần, backoff mũ | (đã có `bullmq`) | `apps/api/src/modules/jobs/*`, `mail/smtp-mail.service.ts` | 6 | Đợt M02, M09 |
-| Throttler siết cho đăng nhập, quên mật khẩu, đăng ký | (đã có) | `modules/auth/auth.controller.ts` | 2 | Đợt M02 |
-| Driver `s3` và biến `S3_FORCE_PATH_STYLE` | (đã có SDK) | `storage.module.ts`, `minio-storage.service.ts`, `env.validation.ts` | 3 | Trước khi triển khai production |
-| ~~Dọn gói không dùng (`passport*`, `cookie-parser`)~~ **Đã gỡ 2026-10-08** | gỡ | `apps/api/package.json` | 0,5 | Xong |
-| `@nestjs/schedule` dọn tệp dở dang | `@nestjs/schedule` | `apps/api/src/modules/media` | 3 | Đợt M05, M12 |
-| Mobile (phương án B, đã chọn) | xem mục 3.1 | `apps/mobile/**` | ~70 | Sau M07 (và M12 nếu kịp) |
+| Việc | Gói | File | Trạng thái |
+| --- | --- | --- | --- |
+| Gắn `QueryClientProvider` (+ devtools khi dev) | `@tanstack/react-query-devtools` 5.104.1 | `apps/web/src/app/providers.tsx`, `src/lib/query-client.ts` | **Xong** |
+| `api-client`, `useAuth`, `authStore`, `useCart` | (đã có) | `apps/web/src/services`, `store`, `hooks` | Chờ code M02, M08 (store/hook rỗng) |
+| Nối `theme.ts` vào Tailwind | (đã có) | `apps/web/tailwind.config.ts` | **Xong** |
+| Form + validate | `react-hook-form` 7.89.0, `@hookform/resolvers` 5.9.1, `zod` 3.25.76 | `apps/web/package.json` | **Xong (cài)**; form viết ở M02 |
+| Trình xem 3D (`<Canvas>`, `useGLTF`) | (đã có) | `apps/web/src/components/viewer/*` | **Đã kiểm tra render**; component thật viết ở M12 |
+| AR trên điện thoại | `@google/model-viewer` 3.5.0 | `components/viewer/ModelViewer*.tsx`, `types/model-viewer.d.ts` | **Xong** |
+| Ảnh 360° + hotspot | (R3F tự dựng) | `components/viewer/SpacePanorama.tsx` | Chờ code M13 |
+| Biểu đồ dashboard | `recharts` 2.15.4 | `apps/web/package.json` | **Xong (cài)**; biểu đồ viết ở M14 |
+| Test web | Vitest 5.0.3, Testing Library, Playwright 1.64.0 | `apps/web/vitest.config.mts`, `playwright.config.ts`, `tests/` | **Xong** |
+| `CacheService` Redis | (dùng `ioredis` sẵn có) | `apps/api/src/cache/*` | **Xong** (8 unit test, 1 e2e); áp dụng ở M06, M07, M01 |
+| Queue `mail`, `notification` | (đã có `bullmq`) | `apps/api/src/modules/jobs/*`, `mail/*` | **Xong** (e2e: thư tới Mailpit) |
+| Throttler nhóm auth | (đã có) | `app.module.ts`, `common/decorators/throttle.decorators.ts` | **Xong** (e2e: 429); M02 gắn `@AuthThrottle()` |
+| Driver `s3`, `S3_FORCE_PATH_STYLE` | (đã có SDK) | `storage/*`, `env.validation.ts` | **Xong** (unit test) |
+| `@nestjs/schedule`, `slugify` | `@nestjs/schedule` 4.1.2, `slugify` 1.6.9 | `apps/api/src/app.module.ts` | **Xong** (đăng ký, chưa có cron) |
+| Dọn gói không dùng | gỡ `passport*`, `cookie-parser` | `apps/api/package.json` | **Xong** |
+| Mobile: Gradle, thư viện, `BuildConfig`, mạng debug | xem D-T44 | `apps/mobile/**` | **Xong** (`assembleDebug` thành công) |
 
 ## 8. Quyết định đã nhận
 

@@ -125,3 +125,17 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 4. Wireframe và dựng khung giao diện web song song với bước 1-2.
 
 Cập nhật file này khi một UC đổi trạng thái (cùng commit với code).
+
+## 5. Môi trường phát triển (cấu hình xong ngày 2026-10-09)
+
+Toàn bộ môi trường đã cấu hình theo DECISIONS D-T37 (báo cáo: [ENV_SETUP_REPORT.md](ENV_SETUP_REPORT.md), biến: [ENVIRONMENT.md](ENVIRONMENT.md)).
+
+| Hạng mục | Trạng thái |
+| --- | --- |
+| Hạ tầng Docker: postgres, postgres-test, redis, minio (+init), mailpit, api | Xong, healthy |
+| Web: Tailwind, Provider TanStack Query, model-viewer, Vitest, Playwright | Xong |
+| API: throttler nhóm auth, CacheService, queue mail + notification, driver s3, `@nestjs/schedule`, `/health` mở rộng | Xong |
+| Mobile: Gradle, thư viện, `BuildConfig.API_BASE_URL`, cấu hình mạng debug; `assembleDebug` | Xong |
+| CI: API + web test, Mailpit/Redis/MinIO, build Android riêng | Đã cấu hình |
+| Còn chờ ngoài môi trường | O-06 (nơi lưu ảnh overlay), wireframe, ảnh PNG overlay, tài khoản VNPay sandbox |
+

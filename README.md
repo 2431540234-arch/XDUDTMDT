@@ -11,6 +11,8 @@ Website thương mại điện tử nội thất, tích hợp xem 3D, AR và kh�
 - Node.js 22 trở lên (khai báo `engines` trong `package.json`, file `.nvmrc` = 22; máy dev đang dùng Node 24) và npm 11.19 (`packageManager`)
 - Docker Desktop (PostgreSQL 16, Redis, MinIO và Mailpit chạy bằng Docker, không cần cài riêng)
 - Git
+- Chỉ khi làm app Android (`apps/mobile`): Android Studio (đi kèm JDK 21 "JBR" và SDK Manager), Android SDK Platform 37, build-tools 36+; JDK 21 cho Gradle daemon (Android Studio JBR là đủ) và biến `ANDROID_HOME` hoặc tệp `apps/mobile/local.properties` (`sdk.dir=...`, tệp này không commit)
+- Phần mềm không cần cài thêm: PostgreSQL, Redis, MinIO, Mailpit (đều chạy bằng Docker)
 
 ### 2. Lấy mã và cài thư viện
 
@@ -31,7 +33,7 @@ Sửa trong `.env`:
 
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: chuỗi ngẫu nhiên tối thiểu 16 ký tự (`openssl rand -hex 32`). Backend **từ chối khởi động** nếu thiếu/ngắn và in rõ biến nào sai. Web từ chối khởi động nếu thiếu `NEXT_PUBLIC_API_URL`.
 - Cổng mặc định: **API 4000, web 3000, Redis 6379, MinIO API 9000, MinIO Console 9001**. Máy đã có Redis khác chiếm 6379: đặt `REDIS_PORT=6380` (cả `.env` lẫn compose đọc biến này). Nếu bị chiếm, đổi đồng bộ `PORT`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `STORAGE_PUBLIC_URL`, `CORS_ORIGINS`. PostgreSQL: `POSTGRES_PORT` và cổng trong `DATABASE_URL`; Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
-- Biến `VNPAY_*` để trống cho tới khi làm module thanh toán.
+- Biến `VNPAY_*` để trống cho tới khi làm module thanh toán. Mọi biến, kiểu, mặc định và module dùng: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 
 `.env` đã nằm trong `.gitignore`: **không commit**. Giải thích từng biến: [.env.example](.env.example).
 
@@ -53,6 +55,8 @@ npm run db:seed       # vai trò, quyền, cấu hình, admin (+ dữ liệu m�
 | MinIO Console             | http://localhost:9001                                         | `aurelia` / `aurelia123` (= `S3_ACCESS_KEY` / `S3_SECRET_KEY`)     |
 | MinIO S3 API              | http://localhost:9000                                         | như trên; bucket `aurelia-public` (đọc ẩn danh), `aurelia-private` |
 | Redis                     | `localhost:6379` (máy này 6380)                               | không mật khẩu                                                     |
+| Web (Next.js)             | http://localhost:3000 (admin: `/admin/...`)                   | không                                                              |
+| Swagger (OpenAPI)         | http://localhost:4000/docs                                    | không (nút Authorize dùng access token)                            |
 | Mailpit (xem email)       | http://localhost:8025 (SMTP 1025)                             | không                                                              |
 | Bull Board (xem hàng đợi) | http://localhost:4000/admin/queues                            | cần token admin, xem bên dưới                                      |
 | PostgreSQL                | `localhost:5432`                                              | `aurelia` / `aurelia`                                              |
@@ -69,6 +73,7 @@ Cách A, trên máy host (dev, có hot reload):
 npm run build:types                    # build gói shared-types lần đầu
 npm run start:dev -w @aurelia-living/api
 npm run dev -w @aurelia-living/web      # web tại http://localhost:3000 (trang quản trị: /admin/...)
+# Docker Compose chỉ chạy API (dịch vụ `api`); web chạy bằng lệnh trên
 ```
 
 Cách B, trong Docker (cả PostgreSQL, Mailpit, API; API tự chạy `migrate deploy` khi khởi động):
@@ -82,10 +87,27 @@ Kiểm tra: `curl http://localhost:4000/health` (cổng `API_PORT`, mặc địn
 ### 6. Kiểm tra chất lượng và test
 
 ```bash
-docker compose --profile test up -d postgres-test     # DB riêng cho e2e (cổng 5433, dữ liệu trong RAM)
-# e2e còn cần redis + minio đang chạy (npm run infra:up); test dùng bucket aurelia-test-* và tiền tố Redis riêng
-npm run lint && npm run typecheck && npm test && npm run test:e2e
+docker compose --profile test up -d postgres-test     # DB riêng cho e2e API (cổng 5433, dữ liệu trong RAM)
+npm run lint && npm run format:check && npm run typecheck
+npm test                  # unit: API (Jest, 29 test) + web (Vitest + Testing Library, jsdom)
+npm run test:e2e          # API e2e (cần postgres-test, redis, minio, mailpit đang chạy) + web e2e (Playwright, Chromium)
+npm run build
 ```
+
+Lần đầu chạy Playwright cần tải trình duyệt: `npx playwright install chromium` (chỉ Chromium). Test web e2e tự khởi động web dev server ở cổng 3100.
+
+### 6b. Ứng dụng Android (`apps/mobile`)
+
+```bash
+cd apps/mobile
+./gradlew assembleDebug       # Windows PowerShell: .\gradlew.bat assembleDebug
+# APK: apps/mobile/app/build/outputs/apk/debug/app-debug.apk
+```
+
+- Cần `JAVA_HOME` trỏ JDK 21 (Android Studio JBR, ví dụ `C:\Program Files\Android\Android Studio\jbr`) và Android SDK (xem mục 1). Lần đầu Gradle tải phụ thuộc (khoảng 5 phút).
+- `BuildConfig.API_BASE_URL`: debug mặc định `http://10.0.2.2:4000/api/` (máy ảo Android thấy API chạy trên máy tính). Máy thật cùng Wi-Fi: `./gradlew assembleDebug -Paurelia.apiBaseUrl=http://<IP máy tính>:4000/api/`. Release: `-Paurelia.releaseApiBaseUrl=https://...`.
+- HTTP không mã hóa chỉ được phép ở bản debug (`src/debug/res/xml/network_security_config.xml`); bản release chỉ cho HTTPS.
+- Máy ảo cần tối thiểu 3 GB RAM và gia tốc phần cứng; máy yếu sẽ bị hệ điều hành tự đóng ứng dụng.
 
 ### 7. Tài khoản mẫu (chỉ dev)
 
@@ -102,7 +124,9 @@ npm run lint && npm run typecheck && npm test && npm run test:e2e
 | `npm run lint` / `lint:fix`              | ESLint toàn monorepo                                                                             |
 | `npm run format` / `format:check`        | Prettier                                                                                         |
 | `npm run typecheck`                      | Kiểm tra kiểu mọi package (turbo)                                                                |
-| `npm test` / `npm run test:e2e`          | Unit test / e2e (cần `postgres-test`)                                                            |
+| `npm test`                               | Unit test API (Jest) và web (Vitest)                                                             |
+| `npm run test:e2e`                       | E2E API (Jest + Supertest) rồi web (Playwright); riêng từng bên: `test:e2e:api`, `test:e2e:web`  |
+| `npm run mobile:build`                   | Build APK debug (`apps/mobile`)                                                                  |
 | `npm run build`                          | Build tất cả (shared-types trước)                                                                |
 | `npm run types:generate` / `types:check` | Sinh / kiểm tra kiểu từ `schema.prisma` ([docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md)) |
 | `npm run infra:up` / `infra:down`        | Bật postgres, redis, minio, minio-init, mailpit (không tạo lại container cũ) / dừng              |
@@ -128,6 +152,9 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Tài liệu
 
+- [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md): bảng biến môi trường (bắt buộc/tùy chọn, mặc định, module dùng)
+- [docs/CONG_NGHE.md](docs/CONG_NGHE.md): đối chiếu công nghệ và bảng công nghệ nộp giảng viên
+- [docs/ENV_SETUP_REPORT.md](docs/ENV_SETUP_REPORT.md): báo cáo cấu hình môi trường phát triển
 - [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
 - [docs/TIEN_DO.md](docs/TIEN_DO.md): tiến độ theo module và theo từng use case
 - [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật (Redis + MinIO + BullMQ, VNPay sandbox, ...)
