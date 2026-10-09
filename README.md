@@ -106,8 +106,8 @@ Lần đầu chạy Playwright cần tải trình duyệt: `npx playwright insta
 ### 6b. Ứng dụng Android (`apps/mobile`)
 
 ```bash
-cd apps/mobile
-./gradlew assembleDebug       # Windows PowerShell: .\gradlew.bat assembleDebug
+npm run mobile:build          # mọi hệ điều hành (cmd, PowerShell, Linux/CI): Node script chọn gradlew.bat hoặc ./gradlew
+# hoặc thủ công: cd apps/mobile && ./gradlew assembleDebug   (PowerShell: .\gradlew.bat assembleDebug)
 # APK: apps/mobile/app/build/outputs/apk/debug/app-debug.apk
 ```
 
@@ -126,23 +126,23 @@ cd apps/mobile
 
 ### 8. Script npm (thư mục gốc)
 
-| Lệnh                                     | Tác dụng                                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `npm run lint` / `lint:fix`              | ESLint toàn monorepo                                                                             |
-| `npm run format` / `format:check`        | Prettier                                                                                         |
-| `npm run typecheck`                      | Kiểm tra kiểu mọi package (turbo)                                                                |
-| `npm test`                               | Unit test API (Jest) và web (Vitest)                                                             |
-| `npm run test:e2e`                       | E2E API (Jest + Supertest) rồi web (Playwright); riêng từng bên: `test:e2e:api`, `test:e2e:web`  |
-| `npm run mobile:build`                   | Build APK debug (`apps/mobile`); trên Windows nếu `./gradlew` không chạy: `cd apps/mobile` rồi `gradlew.bat assembleDebug` |
-| `npm run build`                          | Build tất cả (shared-types trước)                                                                |
-| `npm run types:generate` / `types:check` | Sinh / kiểm tra kiểu từ `schema.prisma` ([docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md)) |
-| `npm run infra:up` / `infra:down`        | Bật postgres, redis, minio, minio-init, mailpit (không tạo lại container cũ) / dừng              |
-| `npm run docker:up` / `docker:down`      | Bật tất cả (kể cả API trong Docker) / tắt compose                                                |
-| `npm run db:up`                          | Bí danh của `infra:up` (bật postgres, redis, minio, minio-init, mailpit)                         |
-| `npm run db:status` / `db:deploy`        | Trạng thái / áp migration                                                                        |
-| `npm run db:seed`                        | Seed dữ liệu (idempotent)                                                                        |
-| `npm run db:studio`                      | Prisma Studio                                                                                    |
-| `npm run db:reset`                       | **Xóa sạch** DB, dựng lại và seed lại (chỉ dev)                                                  |
+| Lệnh                                     | Tác dụng                                                                                                                                                                                                |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run lint` / `lint:fix`              | ESLint toàn monorepo                                                                                                                                                                                    |
+| `npm run format` / `format:check`        | Prettier                                                                                                                                                                                                |
+| `npm run typecheck`                      | Kiểm tra kiểu mọi package (turbo)                                                                                                                                                                       |
+| `npm test`                               | Unit test API (Jest) và web (Vitest)                                                                                                                                                                    |
+| `npm run test:e2e`                       | E2E API (Jest + Supertest) rồi web (Playwright); riêng từng bên: `test:e2e:api`, `test:e2e:web`                                                                                                         |
+| `npm run mobile:build`                   | Build APK debug (`apps/mobile`) bằng `scripts/mobile-build.mjs`, chạy được trên Windows (cmd, PowerShell) và Linux/CI; tham số thêm truyền cho Gradle (vd. `npm run mobile:build -- testDebugUnitTest`) |
+| `npm run build`                          | Build tất cả (shared-types trước)                                                                                                                                                                       |
+| `npm run types:generate` / `types:check` | Sinh / kiểm tra kiểu từ `schema.prisma` ([docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md))                                                                                                        |
+| `npm run infra:up` / `infra:down`        | Bật postgres, redis, minio, minio-init, mailpit (không tạo lại container cũ) / dừng                                                                                                                     |
+| `npm run docker:up` / `docker:down`      | Bật tất cả (kể cả API trong Docker) / tắt compose                                                                                                                                                       |
+| `npm run db:up`                          | Bí danh của `infra:up` (bật postgres, redis, minio, minio-init, mailpit)                                                                                                                                |
+| `npm run db:status` / `db:deploy`        | Trạng thái / áp migration                                                                                                                                                                               |
+| `npm run db:seed`                        | Seed dữ liệu (idempotent)                                                                                                                                                                               |
+| `npm run db:studio`                      | Prisma Studio                                                                                                                                                                                           |
+| `npm run db:reset`                       | **Xóa sạch** DB, dựng lại và seed lại (chỉ dev)                                                                                                                                                         |
 
 Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 

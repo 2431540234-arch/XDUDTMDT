@@ -321,4 +321,4 @@ Ghi chú:
 
 - Giỏ hàng: `carts.user_id` UNIQUE, tạo bằng `upsert` theo `userId` khi cần; không có giỏ cho khách.
 - Ghi `activity_logs` cho mọi thao tác admin; `actorId` phải là admin (CSDL không kiểm tra, Service bảo đảm).
-- Kiểm tra `status = 'active'` và `deletedAt = null` của user ở guard/strategy mỗi lần xác thực token (tài khoản bị cấm không dùng được token còn hạn).
+- Kiểm tra `status = 'active'` và `deletedAt = null` của user ở guard mỗi lần xác thực token (tài khoản bị cấm không dùng được token còn hạn).

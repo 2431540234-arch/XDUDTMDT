@@ -16,9 +16,9 @@ Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO
 | Mobile (`apps/mobile`) | Android (minSdk 26), Kotlin 2.2.10, Jetpack Compose (BOM 2026.02.01), CameraX 1.5.3, Hilt 2.59.2, Retrofit 2.11, Coil 2.6; AGP 9.2.1. Phạm vi tối thiểu (UC-MOB): xem danh mục và sản phẩm, camera overlay, chụp ảnh ghép lưu vào máy; làm sau M07 |
 | Backend (`apps/api`) | NestJS 10.4, TypeScript, JWT (`@nestjs/jwt`, guard toàn cục; không dùng Passport), class-validator, Zod (kiểm tra biến môi trường), Swagger, Helmet, `@nestjs/throttler`, `@nestjs/schedule`; kiểm thử Jest + Supertest |
 | ORM / CSDL | Prisma 5.22, PostgreSQL 16 (44 bảng, 36 trigger, extension citext, pg_trgm, unaccent, pgcrypto) |
-| Hàng đợi / cache | Redis 7. BullMQ 5 với 4 queue: `model-processing` (kiểm tra GLB, sinh LOD), `image-processing` (webp, thumbnail), `mail` (gửi email), `notification` (khung). Redis còn lưu bộ đếm giới hạn tốc độ (nhóm `default` và `auth`) và cache (`CacheService`). **Redis KHÔNG lưu phiên đăng nhập hay OTP**: phiên và đặt lại mật khẩu nằm ở PostgreSQL. Worker chạy cùng tiến trình API |
+| Hàng đợi / cache | Redis 7. BullMQ 5 với 4 queue: `model-processing` (kiểm tra GLB, sinh LOD), `image-processing` (webp, thumbnail), `mail` (gửi email), `notification` (việc nền chậm đi kèm thông báo; bản ghi `notifications` do Service tạo trực tiếp). Redis còn lưu bộ đếm giới hạn tốc độ (nhóm `default` và `auth`) và cache (`CacheService`). **Redis KHÔNG lưu phiên đăng nhập hay OTP**: phiên và đặt lại mật khẩu nằm ở PostgreSQL. Worker chạy cùng tiến trình API |
 | Lưu trữ tệp | `StorageService` với driver `minio` (dev, MinIO), `s3` (production, chỉ đổi biến môi trường) và `local`: bucket public (ảnh, panorama, mô hình đã xử lý) và private (tệp gốc, ảnh AR chưa công khai). Ảnh ≤ 5 MB qua API; mô hình 3D và panorama tải bằng presigned PUT |
-| Tích hợp ngoài | Cổng thanh toán VNPay (sandbox; MoMo, ZaloPay là phương án mở rộng); vận chuyển GHN, GHTK, Viettel Post (hiện admin nhập tay); SMTP gửi email (Mailpit khi dev, qua hàng đợi `mail`) |
+| Tích hợp ngoài | Cổng thanh toán VNPay (sandbox) và COD; MoMo, ZaloPay, thẻ quốc tế là hạn chế / hướng phát triển (D-N20); vận chuyển GHN, GHTK, Viettel Post (hiện admin nhập tay); SMTP gửi email (Mailpit khi dev, qua hàng đợi `mail`) |
 | Hạ tầng dev | Docker Compose: postgres, redis, minio (+ minio-init), mailpit, api; profile `test`: postgres-test. CI: GitHub Actions (lint, typecheck, test, build; workflow Android riêng) |
 
 ### 1.2. Kiến trúc
@@ -32,40 +32,57 @@ flowchart LR
         APP["apps/mobile (Kotlin)<br>Compose, CameraX, Retrofit"]
     end
     subgraph API["apps/api (NestJS)"]
-        GUARD["Guards, Pipes, Filters, Interceptors"]
+        GUARD["Guards (Throttler, JwtAuth, Roles), Pipes, Filters, Interceptors"]
         CTRL["Controllers"]
         SVC["Services (nghiệp vụ, prisma.$transaction)"]
+        CACHE["CacheService"]
+        MAILSVC["MailService (queue hoặc direct)"]
         PRISMA["PrismaService"]
-        JOBS["modules/jobs (BullMQ: model-processing, image-processing)"]
+        WORKER["Worker BullMQ (cùng tiến trình API)<br>processor: model, image, mail, notification"]
     end
     subgraph DATA["Dữ liệu"]
         PG[("PostgreSQL 16<br>44 bảng, 36 trigger")]
-        RD[("Redis")]
-        S3[("MinIO<br>bucket public và private")]
+        subgraph REDIS["Redis 7"]
+            RC[("Cache")]
+            RL[("Bộ đếm giới hạn tốc độ")]
+            subgraph QUEUES["Trạng thái hàng đợi"]
+                Q1["model-processing"]
+                Q2["image-processing"]
+                Q3["mail"]
+                Q4["notification"]
+            end
+        end
+        S3[("MinIO / S3<br>bucket public và private")]
     end
     subgraph EXT["Hệ thống ngoài"]
-        GW["Cổng thanh toán"]
+        GW["Cổng thanh toán (VNPay sandbox)"]
         SH["Đơn vị vận chuyển"]
-        SMTP["Dịch vụ email"]
+        SMTP["Máy chủ SMTP (Mailpit khi dev)"]
     end
     WEB -- "HTTPS /api" --> GUARD --> CTRL --> SVC --> PRISMA --> PG
     APP -- "HTTPS /api (đọc danh mục, sản phẩm)" --> GUARD
     APP -. "tải ảnh overlay" .-> S3
-    SVC -- "đưa job" --> RD
-    RD --> JOBS
-    JOBS --> S3
-    JOBS --> PRISMA
+    GUARD -- "đếm yêu cầu" --> RL
+    SVC --> CACHE --> RC
+    SVC -- "đưa job media" --> Q1
+    SVC -- "đưa job media" --> Q2
+    SVC --> MAILSVC -- "đưa job email" --> Q3
+    SVC -- "việc nền chậm" --> Q4
+    Q1 --> WORKER
+    Q2 --> WORKER
+    Q3 --> WORKER
+    Q4 --> WORKER
+    WORKER --> S3
+    WORKER --> PRISMA
+    WORKER -- "gửi email" --> SMTP
     SVC --> S3
     WEB -. "PUT presigned URL (3D, panorama)" .-> S3
-    SVC --> SMTP
     WEB -. "redirect" .-> GW
     GW -- "IPN" --> CTRL
     SVC -. "nhập tay / webhook" .-> SH
 ```
 
-> Ghi chú đồng bộ 2026-10-09: sơ đồ kiến trúc phía trên (ảnh `architecture_kien-truc-he-thong`) chưa vẽ lại; hiện trạng đúng là Redis còn làm cache (`CacheService`) và giới hạn tốc độ, hàng đợi có thêm `mail` và `notification`, email đi `SVC → hàng đợi mail → JOBS → SMTP` thay vì gọi SMTP trực tiếp. Xem `docs/DOC_SYNC_REPORT.md` (việc cần vẽ lại).
-
-Phiên đăng nhập (`user_sessions`) và đặt lại mật khẩu (`password_resets`) lưu ở PostgreSQL, không ở Redis (DECISIONS D-T29). Email đi qua hàng đợi `mail` khi `MAIL_TRANSPORT=queue` (mặc định).
+Phiên đăng nhập (`user_sessions`) và đặt lại mật khẩu (`password_resets`) lưu ở PostgreSQL, không ở Redis (DECISIONS D-T29). Email đi `MailService → hàng đợi mail → worker → SMTP` khi `MAIL_TRANSPORT=queue` (mặc định). Bản ghi `notifications` do Service tạo trực tiếp trong transaction nghiệp vụ (D-T47).
 
 Quy tắc xuyên suốt: (1) trigger CSDL tự làm `updated_at`, `ratingAvg/ratingCount`, `has3dModel/hasAr`, `Space.viewCount`, `OrderStatusHistory`, gán vai trò `user`; Service không code lặp lại. (2) Việc Service tự làm (trừ/hoàn kho kèm `InventoryMovement`, `soldCount`, kiểm tra và ghi `CouponUsage`, kiểm tra "đã mua mới được đánh giá") nằm trong `prisma.$transaction`. (3) Tiền là `Prisma.Decimal`, trả ra bằng `serialize()` thành number. (4) Chỉ xóa mềm với `User`, `Product`.
 
@@ -106,7 +123,7 @@ packages/
 
 ## 2. Use case đã mô hình hóa
 
-63 use case Bắt buộc và Nên có có đủ Activity (mục 3) và Sequence (mục 4): 61 UC web/quản trị và 2 UC ứng dụng Android (UC-MOB-03, UC-MOB-04). UC-MOB-01 và UC-MOB-02 dùng lại luồng API của UC-CAT-02 và UC-CAT-04 (chỉ khác giao diện Compose) nên không vẽ lại. 15 use case Mở rộng chỉ liệt kê (mô tả ở tài liệu đặc tả). Số thứ tự `A.n` và `S.n` là mục của sơ đồ.
+65 use case Bắt buộc và Nên có có đủ Activity (mục 3) và Sequence (mục 4): 61 UC web/quản trị và 4 UC ứng dụng Android (UC-MOB-01..04). UC-MOB-01 và UC-MOB-02 có sơ đồ riêng theo luồng màn Compose → ViewModel → Repository → Retrofit → API công khai (A.64, A.65, S.64, S.65; D-P08); hai mục này được thêm sau nên đứng cuối danh sách. 15 use case Mở rộng chỉ liệt kê (mô tả ở tài liệu đặc tả). Số thứ tự `A.n` và `S.n` là mục của sơ đồ.
 
 | STT | Mã | Tên | Ưu tiên | Vai trò | Activity | Sequence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -173,6 +190,8 @@ packages/
 | 61 | UC-ADM-25 | Quản lý vận chuyển | Bắt buộc | Quản trị viên | A.61 | S.61 |
 | 62 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Nên có | Khách vãng lai (app Android) | A.62 | S.62 |
 | 63 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | Nên có | Khách vãng lai (app Android) | A.63 | S.63 |
+| 64 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Nên có | Khách vãng lai (app Android) | A.64 | S.64 |
+| 65 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Nên có | Khách vãng lai (app Android) | A.65 | S.65 |
 
 **Use case Mở rộng (chỉ liệt kê):**
 
@@ -225,7 +244,7 @@ flowchart TD
         n9{"Email chưa được dùng?"}
         n10["Trả 409 Email đã được sử dụng"]
         n11["Băm mật khẩu bằng bcrypt"]
-        n17["Gửi email xác thực qua MailService (lỗi chỉ ghi log)"]
+        n17["Đưa email xác thực vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
         n18["Ký access token (15 phút) và refresh token (7 ngày)"]
         n19["Trả 201: Token và hồ sơ người dùng"]
     end
@@ -460,7 +479,7 @@ flowchart TD
         n4{"Email đúng định dạng?"}
         n5["Trả 400 Email không hợp lệ"]
         n7["Sinh token ngẫu nhiên và băm SHA-256"]
-        n9["Gửi email chứa liên kết đặt lại qua MailService (lỗi chỉ ghi log)"]
+        n9["Đưa email liên kết đặt lại vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
         n10["Trả 200: Thông báo chung 'Nếu email tồn tại, hướng dẫn đã được gửi'"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -1395,7 +1414,8 @@ flowchart TD
         n29{"Mã giảm giá (nếu có) còn hợp lệ và giữ được lượt dùng?"}
         n30["Trả 400 Mã giảm giá không hợp lệ hoặc đã hết lượt"]
         n32["Tính discountAmount, shippingFee và total = subtotal - discount + shipping"]
-        n40["(sau commit) Tạo thông báo và gửi email xác nhận đơn"]
+        n40["Đưa email vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
+        n44["Tạo thông báo cho user (cùng transaction)"]
         n41["Trả 201: OrderResponseDto của đơn mới"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -1458,7 +1478,8 @@ flowchart TD
     n35 --> n36
     n36 --> n37
     n37 --> n38
-    n38 --> n39
+    n38 --> n44
+    n44 --> n39
     n39 --> n40
     n40 --> n41
     n41 --> n42
@@ -1545,7 +1566,7 @@ flowchart TD
         n16["Đặt biến phiên người thực hiện"]
         n19["Với mỗi phần tử: dòng hàng còn variantId"]
         n22{"Còn phần tử khác?"}
-        n27["(sau commit) Tạo thông báo cho user"]
+        n27["Tạo thông báo cho user (cùng transaction)"]
         n28["Trả 200: Đơn sau khi hủy"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -1588,9 +1609,9 @@ flowchart TD
     n22 -->|"Không"| n23
     n23 --> n24
     n24 --> n25
-    n25 --> n26
-    n26 --> n27
-    n27 --> n28
+    n25 --> n27
+    n27 --> n26
+    n26 --> n28
     n28 --> n29
     n29 --> n30
     n5 --> n30
@@ -1602,7 +1623,7 @@ flowchart TD
 
 | Mục | Nội dung |
 | --- | --- |
-| Tác nhân | Người dùng \| phụ: Cổng thanh toán (MoMo, VNPay, ZaloPay) |
+| Tác nhân | Người dùng \| phụ: Cổng thanh toán (VNPay sandbox) |
 | Ưu tiên · Nhóm | Bắt buộc · Thanh toán |
 | Tiền điều kiện | Đơn `pending`, `paymentStatus = unpaid`, phương thức online (`momo`, `vnpay`, `zalopay`, `card`). |
 | Hậu điều kiện | `Payment` có mã tham chiếu giao dịch; người dùng được chuyển sang cổng. |
@@ -1654,7 +1675,7 @@ flowchart TD
 
 | Mục | Nội dung |
 | --- | --- |
-| Tác nhân | Cổng thanh toán (MoMo, VNPay, ZaloPay) |
+| Tác nhân | Cổng thanh toán (VNPay sandbox) |
 | Ưu tiên · Nhóm | Bắt buộc · Thanh toán |
 | Tiền điều kiện | Có `Payment` pending tương ứng. |
 | Hậu điều kiện | `Payment.status` = `success` hoặc `failed`; `Order.paymentStatus` tương ứng; khi thành công và đơn đang `pending` thì đơn tự chuyển `confirmed`. |
@@ -1676,7 +1697,7 @@ flowchart TD
         n10{"Giao dịch chưa được xử lý trước đó?"}
         n11["Trả 200 Đã xử lý (idempotent)"]
         n15["Đặt ghi chú phiên (không đặt người đổi nên changedBy = NULL)"]
-        n19["(sau commit) Tạo thông báo cho user"]
+        n19["Tạo thông báo cho user (cùng transaction)"]
         n20["Trả 200: Phản hồi theo chuẩn cổng (ví dụ RspCode 00)"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -1705,9 +1726,9 @@ flowchart TD
     n14 --> n15
     n15 --> n16
     n16 --> n17
-    n17 --> n18
-    n18 --> n19
-    n19 --> n20
+    n17 --> n19
+    n19 --> n18
+    n18 --> n20
     n20 --> n21
     n5 --> n21
     n8 --> n21
@@ -1988,6 +2009,7 @@ flowchart TD
     subgraph LANE_S["Hệ thống (API)"]
         n3{"[Web] Đã đăng nhập?"}
         n4["[Web] Yêu cầu đăng nhập để lưu ảnh, chưa gọi API"]
+        n20["Mô hình đang xem là LOD ≤ 5 MB (NFR02, đã bảo đảm bởi job model-processing)"]
         n5["Gửi POST /api/ar-snapshots"]
         n6{"Đã đăng nhập?"}
         n7["Trả 401/403: chưa đăng nhập hoặc không đủ quyền"]
@@ -2007,7 +2029,8 @@ flowchart TD
         n10["Lưu ảnh lên MinIO/S3"]
     end
     n1 --> n2
-    n2 --> n3
+    n2 --> n20
+    n20 --> n3
     n3 -->|"Không"| n4
     n3 -->|"Có"| n5
     n5 --> n6
@@ -2956,6 +2979,8 @@ flowchart TD
     end
     subgraph LANE_X["MinIO / Redis / Worker"]
         n15["Kiểm tra GLB, đo đa giác và texture, sinh LOD high, medium, low"]
+        n15b{"Mỗi LOD dùng cho web ≤ MODEL_SERVE_MAX_MB (5 MB, NFR02)?"}
+        n15c["Tạo thông báo cho admin: LOD vượt giới hạn"]
         n16["Tải các LOD lên bucket public, tạo media và model_files"]
         n17{"Xử lý thành công?"}
         n19["Mô hình ready; trigger DB cập nhật has3dModel, hasAr"]
@@ -2979,7 +3004,10 @@ flowchart TD
     n18 --> n21
     n21 --> n22
     n22 --> n15
-    n15 --> n16
+    n15 --> n15b
+    n15b -->|"Có"| n16
+    n15b -->|"Không"| n15c
+    n15c --> n20
     n16 --> n17
     n17 -->|"Có"| n19
     n17 -->|"Không"| n20
@@ -3140,7 +3168,7 @@ flowchart TD
         n7["Trả 400 Trạng thái không hợp lệ"]
         n9{"Đánh giá tồn tại?"}
         n10["Trả 404 Không tìm thấy đánh giá"]
-        n14["(sau commit) Thông báo cho người viết"]
+        n14["Tạo thông báo cho người viết (Service tạo trực tiếp)"]
         n15["Trả 200: Đánh giá sau khi duyệt"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -3300,7 +3328,8 @@ flowchart TD
         n17{"Sang shipping thì đã có vận đơn?"}
         n18["Trả 400 Chưa có vận đơn"]
         n19["Đặt người thực hiện và ghi chú cho trigger"]
-        n23["(sau commit) Tạo thông báo và gửi email cho user"]
+        n23["Đưa email vào hàng đợi mail (worker gửi SMTP sau, lỗi chỉ ghi log)"]
+        n27["Tạo thông báo cho user (cùng transaction)"]
         n24["Trả 200: Đơn kèm lịch sử trạng thái"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -3335,7 +3364,8 @@ flowchart TD
     n17 -->|"Có"| n19
     n19 --> n20
     n20 --> n21
-    n21 --> n22
+    n21 --> n27
+    n27 --> n22
     n22 --> n23
     n23 --> n24
     n24 --> n25
@@ -3374,7 +3404,7 @@ flowchart TD
         n13["Đặt người thực hiện cho trigger"]
         n16["Với mỗi phần tử: dòng hàng còn variantId"]
         n19{"Còn phần tử khác?"}
-        n25["(sau commit) Thông báo user; đơn đã thanh toán cần hoàn tiền thủ công"]
+        n25["Tạo thông báo cho user, đơn đã thanh toán cần hoàn tiền thủ công (cùng transaction)"]
         n26["Trả 200: Đơn đã hủy"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -3414,9 +3444,9 @@ flowchart TD
     n20 --> n21
     n21 --> n22
     n22 --> n23
-    n23 --> n24
-    n24 --> n25
-    n25 --> n26
+    n23 --> n25
+    n25 --> n24
+    n24 --> n26
     n26 --> n27
     n27 --> n28
     n5 --> n28
@@ -3451,7 +3481,7 @@ flowchart TD
         n11["Đặt người thực hiện cho trigger"]
         n15["Với mỗi phần tử: dòng hàng (chỉ khi chọn nhập lại kho)"]
         n17{"Còn phần tử khác?"}
-        n20["(sau commit) Thông báo cho user"]
+        n20["Tạo thông báo cho user (cùng transaction)"]
         n21["Trả 200: Đơn đã hoàn tiền"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -3483,9 +3513,9 @@ flowchart TD
     n16 --> n17
     n17 -->|"Có"| n15
     n17 -->|"Không"| n18
-    n18 --> n19
-    n19 --> n20
-    n20 --> n21
+    n18 --> n20
+    n20 --> n19
+    n19 --> n21
     n21 --> n22
     n22 --> n23
     n5 --> n23
@@ -3517,7 +3547,7 @@ flowchart TD
         n7{"Giao dịch chuyển khoản đang pending?"}
         n8["Trả 409 Giao dịch không thể xác nhận"]
         n12["Đặt người thực hiện cho trigger"]
-        n17["(sau commit) Thông báo cho user"]
+        n17["Tạo thông báo cho user (cùng transaction)"]
         n18["Trả 200: Giao dịch sau khi xác nhận"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -3544,9 +3574,9 @@ flowchart TD
     n12 --> n13
     n13 --> n14
     n14 --> n15
-    n15 --> n16
-    n16 --> n17
-    n17 --> n18
+    n15 --> n17
+    n17 --> n16
+    n16 --> n18
     n18 --> n19
     n19 --> n20
     n5 --> n20
@@ -3582,7 +3612,7 @@ flowchart TD
         n14["Đặt người thực hiện cho trigger"]
         n17["Với mỗi phần tử: dòng hàng của đơn"]
         n19{"Còn phần tử khác?"}
-        n23["(sau commit) Thông báo user đơn đã giao"]
+        n23["Tạo thông báo cho user: đơn đã giao (cùng transaction)"]
         n24["Trả 200: Vận đơn và đơn sau khi cập nhật"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
@@ -3618,9 +3648,9 @@ flowchart TD
     n19 -->|"Có"| n17
     n19 -->|"Không"| n20
     n20 --> n21
-    n21 --> n22
-    n22 --> n23
-    n23 --> n24
+    n21 --> n23
+    n23 --> n22
+    n22 --> n24
     n24 --> n25
     n25 --> n26
     n5 --> n26
@@ -3733,6 +3763,101 @@ flowchart TD
     n9 --> n15
 ```
 
+### A.64 UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android
+
+| Mục | Nội dung |
+| --- | --- |
+| Tác nhân | Khách vãng lai (app Android) |
+| Ưu tiên · Nhóm | Nên có · Ứng dụng Android |
+| Tiền điều kiện | Android 8.0 trở lên, có kết nối mạng. |
+| Hậu điều kiện | Không đổi dữ liệu; không đăng nhập, không gửi `Authorization`. |
+| Đặc tả chi tiết | [UC-MOB-01](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) |
+
+```mermaid
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Mở app, vào màn danh mục"]
+        n12["Cuộn lưới sản phẩm, đổi danh mục hoặc chọn một sản phẩm (UC-MOB-02)"]
+        n13(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (CatalogScreen, CatalogViewModel, ProductRepository)"]
+        n3["CatalogViewModel gọi getCategories và getProducts(categorySlug, page, pageSize 20)"]
+        n4["Retrofit gửi GET /api/categories và GET /api/products"]
+        n6{"Gọi API thành công?"}
+        n7["Hiện ErrorView kèm nút Thử lại, giữ danh sách đã tải"]
+        n8{"Danh mục có sản phẩm?"}
+        n9["Hiển thị trạng thái rỗng"]
+        n10["Hiển thị lưới sản phẩm (ảnh Coil, tên, giá thấp nhất)"]
+        n11{"Cuộn đến cuối và còn trang (meta.totalPages)?"}
+    end
+    subgraph LANE_X["API NestJS (công khai)"]
+        n5["Trả { success, data, meta } chỉ gồm sản phẩm published"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 -->|"Không"| n9
+    n8 -->|"Có"| n10
+    n10 --> n11
+    n11 -->|"Có"| n3
+    n11 -->|"Không"| n12
+    n12 --> n13
+    n7 --> n13
+    n9 --> n13
+```
+
+### A.65 UC-MOB-02 – Xem chi tiết sản phẩm trên app Android
+
+| Mục | Nội dung |
+| --- | --- |
+| Tác nhân | Khách vãng lai (app Android) |
+| Ưu tiên · Nhóm | Nên có · Ứng dụng Android |
+| Tiền điều kiện | Sản phẩm `published`; đã chọn sản phẩm ở UC-MOB-01. |
+| Hậu điều kiện | Không đổi dữ liệu; không ghi `ArSession`. |
+| Đặc tả chi tiết | [UC-MOB-02](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) |
+
+```mermaid
+flowchart TD
+    subgraph LANE_A["Khách vãng lai"]
+        n1(("Bắt đầu"))
+        n2["Chọn sản phẩm ở CatalogScreen"]
+        n10["Xem ảnh, mô tả, giá, biến thể; bấm 'Thử trong camera' nếu có (UC-MOB-03)"]
+        n11(("Kết thúc"))
+    end
+    subgraph LANE_S["Ứng dụng (ProductDetailScreen, ProductDetailViewModel, ProductRepository)"]
+        n3["ProductDetailViewModel gọi getProduct(slug)"]
+        n4["Retrofit gửi GET /api/products/:slug"]
+        n6{"Trả 200?"}
+        n7["404: quay lại danh sách kèm thông báo; lỗi mạng: ErrorView thử lại"]
+        n8["Hiển thị ảnh (vuốt ngang), tên, mô tả, khoảng giá, biến thể"]
+        n9{"Có overlayImageUrl?"}
+        n9a["Hiện nút 'Thử trong camera'"]
+        n9b["Ẩn nút 'Thử trong camera'"]
+    end
+    subgraph LANE_X["API NestJS (công khai)"]
+        n5["Trả sản phẩm kèm ảnh, biến thể, overlayImageUrl (nếu có)"]
+    end
+    n1 --> n2
+    n2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 -->|"Không"| n7
+    n6 -->|"Có"| n8
+    n8 --> n9
+    n9 -->|"Có"| n9a
+    n9 -->|"Không"| n9b
+    n9a --> n10
+    n9b --> n10
+    n10 --> n11
+    n7 --> n11
+```
+
 ## 4. Phần 2 – Mô hình tuần tự chức năng (Sequence Diagram)
 
 Quy ước: participant theo thứ tự **Tác nhân → Frontend (trang thật) → Guard → Controller → Service → PrismaService → PostgreSQL** (thêm hệ thống ngoài, hàng đợi/worker khi có). Thông điệp `->>` ghi endpoint, hàm kèm DTO, lệnh Prisma chính; `-->>` là trả về kèm mã HTTP. `alt` là nhánh lỗi, `loop` là lặp, `critical $transaction` là một `prisma.$transaction` (lỗi trong khối này rollback toàn bộ). `Note over PostgreSQL` là trigger CSDL tự chạy (không phải việc của Service). `-)` là gửi bất đồng bộ (hàng đợi).
@@ -3748,7 +3873,10 @@ sequenceDiagram
     participant S as AuthService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant W as MailService / SMTP (Mailpit)
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Nhập họ tên, email, số điện thoại, mật khẩu và bấm "Đăng ký"
     alt Không: Dữ liệu form hợp lệ
         FE-->>A: Hiển thị lỗi tại từng ô nhập
@@ -3779,7 +3907,11 @@ sequenceDiagram
         P-->>S: kết quả
     end
     Note over D: Trigger trg_users_assign_default_role
-    S-)W: Gửi email xác thực (MailService.sendVerification(user))
+    S->>M: Gửi email xác thực (MailService.sendVerification(user))
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S->>S: Ký access token (15 phút) và refresh token (7 ngày) - JwtService.signAsync
     S-->>C: kết quả
     C-->>FE: 201 Token và hồ sơ người dùng
@@ -3930,7 +4062,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- |
 | 1 | Giao diện | apps/web/src/services/api-client.ts | Interceptor của api-client (axios) | Trang/route; đã có (khung rỗng) |
 | 2 | Service gọi API (web) | apps/web/src/services/auth.api.ts | refresh() | đã có (khung rỗng) |
-| 3 | Guard | apps/api/src/modules/auth/strategies/refresh.strategy.ts | JwtRefreshGuard | đã có (khung rỗng) |
+| 3 | Service (kiểm tra chữ ký/thời hạn refresh token) | apps/api/src/modules/auth/auth.service.ts | JwtService.verifyAsync trong AuthService.refresh | [CẦN TẠO MỚI] (không dùng Passport strategy, D-T48) |
 | 4 | Controller | apps/api/src/modules/auth/auth.controller.ts | AuthController.refresh(dto: RefreshTokenDto)  [POST /api/auth/refresh] | đã có (khung rỗng) |
 | 5 | DTO | apps/api/src/modules/auth/dto/refresh-token.dto.ts | RefreshTokenDto | [CẦN TẠO MỚI] |
 | 6 | Service | apps/api/src/modules/auth/auth.service.ts | AuthService.refresh(refreshToken) | đã có (khung rỗng) |
@@ -3993,7 +4125,10 @@ sequenceDiagram
     participant S as AuthService
     participant P as PrismaService
     participant D as PostgreSQL
-    participant W as MailService / SMTP (Mailpit)
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Nhập email và bấm "Gửi liên kết đặt lại"
     FE->>C: POST /api/auth/forgot-password
     C->>C: ValidationPipe(ForgotPasswordDto)
@@ -4010,7 +4145,11 @@ sequenceDiagram
     P->>D: INSERT INTO password_resets
     D-->>P: kết quả
     P-->>S: kết quả
-    S-)W: Gửi email chứa liên kết đặt lại (MailService.sendPasswordReset(user, token))
+    S->>M: Gửi email chứa liên kết đặt lại (MailService.sendPasswordReset(user, token))
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S-->>C: kết quả
     C-->>FE: 200 Thông báo chung "Nếu email tồn tại, hướng dẫn đã được gửi"
     FE-->>A: Hiển thị thông báo đã gửi hướng dẫn
@@ -4937,6 +5076,10 @@ sequenceDiagram
     participant S as OrdersService
     participant P as PrismaService
     participant D as PostgreSQL
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Chọn địa chỉ, phương thức thanh toán, nhập mã giảm giá (nếu có) và bấm "Đặt hàng"
     alt Không: Đã đăng nhập và đã chọn địa chỉ
         FE-->>A: Yêu cầu đăng nhập hoặc chọn địa chỉ, chưa gọi API
@@ -5032,8 +5175,16 @@ sequenceDiagram
         P->>D: DELETE FROM cart_items
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo và gửi email xác nhận đơn - NotificationsService.create, MailService.sendOrderCreated
+    S->>M: Gửi email xác nhận đơn (MailService.sendOrderCreated)
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S-->>C: kết quả
     C-->>FE: 201 OrderResponseDto của đơn mới
     FE-->>A: COD hoặc chuyển khoản: trang "Đặt hàng thành công", online: chuyển sang bước thanh toán (UC-PAY-01)
@@ -5170,8 +5321,11 @@ sequenceDiagram
         P->>D: UPDATE payments
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Đơn sau khi hủy
     FE-->>A: Hiển thị đơn đã hủy (đơn đã thanh toán: chờ cửa hàng hoàn tiền thủ công)
@@ -5292,8 +5446,11 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
         Note over D: Trigger trg_orders_log_status_update
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>A: 200 Phản hồi theo chuẩn cổng (ví dụ RspCode 00)
 ```
@@ -5579,8 +5736,10 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     participant X as MinIO/S3
-    participant W as Hàng đợi BullMQ / Worker
+    participant Q as Redis (hàng đợi image-processing)
+    participant W as Worker BullMQ (cùng tiến trình API)
     A->>FE: Bấm nút chụp trong chế độ AR
+    Note over FE: Mô hình đang xem là LOD ≤ 5 MB (NFR02), do job model-processing bảo đảm khi xử lý (UC-ADM-13)
     alt Không: Đã đăng nhập
         FE-->>A: Yêu cầu đăng nhập để lưu ảnh, chưa gọi API
     end
@@ -5612,7 +5771,9 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
     end
-    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    S->>Q: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    Q-)W: Giao job (bất đồng bộ, thử lại 3 lần)
+    W->>X: putObject {key}.webp và {key}_thumb.webp
     S-->>C: kết quả
     C-->>FE: 201 id, imageUrl, isPublic
     FE-->>A: Hiển thị ảnh đã lưu, cho phép chia sẻ hoặc đặt công khai
@@ -6033,7 +6194,8 @@ sequenceDiagram
     participant P as PrismaService
     participant D as PostgreSQL
     participant X as MinIO/S3
-    participant W as Hàng đợi BullMQ / Worker
+    participant Q as Redis (hàng đợi image-processing)
+    participant W as Worker BullMQ (cùng tiến trình API)
     A->>FE: Chọn tệp (ảnh, GLB, USDZ, ảnh 360°) và bấm "Tải lên"
     FE->>G: POST /api/admin/media (multipart: file, altText)
     G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
@@ -6053,7 +6215,9 @@ sequenceDiagram
     P->>D: INSERT INTO media
     D-->>P: kết quả
     P-->>S: kết quả
-    S-)W: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    S->>Q: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
+    Q-)W: Giao job (bất đồng bộ, thử lại 3 lần)
+    W->>X: putObject {key}.webp và {key}_thumb.webp
     S->>P: activityLog.create({ data: { actorId: adminId, action: 'media.upload', targetType: 'media', targetId } })
     P->>D: INSERT INTO activity_logs
     D-->>P: kết quả
@@ -6653,6 +6817,12 @@ sequenceDiagram
         W->>P: product3DModel.update({ status: 'failed' })
         P->>D: UPDATE product_3d_models
     end
+    alt LOD dùng cho web vượt MODEL_SERVE_MAX_MB (5 MB, NFR02)
+        W->>P: product3DModel.update({ status: 'failed' })
+        P->>D: UPDATE product_3d_models
+        W->>P: notification.create({ data: { userId: adminId, type, title, body } })
+        P->>D: INSERT INTO notifications
+    end
     W->>X: putObject các LOD vào bucket public (models/:id/tên-lod.glb)
     critical $transaction (Prisma)
         W->>P: media.upsert({ where: { filePath }, ... })
@@ -6859,7 +7029,10 @@ sequenceDiagram
     P->>D: INSERT INTO activity_logs
     D-->>P: kết quả
     P-->>S: kết quả
-    S->>S: (sau commit) Thông báo cho người viết - NotificationsService.create
+    S->>P: notification.create({ data: { userId, type, title, body } })
+    P->>D: INSERT INTO notifications
+    D-->>P: kết quả
+    P-->>S: kết quả
     S-->>C: kết quả
     C-->>FE: 200 Đánh giá sau khi duyệt
     FE-->>A: Đánh giá rời hàng đợi chờ duyệt
@@ -6999,6 +7172,10 @@ sequenceDiagram
     participant S as OrdersService
     participant P as PrismaService
     participant D as PostgreSQL
+    participant M as MailService
+    participant Q as Hàng đợi mail (Redis)
+    participant K as Worker mail
+    participant E as SMTP (Mailpit)
     A->>FE: Bấm "Xác nhận", "Bắt đầu xử lý" hoặc "Giao hàng" và ghi chú (nếu có)
     FE->>G: PATCH /api/admin/orders/:id/status
     G->>G: xác thực JWT, kiểm tra vai trò admin và quyền
@@ -7046,8 +7223,16 @@ sequenceDiagram
         D-->>P: kết quả
         P-->>S: kết quả
         Note over D: Trigger trg_orders_log_status_update
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Tạo thông báo và gửi email cho user - NotificationsService.create, MailService.sendOrderStatus
+    S->>M: Gửi email cập nhật trạng thái đơn (MailService.sendOrderStatus)
+    M->>Q: Đưa job vào hàng đợi mail (BullMQ, thử lại 3 lần)
+    Note over S,E: Bất đồng bộ: API không chờ gửi email, lỗi chỉ ghi log
+    Q-)K: Giao job
+    K->>E: Gửi email qua SMTP (SmtpMailService)
     S-->>C: kết quả
     C-->>FE: 200 Đơn kèm lịch sử trạng thái
     FE-->>A: Hiển thị trạng thái mới trong dòng thời gian
@@ -7133,8 +7318,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo user, đơn đã thanh toán cần hoàn tiền thủ công - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Đơn đã hủy
     FE-->>A: Hiển thị đơn đã hủy (cảnh báo hoàn tiền nếu đã thanh toán)
@@ -7204,8 +7392,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Đơn đã hoàn tiền
     FE-->>A: Hiển thị trạng thái hoàn tiền
@@ -7272,8 +7463,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo cho user - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Giao dịch sau khi xác nhận
     FE-->>A: Đơn chuyển sang đã xác nhận
@@ -7351,8 +7545,11 @@ sequenceDiagram
         P->>D: INSERT INTO activity_logs
         D-->>P: kết quả
         P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
     end
-    S->>S: (sau commit) Thông báo user đơn đã giao - NotificationsService.create
     S-->>C: kết quả
     C-->>FE: 200 Vận đơn và đơn sau khi cập nhật
     FE-->>A: Đơn hiển thị trạng thái hoàn tất
@@ -7475,6 +7672,107 @@ sequenceDiagram
 | 4 | Repository | apps/mobile/app/src/main/java/com/aurelia/data/repository/GalleryRepository.kt | saveToGallery(bitmap) | [CẦN TẠO MỚI] |
 | 5 | Quyền | apps/mobile/app/src/main/AndroidManifest.xml | WRITE_EXTERNAL_STORAGE (maxSdkVersion 28) | [CẦN TẠO MỚI]; CAMERA đã có |
 | 6 | API | (không gọi API) | | Ảnh chỉ lưu cục bộ |
+
+### S.64 UC-MOB-01 – Xem danh mục và danh sách sản phẩm trên app Android
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as CatalogScreen (Compose)
+    participant VM as CatalogViewModel
+    participant R as ProductRepository
+    participant RT as Retrofit (AureliaApiService)
+    participant API as API NestJS (công khai)
+    A->>SC: Mở app (MainActivity, AureliaNavGraph)
+    SC->>VM: load()
+    VM->>R: getCategories()
+    R->>RT: getCategories()
+    RT->>API: GET /api/categories
+    API-->>RT: 200 { success, data }
+    RT-->>R: List CategoryDto
+    R-->>VM: danh mục
+    VM->>R: getProducts(categorySlug, page, pageSize = 20)
+    R->>RT: getProducts(category, page, pageSize)
+    RT->>API: GET /api/products?category=&page=&pageSize=20
+    API-->>RT: 200 { success, data, meta }
+    RT-->>R: ProductListDto
+    R-->>VM: Product (mô hình miền) và meta
+    alt Lỗi mạng hoặc 5xx
+        VM-->>SC: state Error
+        SC-->>A: ErrorView kèm nút "Thử lại"
+    end
+    VM-->>SC: state Success(categories, products)
+    SC-->>A: Hiển thị lưới sản phẩm (ảnh Coil, tên, giá thấp nhất)
+    loop Cuộn đến cuối còn trang
+        A->>SC: Cuộn xuống cuối lưới
+        SC->>VM: loadNextPage()
+        VM->>R: getProducts(categorySlug, page + 1, 20)
+        R->>RT: getProducts(...)
+        RT->>API: GET /api/products?category=&page=&pageSize=20
+        API-->>RT: 200 { success, data, meta }
+        RT-->>VM: thêm vào danh sách
+        VM-->>SC: state Success cập nhật
+    end
+    A->>SC: Chọn một sản phẩm (UC-MOB-02)
+```
+
+**Đặc tả cài đặt**
+
+| Bước | Thành phần | File | Hàm / Endpoint | Ghi chú |
+| --- | --- | --- | --- | --- |
+| 1 | Màn hình (Compose) | apps/mobile/app/src/main/java/com/aurelia/ui/catalog/CatalogScreen.kt | CatalogScreen | Khung; có `ProductListItem.kt` |
+| 2 | ViewModel | apps/mobile/app/src/main/java/com/aurelia/ui/catalog/CatalogViewModel.kt | load, loadNextPage | Khung |
+| 3 | Repository | apps/mobile/app/src/main/java/com/aurelia/data/repository/ProductRepositoryImpl.kt | getCategories, getProducts | Khung |
+| 4 | Retrofit | apps/mobile/app/src/main/java/com/aurelia/data/remote/AureliaApiService.kt | getCategories, getProducts | Khung |
+| 5 | API | apps/api/src/modules/categories, products | `GET /api/categories`, `GET /api/products` | API công khai sẵn có (UC-CAT-02), không thêm endpoint |
+
+### S.65 UC-MOB-02 – Xem chi tiết sản phẩm trên app Android
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Khách vãng lai
+    participant SC as ProductDetailScreen (Compose)
+    participant VM as ProductDetailViewModel
+    participant R as ProductRepository
+    participant RT as Retrofit (AureliaApiService)
+    participant API as API NestJS (công khai)
+    A->>SC: Chọn sản phẩm ở CatalogScreen (slug)
+    SC->>VM: load(slug)
+    VM->>R: getProduct(slug)
+    R->>RT: getProductBySlug(slug)
+    RT->>API: GET /api/products/:slug
+    alt 404 Không tìm thấy
+        API-->>RT: 404 { success: false, error }
+        RT-->>VM: lỗi NotFound
+        VM-->>SC: state NotFound
+        SC-->>A: Quay lại danh sách kèm thông báo
+    end
+    alt Lỗi mạng
+        VM-->>SC: state Error
+        SC-->>A: ErrorView kèm nút "Thử lại"
+    end
+    API-->>RT: 200 { success, data: { ..., overlayImageUrl } }
+    RT-->>R: ProductDto
+    R-->>VM: Product (mô hình miền)
+    VM-->>SC: state Success(product)
+    SC-->>A: Hiển thị ảnh (vuốt ngang), tên, mô tả, khoảng giá, biến thể
+    alt Có overlayImageUrl
+        SC-->>A: Hiện nút "Thử trong camera"
+        A->>SC: Bấm nút (UC-MOB-03)
+    end
+```
+
+**Đặc tả cài đặt**
+
+| Bước | Thành phần | File | Hàm / Endpoint | Ghi chú |
+| --- | --- | --- | --- | --- |
+| 1 | Màn hình (Compose) | apps/mobile/app/src/main/java/com/aurelia/ui/productDetail/ProductDetailScreen.kt | ProductDetailScreen(slug) | Khung |
+| 2 | ViewModel | apps/mobile/app/src/main/java/com/aurelia/ui/productDetail/ProductDetailViewModel.kt | load(slug) | Khung |
+| 3 | Repository | apps/mobile/app/src/main/java/com/aurelia/data/repository/ProductRepositoryImpl.kt | getProduct(slug) | Khung |
+| 4 | Retrofit | apps/mobile/app/src/main/java/com/aurelia/data/remote/AureliaApiService.kt | getProductBySlug | Khung |
+| 5 | API | apps/api/src/modules/products/products.controller.ts | `GET /api/products/:slug` | API công khai sẵn có (UC-CAT-04); `overlayImageUrl` khi chốt O-06 |
 
 ## 5. Phần 3 – Mô hình quan hệ dữ liệu theo hướng đối tượng (Class Diagram)
 
@@ -8981,7 +9279,7 @@ Trạng thái: **đã có** = file tồn tại trong khung nhưng chỉ có dòn
 | `CouponsService.computeDiscount(coupon, subtotal)` | apps/api/src/modules/coupons/coupons.service.ts | percent có trần `maxDiscount`; fixed không quá `subtotal` | UC-CART-04, UC-ORD-01 |
 | `CartService.buildView(cart)` | apps/api/src/modules/cart/cart.service.ts | Giá hiện hành, cờ hết hàng/ngừng bán, `subtotal` | UC-CART-02 |
 | `ProductModelsService.toPublicDto(model)` | apps/api/src/modules/product-models/product-models.service.ts | Gom tệp GLB/USDZ theo LOD và URL media | UC-3D-01, UC-3D-02 |
-| `GatewayFactory.get(method).buildPaymentUrl / verifyIpn` | apps/api/src/modules/payments/gateways/ | Adapter VNPay, MoMo, ZaloPay (chữ ký HMAC) | UC-PAY-01..03 |
+| `GatewayFactory.get(method).buildPaymentUrl / verifyIpn` | apps/api/src/modules/payments/gateways/ | Adapter VNPay (chữ ký HMAC-SHA512); MoMo, ZaloPay là hướng phát triển (D-N20) | UC-PAY-01..03 |
 | `NotificationsService.create(userId, title, data)` | apps/api/src/modules/notifications/notifications.service.ts | Tạo `Notification` | nhiều UC |
 | `MailService.send*` | apps/api/src/modules/mail/mail.service.ts | Email xác thực, đặt lại mật khẩu, đơn hàng (`MAIL_TRANSPORT=queue`: đẩy job vào hàng đợi `mail`, worker gửi SMTP; `direct`: gửi ngay) | UC-AUTH-01, 05, 07; UC-ORD-01; UC-ADM-21 |
 | `escapeLike(q)`, `slugify(name)` | apps/api/src/common/utils/ | Escape `%`, `_`; sinh slug bỏ dấu | UC-CAT-03, 06; UC-ADM-05, 09 |
@@ -8998,7 +9296,7 @@ Trạng thái: **đã có** = file tồn tại trong khung nhưng chỉ có dòn
 | ActivityLogInterceptor | `apps/api/src/common/interceptors/activity-log.interceptor.ts` | [CẦN TẠO MỚI] | ghi `ActivityLog` cho mọi thao tác ghi của admin |
 | CurrentUser decorator | `apps/api/src/common/decorators/auth.decorators.ts` | đã có | lấy `user` từ request |
 | serialize() | `apps/api/src/common/utils/serialize.ts` | đã có | Decimal → number |
-| JwtStrategy, RefreshStrategy | `apps/api/src/modules/auth/strategies/` | khung cũ, không dùng | Passport đã gỡ (D-T35); `JwtAuthGuard` xác minh trực tiếp bằng `JwtService`; M02 quyết định giữ hay xóa hai file khung |
+| (đã xóa) hai file khung strategy của `auth` | `apps/api/src/modules/auth/strategies/` | đã xóa (D-T48) | Passport đã gỡ (D-T35); `JwtAuthGuard` xác minh trực tiếp bằng `JwtService` |
 | MailModule/MailService | `apps/api/src/mail/` | đã có | `MAIL_SERVICE` (queue hoặc direct theo `MAIL_TRANSPORT`), `SmtpMailService`, `MailQueueService`; processor `mail` gửi SMTP; chưa module nghiệp vụ nào gọi |
 | Jobs | `apps/api/src/modules/jobs/` (queue `model-processing`, `image-processing`, `mail`, `notification`; processor mỏng gọi `ModelProcessingService`, `ImageProcessingService`, `SmtpMailService`) | đã có | worker chạy cùng tiến trình API, tách `apps/worker` sau này không sửa logic; Bull Board `/admin/queues` |
 | Cache Redis | `apps/api/src/cache/` | đã có | `CacheService` (`get`, `set` TTL, `del`, `delByPrefix`, `getOrSet`), tắt bằng `CACHE_ENABLED`; chưa module nào gọi |
@@ -9058,10 +9356,10 @@ Use case: UC-CART-01..04, UC-ACC-06, UC-ADM-19
 Use case: UC-ORD-01..03, UC-PAY-01..03, UC-ADM-20..25
 
 - [ ] Module `orders`, `payments`, `shipments`
-- [ ] Thông báo trạng thái đơn: đẩy job vào queue `notification` (đã có khung processor chỉ ghi log) và tạo bản ghi `notifications`
+- [ ] Thông báo trạng thái đơn: Service tạo bản ghi `notifications` trực tiếp trong cùng transaction nghiệp vụ (D-N19, D-T47); queue `notification` (khung processor chỉ ghi log) chỉ dành cho việc nền chậm như email thông báo
 - [ ] `OrdersService.create` (transaction: trừ kho + `InventoryMovement`, giữ lượt coupon + `CouponUsage`, tạo `Order`/`OrderItem`/`Payment`)
 - [ ] `cancel`, `cancelByAdmin`, `updateStatus`, `completeOrder` (dùng chung với `ShipmentsService`), `refund`
-- [ ] Adapter cổng VNPay, MoMo, ZaloPay (`GatewayFactory`): tạo URL ký, xác thực IPN, idempotent
+- [ ] Adapter cổng VNPay sandbox (`GatewayFactory`, có thể thêm cổng khác sau): tạo URL ký, xác thực IPN, idempotent; COD không qua cổng. MoMo, ZaloPay, thẻ quốc tế là hạn chế của đồ án (D-N20, mục 10)
 - [ ] Biến phiên `app.current_user_id`, `app.status_note` qua `set_config(..., true)` TRONG transaction
 
 ### Giai đoạn 5 – Đánh giá
@@ -9105,6 +9403,14 @@ Use case: UC-MOB-01..04. Phụ thuộc: API công khai danh mục, sản phẩm 
 - [ ] Ghép ảnh `BitmapUtils.compose`, `GalleryRepository` (MediaStore) (UC-MOB-04)
 - [ ] Test ViewModel và giao diện cơ bản
 
+### Giai đoạn Triển khai – Sao lưu và vận hành (NFR11, D-T51)
+
+Làm ở giai đoạn triển khai, chưa làm khi phát triển.
+
+- [ ] Sao lưu PostgreSQL hằng ngày: lịch (cron hoặc job lên lịch) chạy `pg_dump` ra tệp có dấu thời gian, giữ N bản gần nhất, thử khôi phục định kỳ
+- [ ] Sao lưu bucket (`aurelia-public`, `aurelia-private`): sao chép/đồng bộ sang bucket hoặc nơi lưu khác theo lịch hằng ngày
+- [ ] Theo dõi `/health` và Bull Board để đạt mục tiêu hoạt động ≥ 99%
+
 ## 9. Giả định và điểm cần xác nhận
 
 Các quyết định nghiệp vụ đã chốt (mục 12.1) và điểm còn mở (mục 12.2) nằm trong [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md). Các giả định riêng của báo cáo này:
@@ -9124,3 +9430,10 @@ Các quyết định nghiệp vụ đã chốt (mục 12.1) và điểm còn m�
 | 11 | Nơi lưu ảnh overlay PNG của sản phẩm cho app Android chưa có trong CSDL | A.62 gọi chung là `overlayImageUrl` trong `GET /api/products/:slug` | Chủ dự án chọn phương án (DECISIONS O-06) |
 | 12 | App Android chỉ dùng API công khai, không đăng nhập, không ghi `ArSession`; ảnh chụp lưu cục bộ | A.62, A.63 | Đồng ý? |
 | 13 | Redis không lưu phiên đăng nhập, đặt lại mật khẩu hay OTP; các dữ liệu này nằm ở PostgreSQL | Sequence UC-AUTH-02..06 dùng `PrismaService` cho `UserSession`, `PasswordReset` | Đã chốt (D-T29) |
+
+## 10. Hạn chế và hướng phát triển
+
+- **Thanh toán (FR11, D-N20):** đồ án chỉ tích hợp COD và VNPay sandbox. Ví điện tử MoMo, ZaloPay và thẻ quốc tế nằm ngoài phạm vi; khi cần, thêm adapter vào `GatewayFactory` mà không đổi luồng đơn hàng.
+- **Kích thước mô hình web (NFR02, D-N21):** biến `MODEL_SERVE_MAX_MB` đã có, logic kiểm tra ≤ 5 MB cho tệp LOD sẽ làm ở M12.
+- **Sao lưu (NFR11, D-T51):** chỉ lập kế hoạch, thực hiện khi triển khai (mục 8, giai đoạn Triển khai).
+- **Ứng dụng Android:** phạm vi tối thiểu (UC-MOB-01..04), không đăng nhập, ảnh chụp lưu cục bộ.

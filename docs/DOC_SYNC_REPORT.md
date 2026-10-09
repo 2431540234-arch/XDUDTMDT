@@ -33,7 +33,7 @@ Loại: **A** tài liệu sống (sửa trực tiếp), **B** báo cáo chụp t
 ## 2. Mâu thuẫn còn lại giữa code và DECISIONS.md (không sửa code, chờ chủ dự án)
 
 1. **Thông báo trong ứng dụng:** D-N19 ghi "Service tạo `Notification`, không dùng trigger"; D-T31 và D-T42 có queue `notification`. Hai điều không mâu thuẫn nếu Service đẩy job và processor ghi bản ghi, nhưng hiện processor chỉ ghi log. Cần chốt ở M09: bản ghi `notifications` do Service tạo trực tiếp hay do processor tạo.
-2. **Khung Passport còn trong cây thư mục:** D-T35 đã gỡ Passport, nhưng `apps/api/src/modules/auth/strategies/jwt.strategy.ts` và `refresh.strategy.ts` (khung rỗng) vẫn còn, `JwtAuthGuard` dùng `JwtService`. Cần quyết định xóa hai file hay giữ; BAO_CAO mục 7 đã ghi "khung cũ, không dùng".
+2. **Khung Passport còn trong cây thư mục:** D-T35 đã gỡ Passport, nhưng hai file khung strategy trong `apps/api/src/modules/auth/strategies/` (rỗng) vẫn còn, `JwtAuthGuard` dùng `JwtService`. **Đã xử lý ở Lượt 2 (D-T48): xóa hai file.**
 3. **Script `mobile:build` trong `package.json` gốc** dùng `./gradlew`; trên Windows `cmd` có thể không chạy được (cần `gradlew.bat`). README đã ghi cách chạy; có nên sửa script là quyết định về code.
 4. **TypeScript:** `package.json` khai báo `^5.4.0`; thực cài 5.7.2 (lockfile). Các tài liệu cũ ghi 5.9.3 đã được sửa theo thực tế; không có quyết định nào ghi phiên bản này.
 5. **Chưa có mâu thuẫn trực tiếp khác:** đã đối chiếu D-T14, D-T16, D-T17, D-T22 đến D-T24, D-T37 đến D-T45 với code; khớp.
@@ -56,7 +56,7 @@ Loại: **A** tài liệu sống (sửa trực tiếp), **B** báo cáo chụp t
 | `sequence_UC-AUTH-01`, `sequence_UC-AUTH-05`, `sequence_UC-ORD-01`, `sequence_UC-ADM-21` | Participant "MailService / SMTP (Mailpit)": nên thêm bước đẩy job vào hàng đợi `mail` và worker gửi SMTP |
 | `activity_UC-AUTH-01`, `activity_UC-AUTH-05` | Nút "Gửi email... qua MailService": nên nêu hàng đợi `mail` |
 | `activity_UC-ADM-04`, `sequence_UC-ADM-04`, `activity_UC-3D-04`, `sequence_UC-3D-04` | Còn nhắc job nền; kiểm tra khớp queue `image-processing` |
-| UC-MOB-01, UC-MOB-02 | Chưa có activity và sequence riêng (quyết định "dùng lại luồng UC-CAT-02, UC-CAT-04"); cần chủ dự án xác nhận có vẽ riêng không |
+| UC-MOB-01, UC-MOB-02 | Từng chưa có activity và sequence riêng (chỉ ghi chú dùng chung API với UC-CAT-02, UC-CAT-04). **Đã vẽ ở Lượt 2 (D-P08)** |
 | `docs/diagrams/khach-hang/hinh1..3` | Mới có 45 UC; 4 UC-MOB chưa nằm trong 3 hình khách hàng (đã có trong `usecase_khach-vang-lai`) |
 
 Không có sơ đồ nào vẽ Redis lưu OTP hoặc phiên đăng nhập (đã kiểm tra `docs/diagrams/src`: Redis chỉ xuất hiện ở sơ đồ kiến trúc và UC-ADM-13 với vai trò hàng đợi).
@@ -89,4 +89,51 @@ Các lần quét toàn văn trên `docs/` và `README.md` (bỏ qua ba báo cáo
 | Mã quyết định tham chiếu | 84 mã định nghĩa trong DECISIONS; 23 mã được tham chiếu từ các tài liệu khác; 0 mã thiếu định nghĩa |
 | Biến môi trường | Mọi biến trong `.env.example` và `env.validation.ts` đều có trong `ENVIRONMENT.md` (0 thiếu) |
 | Link nội bộ giữa file `.md` | 0 link gãy sau khi tạo file này (kiểm tra bằng script) |
-| Sơ đồ so với tài liệu | `scripts/extract-diagrams.py`: 148/148 khớp |
+| Sơ đồ so với tài liệu | `scripts/extract-diagrams.py`: 148/148 khớp (Lượt 1); sau Lượt 2: 152/152 |
+
+## 6. Lượt 2 (2026-10-09): thực hiện 7 quyết định của chủ dự án
+
+### 6.1. Quyết định đã ghi vào DECISIONS.md
+
+| Quyết định | Mã mới | Tham chiếu mã cũ |
+| --- | --- | --- |
+| 1. Thông báo: Service tạo `notifications` trong cùng transaction; queue `notification` chỉ cho việc nền chậm | D-T47 | D-N19; sửa D-T31, D-T42 |
+| 2. Xóa hai file khung Passport strategy của `auth` | D-T48 | D-T35 |
+| 3. `mobile:build` chạy bằng script Node | D-T49 | D-T37 |
+| 4. TypeScript `~5.7.2` | D-T50 | D-T37 |
+| 5. Thanh toán chỉ COD + VNPay sandbox; MoMo, ZaloPay, thẻ quốc tế là hạn chế | D-N20 | FR11 |
+| 6. NFR02: LOD web ≤ 5 MB, ngưỡng `MODEL_SERVE_MAX_MB` | D-N21 | D-T21, NFR02 |
+| 7. NFR11: sao lưu `pg_dump` hằng ngày + sao lưu bucket (giai đoạn triển khai) | D-T51 | D-T29, NFR11 |
+| (bổ sung) UC-MOB-01, UC-MOB-02 có sơ đồ riêng | D-P08 | D-P07 |
+
+### 6.2. File đã sửa
+
+- Mã và cấu hình: xóa hai file khung strategy của `auth`; `scripts/mobile-build.mjs` (mới) và script `mobile:build` ở `package.json` gốc; `typescript` `~5.7.2` ở `package.json` gốc, `apps/api`, `apps/web` và `package-lock.json`; `MODEL_SERVE_MAX_MB` trong `env.validation.ts` (+ test), `.env.example`; chỉ sửa comment ở `notification.processor.ts`.
+- Tài liệu: `DECISIONS.md`, `README.md`, `ENVIRONMENT.md`, `CONG_NGHE.md`, `API_CONVENTIONS.md`, `QUY_UOC_CODE_DB.md`, `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md` (tiêu chí nghiệm thu NFR02 ở UC-ADM-13, mục 11.1 giới hạn thanh toán, UC-MOB-01/02), `BAO_CAO_PHAN_TICH_THIET_KE.md` (mục 10 Hạn chế và hướng phát triển, giai đoạn Triển khai cho sao lưu, A.64/A.65/S.64/S.65), `TIEN_DO.md` (qua script sinh), `TONG_HOP_USE_CASE_KHACH_HANG.md`, `diagrams/README.md`, `diagrams/manifest.json`.
+
+### 6.3. Sơ đồ
+
+- Vẽ lại (32 sơ đồ Mermaid, PNG ×2, SVG cho sơ đồ lớn): kiến trúc hệ thống; S.1, S.5, A.1, A.5 (email qua hàng đợi `mail`); UC-ORD-01 và UC-ADM-21 (thông báo trong transaction, email qua hàng đợi `mail`, activity và sequence); thông báo trong transaction ở UC-ORD-03, UC-PAY-02, UC-ADM-18, UC-ADM-22..25; UC-ADM-04, UC-3D-04 (hàng đợi `image-processing`, worker); UC-ADM-13 (bước kiểm tra LOD ≤ 5 MB, NFR02); UC-3D-04 (ghi chú/bước LOD ≤ 5 MB).
+- Mới: activity và sequence UC-MOB-01, UC-MOB-02 (4 sơ đồ); `khach-hang/hinh4_ung-dung-android` (png, svg); sửa ghi chú thanh toán ở `khach-hang/hinh2`.
+- Số sơ đồ: 148 → 152. `extract-diagrams.py`: 152/152 khớp.
+
+### 6.4. Kết quả kiểm tra
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| `npm run lint`, `format:check`, `typecheck`, `build` | Đạt (đã chạy `prettier --write README.md` cho README) |
+| `npm test` | API 29/29, web 3/3 |
+| `npm run test:e2e:api` | 23/23 (hạ tầng Docker đang chạy) |
+| `npm run mobile:build` trên Windows PowerShell | BUILD SUCCESSFUL (không cần `JAVA_HOME`) |
+| Tìm toàn văn tên hai file strategy và cụm "dùng lại luồng" cho UC-CAT | Không còn kết quả nào (đã diễn đạt lại ở D-T48, D-P08, BAO_CAO mục 7 và báo cáo này) |
+| Phông tiếng Việt trong ảnh | Đã xem kiến trúc, UC-ORD-01, UC-MOB-01, Hình 2, Hình 4: dấu đầy đủ |
+
+### 6.5. Điểm chưa rõ và việc còn lại
+
+1. **UC-3D-04 và NFR02:** NFR02 (≤ 5 MB) áp dụng cho LOD mô hình, còn UC-3D-04 là chụp ảnh AR (giới hạn ảnh 10 MB). Đã đặt bước kiểm tra thật sự ở UC-ADM-13 (job `model-processing`) và chỉ thêm ghi chú tiền điều kiện ở UC-3D-04; cần xác nhận cách hiểu.
+2. **UC-ADM-18 không có transaction** trong sơ đồ gốc: thông báo được vẽ là Service tạo trực tiếp, chưa gộp transaction; xem có cần bọc `$transaction` khi cài M09/M10.
+3. Thông báo "admin biết LOD vượt ngưỡng" (UC-ADM-13) vẽ là worker tạo `notifications`; chưa rõ gửi cho một admin hay mọi admin.
+4. D-T47 chưa có mã M09; TIEN_DO vẫn ghi `notification` đợt M09. Sơ đồ kiến trúc layout dagre có nhiều đường chéo, nếu cần bản đẹp hơn cho báo cáo Word nên vẽ lại tay.
+5. Chuyển khoản vẫn là phương thức trong UC-ORD-01 (quyết định chỉ nêu COD + VNPay); cần xác nhận có giữ chuyển khoản (UC-ADM-24) hay không.
+6. Chưa chạy lại `test:e2e:web` (Playwright) trong lượt này.
+

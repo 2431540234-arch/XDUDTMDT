@@ -27,6 +27,10 @@ Ký hiệu trong sơ đồ: ellipse = use case; ô có dòng **extension points*
 
 ![Hình 3](diagrams/khach-hang/hinh3_tai-khoan-tuong-tac.png)
 
+### Hình 4. Ứng dụng Android (4 use case của Khách vãng lai dùng app)
+
+![Hình 4](diagrams/khach-hang/hinh4_ung-dung-android.png)
+
 File ảnh PNG và SVG (phóng to không vỡ) nằm trong `docs/diagrams/khach-hang/`.
 
 ## 3. Danh sách đầy đủ 49 use case
@@ -79,12 +83,12 @@ File ảnh PNG và SVG (phóng to không vỡ) nằm trong `docs/diagrams/khach-
 | 44 | UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | Khách thành viên | NC | 3 | Ellipse "Quản lý ảnh AR của tôi" |
 | 45 | UC-SPACE-04 | Lưu / bỏ lưu không gian mẫu yêu thích | Khách thành viên | NC | 3 | Ellipse "Lưu / bỏ lưu không gian mẫu" |
 
-| 46 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Khách vãng lai (app) | NC | — | Chưa vẽ (dùng lại luồng UC-CAT-02) |
-| 47 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Khách vãng lai (app) | NC | — | Chưa vẽ (dùng lại luồng UC-CAT-04) |
-| 48 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Khách vãng lai (app) | NC | — | Chưa vẽ trong 3 hình này; có activity/sequence A.62, S.62 |
-| 49 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | Khách vãng lai (app) | NC | — | Chưa vẽ trong 3 hình này; có activity/sequence A.63, S.63 |
+| 46 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Khách vãng lai (app) | NC | 4 | Hình 4; activity/sequence A.64, S.64 |
+| 47 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Khách vãng lai (app) | NC | 4 | Hình 4; activity/sequence A.65, S.65 |
+| 48 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Khách vãng lai (app) | NC | 4 | Hình 4; activity/sequence A.62, S.62 |
+| 49 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | Khách vãng lai (app) | NC | 4 | Hình 4; activity/sequence A.63, S.63 |
 
-Thống kê: 49 use case (Bắt buộc 17, Nên có 25, Mở rộng 7), gồm 21 ở Hình 1, 11 ở Hình 2, 13 ở Hình 3 và 4 use case UC-MOB của ứng dụng Android (chưa có hình riêng; sơ đồ use case của nhóm này nằm ở mục 5.2 của `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`). Hai use case ghi nhận thống kê (UC-3D-07, UC-SPACE-06) do hệ thống tự thực hiện khi khách xem.
+Thống kê: 49 use case (Bắt buộc 17, Nên có 25, Mở rộng 7), gồm 21 ở Hình 1, 11 ở Hình 2, 13 ở Hình 3 và 4 use case UC-MOB của ứng dụng Android ở Hình 4. Hai use case ghi nhận thống kê (UC-3D-07, UC-SPACE-06) do hệ thống tự thực hiện khi khách xem.
 
 ## 4. Quy tắc nghiệp vụ chính thể hiện trong sơ đồ
 

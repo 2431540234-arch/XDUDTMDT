@@ -25,7 +25,7 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 | M09 | Đơn hàng | 6 | 10 | 3 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M10 | Thanh toán và vận chuyển | 6 | 7 | 2 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M11 | Đánh giá sản phẩm | 4 | 4 | 1 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
-| M12 | Mô hình 3D và AR | 10 | 14 | 5 | Đang làm | Chưa làm | e2e (`storage-jobs.e2e-spec.ts`): GLB hợp lệ, GLB hỏng, USDZ | Xong: presign/confirm tệp mô hình, job `model-processing` (kiểm tra GLB, LOD, checksum, USDZ). Chưa: CRUD mô hình, mô hình chính, biến thể chất liệu, xem 3D/AR, ảnh AR, thống kê phiên. |
+| M12 | Mô hình 3D và AR | 10 | 14 | 5 | Đang làm | Chưa làm | e2e (`storage-jobs.e2e-spec.ts`): GLB hợp lệ, GLB hỏng, USDZ | Xong: presign/confirm tệp mô hình, job `model-processing` (kiểm tra GLB, LOD, checksum, USDZ). Chưa: kiểm tra LOD ≤ `MODEL_SERVE_MAX_MB` (NFR02, D-N21), CRUD mô hình, mô hình chính, biến thể chất liệu, xem 3D/AR, ảnh AR, thống kê phiên. |
 | M13 | Không gian mẫu 360° | 9 | 16 | 6 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M14 | Thông báo và thống kê quản trị | 3 | 4 | 1 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M15 | Ứng dụng Android (Mobile) | 4 | 0 | 0 | Chưa làm | Chưa làm | Chưa có | Môi trường xong: `./gradlew assembleDebug` thành công (Hilt 2.59.2, CameraX 1.5.3, navigation, DataStore, `BuildConfig.API_BASE_URL`, HTTP chỉ ở bản debug); `MainActivity` chỉ hiện tên ứng dụng, 39 file Kotlin còn lại là khung rỗng; chưa xác nhận chạy trên máy ảo. Làm SAU M07 (và M12 nếu kịp). Không thêm API: dùng API công khai của M06/M07. Chờ chọn nơi lưu ảnh overlay (O-06). |
@@ -96,7 +96,7 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 | UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | M12 | Chưa làm |  |
 | UC-3D-06 | Xem ảnh AR công khai "Khách hàng đã trải nghiệm" | M12 | Chưa làm |  |
 | UC-3D-07 | Ghi nhận thống kê phiên 3D/AR (ẩn danh) | M12 | Chưa làm |  |
-| UC-ADM-13 | Tải và quản lý mô hình 3D sản phẩm | M12 | Đang làm | BE: `presign`, `confirm`, job `model-processing`; còn tạo mô hình, mô hình chính, reprocess |
+| UC-ADM-13 | Tải và quản lý mô hình 3D sản phẩm | M12 | Đang làm | BE: `presign`, `confirm`, job `model-processing`; còn tạo mô hình, mô hình chính, reprocess. Tiêu chí nghiệm thu NFR02 (D-N21): job `model-processing` bảo đảm tệp LOD dùng cho web ≤ 5 MB (`MODEL_SERVE_MAX_MB`), vượt thì `failed` và báo admin; biến đã có, logic chưa làm |
 | UC-ADM-14 | Cấu hình biến thể chất liệu cho mô hình 3D | M12 | Chưa làm |  |
 | UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | M12 | Chưa làm |  |
 | UC-ADM-15 | Quản lý không gian mẫu và ảnh 360° | M13 | Chưa làm |  |
@@ -125,6 +125,7 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 3. M08, M12 (phần còn lại), M09, M13, M10, M11, M14.
 3b. **M15 Mobile (phương án B) sau M07** (và M12 nếu kịp); chọn nơi lưu ảnh overlay (O-06) trước khi làm UC-MOB-02/03.
 4. Wireframe và dựng khung giao diện web song song với bước 1-2.
+5. **Giai đoạn triển khai (NFR11, D-T51):** sao lưu PostgreSQL hằng ngày bằng `pg_dump` theo lịch và sao lưu bucket (public, private); chưa làm ở giai đoạn phát triển.
 
 ## 5. Môi trường phát triển (cấu hình xong ngày 2026-10-09)
 

@@ -37,7 +37,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 | Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `Role`) | CHỈ xem (trên web hoặc app Android UC-MOB): trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/AR, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt, ảnh AR công khai. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá, lưu không gian đều yêu cầu đăng nhập. Lượt xem được ghi ẩn danh (`ArSession`, `SpaceView` với `visitorId`) |
 | Người dùng (user) | `User (users)` + `Role (roles)` = `user` | Mọi quyền của khách + hồ sơ, đổi mật khẩu, quản lý phiên đăng nhập, sổ địa chỉ, giỏ hàng, áp mã, đặt hàng, thanh toán, theo dõi/hủy đơn, đánh giá sản phẩm đã mua, yêu thích, chụp/công khai ảnh AR, lưu không gian mẫu, thông báo. Chỉ thao tác dữ liệu của chính mình |
 | Quản trị viên (admin) | `User (users)` + `Role (roles)` = `admin`, có đủ 6 quyền | Toàn bộ quản trị: người dùng, vai trò, cài đặt, media, danh mục, trang tĩnh, thương hiệu, thuộc tính, sản phẩm, biến thể, ảnh, tồn kho, mô hình 3D, không gian mẫu, đánh giá, mã giảm giá, đơn hàng, thanh toán, vận chuyển, nhật ký, thống kê |
-| Tác nhân ngoài | Không lưu | Cổng thanh toán (MoMo, VNPay, ZaloPay), đơn vị vận chuyển (GHN, GHTK, Viettel Post), dịch vụ email |
+| Tác nhân ngoài | Không lưu | Cổng thanh toán (VNPay sandbox; MoMo, ZaloPay là hướng phát triển, FR11, D-N20), đơn vị vận chuyển (GHN, GHTK, Viettel Post), dịch vụ email |
 
 **Quy tắc kế thừa quyền:** User ⊃ Khách (user làm được mọi việc của khách). Admin là vai trò quản trị riêng: đăng nhập như user nhưng dùng khu vực `/dashboard`, `/admin/*` và API `/api/admin/*`; admin cũng xem được mọi nội dung công khai. Không có vai trò `staff`, `editor`, `customer`, `guest` trong CSDL.
 
@@ -607,7 +607,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Khi access token hết hạn, client dùng refresh token để lấy cặp token mới; refresh token được xoay vòng. |
 | **Tiền điều kiện** | Có refresh token hợp lệ. |
 | **Hậu điều kiện** | Phiên cũ bị thu hồi, phiên mới được tạo; client nhận cặp token mới. |
-| **Luồng chính** | 1. Hệ thống: Interceptor của client nhận 401 từ API, gọi `POST /api/auth/refresh` kèm refresh token.<br>2. Hệ thống: `RefreshStrategy` kiểm tra chữ ký/thời hạn; Service băm token và tìm `UserSession` còn hiệu lực.<br>3. Hệ thống: Trong transaction, đặt `revokedAt` cho phiên cũ và tạo phiên mới; ký cặp token mới.<br>4. Hệ thống: Trả 200; client thử lại request ban đầu. |
+| **Luồng chính** | 1. Hệ thống: Interceptor của client nhận 401 từ API, gọi `POST /api/auth/refresh` kèm refresh token.<br>2. Hệ thống: `AuthService` (qua `JwtService`) kiểm tra chữ ký/thời hạn; Service băm token và tìm `UserSession` còn hiệu lực.<br>3. Hệ thống: Trong transaction, đặt `revokedAt` cho phiên cũ và tạo phiên mới; ký cặp token mới.<br>4. Hệ thống: Trả 200; client thử lại request ban đầu. |
 | **Luồng thay thế** | 2a. Phiên không tồn tại, đã thu hồi hoặc hết hạn → 401; client xóa token và chuyển về `/login`.<br>2b. Refresh token cũ bị dùng lại (đã thu hồi) → thu hồi mọi phiên của user (nghi bị đánh cắp) [ĐỀ XUẤT]. |
 | **Ngoại lệ** | • User đã bị khóa/xóa mềm → 401. |
 | **Quy tắc nghiệp vụ** | • Xoay vòng token: mỗi refresh token chỉ dùng một lần. |
@@ -991,7 +991,7 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: dùng lại API UC-CAT-02 |
+| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: API công khai danh mục/sản phẩm (cùng endpoint với UC-CAT-02) |
 | **Tác nhân chính / phụ** | Khách vãng lai (dùng app Android) |
 | **Mô tả** | Khách duyệt danh mục và lưới sản phẩm đã đăng trên điện thoại, chọn sản phẩm để xem chi tiết. |
 | **Tiền điều kiện** | Điện thoại Android 8.0 trở lên (`minSdk` 26), có kết nối mạng. |
@@ -1004,13 +1004,13 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Dữ liệu ra** | • 200: danh sách sản phẩm `{ id, name, slug, thumbnailUrl, minPrice }` kèm `meta` |
 | **Model + C/R/U/D** | Category (categories): R<br>Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Media (media): R |
 | **DB trigger / việc Service tự làm** | • Không có (chỉ đọc). |
-| **Quan hệ UC** | Dùng lại logic API của UC-CAT-02, UC-CAT-03; cho phép UC-MOB-02 |
+| **Quan hệ UC** | Gọi cùng API công khai với UC-CAT-02, UC-CAT-03 (không thêm endpoint); có luồng riêng trên app: màn Compose → ViewModel → Repository → Retrofit (D-P08); cho phép UC-MOB-02 |
 
 #### UC-MOB-02 – Xem chi tiết sản phẩm trên app Android
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: dùng lại API UC-CAT-04 |
+| **Thông tin chung** | Nhóm: Ứng dụng Android · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: API công khai chi tiết sản phẩm (cùng endpoint với UC-CAT-04) |
 | **Tác nhân chính / phụ** | Khách vãng lai (dùng app Android) |
 | **Mô tả** | Khách xem ảnh, mô tả, giá và biến thể của một sản phẩm, rồi chuyển sang chế độ camera nếu sản phẩm có ảnh overlay. |
 | **Tiền điều kiện** | Sản phẩm `published`. |
@@ -1023,7 +1023,7 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Dữ liệu ra** | • 200: sản phẩm kèm ảnh, biến thể và `overlayImageUrl` (tuỳ chọn) |
 | **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Media (media): R |
 | **DB trigger / việc Service tự làm** | • Không có (chỉ đọc). |
-| **Quan hệ UC** | Dùng lại logic API của UC-CAT-04; UC-MOB-03 extend UC-MOB-02 |
+| **Quan hệ UC** | Gọi cùng API công khai với UC-CAT-04 (không thêm endpoint); có luồng riêng trên app: màn Compose → ViewModel → Repository → Retrofit (D-P08); UC-MOB-03 extend UC-MOB-02 |
 
 #### UC-MOB-03 – Xem sản phẩm qua camera với overlay ảnh
 
@@ -1278,7 +1278,7 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | Chuyển giỏ hàng thành đơn: chụp địa chỉ, giá, áp mã, trừ tồn kho, tạo thanh toán. |
 | **Tiền điều kiện** | Đã đăng nhập; giỏ có ít nhất một dòng; có địa chỉ giao hàng. |
 | **Hậu điều kiện** | Có `Order` (status `pending`), `OrderItem`, `Payment` (pending); tồn kho đã trừ; giỏ đã được dọn; có thông báo. |
-| **Luồng chính** | 1. Người dùng: Ở `/checkout` chọn địa chỉ (hoặc nhập mới, UC-ACC-04), phương thức thanh toán (COD, chuyển khoản, MoMo, VNPay, ZaloPay, thẻ), mã giảm giá (UC-CART-04), ghi chú; bấm "Đặt hàng".<br>2. Hệ thống: `POST /api/orders` (CreateOrderDto).<br>3. Hệ thống: `OrdersService.create(userId, dto)` mở `prisma.$transaction`.<br>4. Hệ thống: Đọc giỏ; kiểm tra từng dòng (biến thể `isActive`, sản phẩm `published`, chưa xóa mềm); tính `subtotal` bằng `Prisma.Decimal` từ `salePrice ?? price`.<br>5. Hệ thống: Với mỗi dòng: `productVariant.updateMany({ id, stockQuantity ≥ qty }, decrement)`; nếu `count ≠ 1` → hủy transaction; ghi `InventoryMovement` (type `sale`, `quantityChange` âm, `referenceCode = orderCode`).<br>6. Hệ thống: Nếu có mã: kiểm tra lại điều kiện (như UC-CART-04), giữ lượt bằng `coupon.updateMany` có điều kiện `usedCount < usageLimit` rồi tăng `usedCount`; tính `discountAmount`.<br>7. Hệ thống: Tính `shippingFee` từ `Setting` (`default_shipping_fee`, `free_shipping_threshold`) và `total = subtotal - discountAmount + shippingFee`.<br>8. Hệ thống: Tạo `Order` (status `pending`, `paymentStatus = unpaid`, bản chụp người nhận và địa chỉ), `OrderItem` (bản chụp `productName`, `sku`, `unitPrice`, `quantity`), `CouponUsage`, `Payment` (method, amount = total, status `pending`).<br>9. Hệ thống: Xóa các dòng giỏ đã đặt; commit transaction.<br>10. CSDL: Trigger ghi dòng đầu của `OrderStatusHistory` (null → pending).<br>11. Hệ thống: Tạo `Notification` "Đơn hàng đã được tạo", gửi email xác nhận; trả 201 `OrderResponse`.<br>12. Người dùng: COD/chuyển khoản → trang "Đặt hàng thành công"; online → bước UC-PAY-01. |
+| **Luồng chính** | 1. Người dùng: Ở `/checkout` chọn địa chỉ (hoặc nhập mới, UC-ACC-04), phương thức thanh toán (COD, chuyển khoản, VNPay sandbox; MoMo, ZaloPay, thẻ quốc tế chưa hỗ trợ, D-N20), mã giảm giá (UC-CART-04), ghi chú; bấm "Đặt hàng".<br>2. Hệ thống: `POST /api/orders` (CreateOrderDto).<br>3. Hệ thống: `OrdersService.create(userId, dto)` mở `prisma.$transaction`.<br>4. Hệ thống: Đọc giỏ; kiểm tra từng dòng (biến thể `isActive`, sản phẩm `published`, chưa xóa mềm); tính `subtotal` bằng `Prisma.Decimal` từ `salePrice ?? price`.<br>5. Hệ thống: Với mỗi dòng: `productVariant.updateMany({ id, stockQuantity ≥ qty }, decrement)`; nếu `count ≠ 1` → hủy transaction; ghi `InventoryMovement` (type `sale`, `quantityChange` âm, `referenceCode = orderCode`).<br>6. Hệ thống: Nếu có mã: kiểm tra lại điều kiện (như UC-CART-04), giữ lượt bằng `coupon.updateMany` có điều kiện `usedCount < usageLimit` rồi tăng `usedCount`; tính `discountAmount`.<br>7. Hệ thống: Tính `shippingFee` từ `Setting` (`default_shipping_fee`, `free_shipping_threshold`) và `total = subtotal - discountAmount + shippingFee`.<br>8. Hệ thống: Tạo `Order` (status `pending`, `paymentStatus = unpaid`, bản chụp người nhận và địa chỉ), `OrderItem` (bản chụp `productName`, `sku`, `unitPrice`, `quantity`), `CouponUsage`, `Payment` (method, amount = total, status `pending`).<br>9. Hệ thống: Xóa các dòng giỏ đã đặt; commit transaction.<br>10. CSDL: Trigger ghi dòng đầu của `OrderStatusHistory` (null → pending).<br>11. Hệ thống: Tạo `Notification` "Đơn hàng đã được tạo", gửi email xác nhận; trả 201 `OrderResponse`.<br>12. Người dùng: COD/chuyển khoản → trang "Đặt hàng thành công"; online → bước UC-PAY-01. |
 | **Luồng thay thế** | 2a. Giỏ rỗng → 400.<br>4a. Có dòng không còn bán → 409 kèm danh sách dòng; giỏ không đổi, không tạo đơn.<br>5a. Hết tồn kho giữa chừng → 409, rollback toàn bộ (tồn kho không bị trừ).<br>6a. Mã không hợp lệ ở thời điểm đặt → 400, rollback.<br>8a. Trùng `orderCode` (P2002) → sinh mã khác và thử lại tối đa 3 lần. |
 | **Ngoại lệ** | • Địa chỉ không thuộc user → 404.<br>• Lỗi CSDL → rollback, 500. |
 | **Quy tắc nghiệp vụ** | • Trừ tồn kho khi TẠO ĐƠN (không phải khi thanh toán), trong cùng transaction; không để tồn kho âm (CHECK `ck_product_variants_stock`).<br>• CHECK `ck_orders_total`: `total = subtotal - discount_amount + shipping_fee`.<br>• `OrderItem.lineTotal` là cột tự tính, KHÔNG gán (QUY_UOC §2).<br>• Đơn lưu bản chụp địa chỉ và giá; không tham chiếu `Address`.<br>• `sold_count` chưa tăng ở bước này; tăng khi đơn `completed` (UC-ADM-25).<br>• Mã đơn dạng `ALV-YYYYMMDD-NNNN`, duy nhất (`orderCode`). |
@@ -1329,7 +1329,7 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | Mục | Nội dung |
 | --- | --- |
 | **Thông tin chung** | Nhóm: Thanh toán · Ưu tiên: **Bắt buộc** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (payments, orders) |
-| **Tác nhân chính / phụ** | Người dùng · phụ: Cổng thanh toán (MoMo, VNPay, ZaloPay) |
+| **Tác nhân chính / phụ** | Người dùng · phụ: Cổng thanh toán (VNPay sandbox) |
 | **Mô tả** | Tạo yêu cầu thanh toán tại cổng và chuyển người dùng sang trang thanh toán của cổng. |
 | **Tiền điều kiện** | Đơn `pending`, `paymentStatus = unpaid`, phương thức online (`momo`, `vnpay`, `zalopay`, `card`). |
 | **Hậu điều kiện** | `Payment` có mã tham chiếu giao dịch; người dùng được chuyển sang cổng. |
@@ -1670,6 +1670,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Chọn tệp GLB hoặc USDZ (≤ `UPLOAD_MAX_MODEL_MB` = 100 MB); USDZ có thể kèm LOD.<br>4. Hệ thống: `POST /api/admin/models/:id/files/presign` (`format`, `lod`, `fileName`, `size`): kiểm tra quyền admin, mô hình tồn tại, dung lượng; trả `uploadUrl` (presigned PUT, hiệu lực `PRESIGN_EXPIRES_SECONDS` = 900 giây, ký cả `Content-Type` và `Content-Length`) vào bucket PRIVATE `aurelia-private`, khóa `models/incoming/:id/<uuid>.<glb\|usdz>`.<br>5. Trình duyệt: `PUT` tệp thẳng lên MinIO (không qua API; MinIO bật CORS cho `http://localhost:3000`).<br>6. Frontend: `POST /api/admin/models/:id/files/confirm` (`key`, `format`, `lod`, `fileName`).<br>7. Hệ thống: `head` tệp trên MinIO (tồn tại, không vượt giới hạn), đặt `status = processing`, đẩy job vào hàng đợi `model-processing`, trả 202 `{ modelId, jobId, status }`.<br>8. Worker (`modules/jobs`): tải tệp gốc từ bucket private. GLB: kiểm tra hợp lệ bằng `@gltf-transform/core`, đo `polygonCount`, `textureResolution`, sinh 3 LOD high/medium/low (dedup, prune, simplify bằng Meshopt, thu nhỏ texture bằng `sharp`, nén Meshopt), tải lên bucket public `aurelia-public` (`models/:id/<tên>-<lod>.glb`), tạo `Media` + `ModelFile` (`isCompressed`, `checksum` SHA-256) trong `$transaction`. USDZ (admin tải thủ công từng LOD): chỉ kiểm tra chữ ký ZIP, tính checksum, chép sang bucket public.<br>9. Worker: thành công → `Product3DModel.status = ready`; lỗi → `failed` (tệp hỏng: không thử lại; lỗi tạm thời: thử lại 3 lần, backoff mũ).<br>10. CSDL: Trigger cập nhật `Product.has3dModel`, `Product.hasAr`.<br>11. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; thử lại khi `failed`. |
 | **Luồng thay thế** | 4a. Tệp vượt giới hạn → 413 `PAYLOAD_TOO_LARGE`; không phải GLB/USDZ → 400/415.<br>7a. Chưa thấy tệp trên MinIO khi xác nhận → 404.<br>9a. Xử lý lỗi → `failed`; admin tải lại tệp hợp lệ hoặc bấm "Xử lý lại" (`POST /api/admin/models/:id/reprocess`) → `processing`. Tải lại cùng định dạng/LOD thì ghi đè bản ghi `ModelFile` cũ (upsert, không nhân đôi). |
 | **Ngoại lệ** | • Tệp sai định dạng/quá lớn → 400/413.<br>• Kích thước ≤ 0 → 400 (CHECK `ck_product_3d_models_size`). |
+| **Tiêu chí nghiệm thu (NFR02, D-N21)** | Job `model-processing` phải bảo đảm mỗi tệp LOD dùng cho web có dung lượng ≤ 5 MB (ngưỡng đọc từ biến `MODEL_SERVE_MAX_MB`, mặc định 5). Vượt ngưỡng → đặt `Product3DModel.status = failed` và thông báo cho admin; admin tải lại tệp nhẹ hơn hoặc "Xử lý lại". Hiện mới có biến cấu hình, chưa có logic kiểm tra (làm ở M12). |
 | **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Xử lý nền chạy trong `apps/api/src/modules/jobs` bằng BullMQ + Redis (compose mặc định có `redis`). Worker chạy CÙNG tiến trình API; processor chỉ là lớp mỏng gọi `ModelProcessingService` nên có thể tách sang `apps/worker` mà không sửa logic.<br>• Tệp gốc nằm ở bucket private (chỉ presigned GET), bản đã xử lý ở bucket public. `media.file_path` lưu object key.<br>• Job thất bại được giữ lại để xem ở Bull Board `/admin/queues` (chỉ admin). |
 | **Dữ liệu vào** | • lengthMm, widthMm, heightMm (bắt buộc): số nguyên > 0<br>• placement (bắt buộc): `floor`, `wall`, `table`<br>• allowScaling (tuỳ chọn): boolean<br>• viewerConfig (tuỳ chọn): JSON<br>• posterMediaId, variantId (tuỳ chọn): id hợp lệ (biến thể phải thuộc sản phẩm)<br>• format, lod, file (khi tải tệp) (bắt buộc): `glb |
 | **Dữ liệu ra** | • 201: `Product3DModel` kèm `files[]` và `status` |
@@ -2057,14 +2058,15 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 
 ## 11. Tích hợp ngoài
 
-### 11.1. Cổng thanh toán (MoMo, VNPay, ZaloPay)
+### 11.1. Cổng thanh toán (VNPay sandbox; COD không qua cổng)
 
 | Hạng mục | Nội dung |
 | --- | --- |
 | Luồng | Redirect: User bấm thanh toán → API tạo URL có chữ ký (UC-PAY-01) → trình duyệt sang cổng → cổng gọi IPN về máy chủ (UC-PAY-02) và chuyển trình duyệt về trang kết quả |
 | Nguồn sự thật | IPN/callback có chữ ký hợp lệ; trang return chỉ để hiển thị |
 | Endpoint | `POST /api/payments/:orderId/checkout`, `POST /api/payments/:orderId/retry`, `GET /api/payments/:gateway/return`, `POST\|GET /api/payments/:gateway/ipn` (công khai, xác thực bằng chữ ký) |
-| Chữ ký | VNPay: HMAC-SHA512 (`vnp_SecureHash`); MoMo, ZaloPay: HMAC-SHA256 [CẦN XÁC NHẬN theo tài liệu cổng khi tích hợp] |
+| Chữ ký | VNPay: HMAC-SHA512 (`vnp_SecureHash`) |
+| Giới hạn phạm vi (FR11, D-N20) | Chỉ COD và VNPay sandbox. Ví điện tử MoMo, ZaloPay và thẻ quốc tế là hạn chế của đồ án / hướng phát triển (cần HMAC-SHA256 theo tài liệu từng cổng); thêm bằng adapter mới trong `GatewayFactory`, không đổi luồng UC-PAY-01..03 |
 | Idempotent | Callback lặp không xử lý lại khi `Payment.status` đã `success` |
 | Biến môi trường | Chưa có trong `.env.example`: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY`, `ZALOPAY_APP_ID`, `ZALOPAY_KEY1`, `ZALOPAY_KEY2`, `PAYMENT_RETURN_URL`, `PAYMENT_IPN_BASE_URL` [CẦN TẠO MỚI] |
 | Phương thức `card` | Thanh toán thẻ đi qua cổng VNPay (đã quyết định) |
@@ -2077,7 +2079,7 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | Mục | Nội dung |
 | --- | --- |
 | **Thông tin chung** | Nhóm: Thanh toán · Ưu tiên: **Bắt buộc** · Khách: hệ thống ngoài · User: hệ thống ngoài · Admin: hệ thống ngoài · Nguồn: CSDL (payments, orders) |
-| **Tác nhân chính / phụ** | Cổng thanh toán (MoMo, VNPay, ZaloPay) |
+| **Tác nhân chính / phụ** | Cổng thanh toán (VNPay sandbox) |
 | **Mô tả** | Cổng gọi máy chủ để báo kết quả thanh toán; hệ thống xác thực chữ ký rồi cập nhật Payment và Order. |
 | **Tiền điều kiện** | Có `Payment` pending tương ứng. |
 | **Hậu điều kiện** | `Payment.status` = `success` hoặc `failed`; `Order.paymentStatus` tương ứng; khi thành công và đơn đang `pending` thì đơn tự chuyển `confirmed`. |
@@ -2128,7 +2130,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 5 | Trừ tồn kho khi tạo đơn, trong `$transaction`, không phải khi thanh toán | UC-ORD-01 |
 | 6 | Đánh giá chỉ khi có `OrderItem` của sản phẩm thuộc đơn `completed` của chính user; review mới `pending`, admin duyệt | UC-REV-02, UC-ADM-18 |
 | 7 | Mô hình 3D: `uploading` → `processing` → `ready`/`failed`; xử lý bởi processor nền | UC-ADM-13 |
-| 8 | **Xử lý nền** bằng BullMQ + Redis trong `apps/api/src/modules/jobs` với 4 queue (`model-processing`, `image-processing`, `mail`, `notification`); worker chạy cùng tiến trình API. Lưu trữ tệp bằng MinIO (2 bucket public/private) qua `StorageService` (driver `minio`, `s3`, `local`); mô hình 3D và panorama tải bằng presigned PUT. Redis và MinIO nằm trong profile mặc định của `docker-compose.yml`. (Thay thế quyết định tạm "không dùng Redis/MinIO" ngày 2026-10-08.) | UC-ADM-13, UC-ADM-04, UC-AUTH-01, UC-AUTH-05 |
+| 8 | **Xử lý nền** bằng BullMQ + Redis trong `apps/api/src/modules/jobs` với 4 queue (`model-processing`, `image-processing`, `mail`, `notification`; `notification` chỉ cho việc nền chậm, bản ghi `notifications` do Service tạo trực tiếp, D-T47); worker chạy cùng tiến trình API. Lưu trữ tệp bằng MinIO (2 bucket public/private) qua `StorageService` (driver `minio`, `s3`, `local`); mô hình 3D và panorama tải bằng presigned PUT. Redis và MinIO nằm trong profile mặc định của `docker-compose.yml`. (Thay thế quyết định tạm "không dùng Redis/MinIO" ngày 2026-10-08.) | UC-ADM-13, UC-ADM-04, UC-AUTH-01, UC-AUTH-05 |
 | 9 | **Xác thực email**: JWT ký riêng mục đích `verify_email`, không thêm bảng | UC-AUTH-07 |
 | 10 | **Setting**: danh sách trắng khóa công khai trong Service, không thêm cột | UC-ADM-03 |
 | 11 | **Ghi lượt xem không gian mẫu**: MỘT lần khi người xem rời trang bằng `navigator.sendBeacon` (kèm `hotspotClickCount`, `addedToCart`); bỏ `viewToken` | UC-SPACE-06 |

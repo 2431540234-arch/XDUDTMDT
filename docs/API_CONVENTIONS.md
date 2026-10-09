@@ -173,7 +173,7 @@ Kiểu dùng chung: `PresignUploadRequest`, `PresignedUpload`, `ConfirmUploadReq
 - Có 4 queue: `model-processing`, `image-processing`, `mail`, `notification`. Đẩy job qua `JobsService` (`enqueueModel`, `enqueueImage`, `enqueueMail`, `enqueueNotification`); không dùng BullMQ trực tiếp ở module nghiệp vụ.
 - Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. USDZ: chỉ kiểm tra ZIP + checksum.
 - Queue `image-processing`: tạo `<key>.webp` và `<key>_thumb.webp` bằng `sharp`.
-- Queue `mail`: gửi email thật qua SMTP (`SmtpMailService`). Queue `notification`: khung, hiện chỉ ghi log; M09 sẽ tạo bản ghi `notifications`.
+- Queue `mail`: gửi email thật qua SMTP (`SmtpMailService`). Queue `notification`: khung, hiện chỉ ghi log; theo D-T47 chỉ dành cho việc nền chậm (ví dụ email thông báo), còn bản ghi `notifications` do Service tạo trực tiếp trong transaction nghiệp vụ (D-N19).
 - Mỗi job thử lại 3 lần, backoff mũ; tệp hỏng không thử lại; job thất bại được giữ để xem tại **Bull Board** `/admin/queues` (chỉ admin: header `Authorization: Bearer`, cookie `bq_token`, hoặc `?token=` lần đầu).
 - Worker chạy cùng tiến trình API; processor chỉ gọi `ModelProcessingService`/`ImageProcessingService` nên tách sang `apps/worker` không cần sửa logic.
 - Redis dùng cho: hàng đợi BullMQ, bộ đếm giới hạn tốc độ và cache (mục 8.6). **Không** lưu phiên đăng nhập hay OTP: phiên (`user_sessions`) và đặt lại mật khẩu (`password_resets`) nằm ở PostgreSQL (DECISIONS D-T29).

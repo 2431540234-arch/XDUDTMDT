@@ -17,7 +17,7 @@ Tổng 31 hạng mục của bảng nộp (mục 6). Các điểm chính:
 
 1. **Mobile nằm trong phạm vi** (D-P06, D-P07): phương án tối thiểu, làm sau M07. Trước đây tài liệu xếp ngoài phạm vi; mâu thuẫn đó đã được giải quyết.
 2. **Redis = cache, trạng thái hàng đợi, giới hạn tốc độ.** KHÔNG lưu OTP hay phiên (phiên đăng nhập, đặt lại mật khẩu nằm ở PostgreSQL: `user_sessions`, `password_resets`; xác thực email bằng JWT) (D-T29). Cache (`CacheService`) đã có, chưa module nghiệp vụ nào gọi (D-T30).
-3. **BullMQ có 4 queue** (`model-processing`, `image-processing`, `mail`, `notification`), thử lại 3 lần, backoff mũ. Email đi qua queue `mail` khi `MAIL_TRANSPORT=queue` (mặc định); `MailService` chưa module nào gọi.
+3. **BullMQ có 4 queue** (`model-processing`, `image-processing`, `mail`, `notification`), thử lại 3 lần, backoff mũ. Email đi qua queue `mail` khi `MAIL_TRANSPORT=queue` (mặc định); `MailService` chưa module nào gọi. Queue `notification` chỉ cho việc nền chậm; bản ghi `notifications` do Service tạo trực tiếp (D-T47).
 4. **Số endpoint:** theo thiết kế **144** (`BAO_CAO_PHAN_TICH_THIET_KE.md` mục 6); đã cài **6 route** (`GET /health`, `POST /api/admin/media`, `.../media/presign`, `.../media/confirm`, `POST /api/admin/models/:id/files/presign`, `.../confirm`), cộng giao diện Bull Board `/admin/queues`. Phần còn lại là khung controller rỗng.
 5. **Toàn bộ môi trường đã cài và cấu hình ngay** (D-T37), thay nguyên tắc "cài đúng đợt" của D-T35.
 
@@ -72,7 +72,7 @@ Thư viện đã thêm: `navigation-compose` 2.9.7, `lifecycle-viewmodel-compose
 | Mobile: mục tiêu có, tài liệu xếp ngoài phạm vi | D-P06, D-P07: phương án B (tối thiểu), làm sau M07 | Đã vào phạm vi; nhóm UC-MOB 4 UC trong đặc tả |
 | Redis "OTP, session" vs PostgreSQL | D-T29: giữ PostgreSQL | Redis không lưu phiên/OTP; ghi rõ trong bảng nộp |
 | Redis "cache": chưa có | D-T30 | `CacheService` có, TTL gợi ý: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút; áp dụng ở M06, M07, M01 |
-| BullMQ "email, notification" | D-T31, D-T42 | Có queue `mail` (processor gửi SMTP thật) và `notification` (processor chỉ ghi log); `MailService` đẩy job khi `MAIL_TRANSPORT=queue` |
+| BullMQ "email, notification" | D-T31, D-T42 | Có queue `mail` (processor gửi SMTP thật) và `notification` (processor chỉ ghi log, chỉ cho việc nền chậm, D-T47); `MailService` đẩy job khi `MAIL_TRANSPORT=queue` |
 | MinIO sang S3 cần sửa mã | D-T33, D-T41 | Đã có driver `s3`; chuyển production chỉ đổi biến môi trường (xem `ENVIRONMENT.md` mục 5) |
 | AR web, ảnh 360° chưa có thư viện | D-T32 | model-viewer (AR); ảnh 360° tự dựng bằng R3F |
 | Zustand với TanStack Query chưa phân chia | Quy ước ở mục 3.1 | Server state dùng Query, UI/token dùng Zustand |
@@ -199,7 +199,7 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | 1 | Mobile | **Phương án B** (tối thiểu: danh mục, chi tiết, camera + overlay, chụp và lưu); làm SAU M07 (và M12 nếu kịp); không đăng nhập, giỏ hàng, đặt hàng | D-P06, D-P07; DAC_TA nhóm UC-MOB |
 | 2 | Redis OTP/session | **Phương án A**: giữ PostgreSQL. Redis = "cache, trạng thái hàng đợi, giới hạn tốc độ" | D-T29 |
 | 3 | Redis cache | **Có** `CacheService` (ioredis), TTL như mục 3.3, xóa khóa khi admin sửa; đợt M06/M07 (M01 cho settings) | D-T30 |
-| 4 | BullMQ | **Có** queue `mail` (đợt M02) và `notification` (đợt M09), thử lại 3 lần, backoff mũ | D-T31 |
+| 4 | BullMQ | **Có** queue `mail` (đợt M02) và `notification` (đợt M09, chỉ việc nền chậm), thử lại 3 lần, backoff mũ | D-T31, D-T47 |
 | 5 | AR web, 360° | `@google/model-viewer`; ảnh 360° tự dựng bằng R3F (mặt cầu + `TextureLoader` + drei `Html`, `useGLTF`) | D-T32 |
 | 6 | S3 | Không triển khai thật; cuối dự án sửa nhỏ (driver `s3`, `S3_FORCE_PATH_STYLE`, `S3_ENDPOINT` tùy chọn) | D-T33 |
 | 7 | Bảng nộp | Đồng ý thêm NestJS, Docker Compose, GitHub Actions, Swagger, Jest + Supertest, sharp, gltf-transform, model-viewer, Nodemailer + Mailpit; CÓ nhóm Mobile | D-T34; mục 6 |
