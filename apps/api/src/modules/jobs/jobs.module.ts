@@ -8,7 +8,9 @@ import { AppConfig } from '../../config/app-config.service';
 import { bullBoardAdminOnly } from './bull-board.middleware';
 import { ImageProcessingProcessor } from './image-processing/image-processing.processor';
 import { ImageProcessingService } from './image-processing/image-processing.service';
-import { IMAGE_QUEUE, JOB_ATTEMPTS, MODEL_QUEUE } from './jobs.constants';
+import { IMAGE_QUEUE, JOB_ATTEMPTS, MAIL_QUEUE, MODEL_QUEUE, NOTIFICATION_QUEUE } from './jobs.constants';
+import { MailProcessor } from './mail/mail.processor';
+import { NotificationProcessor } from './notification/notification.processor';
 import { JobsService } from './jobs.service';
 import { ModelProcessingProcessor } from './model-processing/model-processing.processor';
 import { ModelProcessingService } from './model-processing/model-processing.service';
@@ -38,6 +40,8 @@ const defaultJobOptions = {
     BullModule.registerQueue(
       { name: MODEL_QUEUE, defaultJobOptions },
       { name: IMAGE_QUEUE, defaultJobOptions },
+      { name: MAIL_QUEUE, defaultJobOptions },
+      { name: NOTIFICATION_QUEUE, defaultJobOptions },
     ),
     BullBoardModule.forRoot({
       route: '/admin/queues',
@@ -47,6 +51,8 @@ const defaultJobOptions = {
     BullBoardModule.forFeature(
       { name: MODEL_QUEUE, adapter: BullMQAdapter },
       { name: IMAGE_QUEUE, adapter: BullMQAdapter },
+      { name: MAIL_QUEUE, adapter: BullMQAdapter },
+      { name: NOTIFICATION_QUEUE, adapter: BullMQAdapter },
     ),
   ],
   providers: [
@@ -55,6 +61,8 @@ const defaultJobOptions = {
     ModelProcessingProcessor,
     ImageProcessingService,
     ImageProcessingProcessor,
+    MailProcessor,
+    NotificationProcessor,
   ],
   exports: [JobsService, BullModule],
 })

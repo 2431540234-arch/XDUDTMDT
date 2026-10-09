@@ -9,6 +9,7 @@ import {
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Injectable } from '@nestjs/common';
 import { AppConfig } from '../config/app-config.service';
+import { resolveForcePathStyle } from '../config/env.validation';
 import type {
   ObjectInfo,
   PresignedPut,
@@ -19,13 +20,14 @@ import type {
 } from './storage.service';
 
 /**
- * MinIO / S3 tương thích. Hai bucket: public (đọc ẩn danh) và private (chỉ presigned GET).
+ * MinIO (dev) hoặc AWS S3 (production), cùng một lớp: chuyển đổi chỉ bằng biến môi trường
+ * (STORAGE_DRIVER, S3_ENDPOINT, S3_FORCE_PATH_STYLE, khóa truy cập, tên bucket, STORAGE_PUBLIC_URL). Hai bucket: public (đọc ẩn danh) và private (chỉ presigned GET).
  * Dùng hai client: `client` gọi nội bộ (S3_ENDPOINT), `signer` ký URL cho trình duyệt (S3_PUBLIC_ENDPOINT).
  * Hai endpoint có thể khác nhau (API trong Docker gọi http://minio:9000, trình duyệt gọi http://localhost:9000).
  */
 @Injectable()
 export class MinioStorageService implements StorageService {
-  readonly driver = 'minio' as const;
+  readonly driver: 'minio' | 's3';
   private readonly publicUrl: string;
   private readonly expires: number;
   private readonly buckets: Record<Visibility, string>;
@@ -35,6 +37,7 @@ export class MinioStorageService implements StorageService {
     private readonly client: S3Client = MinioStorageService.createClient(config, false),
     private readonly signer: S3Client = MinioStorageService.createClient(config, true),
   ) {
+    this.driver = config.get('STORAGE_DRIVER') === 's3' ? 's3' : 'minio';
     this.publicUrl = config.get('STORAGE_PUBLIC_URL').replace(/\/+$/, '');
     this.expires = config.get('PRESIGN_EXPIRES_SECONDS');
     this.buckets = {
@@ -49,14 +52,23 @@ export class MinioStorageService implements StorageService {
     return new S3Client({
       endpoint,
       region: config.get('S3_REGION'),
-      forcePathStyle: true, // MinIO dùng đường dẫn /bucket/key, không dùng subdomain
+      // MinIO dùng đường dẫn /bucket/key; S3 thật dùng bucket.s3.<vùng>.amazonaws.com
+      forcePathStyle: resolveForcePathStyle({
+        STORAGE_DRIVER: config.get('STORAGE_DRIVER'),
+        S3_FORCE_PATH_STYLE: config.get('S3_FORCE_PATH_STYLE'),
+      }),
       // Không tự thêm header checksum vào URL ký sẵn (trình duyệt PUT thẳng sẽ bị từ chối)
       requestChecksumCalculation: 'WHEN_REQUIRED',
       responseChecksumValidation: 'WHEN_REQUIRED',
-      credentials: {
-        accessKeyId: config.get('S3_ACCESS_KEY') as string,
-        secretAccessKey: config.get('S3_SECRET_KEY') as string,
-      },
+      // Không đặt khóa thì SDK tự dùng chuỗi thông tin xác thực mặc định (IAM role trên S3 production)
+      ...(config.get('S3_ACCESS_KEY') && config.get('S3_SECRET_KEY')
+        ? {
+            credentials: {
+              accessKeyId: config.get('S3_ACCESS_KEY') as string,
+              secretAccessKey: config.get('S3_SECRET_KEY') as string,
+            },
+          }
+        : {}),
     });
   }
 

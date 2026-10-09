@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import { CacheModule } from './cache/cache.module';
 import { AuthCoreModule } from './common/auth/auth-core.module';
+import { AUTH_THROTTLE_KEY, AUTH_THROTTLER } from './common/decorators/throttle.decorators';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
@@ -27,7 +30,22 @@ import { StorageModule } from './storage/storage.module';
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],
       useFactory: (config: AppConfig) => ({
-        throttlers: [{ ttl: 60_000, limit: 120 }],
+        throttlers: [
+          {
+            name: 'default',
+            ttl: config.get('THROTTLE_DEFAULT_TTL_SECONDS') * 1000,
+            limit: config.get('THROTTLE_DEFAULT_LIMIT'),
+          },
+          {
+            // Nhóm xác thực: chỉ chạy trên route gắn @AuthThrottle() (đăng nhập, đăng ký, quên mật khẩu)
+            name: AUTH_THROTTLER,
+            ttl: config.get('THROTTLE_AUTH_TTL_SECONDS') * 1000,
+            limit: config.get('THROTTLE_AUTH_LIMIT'),
+            skipIf: (ctx) =>
+              !Reflect.getMetadata(AUTH_THROTTLE_KEY, ctx.getHandler()) &&
+              !Reflect.getMetadata(AUTH_THROTTLE_KEY, ctx.getClass()),
+          },
+        ],
         storage: new ThrottlerStorageRedisService(
           new Redis({
             host: config.get('REDIS_HOST'),
@@ -37,6 +55,8 @@ import { StorageModule } from './storage/storage.module';
         ),
       }),
     }),
+    ScheduleModule.forRoot(), // chưa có cron job nghiệp vụ; module nào cần thì dùng @Cron
+    CacheModule,
     JobsModule,
     AuthCoreModule,
     StorageModule,

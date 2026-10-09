@@ -6,15 +6,18 @@ import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s
 import sharp from 'sharp';
 
 const env = process.env;
-export const storageDriver = (env.STORAGE_DRIVER ?? 'minio') as 'local' | 'minio';
+export const storageDriver = (env.STORAGE_DRIVER ?? 'minio') as 'local' | 'minio' | 's3';
 
 let s3: S3Client | undefined;
 function client(): S3Client {
   s3 ??= new S3Client({
-    endpoint: env.S3_ENDPOINT,
+    endpoint: env.S3_ENDPOINT || undefined,
     region: env.S3_REGION ?? 'us-east-1',
-    forcePathStyle: true,
-    credentials: { accessKeyId: env.S3_ACCESS_KEY as string, secretAccessKey: env.S3_SECRET_KEY as string },
+    // Cùng quy tắc với MinioStorageService: mặc định path-style cho MinIO, virtual-hosted cho S3
+    forcePathStyle: env.S3_FORCE_PATH_STYLE ? env.S3_FORCE_PATH_STYLE === 'true' : storageDriver === 'minio',
+    ...(env.S3_ACCESS_KEY && env.S3_SECRET_KEY
+      ? { credentials: { accessKeyId: env.S3_ACCESS_KEY, secretAccessKey: env.S3_SECRET_KEY } }
+      : {}),
   });
   return s3;
 }

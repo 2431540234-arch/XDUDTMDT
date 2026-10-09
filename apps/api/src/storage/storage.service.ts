@@ -38,7 +38,7 @@ export interface ObjectInfo {
 }
 
 export interface StorageService {
-  readonly driver: 'local' | 'minio';
+  readonly driver: 'local' | 'minio' | 's3';
   /** Lưu tệp, trả về key đã lưu. */
   upload(input: UploadInput): Promise<string>;
   download(key: string, visibility?: Visibility): Promise<Buffer>;

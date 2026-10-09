@@ -21,6 +21,11 @@ export class SmtpMailService implements MailService {
     });
   }
 
+  /** Kiểm tra kết nối SMTP (dùng cho /health). Ném lỗi nếu không kết nối được. */
+  async verify(): Promise<void> {
+    await this.transporter.verify();
+  }
+
   async send(message: MailMessage): Promise<void> {
     try {
       await this.transporter.sendMail({ from: this.from, ...message });

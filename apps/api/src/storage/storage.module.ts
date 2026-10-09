@@ -10,9 +10,9 @@ import { STORAGE_SERVICE, type StorageService } from './storage.service';
     {
       provide: STORAGE_SERVICE,
       inject: [AppConfig],
-      // Chọn driver theo STORAGE_DRIVER (local | minio)
+      // Chọn driver theo STORAGE_DRIVER: local | minio | s3 (minio và s3 dùng chung một lớp S3-compatible)
       useFactory: (config: AppConfig): StorageService =>
-        config.get('STORAGE_DRIVER') === 'minio'
+        config.get('STORAGE_DRIVER') !== 'local'
           ? new MinioStorageService(config)
           : new LocalStorageService(config),
     },

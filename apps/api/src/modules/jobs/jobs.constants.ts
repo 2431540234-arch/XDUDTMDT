@@ -4,6 +4,11 @@
 
 export const MODEL_QUEUE = 'model-processing';
 export const IMAGE_QUEUE = 'image-processing';
+export const MAIL_QUEUE = 'mail';
+export const NOTIFICATION_QUEUE = 'notification';
+
+/** Mọi queue (dùng cho /health và Bull Board). */
+export const ALL_QUEUES = [MODEL_QUEUE, IMAGE_QUEUE, MAIL_QUEUE, NOTIFICATION_QUEUE] as const;
 
 export type LodName = 'high' | 'medium' | 'low';
 
@@ -26,3 +31,20 @@ export interface ImageJobData {
 }
 
 export const JOB_ATTEMPTS = 3;
+
+/** Dữ liệu job gửi email (cùng hình dạng MailMessage). */
+export interface MailJobData {
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+}
+
+/** Dữ liệu job thông báo trong ứng dụng. Processor hiện chỉ ghi log; M09 sẽ tạo bản ghi `notifications`. */
+export interface NotificationJobData {
+  userId: number;
+  type: string;
+  title: string;
+  body?: string;
+  data?: Record<string, unknown>;
+}

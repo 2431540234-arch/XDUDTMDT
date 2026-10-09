@@ -3,6 +3,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ErrorCode, type CheckStatus, type HealthStatus } from '@aurelia-living/shared-types';
 import { Public } from '../common/decorators/auth.decorators';
 import { AppException } from '../common/exceptions/app.exception';
+import { SmtpMailService } from '../mail/smtp-mail.service';
 import { JobsService } from '../modules/jobs/jobs.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../storage/storage.service';
@@ -13,27 +14,29 @@ export class HealthController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jobs: JobsService,
+    private readonly smtp: SmtpMailService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
   ) {}
 
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Kiểm tra API, PostgreSQL, Redis và kho tệp' })
+  @ApiOperation({ summary: 'Kiểm tra API, PostgreSQL, Redis, kho tệp (MinIO/S3), SMTP và hàng đợi' })
   async check(): Promise<HealthStatus> {
-    const probe = async (fn: () => Promise<unknown>): Promise<CheckStatus> => {
+    const probe = async <T>(fn: () => Promise<T>): Promise<[CheckStatus, T | undefined]> => {
       try {
-        await fn();
-        return 'up';
+        return ['up', await fn()];
       } catch {
-        return 'down';
+        return ['down', undefined];
       }
     };
-    const [database, redis, storage] = await Promise.all([
+    const [[database], [redis], [storage], [smtp], [queueStatus, queues]] = await Promise.all([
       probe(() => this.prisma.$queryRaw`SELECT 1`),
       probe(() => this.jobs.pingRedis()),
       probe(() => this.storage.ping()),
+      probe(() => this.smtp.verify()),
+      probe(() => this.jobs.queueCounts()),
     ]);
-    const checks = { database, redis, storage };
+    const checks = { database, redis, storage, smtp, queues: queueStatus };
 
     const down = Object.entries(checks)
       .filter(([, v]) => v === 'down')
@@ -48,6 +51,7 @@ export class HealthController {
       uptime: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
       checks,
+      queues: queues!,
     };
   }
 }
