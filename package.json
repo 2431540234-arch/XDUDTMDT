@@ -34,11 +34,11 @@
     "infra:down": "docker compose stop postgres redis minio mailpit",
     "test:e2e:api": "npm run test:e2e -w @aurelia-living/api",
     "test:e2e:web": "npm run test:e2e -w @aurelia-living/web",
-    "mobile:build": "cd apps/mobile && ./gradlew assembleDebug"
+    "mobile:build": "node scripts/mobile-build.mjs"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
-    "typescript": "^5.4.0",
+    "typescript": "~5.7.2",
     "eslint": "^8.57.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@typescript-eslint/eslint-plugin": "^7.18.0",

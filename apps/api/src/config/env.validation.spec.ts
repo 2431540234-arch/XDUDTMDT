@@ -15,6 +15,7 @@ describe('validateEnv', () => {
     expect(env.CACHE_ENABLED).toBe(true);
     expect(env.THROTTLE_AUTH_LIMIT).toBe(10);
     expect(env.THROTTLE_DEFAULT_LIMIT).toBe(120);
+    expect(env.MODEL_SERVE_MAX_MB).toBe(5);
   });
 
   it('driver minio thiếu S3_ENDPOINT/khóa truy cập -> báo lỗi rõ ràng', () => {

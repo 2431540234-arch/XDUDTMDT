@@ -46,6 +46,8 @@ export const envSchema = z.object({
   UPLOAD_MAX_IMAGE_MB: z.coerce.number().positive().default(5),
   UPLOAD_MAX_MODEL_MB: z.coerce.number().positive().default(100),
   UPLOAD_MAX_PANORAMA_MB: z.coerce.number().positive().default(20),
+  // NFR02: tệp LOD dùng cho web (do job model-processing sinh ra) không được lớn hơn ngưỡng này. Chưa có code kiểm tra (làm ở M12).
+  MODEL_SERVE_MAX_MB: z.coerce.number().positive().default(5),
 
   // VNPay sandbox: tùy chọn cho tới khi làm module thanh toán
   VNPAY_TMN_CODE: optional(z.string()),

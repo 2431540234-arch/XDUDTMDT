@@ -1,5 +1,5 @@
-// Khung xử lý thông báo trong ứng dụng. Hiện chỉ ghi log; M09 (đợt đơn hàng) sẽ tạo bản ghi `notifications`
-// và có thể đẩy email qua queue `mail`.
+// Khung việc nền chậm đi kèm thông báo (ví dụ email thông báo). Hiện chỉ ghi log.
+// Bản ghi `notifications` KHÔNG tạo ở đây: Service tạo trực tiếp trong cùng transaction nghiệp vụ (D-N19, D-T47).
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
