@@ -59,3 +59,8 @@ infra/docker/data/
 apps/api/uploads/
 apps/api/.tmp-uploads/
 uploads/
+
+# Test web
+apps/web/playwright-report/
+apps/web/test-results/
+apps/web/coverage/

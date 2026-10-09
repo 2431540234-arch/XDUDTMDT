@@ -26,12 +26,15 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:e2e": "npm run test:e2e -w @aurelia-living/api",
+    "test:e2e": "turbo run test:e2e --concurrency=1",
     "prepare": "husky || true",
     "docker:up": "docker compose up -d --no-recreate",
     "docker:down": "docker compose down",
     "infra:up": "docker compose up -d --no-recreate postgres redis minio minio-init mailpit",
-    "infra:down": "docker compose stop postgres redis minio mailpit"
+    "infra:down": "docker compose stop postgres redis minio mailpit",
+    "test:e2e:api": "npm run test:e2e -w @aurelia-living/api",
+    "test:e2e:web": "npm run test:e2e -w @aurelia-living/web",
+    "mobile:build": "cd apps/mobile && ./gradlew assembleDebug"
   },
   "devDependencies": {
     "turbo": "^2.0.0",
@@ -54,5 +57,8 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "overrides": {
+    "@types/three": "0.163.0"
   }
 }

@@ -6,3 +6,6 @@ apps/api/prisma/migrations/migration_lock.toml text eol=lf
 *.sh text eol=lf
 
 *.generated.ts text eol=lf
+
+apps/mobile/gradlew text eol=lf
+*.kts text eol=lf

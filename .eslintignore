@@ -10,3 +10,6 @@ apps/api/prisma/migrations
 .github
 
 next-env.d.ts
+
+playwright-report
+test-results

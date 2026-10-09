@@ -118,7 +118,7 @@ services:
       postgres:
         condition: service_started # CMD của api tự thử lại migrate cho tới khi DB sẵn sàng
       mailpit:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_healthy
       minio:
