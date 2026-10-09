@@ -6,7 +6,7 @@ Aurelia Living: website thương mại điện tử nội thất, tích hợp xe
 
 ### 1.1. Mục đích và phạm vi
 
-Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng vai trò, làm căn cứ cho Giai đoạn 2 (mô hình hoạt động, mô hình tuần tự, ERD hướng đối tượng) và cho việc viết code. Phạm vi: web (`apps/web`, Next.js) và API (`apps/api`, NestJS + Prisma + PostgreSQL). Ứng dụng Android (`apps/mobile`) và hai module phụ `ai`, `ar-overlay` của API nằm ngoài danh sách chức năng này (xem "Hướng phát triển", mục 13).
+Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng vai trò, làm căn cứ cho Giai đoạn 2 (mô hình hoạt động, mô hình tuần tự, ERD hướng đối tượng) và cho việc viết code. Phạm vi: web (`apps/web`, Next.js), API (`apps/api`, NestJS + Prisma + PostgreSQL, Redis/BullMQ, MinIO) và ứng dụng Android (`apps/mobile`, phương án tối thiểu: nhóm UC-MOB, mục 7.1). Hai module phụ `ai`, `ar-overlay` của API nằm ngoài danh sách chức năng này (xem "Hướng phát triển", mục 13).
 
 ### 1.2. Nguồn
 
@@ -971,7 +971,7 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Tác nhân chính / phụ** | Khách vãng lai · phụ: Dịch vụ email |
 | **Mô tả** | Khách tạo tài khoản mới để mua hàng, đánh giá, lưu yêu thích. Đăng ký xong được đăng nhập luôn. |
 | **Tiền điều kiện** | Chưa đăng nhập. Email chưa thuộc tài khoản nào chưa xóa mềm. |
-| **Hậu điều kiện** | Có bản ghi User (status = active), có UserSession, tài khoản có vai trò `user`. Email xác thực được gửi (bất đồng bộ). |
+| **Hậu điều kiện** | Có bản ghi User (status = active), có UserSession, tài khoản có vai trò `user`. Email xác thực được gửi qua hàng đợi `mail` (không chặn luồng chính). |
 | **Luồng chính** | 1. Khách: Mở trang Đăng ký (`/register`), nhập họ tên, email, số điện thoại (tuỳ chọn), mật khẩu, nhập lại mật khẩu.<br>2. Hệ thống: Validate dữ liệu phía client (zod/validators) rồi gửi `POST /api/auth/register`.<br>3. Hệ thống: Validate DTO phía server, kiểm tra email chưa tồn tại (`findFirst({ email, deletedAt: null })`).<br>4. Hệ thống: Băm mật khẩu bằng bcrypt; trong `prisma.$transaction` tạo `User` và `UserSession`.<br>5. CSDL: Khi commit, trigger gán vai trò `user` cho tài khoản mới.<br>6. Hệ thống: Sinh access token (15 phút) và refresh token (7 ngày), gửi email xác thực, trả 201 kèm token và hồ sơ.<br>7. Khách: Được chuyển về trang trước đó (đã đăng nhập). |
 | **Luồng thay thế** | 3a. Email đã tồn tại → trả 409 "Email đã được sử dụng", ở lại form.<br>3b. Hai request đăng ký cùng email đồng thời → vi phạm unique (P2002) → trả 409.<br>6a. Gửi email thất bại → vẫn đăng ký thành công, ghi log, cho phép gửi lại (UC-AUTH-07). |
 | **Ngoại lệ** | • Dữ liệu sai định dạng → 400 kèm danh sách lỗi theo trường.<br>• Lỗi CSDL → 500, không tạo tài khoản dở dang (transaction rollback). |
@@ -2108,11 +2108,11 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | Đặt hàng | Xác nhận đơn | UC-ORD-01 |
 | Đổi trạng thái đơn / giao hàng / hoàn tiền | Cập nhật tiến trình | UC-ADM-21, UC-ADM-23, UC-ADM-25 |
 
-Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps/api/src/mail`), không dùng hàng đợi; lỗi gửi chỉ ghi log và không làm hỏng luồng chính (luồng không quan trọng gọi không `await`). Biến môi trường `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`. Chuyển sang hàng đợi `mail` là hướng phát triển.
+Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps/api/src/mail`). Cách gửi chọn bằng `MAIL_TRANSPORT`: `queue` (mặc định) đẩy job vào hàng đợi `mail` (BullMQ), worker gửi SMTP, thử lại 3 lần với backoff mũ nên SMTP lỗi không làm hỏng request; `direct` gửi ngay trong request. Lỗi gửi chỉ ghi log và không làm hỏng luồng nghiệp vụ chính. Biến môi trường `MAIL_TRANSPORT`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`. Thông báo trong ứng dụng đi qua hàng đợi `notification` (hiện chỉ ghi log, M09 sẽ tạo bản ghi `notifications`).
 
 ### 11.4. Lưu trữ tệp và xử lý nền
 
-`StorageService` có hai driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev) và `local`. MinIO có hai bucket: `aurelia-public` (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh qua `STORAGE_PUBLIC_URL`) và `aurelia-private` (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập bằng presigned GET). Ảnh ≤ 5 MB tải qua API (multipart); mô hình 3D (≤ 100 MB) và panorama (≤ 20 MB) tải bằng presigned PUT thẳng lên MinIO rồi gọi API xác nhận. Hàng đợi BullMQ + Redis (`modules/jobs`): queue `model-processing` (kiểm tra GLB, đo đa giác/texture, sinh LOD, tính checksum) và `image-processing` (webp + thumbnail bằng `sharp`); mỗi job thử lại tối đa 3 lần với backoff mũ, job thất bại được giữ lại; Bull Board tại `/admin/queues` (chỉ admin). Worker chạy cùng tiến trình API, thiết kế để tách sang `apps/worker`. Redis cũng lưu bộ đếm giới hạn tốc độ (`@nestjs/throttler`). Quyết định: `docs/DECISIONS.md` D-T21..D-T23.
+`StorageService` có ba driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev), `s3` (production, cùng lớp S3-compatible nên chuyển chỉ đổi biến môi trường) và `local`. MinIO có hai bucket: `aurelia-public` (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh qua `STORAGE_PUBLIC_URL`) và `aurelia-private` (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập bằng presigned GET). Ảnh ≤ 5 MB tải qua API (multipart); mô hình 3D (≤ 100 MB) và panorama (≤ 20 MB) tải bằng presigned PUT thẳng lên MinIO rồi gọi API xác nhận. Hàng đợi BullMQ + Redis (`modules/jobs`) có 4 queue: `model-processing` (kiểm tra GLB, đo đa giác/texture, sinh LOD, tính checksum), `image-processing` (webp + thumbnail bằng `sharp`), `mail` (gửi email) và `notification` (khung); mỗi job thử lại tối đa 3 lần với backoff mũ, job thất bại được giữ lại; Bull Board tại `/admin/queues` (chỉ admin). Worker chạy cùng tiến trình API, thiết kế để tách sang `apps/worker`. Redis còn lưu bộ đếm giới hạn tốc độ (`@nestjs/throttler`, nhóm `default` và `auth`) và cache (`CacheService`); Redis **không** lưu phiên đăng nhập hay OTP (phiên và đặt lại mật khẩu ở PostgreSQL). Quyết định: `docs/DECISIONS.md` D-T21..D-T23, D-T29..D-T31, D-T41, D-T42.
 
 
 ## 12. Quyết định nghiệp vụ và điểm còn mở
@@ -2128,7 +2128,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 5 | Trừ tồn kho khi tạo đơn, trong `$transaction`, không phải khi thanh toán | UC-ORD-01 |
 | 6 | Đánh giá chỉ khi có `OrderItem` của sản phẩm thuộc đơn `completed` của chính user; review mới `pending`, admin duyệt | UC-REV-02, UC-ADM-18 |
 | 7 | Mô hình 3D: `uploading` → `processing` → `ready`/`failed`; xử lý bởi processor nền | UC-ADM-13 |
-| 8 | **Xử lý nền** bằng BullMQ + Redis trong `apps/api/src/modules/jobs` (queue `model-processing`, `image-processing`); worker chạy cùng tiến trình API. Lưu trữ tệp bằng MinIO (2 bucket public/private) qua `StorageService`; mô hình 3D và panorama tải bằng presigned PUT. Redis và MinIO nằm trong profile mặc định của `docker-compose.yml`. (Thay thế quyết định tạm "không dùng Redis/MinIO" ngày 2026-10-08.) | UC-ADM-13, UC-ADM-04 |
+| 8 | **Xử lý nền** bằng BullMQ + Redis trong `apps/api/src/modules/jobs` với 4 queue (`model-processing`, `image-processing`, `mail`, `notification`); worker chạy cùng tiến trình API. Lưu trữ tệp bằng MinIO (2 bucket public/private) qua `StorageService` (driver `minio`, `s3`, `local`); mô hình 3D và panorama tải bằng presigned PUT. Redis và MinIO nằm trong profile mặc định của `docker-compose.yml`. (Thay thế quyết định tạm "không dùng Redis/MinIO" ngày 2026-10-08.) | UC-ADM-13, UC-ADM-04, UC-AUTH-01, UC-AUTH-05 |
 | 9 | **Xác thực email**: JWT ký riêng mục đích `verify_email`, không thêm bảng | UC-AUTH-07 |
 | 10 | **Setting**: danh sách trắng khóa công khai trong Service, không thêm cột | UC-ADM-03 |
 | 11 | **Ghi lượt xem không gian mẫu**: MỘT lần khi người xem rời trang bằng `navigator.sendBeacon` (kèm `hotspotClickCount`, `addedToCart`); bỏ `viewToken` | UC-SPACE-06 |
@@ -2141,6 +2141,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 18 | **Tìm kiếm sản phẩm không dấu** (Nên có): cần thêm MỘT migration (index GIN trigram trên `immutable_unaccent(name)`), làm khi code | UC-CAT-06 |
 | 19 | **Ngoài phạm vi UC**: module backend `ai` và `ar-overlay`; đưa vào "Hướng phát triển" (mục 13). (Ứng dụng `apps/mobile` đã được đưa VÀO phạm vi theo quyết định 20.) | — |
 | 20 | **Ứng dụng Android (phương án tối thiểu)**: làm SAU khi web xong M07 (và M12 nếu kịp). Phạm vi: danh mục, chi tiết sản phẩm, camera CameraX + overlay ảnh (kéo, xoay, phóng to), chụp ảnh ghép và lưu vào máy. Không đăng nhập, không giỏ hàng/đặt hàng trên app. Chỉ dùng API công khai sẵn có. Tác nhân: khách vãng lai. Ảnh overlay là PNG nền trong suốt do chủ dự án chuẩn bị cho 5-10 sản phẩm demo | UC-MOB-01..04 |
+| 21 | **Redis** chỉ làm cache, trạng thái hàng đợi và giới hạn tốc độ; **phiên đăng nhập, đặt lại mật khẩu nằm ở PostgreSQL** (`user_sessions`, `password_resets`), xác thực email bằng JWT; không có OTP (D-T29) | UC-AUTH-02..07, UC-ACC-03 |
 
 ### 12.2. Điểm còn mở (đang áp dụng mặc định, chờ phản hồi)
 
@@ -2148,7 +2149,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | --- | --- | --- |
 | 1 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNN`, thử lại khi trùng (UC-ORD-01) |
 | 2 | Giới hạn tệp | Ảnh ≤ 5 MB, panorama ≤ 20 MB, GLB/USDZ ≤ 100 MB (biến `UPLOAD_MAX_IMAGE_MB`, `UPLOAD_MAX_PANORAMA_MB`, `UPLOAD_MAX_MODEL_MB`); `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
-| 3 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Trả 429; chưa quyết định triển khai ở giai đoạn nào |
+| 3 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Đã có hạ tầng: nhóm `default` 120 yêu cầu/60 giây cho mọi route, nhóm `auth` 10 yêu cầu/60 giây cho route gắn `@AuthThrottle()`; vượt thì trả 429 `RATE_LIMITED`. Route thống kê ẩn danh dùng nhóm `default` (có thể siết riêng khi code M12, M13) |
 | 4 | Thông báo tự động (đổi trạng thái đơn, duyệt đánh giá) | Service tạo `Notification`; không có trigger |
 | 5 | Gộp giỏ khách vào giỏ user sau đăng nhập | Không gộp (khách không có giỏ); client chỉ nhớ ý định thêm vào giỏ để thực hiện lại sau khi đăng nhập |
 | 6 | Xác nhận chuyển khoản (UC-ADM-24) cũng tự chuyển đơn `pending → confirmed` giống thanh toán online | Có áp dụng [ĐỀ XUẤT] |
@@ -2160,7 +2161,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 
 ### 12.3. Thành phần cần tạo mới / cần sửa / cần migration (tóm tắt; chi tiết ở Giai đoạn 2)
 
-- **[CẦN TẠO MỚI]** `OptionalJwtAuthGuard` (cho `POST/PATCH /api/ar-sessions`), `PermissionsGuard`, `ActivityLogInterceptor`; module `categories`, `brands`, `pages`, `attributes`, `reviews`, `coupons`, `addresses`, `notifications`, `wishlist`, `payments`, `shipments`, `inventory`, `settings`, `stats`, `activity-logs`, `mail`, `ar-sessions`, `ar-snapshots`; DTO tương ứng; `setGlobalPrefix('api')`; cấu hình `ConfigModule` đọc `.env`; (tuỳ chọn) `src/worker.ts`.
+- **[CẦN TẠO MỚI]** `OptionalJwtAuthGuard` (cho `POST/PATCH /api/ar-sessions`), `PermissionsGuard`, `ActivityLogInterceptor`; module `categories`, `brands`, `pages`, `attributes`, `reviews`, `coupons`, `addresses`, `notifications`, `wishlist`, `payments`, `shipments`, `inventory`, `settings`, `stats`, `activity-logs`, `ar-sessions`, `ar-snapshots`; DTO tương ứng; (tuỳ chọn) `src/worker.ts`. Đã có (lượt cấu hình môi trường): `setGlobalPrefix('api')`, `ConfigModule` đọc `.env`, `MailModule`/`MailService`, `CacheService`, guard JWT và roles toàn cục.
 - **[CẦN SỬA]** `apps/web/src/app/(shop)/products/[id]` → `products/[slug]`; `apps/web/src/app/(shop)/spaces/[id]` → `spaces/[slug]`.
 - **Migration cần làm khi code** (tạo bằng `prisma migrate dev --create-only`): index `idx_products_name_unaccent_trgm` ON `products` USING gin (`immutable_unaccent(name)` gin_trgm_ops) (UC-CAT-06).
 

@@ -33,7 +33,7 @@ Hook `commit-msg` (commitlint) từ chối commit sai định dạng; hook `pre-
 ## Pull request
 
 1. Nhánh cập nhật theo `main`, một PR làm một việc.
-2. Trước khi mở PR chạy local và phải xanh: `npm run lint && npm run typecheck && npm test && npm run test:e2e`.
+2. Trước khi mở PR chạy local và phải xanh: `npm run lint && npm run typecheck && npm test && npm run test:e2e` (e2e cần `npm run infra:up` và `docker compose --profile test up -d postgres-test`; xem README mục 6).
 3. Mô tả PR gồm: mục đích, thay đổi chính, cách kiểm tra, ảnh hưởng DB (có migration không).
 4. Đổi `schema.prisma` => tạo migration và chạy `npm run types:generate` (CI chạy `types:check` để bắt quên).
 5. CI (GitHub Actions) phải xanh; cần ít nhất một người review trước khi merge. Ưu tiên squash merge, tiêu đề theo Conventional Commits.

@@ -146,7 +146,7 @@ async list(@Query() q: ProductQueryDto) {
 
 ### 8.1. StorageService
 
-Module nghiệp vụ chỉ inject `STORAGE_SERVICE` (`upload`, `download`, `delete`, `head`, `getUrl`, `presignPut`, `presignGet`); driver chọn bằng `STORAGE_DRIVER` (`minio` mặc định dev, `local` dự phòng).
+Module nghiệp vụ chỉ inject `STORAGE_SERVICE` (`upload`, `download`, `delete`, `head`, `getUrl`, `presignPut`, `presignGet`); driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev), `s3` (production, cùng lớp S3-compatible, chỉ khác biến môi trường: bỏ `S3_ENDPOINT`, đặt `S3_REGION`, `S3_FORCE_PATH_STYLE=false`, bỏ khóa nếu dùng IAM role), `local` (dự phòng).
 
 - Hai bucket: **`aurelia-public`** (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh) và **`aurelia-private`** (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập qua presigned GET).
 - `media.file_path` lưu **object key** (ví dụ `images/2026/10/<uuid>.png`), không lưu URL. URL công khai = `STORAGE_PUBLIC_URL` + `/` + key (`storage.getUrl(key)`).
@@ -170,20 +170,51 @@ Kiểu dùng chung: `PresignUploadRequest`, `PresignedUpload`, `ConfirmUploadReq
 
 ### 8.3. Hàng đợi (BullMQ + Redis)
 
-- Đẩy job qua `JobsService` (`enqueueModel`, `enqueueImage`); không dùng BullMQ trực tiếp ở module nghiệp vụ.
+- Có 4 queue: `model-processing`, `image-processing`, `mail`, `notification`. Đẩy job qua `JobsService` (`enqueueModel`, `enqueueImage`, `enqueueMail`, `enqueueNotification`); không dùng BullMQ trực tiếp ở module nghiệp vụ.
 - Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. USDZ: chỉ kiểm tra ZIP + checksum.
 - Queue `image-processing`: tạo `<key>.webp` và `<key>_thumb.webp` bằng `sharp`.
+- Queue `mail`: gửi email thật qua SMTP (`SmtpMailService`). Queue `notification`: khung, hiện chỉ ghi log; M09 sẽ tạo bản ghi `notifications`.
 - Mỗi job thử lại 3 lần, backoff mũ; tệp hỏng không thử lại; job thất bại được giữ để xem tại **Bull Board** `/admin/queues` (chỉ admin: header `Authorization: Bearer`, cookie `bq_token`, hoặc `?token=` lần đầu).
 - Worker chạy cùng tiến trình API; processor chỉ gọi `ModelProcessingService`/`ImageProcessingService` nên tách sang `apps/worker` không cần sửa logic.
-- Giới hạn tốc độ: `@nestjs/throttler` lưu bộ đếm trong Redis (mặc định 120 yêu cầu/phút/IP; endpoint nhạy cảm siết chặt bằng `@Throttle`, trả `429 RATE_LIMITED`).
+- Redis dùng cho: hàng đợi BullMQ, bộ đếm giới hạn tốc độ và cache (mục 8.6). **Không** lưu phiên đăng nhập hay OTP: phiên (`user_sessions`) và đặt lại mật khẩu (`password_resets`) nằm ở PostgreSQL (DECISIONS D-T29).
+
+### 8.3a. Giới hạn tốc độ (`@nestjs/throttler`, bộ đếm trong Redis, theo IP)
+
+| Nhóm | Áp dụng | Mặc định | Biến |
+| --- | --- | --- | --- |
+| `default` | Mọi route | 120 yêu cầu / 60 giây | `THROTTLE_DEFAULT_LIMIT`, `THROTTLE_DEFAULT_TTL_SECONDS` |
+| `auth` | Chỉ route gắn `@AuthThrottle()` (đăng nhập, đăng ký, quên mật khẩu, đặt lại mật khẩu) | 10 yêu cầu / 60 giây | `THROTTLE_AUTH_LIMIT`, `THROTTLE_AUTH_TTL_SECONDS` |
+
+- Vượt giới hạn: `429 RATE_LIMITED` theo định dạng lỗi chuẩn.
+- Header trong mọi response: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` (giây) cho nhóm `default`; nhóm `auth` thêm hậu tố `-auth` (`X-RateLimit-Limit-auth`...). Khi bị chặn có thêm `Retry-After` (và `Retry-After-auth`).
+- M02 chỉ cần gắn `@AuthThrottle()` (`src/common/decorators/throttle.decorators.ts`), không cấu hình thêm.
 
 ### 8.4. Email
 
-Module nghiệp vụ inject `MAIL_SERVICE` (`send`). Dev: thư vào Mailpit, xem tại http://localhost:8025. Gửi trực tiếp, lỗi gửi chỉ ghi log (không dùng hàng đợi).
+Module nghiệp vụ inject `MAIL_SERVICE` (`send`). Dev: thư vào Mailpit, xem tại http://localhost:8025. Cách gửi chọn bằng `MAIL_TRANSPORT`: `queue` (mặc định) đẩy job vào hàng đợi `mail`, request không chờ SMTP, lỗi SMTP được thử lại 3 lần với backoff mũ; `direct` gửi SMTP ngay trong request (dùng khi cần kết quả đồng bộ). Lỗi gửi không được làm hỏng luồng nghiệp vụ chính.
 
 ### 8.5. Kiểm tra sức khỏe
 
-`GET /health` (không tiền tố `/api`, công khai) trả `checks: { database, redis, storage }` đều `up`; nếu một thành phần `down` thì `503 SERVICE_UNAVAILABLE` kèm `details.checks`.
+`GET /health` (không tiền tố `/api`, công khai) kiểm tra PostgreSQL, Redis, kho tệp (MinIO/S3), SMTP và hàng đợi:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok",
+    "uptime": 29,
+    "timestamp": "2026-10-09T05:50:33.968Z",
+    "checks": { "database": "up", "redis": "up", "storage": "up", "smtp": "up", "queues": "up" },
+    "queues": { "model-processing": { "waiting": 0, "active": 0, "delayed": 0, "failed": 0 }, "image-processing": {}, "mail": {}, "notification": {} }
+  }
+}
+```
+
+Nếu một thành phần `down`: `503 SERVICE_UNAVAILABLE` kèm `details.checks` cho biết thành phần nào hỏng. Kiểu: `HealthStatus` (`packages/shared-types/src/health.types.ts`).
+
+### 8.6. Cache (Redis)
+
+`CacheService` (`src/cache/`): `get`, `set` (có TTL), `del`, `delByPrefix` (SCAN, không dùng KEYS), `getOrSet`. Khóa có tiền tố `CACHE_KEY_PREFIX`; TTL mặc định `CACHE_DEFAULT_TTL_SECONDS`; tắt hẳn bằng `CACHE_ENABLED=false`. Lỗi Redis không làm hỏng request (coi như cache miss, ghi log). Quy ước khóa: `<nhóm>:<định danh>`, ví dụ `categories:tree`, `products:featured`, `settings:public`, `pages:<slug>`, `products:<slug>`. Admin sửa dữ liệu thì xóa theo tiền tố (`delByPrefix('products:')`). TTL gợi ý: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings công khai 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút (DECISIONS D-T30). Không cache dữ liệu theo người dùng (giỏ, đơn). Hiện chưa module nghiệp vụ nào gọi.
 
 ## 9. Kiểm thử một endpoint mới
 

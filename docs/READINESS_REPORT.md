@@ -1,6 +1,6 @@
 # Báo cáo đánh giá mức sẵn sàng viết code
 
-> **ĐÃ LỖI THỜI (ghi chú 2026-10-08).** Báo cáo này lập trước khi có nền tảng backend, quy ước API (`API_CONVENTIONS.md`), đồng bộ shared-types, lint/test/CI, Redis + MinIO + hàng đợi và khung 14 module. Các mâu thuẫn M1-M4, M7-M8, M10 đã được xử lý. Xem hiện trạng: [MODULE_ENV_REPORT.md](MODULE_ENV_REPORT.md), [TIEN_DO.md](TIEN_DO.md), [DECISIONS.md](DECISIONS.md).
+> **Cập nhật 2026-10-09, commit `b30fc75`. Báo cáo này là ảnh chụp tại thời điểm lập (trước khi có nền tảng backend); nội dung cũ được giữ nguyên.** Đã lỗi thời: điểm 28/36 và kết luận "sẵn sàng có điều kiện" (mục 1, 3); toàn bộ danh sách mâu thuẫn M1-M10 (mục 4: kiểu dùng chung, Dockerfile/compose, script lint/test, mobile ngoài phạm vi, route `[id]`, thư mục `.github`...) và việc cần làm (mục 5, 7), vì đã xử lý ở Đợt nền tảng, Đợt 0, Đợt 0b và lượt cấu hình môi trường; các con số "76 UC", "141 API" nay là 80 UC (thêm 4 UC-MOB) và 144 endpoint thiết kế. Các câu hỏi chủ dự án ở mục 6 đã được trả lời trong `DECISIONS.md`. **Tài liệu hiện hành:** [TIEN_DO.md](TIEN_DO.md) (trạng thái), [DECISIONS.md](DECISIONS.md) (quyết định), [CONG_NGHE.md](CONG_NGHE.md) (công nghệ), [ENV_SETUP_REPORT.md](ENV_SETUP_REPORT.md) và [ENVIRONMENT.md](ENVIRONMENT.md) (môi trường), [DOC_SYNC_REPORT.md](DOC_SYNC_REPORT.md) (đợt đồng bộ này).
 
 Dự án: **Aurelia Living** (website thương mại điện tử nội thất B2C, tích hợp xem 3D, AR và không gian mẫu 360°).
 Phạm vi rà soát: toàn bộ workspace `C:\Users\Dell\XDUDTMDT` (chỉ đọc; file này là file duy nhất được tạo).

@@ -12,14 +12,14 @@ Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO
 
 | Tầng | Công nghệ |
 | --- | --- |
-| Frontend (`apps/web`) | Next.js 14 (App Router), React 18, TypeScript, Tailwind CSS, React Three Fiber/drei (xem 3D, panorama), Zustand (store), TanStack Query (gọi API) |
-| Mobile (`apps/mobile`) | Android (Kotlin 2.2), Jetpack Compose, CameraX, Hilt, Retrofit, Coil; chỉ xem sản phẩm, camera overlay, chụp ảnh (UC-MOB) |
-| Backend (`apps/api`) | NestJS 10, TypeScript, Passport JWT, class-validator, Swagger |
+| Frontend (`apps/web`) | Next.js 14.2 (App Router), React 18.3, TypeScript, Tailwind CSS 3.4, React Three Fiber 8.18 + drei 9.122 trên Three.js 0.163 (xem 3D, ảnh 360° tự dựng), `@google/model-viewer` 3.5 (AR trên điện thoại), Zustand 4.5 (state giao diện), TanStack Query 5.104 (gọi và cache API), React Hook Form + Zod (biểu mẫu), Recharts (biểu đồ quản trị); kiểm thử bằng Vitest và Playwright |
+| Mobile (`apps/mobile`) | Android (minSdk 26), Kotlin 2.2.10, Jetpack Compose (BOM 2026.02.01), CameraX 1.5.3, Hilt 2.59.2, Retrofit 2.11, Coil 2.6; AGP 9.2.1. Phạm vi tối thiểu (UC-MOB): xem danh mục và sản phẩm, camera overlay, chụp ảnh ghép lưu vào máy; làm sau M07 |
+| Backend (`apps/api`) | NestJS 10.4, TypeScript, JWT (`@nestjs/jwt`, guard toàn cục; không dùng Passport), class-validator, Zod (kiểm tra biến môi trường), Swagger, Helmet, `@nestjs/throttler`, `@nestjs/schedule`; kiểm thử Jest + Supertest |
 | ORM / CSDL | Prisma 5.22, PostgreSQL 16 (44 bảng, 36 trigger, extension citext, pg_trgm, unaccent, pgcrypto) |
-| Hàng đợi / cache | BullMQ + Redis 7: queue `model-processing` (kiểm tra GLB, sinh LOD), `image-processing` (webp, thumbnail); throttler lưu bộ đếm trong Redis. Worker chạy cùng tiến trình API |
-| Lưu trữ tệp | MinIO (S3 tương thích) qua `StorageService`: bucket public (ảnh, panorama, mô hình đã xử lý) và private (tệp gốc, ảnh AR chưa công khai); driver `local` dự phòng. Mô hình 3D và panorama tải bằng presigned PUT |
-| Tích hợp ngoài | Cổng thanh toán MoMo, VNPay, ZaloPay; đơn vị vận chuyển GHN, GHTK, Viettel Post; SMTP gửi email |
-| Hạ tầng dev | Docker Compose (postgres, redis, minio, minio-init, mailpit, api; profile test: postgres-test) |
+| Hàng đợi / cache | Redis 7. BullMQ 5 với 4 queue: `model-processing` (kiểm tra GLB, sinh LOD), `image-processing` (webp, thumbnail), `mail` (gửi email), `notification` (khung). Redis còn lưu bộ đếm giới hạn tốc độ (nhóm `default` và `auth`) và cache (`CacheService`). **Redis KHÔNG lưu phiên đăng nhập hay OTP**: phiên và đặt lại mật khẩu nằm ở PostgreSQL. Worker chạy cùng tiến trình API |
+| Lưu trữ tệp | `StorageService` với driver `minio` (dev, MinIO), `s3` (production, chỉ đổi biến môi trường) và `local`: bucket public (ảnh, panorama, mô hình đã xử lý) và private (tệp gốc, ảnh AR chưa công khai). Ảnh ≤ 5 MB qua API; mô hình 3D và panorama tải bằng presigned PUT |
+| Tích hợp ngoài | Cổng thanh toán VNPay (sandbox; MoMo, ZaloPay là phương án mở rộng); vận chuyển GHN, GHTK, Viettel Post (hiện admin nhập tay); SMTP gửi email (Mailpit khi dev, qua hàng đợi `mail`) |
+| Hạ tầng dev | Docker Compose: postgres, redis, minio (+ minio-init), mailpit, api; profile `test`: postgres-test. CI: GitHub Actions (lint, typecheck, test, build; workflow Android riêng) |
 
 ### 1.2. Kiến trúc
 
@@ -63,6 +63,10 @@ flowchart LR
     SVC -. "nhập tay / webhook" .-> SH
 ```
 
+> Ghi chú đồng bộ 2026-10-09: sơ đồ kiến trúc phía trên (ảnh `architecture_kien-truc-he-thong`) chưa vẽ lại; hiện trạng đúng là Redis còn làm cache (`CacheService`) và giới hạn tốc độ, hàng đợi có thêm `mail` và `notification`, email đi `SVC → hàng đợi mail → JOBS → SMTP` thay vì gọi SMTP trực tiếp. Xem `docs/DOC_SYNC_REPORT.md` (việc cần vẽ lại).
+
+Phiên đăng nhập (`user_sessions`) và đặt lại mật khẩu (`password_resets`) lưu ở PostgreSQL, không ở Redis (DECISIONS D-T29). Email đi qua hàng đợi `mail` khi `MAIL_TRANSPORT=queue` (mặc định).
+
 Quy tắc xuyên suốt: (1) trigger CSDL tự làm `updated_at`, `ratingAvg/ratingCount`, `has3dModel/hasAr`, `Space.viewCount`, `OrderStatusHistory`, gán vai trò `user`; Service không code lặp lại. (2) Việc Service tự làm (trừ/hoàn kho kèm `InventoryMovement`, `soldCount`, kiểm tra và ghi `CouponUsage`, kiểm tra "đã mua mới được đánh giá") nằm trong `prisma.$transaction`. (3) Tiền là `Prisma.Decimal`, trả ra bằng `serialize()` thành number. (4) Chỉ xóa mềm với `User`, `Product`.
 
 ### 1.3. Cây thư mục rút gọn
@@ -70,24 +74,33 @@ Quy tắc xuyên suốt: (1) trigger CSDL tự làm `updated_at`, `ratingAvg/rat
 ```text
 apps/
 ├── api/                              NestJS + Prisma
-│   ├── prisma/  schema.prisma, seed.ts, migrations/{0_init, ..._media_file_size_int}
+│   ├── prisma/  schema.prisma, seed.ts, seed-storage.ts, migrations/{0_init, 20261006134647_media_file_size_int}
+│   ├── test/    e2e (*.e2e-spec.ts), fixtures/ (GLB mẫu), setup-env.ts
 │   └── src/
-│       ├── main.ts, app.module.ts    (khung; cần setGlobalPrefix('api'), ConfigModule)
-│       ├── prisma/                   [CẦN TẠO MỚI] prisma.module.ts, prisma.service.ts
-│       ├── common/
-│       │   ├── decorators/ filters/ pipes/ interceptors/     (khung đã có)
-│       │   ├── guards/   jwt-auth.guard.ts, roles.guard.ts (có) + optional-jwt-auth.guard.ts, permissions.guard.ts [CẦN TẠO MỚI]
-│       │   ├── interceptors/ + activity-log.interceptor.ts   [CẦN TẠO MỚI]
-│       │   └── utils/serialize.ts                            (đã có)
-│       ├── config/                   env.validation, AppConfig (đã có); Swagger trong app.setup.ts
-│       └── modules/
-│           ├── auth/ users/ products/ cart/ orders/ spaces/ product-models/ media/ jobs/   (khung đã có)
-│           ├── ai/ ar-overlay/      (có sẵn, ngoài phạm vi UC: Hướng phát triển)
-│           └── addresses/ notifications/ wishlist/ categories/ brands/ pages/ attributes/ reviews/ coupons/
-│               payments/ shipments/ inventory/ settings/ stats/ activity-logs/ ar-sessions/ ar-snapshots/ mail/   [CẦN TẠO MỚI]
+│       ├── main.ts, app.module.ts, app.setup.ts   (đã có: prefix /api, Helmet, CORS, ValidationPipe, Swagger)
+│       ├── config/       env.validation (Zod), AppConfig                       (đã có)
+│       ├── prisma/       PrismaService, PrismaModule                           (đã có)
+│       ├── cache/        CacheService, CacheModule (Redis)                     (đã có)
+│       ├── storage/      StorageService, MinioStorageService (minio, s3), LocalStorageService  (đã có)
+│       ├── mail/         MailService, SmtpMailService, MailQueueService        (đã có)
+│       ├── activity-log/ ActivityLogService                                    (đã có)
+│       ├── health/       GET /health                                           (đã có)
+│       ├── common/       guards (jwt-auth, roles, ownership), decorators (@Public, @Roles, @CurrentUser, @AuthThrottle),
+│       │                 filters (AllExceptionsFilter), interceptors, pipes, exceptions, dto  (đã có)
+│       └── modules/      32 thư mục module (khung rỗng, có comment mã UC) + index.ts
+│           ├── jobs/     BullMQ: model-processing, image-processing, mail, notification, Bull Board  (đã có, có test)
+│           ├── media/, product-models/   mới có luồng presign/confirm, job xử lý (đã có, có test)
+│           ├── auth/ users/ addresses/ wishlist/ notifications/ admin-users/ admin-roles/ settings/ activity-logs/
+│           │   categories/ brands/ attributes/ pages/ products/ variants/ product-images/ inventory/ cart/ coupons/
+│           │   orders/ payments/ shipments/ reviews/ ar-snapshots/ ar-sessions/ spaces/ panoramas/ hotspots/
+│           │   admin-notifications/ admin-stats/                              (khung rỗng)
+│           └── ai/ ar-overlay/   (có sẵn, ngoài phạm vi UC: Hướng phát triển)
 ├── web/                              Next.js 14
-│   └── src/ app/{(admin),(auth),(shop)}, components/{cart,layout,product,ui,viewer}, hooks, lib, services, store, types
-└── mobile/                           Android (Kotlin, Compose, CameraX): UC-MOB-01..04
+│   ├── src/ app/{admin,(auth),(shop)}, components/{cart,layout,product,ui,viewer}, hooks, lib, services, store, styles, types
+│   └── tests/ unit (Vitest), e2e (Playwright)
+└── mobile/                           Android (Kotlin, Compose, CameraX): UC-MOB-01..04 (khung; assembleDebug chạy được)
+packages/
+└── shared-types/                     Kiểu dùng chung, sinh từ schema.prisma (entities, enums) + kiểu response/lỗi/health/upload
 ```
 
 
@@ -8535,7 +8548,7 @@ Từ điển dữ liệu chi tiết (kiểu, ràng buộc, mô tả từng cột
 
 ## 6. Danh sách API
 
-Tiền tố `/api`. Tổng **144 endpoint**. Guard: `JwtAuthGuard` (user đã đăng nhập), `OptionalJwtAuthGuard` (khách hoặc user) [CẦN TẠO MỚI], `RolesGuard('admin')` + `PermissionsGuard` (quyền ghi trong ngoặc) cho `/api/admin/*`. Response là phần dữ liệu (định dạng bọc ngoài do `TransformResponseInterceptor` quyết định, mục 9). URL công khai dùng `slug`; API quản trị dùng `id`. **Định dạng response, lỗi, phân trang, sắp xếp: xem [API_CONVENTIONS.md](API_CONVENTIONS.md)** (mọi response bọc `{ success, data, meta? }`; cột "Response" bên dưới ghi phần `data`; phân trang dùng `page` + `pageSize`, sắp xếp dùng `sort=truong:asc|desc`; DELETE trả 200 với `data: null`, không dùng 204).
+Tiền tố `/api`. Tổng **144 endpoint theo thiết kế**. **Đã cài 6 route** (`GET /health`; `POST /api/admin/media`, `.../media/presign`, `.../media/confirm`; `POST /api/admin/models/:id/files/presign`, `.../files/confirm`); phần còn lại mới là khung controller rỗng (xem `docs/TIEN_DO.md`). Guard: `JwtAuthGuard` (user đã đăng nhập), `OptionalJwtAuthGuard` (khách hoặc user) [CẦN TẠO MỚI], `RolesGuard('admin')` + `PermissionsGuard` (quyền ghi trong ngoặc) cho `/api/admin/*`. Response là phần dữ liệu (định dạng bọc ngoài do `TransformResponseInterceptor` quyết định, mục 9). URL công khai dùng `slug`; API quản trị dùng `id`. **Định dạng response, lỗi, phân trang, sắp xếp: xem [API_CONVENTIONS.md](API_CONVENTIONS.md)** (mọi response bọc `{ success, data, meta? }`; cột "Response" bên dưới ghi phần `data`; phân trang dùng `page` + `pageSize`, sắp xếp dùng `sort=truong:asc|desc`; DELETE trả 200 với `data: null`, không dùng 204).
 
 | # | Method | URL | Controller.hàm | Guard / Vai trò | Request DTO | Response | Mã UC |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -8970,43 +8983,49 @@ Trạng thái: **đã có** = file tồn tại trong khung nhưng chỉ có dòn
 | `ProductModelsService.toPublicDto(model)` | apps/api/src/modules/product-models/product-models.service.ts | Gom tệp GLB/USDZ theo LOD và URL media | UC-3D-01, UC-3D-02 |
 | `GatewayFactory.get(method).buildPaymentUrl / verifyIpn` | apps/api/src/modules/payments/gateways/ | Adapter VNPay, MoMo, ZaloPay (chữ ký HMAC) | UC-PAY-01..03 |
 | `NotificationsService.create(userId, title, data)` | apps/api/src/modules/notifications/notifications.service.ts | Tạo `Notification` | nhiều UC |
-| `MailService.send*` | apps/api/src/modules/mail/mail.service.ts | Email xác thực, đặt lại mật khẩu, đơn hàng (gửi trực tiếp qua SMTP, không hàng đợi) | UC-AUTH-01, 05, 07; UC-ORD-01; UC-ADM-21 |
+| `MailService.send*` | apps/api/src/modules/mail/mail.service.ts | Email xác thực, đặt lại mật khẩu, đơn hàng (`MAIL_TRANSPORT=queue`: đẩy job vào hàng đợi `mail`, worker gửi SMTP; `direct`: gửi ngay) | UC-AUTH-01, 05, 07; UC-ORD-01; UC-ADM-21 |
 | `escapeLike(q)`, `slugify(name)` | apps/api/src/common/utils/ | Escape `%`, `_`; sinh slug bỏ dấu | UC-CAT-03, 06; UC-ADM-05, 09 |
 
 ### Thành phần dùng chung và hạ tầng
 
 | Thành phần | File | Trạng thái | Nội dung cần viết |
 | --- | --- | --- | --- |
-| PrismaService, PrismaModule | `apps/api/src/prisma/prisma.service.ts`, `prisma.module.ts` | [CẦN TẠO MỚI] | `PrismaClient` với `onModuleInit` kết nối, `enableShutdownHooks`; `@Global()` |
-| Cấu hình app | `apps/api/src/main.ts`, `app.module.ts` | đã có (khung) | `setGlobalPrefix('api')`, `ValidationPipe({ whitelist, transform })`, `HttpExceptionFilter`, `TransformResponseInterceptor`, Swagger; `ConfigModule.forRoot` đọc `.env` |
-| JwtAuthGuard, RolesGuard | `apps/api/src/common/guards/` | đã có (khung) | xác thực JWT, kiểm tra vai trò; từ chối `status ≠ active` hoặc đã xóa mềm |
+| PrismaService, PrismaModule | `apps/api/src/prisma/prisma.service.ts`, `prisma.module.ts` | đã có | `PrismaClient` kết nối khi khởi động, `@Global()` |
+| Cấu hình app | `apps/api/src/main.ts`, `app.module.ts`, `app.setup.ts` | đã có | `setGlobalPrefix('api')` (trừ `/health`, `/admin/queues`), `ValidationPipe`, `AllExceptionsFilter`, `TransformResponseInterceptor`, Helmet, CORS, Swagger; `ConfigModule` + Zod đọc `.env` |
+| JwtAuthGuard, RolesGuard | `apps/api/src/common/guards/` | đã có | xác minh JWT bằng `JwtService`, kiểm tra vai trò; đăng ký toàn cục; `@Public()`, `@Roles()`, `@CurrentUser()`; `assertOwnerOrAdmin`, `ownerScope` |
 | OptionalJwtAuthGuard | `apps/api/src/common/guards/optional-jwt-auth.guard.ts` | [CẦN TẠO MỚI] | không bắt buộc token; gán `user` nếu có |
 | PermissionsGuard + `@RequirePermission()` | `apps/api/src/common/guards/permissions.guard.ts` | [CẦN TẠO MỚI] | kiểm tra `RolePermission` cho 6 quyền |
 | ActivityLogInterceptor | `apps/api/src/common/interceptors/activity-log.interceptor.ts` | [CẦN TẠO MỚI] | ghi `ActivityLog` cho mọi thao tác ghi của admin |
-| CurrentUser decorator | `apps/api/src/common/decorators/current-user.decorator.ts` | đã có (khung) | lấy `user` từ request |
+| CurrentUser decorator | `apps/api/src/common/decorators/auth.decorators.ts` | đã có | lấy `user` từ request |
 | serialize() | `apps/api/src/common/utils/serialize.ts` | đã có | Decimal → number |
-| JwtStrategy, RefreshStrategy | `apps/api/src/modules/auth/strategies/` | đã có (khung) | xác minh access/refresh token |
-| MailModule/MailService | `apps/api/src/modules/mail/` | [CẦN TẠO MỚI] | gửi email xác thực, đặt lại mật khẩu, đơn hàng (trực tiếp qua SMTP) |
-| Jobs | `apps/api/src/modules/jobs/` (queue `model-processing`, `image-processing`; processor mỏng gọi `ModelProcessingService`, `ImageProcessingService`) | đã có | worker chạy cùng tiến trình API, tách `apps/worker` sau này không sửa logic |
+| JwtStrategy, RefreshStrategy | `apps/api/src/modules/auth/strategies/` | khung cũ, không dùng | Passport đã gỡ (D-T35); `JwtAuthGuard` xác minh trực tiếp bằng `JwtService`; M02 quyết định giữ hay xóa hai file khung |
+| MailModule/MailService | `apps/api/src/mail/` | đã có | `MAIL_SERVICE` (queue hoặc direct theo `MAIL_TRANSPORT`), `SmtpMailService`, `MailQueueService`; processor `mail` gửi SMTP; chưa module nghiệp vụ nào gọi |
+| Jobs | `apps/api/src/modules/jobs/` (queue `model-processing`, `image-processing`, `mail`, `notification`; processor mỏng gọi `ModelProcessingService`, `ImageProcessingService`, `SmtpMailService`) | đã có | worker chạy cùng tiến trình API, tách `apps/worker` sau này không sửa logic; Bull Board `/admin/queues` |
+| Cache Redis | `apps/api/src/cache/` | đã có | `CacheService` (`get`, `set` TTL, `del`, `delByPrefix`, `getOrSet`), tắt bằng `CACHE_ENABLED`; chưa module nào gọi |
+| Giới hạn tốc độ | `apps/api/src/app.module.ts`, `common/decorators/throttle.decorators.ts` | đã có | nhóm `default` và `auth` (`@AuthThrottle()`), bộ đếm trong Redis |
+| StorageService | `apps/api/src/storage/` | đã có | driver `minio`, `s3`, `local`; presigned PUT/GET |
 | Web: services/hooks/store | `apps/web/src/services/*.api.ts`, `hooks/`, `store/` | đã có (khung) cho auth, cart, media, product, space; còn lại [CẦN TẠO MỚI] | gọi API tương ứng bảng mục 6 |
-| Web: đổi route theo slug | `apps/web/src/app/(shop)/products/[id]` → `[slug]`; `spaces/[id]` → `[slug]` | [CẦN SỬA] | đổi tên thư mục và lấy tham số `slug` |
+| Web: đổi route theo slug | `apps/web/src/app/(shop)/products/[slug]`; `spaces/[slug]` | đã làm | thư mục đã đổi tên; trang còn khung rỗng |
 | Migration mới | `apps/api/prisma/migrations/<timestamp>_products_name_unaccent_index` | [CẦN TẠO MỚI] | `CREATE INDEX idx_products_name_unaccent_trgm ... USING gin (immutable_unaccent(name) gin_trgm_ops)` (UC-CAT-06), dùng `--create-only` |
 
-Tổng số file/thư mục module **[CẦN TẠO MỚI]** (backend, từ các bảng trên): **119**; (frontend, trang và service gọi API): **32**.
+Số liệu dưới đây là **số đếm tại thời điểm viết báo cáo (trước Đợt 0)**; khung thư mục module đã được dựng sau đó. Tổng số file/thư mục module **[CẦN TẠO MỚI]** (backend, từ các bảng trên): **119**; (frontend, trang và service gọi API): **32**.
 
 ## 8. Lộ trình code theo giai đoạn
 
 Thứ tự: auth → catalog → cart → order + payment → review → 3D/AR → space → admin/thống kê. Mỗi giai đoạn kết thúc bằng một nhánh chạy được và có test (unit cho Service, e2e cho API chính).
 
 
-### Giai đoạn 0 – Nền tảng
+### Giai đoạn 0 – Nền tảng (đã xong, 2026-10-06 đến 2026-10-09)
 
-- [ ] `PrismaModule`/`PrismaService`
-- [ ] `main.ts`: `setGlobalPrefix('api')`, `ValidationPipe`, `HttpExceptionFilter`, `TransformResponseInterceptor` (dùng `serialize`), Swagger
-- [ ] `ConfigModule` đọc `.env`; cấu hình JWT, Redis, S3
-- [ ] Guard: `JwtAuthGuard`, `RolesGuard`, `OptionalJwtAuthGuard`, `PermissionsGuard`; decorator `CurrentUser`, `RequirePermission`
-- [ ] `ActivityLogInterceptor`
-- [ ] `MailModule` (gửi email trực tiếp qua SMTP; đã có `MailService`)
+- [x] `PrismaModule`/`PrismaService`
+- [x] `main.ts`/`app.setup.ts`: `setGlobalPrefix('api')`, `ValidationPipe`, `AllExceptionsFilter`, `TransformResponseInterceptor` (dùng `serialize`), Swagger
+- [x] `ConfigModule` đọc `.env` (một file ở gốc), Zod kiểm tra biến môi trường
+- [x] Guard: `JwtAuthGuard`, `RolesGuard`; decorator `Public`, `Roles`, `CurrentUser`, `AuthThrottle`; `ownership`
+- [ ] `OptionalJwtAuthGuard`, `PermissionsGuard` + `RequirePermission` (làm cùng M02, M04)
+- [ ] `ActivityLogInterceptor` (đã có `ActivityLogService`)
+- [x] `MailModule` (gửi qua queue `mail` hoặc trực tiếp theo `MAIL_TRANSPORT`)
+- [x] Hạ tầng: Redis, MinIO, BullMQ (4 queue), `CacheService`, giới hạn tốc độ, driver S3, `/health` mở rộng
+- [x] Môi trường web, mobile, CI (xem `docs/ENV_SETUP_REPORT.md`)
 
 ### Giai đoạn 1 – Xác thực và tài khoản
 
@@ -9015,6 +9034,7 @@ Use case: UC-AUTH-01..07, UC-ACC-01..07
 - [ ] Module `auth`, `users`, `addresses`, `notifications`
 - [ ] Phiên đăng nhập xoay vòng refresh token (`UserSession`)
 - [ ] Đặt lại mật khẩu (`PasswordReset`), xác thực email (JWT `verify_email`)
+- [ ] Gắn `@AuthThrottle()` cho đăng nhập, đăng ký, quên và đặt lại mật khẩu (hạ tầng giới hạn tốc độ đã có); gửi email xác thực và đặt lại mật khẩu qua `MailService` (queue `mail`, đã có)
 - [ ] Web: `/login`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, `/account/*`, `authStore`
 
 ### Giai đoạn 2 – Danh mục và sản phẩm
@@ -9038,6 +9058,7 @@ Use case: UC-CART-01..04, UC-ACC-06, UC-ADM-19
 Use case: UC-ORD-01..03, UC-PAY-01..03, UC-ADM-20..25
 
 - [ ] Module `orders`, `payments`, `shipments`
+- [ ] Thông báo trạng thái đơn: đẩy job vào queue `notification` (đã có khung processor chỉ ghi log) và tạo bản ghi `notifications`
 - [ ] `OrdersService.create` (transaction: trừ kho + `InventoryMovement`, giữ lượt coupon + `CouponUsage`, tạo `Order`/`OrderItem`/`Payment`)
 - [ ] `cancel`, `cancelByAdmin`, `updateStatus`, `completeOrder` (dùng chung với `ShipmentsService`), `refund`
 - [ ] Adapter cổng VNPay, MoMo, ZaloPay (`GatewayFactory`): tạo URL ký, xác thực IPN, idempotent
@@ -9102,3 +9123,4 @@ Các quyết định nghiệp vụ đã chốt (mục 12.1) và điểm còn m�
 | 10 | Quan hệ composition/aggregation trong class diagram là phân loại thiết kế, không phải thuộc tính của Prisma | Mục 5 | Đồng ý phân loại? |
 | 11 | Nơi lưu ảnh overlay PNG của sản phẩm cho app Android chưa có trong CSDL | A.62 gọi chung là `overlayImageUrl` trong `GET /api/products/:slug` | Chủ dự án chọn phương án (DECISIONS O-06) |
 | 12 | App Android chỉ dùng API công khai, không đăng nhập, không ghi `ArSession`; ảnh chụp lưu cục bộ | A.62, A.63 | Đồng ý? |
+| 13 | Redis không lưu phiên đăng nhập, đặt lại mật khẩu hay OTP; các dữ liệu này nằm ở PostgreSQL | Sequence UC-AUTH-02..06 dùng `PrismaService` cho `UserSession`, `PasswordReset` | Đã chốt (D-T29) |

@@ -1,20 +1,20 @@
 # Tiến độ triển khai
 
-Cập nhật: 2026-10-08 (sau quyết định đưa Mobile vào phạm vi). Nguồn số liệu: `docs/MODULE_ENV_REPORT.md` (14 module backend/web) cộng M15 Mobile theo quyết định D-P06: 15 module, 80 UC, 144 API, 44 bảng, `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
+Cập nhật: 2026-10-09 (sau cấu hình môi trường và đồng bộ tài liệu). Nguồn số liệu: `docs/MODULE_ENV_REPORT.md` (14 module backend/web) cộng M15 Mobile theo quyết định D-P06: 15 module, 80 UC, 144 API, 44 bảng, `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
 
 Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **Xong FE** · **Đã test** (đã có test tự động cho luồng chính). Khung rỗng (module/controller/service chỉ có comment) tính là **Chưa làm**.
 
 ## 1. Tổng quan
 
 - UC: 80, **Xong BE: 0**, **Đang làm: 2**, **Chưa làm: 78**.
-- Nền tảng dùng chung đã xong và có test: response/lỗi chuẩn, guard JWT + roles, Prisma, `StorageService` (local + MinIO), `MailService`, `ActivityLogService`, BullMQ + Redis, throttler Redis, Swagger, Bull Board.
-- Frontend: toàn bộ trang và component còn là khung rỗng; Tailwind/PostCSS đã cấu hình, `next build` qua.
+- Nền tảng dùng chung đã xong và có test: response/lỗi chuẩn, guard JWT + roles, Prisma, `StorageService` (local, MinIO, S3), `MailService` (qua queue `mail`), `ActivityLogService`, `CacheService`, BullMQ + Redis (4 queue), giới hạn tốc độ (nhóm `default`, `auth`), Swagger, Bull Board, `/health` mở rộng. Số endpoint: **144 theo thiết kế, 6 đã cài** (`GET /health`, 3 route media, 2 route mô hình 3D).
+- Frontend: toàn bộ trang và component còn là khung rỗng (trừ trang chủ); Tailwind, Provider TanStack Query, model-viewer, Vitest, Playwright đã cấu hình, `next build` qua. Mobile: `assembleDebug` thành công, khung rỗng.
 
 ## 2. Bảng module
 
 | STT | Module | UC | API | Bảng | BE | FE | Test | Ghi chú |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| M01 | Hệ thống và cấu hình | 2 | 4 | 2 | Đang làm | Chưa làm | e2e health + guard (`health.e2e-spec.ts`) | Nền tảng xong: `GET /health` (database, redis, storage), `ActivityLogService`. Chưa có endpoint settings và nhật ký. |
+| M01 | Hệ thống và cấu hình | 2 | 4 | 2 | Đang làm | Chưa làm | e2e health + guard (`health.e2e-spec.ts`, `infra.e2e-spec.ts`); unit `CacheService` | Nền tảng xong: `GET /health` (database, redis, storage, smtp, queues), `ActivityLogService`, `CacheService` (chưa module nào gọi). Chưa có endpoint settings và nhật ký. |
 | M02 | Xác thực và phiên | 7 | 8 | 3 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M03 | Tài khoản cá nhân | 7 | 17 | 2 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M04 | Người dùng và phân quyền (admin) | 2 | 7 | 4 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
@@ -28,7 +28,7 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 | M12 | Mô hình 3D và AR | 10 | 14 | 5 | Đang làm | Chưa làm | e2e (`storage-jobs.e2e-spec.ts`): GLB hợp lệ, GLB hỏng, USDZ | Xong: presign/confirm tệp mô hình, job `model-processing` (kiểm tra GLB, LOD, checksum, USDZ). Chưa: CRUD mô hình, mô hình chính, biến thể chất liệu, xem 3D/AR, ảnh AR, thống kê phiên. |
 | M13 | Không gian mẫu 360° | 9 | 16 | 6 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
 | M14 | Thông báo và thống kê quản trị | 3 | 4 | 1 | Chưa làm | Chưa làm | Chưa có | Khung module/controller/service rỗng (có comment mã UC). |
-| M15 | Ứng dụng Android (Mobile) | 4 | 0 | 0 | Chưa làm | Chưa làm | Chưa có | Khung Gradle/Compose/CameraX có sẵn (41 file Kotlin, 90 dòng mã thật). Làm SAU M07 (và M12 nếu kịp). Không thêm API: dùng API công khai của M06/M07. Chờ chọn nơi lưu ảnh overlay (O-06). |
+| M15 | Ứng dụng Android (Mobile) | 4 | 0 | 0 | Chưa làm | Chưa làm | Chưa có | Môi trường xong: `./gradlew assembleDebug` thành công (Hilt 2.59.2, CameraX 1.5.3, navigation, DataStore, `BuildConfig.API_BASE_URL`, HTTP chỉ ở bản debug); `MainActivity` chỉ hiện tên ứng dụng, 39 file Kotlin còn lại là khung rỗng; chưa xác nhận chạy trên máy ảo. Làm SAU M07 (và M12 nếu kịp). Không thêm API: dùng API công khai của M06/M07. Chờ chọn nơi lưu ảnh overlay (O-06). |
 | | **Tổng** | **80** | **144** | **44** | | | | |
 
 ## 3. Bảng use case
@@ -118,13 +118,13 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 
 ## 4. Việc tiếp theo (theo thứ tự đề xuất)
 
-1. M04 + M02 (xác thực, vai trò) và M01 (settings, nhật ký) để có đăng nhập thật.
-2. Hoàn thiện M05 (list/sửa/xóa media), rồi M03, M06, M07.
-3. M08, M12 (phần còn lại), M09, M13, M10, M11, M14.
-3b. M15 Mobile sau M07 (và M12 nếu kịp); chọn nơi lưu ảnh overlay (O-06) trước khi làm UC-MOB-02/03.
-4. Wireframe và dựng khung giao diện web song song với bước 1-2.
+**Đợt chuẩn bị môi trường: HOÀN TẤT (2026-10-09).** Mọi module có thể code ngay, không phải cài hay cấu hình thêm (xem mục 5).
 
-Cập nhật file này khi một UC đổi trạng thái (cùng commit với code).
+1. **Bắt đầu từ M02** (xác thực: gắn `@AuthThrottle()`, gửi email qua `MailService`), cùng M04 (vai trò) và M01 (settings, nhật ký) để có đăng nhập thật.
+2. Hoàn thiện M05 (list/sửa/xóa media), rồi M03, M06, M07 (áp dụng `CacheService` cho danh mục, sản phẩm nổi bật, settings).
+3. M08, M12 (phần còn lại), M09, M13, M10, M11, M14.
+3b. **M15 Mobile (phương án B) sau M07** (và M12 nếu kịp); chọn nơi lưu ảnh overlay (O-06) trước khi làm UC-MOB-02/03.
+4. Wireframe và dựng khung giao diện web song song với bước 1-2.
 
 ## 5. Môi trường phát triển (cấu hình xong ngày 2026-10-09)
 
@@ -133,9 +133,10 @@ Toàn bộ môi trường đã cấu hình theo DECISIONS D-T37 (báo cáo: [ENV
 | Hạng mục | Trạng thái |
 | --- | --- |
 | Hạ tầng Docker: postgres, postgres-test, redis, minio (+init), mailpit, api | Xong, healthy |
-| Web: Tailwind, Provider TanStack Query, model-viewer, Vitest, Playwright | Xong |
-| API: throttler nhóm auth, CacheService, queue mail + notification, driver s3, `@nestjs/schedule`, `/health` mở rộng | Xong |
-| Mobile: Gradle, thư viện, `BuildConfig.API_BASE_URL`, cấu hình mạng debug; `assembleDebug` | Xong |
-| CI: API + web test, Mailpit/Redis/MinIO, build Android riêng | Đã cấu hình |
+| Web: Tailwind (theme), Provider TanStack Query, model-viewer, React Hook Form + Zod, Recharts, Vitest, Playwright | Xong (cài và cấu hình; chưa có trang dùng) |
+| API: throttler nhóm auth, CacheService, queue mail + notification, driver s3, `@nestjs/schedule`, `/health` mở rộng | Xong (có test) |
+| Mobile: Gradle, thư viện, `BuildConfig.API_BASE_URL`, cấu hình mạng debug; `assembleDebug` | Xong; chưa xác nhận trên máy ảo |
+| CI: API + web test, Mailpit/Redis/MinIO, build Android riêng | Đã cấu hình, chưa chạy trên GitHub |
 | Còn chờ ngoài môi trường | O-06 (nơi lưu ảnh overlay), wireframe, ảnh PNG overlay, tài khoản VNPay sandbox |
 
+Cập nhật file này khi một UC đổi trạng thái (cùng commit với code).

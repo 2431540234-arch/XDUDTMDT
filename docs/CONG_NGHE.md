@@ -1,198 +1,125 @@
 # Đối chiếu công nghệ
 
-Ngày kiểm tra: 2026-10-08, commit `57deef2`. Kiểm tra chỉ đọc: không cài, không sửa code. Phiên bản "thực cài" lấy từ `node_modules` (`package.json` của từng gói) và `npm ls`; hạ tầng lấy từ `docker compose ps` và `GET /health`.
+Cập nhật 2026-10-09, sau lượt cấu hình môi trường (D-T37) và đợt đồng bộ tài liệu. Phiên bản ghi ở đây là phiên bản **thực cài** (đọc từ `node_modules` và `apps/mobile/gradle/libs.versions.toml`), không phải phiên bản khai báo. Bản kiểm tra gốc ngày 2026-10-08 (trước khi cài môi trường) còn trong lịch sử git (commit `25fc057`).
 
-Ký hiệu: ✅ có, đã cấu hình, đang dùng đúng vai trò · 🟡 đã cài/khai báo nhưng chưa cấu hình hoặc chưa dùng · ❌ thiếu · ⚠️ dùng khác vai trò mục tiêu hoặc mâu thuẫn tài liệu · ➖ không áp dụng ở môi trường hiện tại.
-
-> **Cập nhật 2026-10-08:** chủ dự án đã trả lời 8 câu ở mục 8 (xem bảng "Đã trả lời" ở đó). Mục 6 là bảng nộp chính thức. Các mục 2-5 phản ánh hiện trạng lúc kiểm tra.
+Ký hiệu: **Đã dùng** = đang chạy trong code thật · **Đã cấu hình** = đã cài, cấu hình, kiểm tra chạy được, chờ code nghiệp vụ dùng · **Theo kế hoạch** = chưa có trong code, đã chốt sẽ làm · **Không áp dụng** = không cần ở môi trường hiện tại.
 
 ## 1. Tóm tắt
 
 | Trạng thái | Số công nghệ | Công nghệ |
 | --- | --- | --- |
-| ✅ | 7 | Next.js, TypeScript, Tailwind CSS, PostgreSQL, Prisma, BullMQ, MinIO |
-| 🟡 | 9 | Zustand, TanStack Query, Three.js, React Three Fiber (Web); Android, Kotlin, Jetpack Compose, CameraX, Overlay (Mobile) |
-| ⚠️ | 1 | Redis (đang dùng cho queue và giới hạn tốc độ; chưa dùng cho cache, OTP, session) |
-| ➖ | 1 | S3 (production) |
-| ❌ | 0 | (nhưng thiếu nhiều thư viện phụ trợ, xem mục 4) |
+| Đã dùng | 16 | Web: Next.js, TypeScript, Tailwind, Vitest + Playwright. Backend: NestJS, PostgreSQL, Prisma, Redis (hàng đợi, giới hạn tốc độ), BullMQ, MinIO, Swagger, Jest + Supertest, sharp, glTF-Transform, Nodemailer + Mailpit, Docker Compose |
+| Đã cấu hình | 14 | Web: Zustand, TanStack Query, Three.js, React Three Fiber, model-viewer, React Hook Form + Zod, Recharts. Mobile: Android, Kotlin, Jetpack Compose, CameraX, Retrofit + Hilt. Backend: S3 (driver, chưa triển khai thật), GitHub Actions (chưa chạy trên GitHub) |
+| Theo kế hoạch | 1 | Overlay ảnh trên camera (mobile) |
+| Không áp dụng | 0 | |
 
-Năm vấn đề lớn nhất:
+Tổng 31 hạng mục của bảng nộp (mục 6). Các điểm chính:
 
-1. **Mobile mâu thuẫn tài liệu.** Danh sách mục tiêu có Android/Kotlin/Compose/CameraX/Overlay, nhưng `docs/DECISIONS.md` D-P03, `DAC_TA…` mục 12.1 #19 và mục 13 xếp `apps/mobile` NGOÀI phạm vi, không có UC nào. Trong repo có khung Android 90 dòng code thật (xem mục 2.2). Phải quyết định đưa vào hay bỏ ra khỏi bảng công nghệ nộp.
-2. **Phần web "xịn" gần như chưa dùng.** Zustand, TanStack Query, Three.js, R3F, drei đã khai báo và đã cài nhưng 0 import thật; `QueryClientProvider` chưa gắn vào layout; 4 store là `create(() => ({}))` rỗng; chưa có `<Canvas>`.
-3. **Thiếu thư viện cho UC 3D/AR/360° trên web.** Chưa có `@google/model-viewer` (hoặc WebXR) cho AR trên điện thoại, chưa có thư viện ảnh 360°. Tài liệu UC-3D-02 nhắc "WebXR/Scene Viewer/Quick Look" nhưng gói không có trong `package.json`.
-4. **Redis "cache, OTP, session" chưa khớp thiết kế.** Hiện Redis chỉ làm BullMQ và bộ đếm throttler. Phiên đăng nhập nằm ở PostgreSQL (`user_sessions`), đặt lại mật khẩu ở `password_resets`, xác thực email bằng JWT. Không có chỗ nào cache.
-5. **BullMQ chưa phục vụ "email, notification".** Chỉ có 2 queue xử lý media (`model-processing`, `image-processing`). `MailService` gửi trực tiếp và hiện chưa được module nào gọi.
+1. **Mobile nằm trong phạm vi** (D-P06, D-P07): phương án tối thiểu, làm sau M07. Trước đây tài liệu xếp ngoài phạm vi; mâu thuẫn đó đã được giải quyết.
+2. **Redis = cache, trạng thái hàng đợi, giới hạn tốc độ.** KHÔNG lưu OTP hay phiên (phiên đăng nhập, đặt lại mật khẩu nằm ở PostgreSQL: `user_sessions`, `password_resets`; xác thực email bằng JWT) (D-T29). Cache (`CacheService`) đã có, chưa module nghiệp vụ nào gọi (D-T30).
+3. **BullMQ có 4 queue** (`model-processing`, `image-processing`, `mail`, `notification`), thử lại 3 lần, backoff mũ. Email đi qua queue `mail` khi `MAIL_TRANSPORT=queue` (mặc định); `MailService` chưa module nào gọi.
+4. **Số endpoint:** theo thiết kế **144** (`BAO_CAO_PHAN_TICH_THIET_KE.md` mục 6); đã cài **6 route** (`GET /health`, `POST /api/admin/media`, `.../media/presign`, `.../media/confirm`, `POST /api/admin/models/:id/files/presign`, `.../confirm`), cộng giao diện Bull Board `/admin/queues`. Phần còn lại là khung controller rỗng.
+5. **Toàn bộ môi trường đã cài và cấu hình ngay** (D-T37), thay nguyên tắc "cài đúng đợt" của D-T35.
 
 ## 2. Bảng đối chiếu
 
-### 2.1. Web
+### 2.1. Web (`apps/web`)
 
-| Công nghệ | Vai trò mục tiêu | Trạng thái | Gói & phiên bản (khai báo → thực cài) | Nơi cấu hình | Nơi sử dụng (file:dòng) | Ghi chú |
-| --- | --- | --- | --- | --- | --- | --- |
-| Next.js | Framework xây website | ✅ | `next` ^14.2.0 → 14.2.35; `react` ^18.3.0 → 18.3.1 | `apps/web/next.config.js:1-20` (nạp `.env` gốc, kiểm tra `NEXT_PUBLIC_API_URL`), `apps/web/src/app/layout.tsx:1-14` | `apps/web/src/app/**` (13 route); `npm run build` qua | Dùng App Router. Hầu hết trang chỉ `return null`; chỉ `page.tsx:5-7` có nội dung |
-| TypeScript | Ngôn ngữ lập trình | ✅ | `typescript` ^5.4.0 → 5.9.3 (gốc, `apps/api`, `apps/web`) | `apps/web/tsconfig.json`, `apps/api/tsconfig.json`, `packages/shared-types/tsconfig.json` | Toàn bộ web/api/shared-types; `npm run typecheck` qua 4/4 | Mobile dùng Kotlin, không tính vào đây |
-| Tailwind CSS | Thiết kế giao diện | ✅ | `tailwindcss` ^3.4.0 → 3.4.19; `postcss` 8.5.28; `autoprefixer` 10.6.1 | `apps/web/tailwind.config.ts`, `apps/web/postcss.config.js`, `apps/web/src/styles/globals.css:1-3` | Mới 1 chỗ: `apps/web/src/app/page.tsx:5-7` | Đã kiểm tra class `text-amber-700` sinh ra CSS. `src/styles/theme.ts` (màu `#8B5E3C`) chưa nối vào `tailwind.config.ts` |
-| Zustand | Quản lý client state | 🟡 | `zustand` ^4.5.0 → 4.5.7 (web); cây phụ thuộc còn 3.7.2 và 5.0.15 do thư viện khác kéo vào | `apps/web/src/store/{auth,cart,ui,viewer}Store.ts` | `store/cartStore.ts:3-5` và 3 file còn lại: `create(() => ({}))` rỗng | Chưa có state thật, chưa component nào dùng |
-| TanStack Query | Gọi/cache API | 🟡 | `@tanstack/react-query` ^5.40.0 → 5.103.1 | `apps/web/src/lib/query-client.ts:3-5` (`new QueryClient()`) | Không có `QueryClientProvider` trong `layout.tsx`; `hooks/*.ts` chỉ `export {}` | Chưa gọi API nào; `services/api-client.ts` mới chứa `baseURL` |
-| Three.js | Xử lý 3D | 🟡 | `three` ^0.165.0 → 0.165.0; `@types/three` ^0.165.0 | `apps/web/src/lib/three-helpers.ts` (khung rỗng) | 0 import `three` trong `apps/web/src` | Có thêm `three@0.170.0` trong cây phụ thuộc (do thư viện khác) |
-| React Three Fiber | Kết nối React với Three.js | 🟡 | `@react-three/fiber` ^8.16.0 → 8.18.0; `@react-three/drei` ^9.105.0 → 9.122.0 | `apps/web/src/components/viewer/*.tsx` (khung rỗng) | 0 `<Canvas>`, 0 import | R3F 8 đúng cặp với React 18. Cần nâng cả bộ khi lên React 19 |
+| Công nghệ | Vai trò | Trạng thái | Phiên bản thực cài | Nơi cấu hình | Nơi dùng |
+| --- | --- | --- | --- | --- | --- |
+| Next.js | Framework (App Router) | Đã dùng | 14.2.35 (React 18.3.1) | `next.config.js`, `src/app/layout.tsx` | 13 route; `npm run build` qua |
+| TypeScript | Ngôn ngữ | Đã dùng | 5.7.2 (gốc, cả workspace) | `tsconfig.json` các workspace | Toàn bộ |
+| Tailwind CSS | Giao diện | Đã dùng | 3.4.19 (PostCSS 8.5, Autoprefixer 10.6) | `tailwind.config.ts`, `postcss.config.js`, `src/styles/theme.ts` | `src/app/page.tsx` (màu `text-primary` từ theme) |
+| Zustand | Client state | Đã cấu hình | 4.5.7 | `src/store/*.ts` | 4 store rỗng, chờ code |
+| TanStack Query | Gọi/cache API | Đã cấu hình | 5.104.1 (+ devtools 5.104.1) | `src/app/providers.tsx`, `src/lib/query-client.ts` | Provider đã gắn trong `layout.tsx`; chưa có truy vấn |
+| Three.js | 3D | Đã cấu hình | 0.163.0 (+ `@types/three` 0.163.0) | `package.json` (`overrides` ở gốc) | `tests/unit/r3f-canvas.test.tsx` |
+| React Three Fiber, drei | Kết nối React, tiện ích 3D | Đã cấu hình | 8.18.0, 9.122.0 | `src/components/viewer/*` (khung) | Test dựng `<Canvas>` qua; chưa có trang |
+| `@google/model-viewer` | AR trên điện thoại | Đã cấu hình | 3.5.0 | `ModelViewer.tsx` (client-only), `ModelViewerElement.tsx`, `types/model-viewer.d.ts` | Chưa có trang |
+| React Hook Form, `@hookform/resolvers`, Zod | Biểu mẫu, kiểm tra dữ liệu | Đã cấu hình | 7.89.0, 5.9.1, 3.25.76 | `package.json` | Chưa có form |
+| Recharts | Biểu đồ | Đã cấu hình | 2.15.4 | `package.json` | Chưa có biểu đồ |
+| Vitest, Testing Library, jsdom, Playwright | Kiểm thử | Đã dùng | 5.0.3, react 16.3.3, 30.1.2, 1.64.0 (Chromium) | `vitest.config.mts`, `playwright.config.ts` | 3 test đơn vị, 2 test e2e qua |
 
 ### 2.2. Mobile (`apps/mobile`)
 
-Hiện trạng: dự án Android Gradle có `settings.gradle.kts`, `build.gradle.kts`, `app/build.gradle.kts`, `gradle/libs.versions.toml`, wrapper Gradle 9.4.1, `AndroidManifest.xml`; **41 file Kotlin, tổng 90 dòng, chỉ `MainActivity.kt` (13 dòng, `setContent {}` rỗng) và `AureliaApplication.kt` (5 dòng, `@HiltAndroidApp`) có mã; 39 file còn lại chỉ có dòng chú thích hoặc khai báo `package`**. Chỉ có 1 commit ("Initial commit: scaffold"). Máy có Android SDK (`ANDROID_HOME` có `platforms/android-37.0`, JDK 17) nhưng **chưa build** vì build sẽ tải Gradle 9.4.1 và toàn bộ phụ thuộc (tương đương cài mới); cấu trúc Gradle được kiểm tra bằng đọc file.
+Máy dev có Android SDK, JDK 21 (JBR của Android Studio); `./gradlew assembleDebug` thành công. Chưa xác nhận hiển thị trên máy ảo (AVD thiếu RAM). Code: `MainActivity` hiện một dòng chữ; 39 file Kotlin còn lại là khung rỗng.
 
-| Công nghệ | Vai trò mục tiêu | Trạng thái | Gói & phiên bản | Nơi cấu hình | Nơi sử dụng (file:dòng) | Ghi chú |
-| --- | --- | --- | --- | --- | --- | --- |
-| Android | Nền tảng app | 🟡 ⚠️ | AGP 9.2.1; `compileSdk` 37, `targetSdk` 36, `minSdk` 26 | `apps/mobile/app/build.gradle.kts:10-20`, `AndroidManifest.xml` (quyền `CAMERA`, `INTERNET`, `uses-feature camera`) | `MainActivity.kt:8-13` (rỗng) | Cấu trúc hợp lệ, chưa build. **Ngoài phạm vi theo tài liệu** |
-| Kotlin | Ngôn ngữ lập trình | 🟡 ⚠️ | Kotlin 2.2.10 (`libs.versions.toml`), KSP 2.2.10-2.0.2; Java 11 | `gradle/libs.versions.toml:9`, `app/build.gradle.kts:28-30` | 41 file `.kt`, 90 dòng | `android.builtInKotlin=false`, `android.newDsl=false` trong `gradle.properties` |
-| Jetpack Compose | Xây giao diện | 🟡 ⚠️ | Compose BOM 2026.02.01, Material3, activity-compose 1.13.0 | `app/build.gradle.kts` (`buildFeatures.compose`), plugin `kotlin.compose` | `MainActivity.kt:11` (`setContent {}` rỗng); `ui/theme/*.kt` rỗng | Thiếu `navigation-compose` dù có `AureliaNavGraph.kt` |
-| CameraX | Xử lý camera | 🟡 ⚠️ | camera-core/camera2/lifecycle/view 1.3.4 | `app/build.gradle.kts` (4 gói CameraX), quyền `CAMERA` trong manifest | `ui/camera/CameraScreen.kt` (chỉ comment) | CameraX 1.3.4 khá cũ (có bản 1.5.x), chưa nâng |
-| Overlay | Đặt ảnh sản phẩm lên camera | 🟡 ⚠️ | Không có gói riêng (dự kiến Compose `Canvas` + Coil 2.6.0) | `ui/camera/OverlayCanvas.kt`, `OverlayGestureHandler.kt` (khung rỗng) | Không có | Cần ảnh PNG nền trong suốt của sản phẩm; hiện không có bước tách nền (xem mục 3.1) |
+| Công nghệ | Vai trò | Trạng thái | Phiên bản thực cài | Nơi cấu hình |
+| --- | --- | --- | --- | --- |
+| Android | Nền tảng | Đã cấu hình | AGP 9.2.1; compileSdk 37, targetSdk 36, minSdk 26 | `app/build.gradle.kts`, `AndroidManifest.xml` (CAMERA, INTERNET) |
+| Kotlin | Ngôn ngữ | Đã cấu hình | 2.2.10, KSP 2.2.10-2.0.2 | `gradle/libs.versions.toml` |
+| Jetpack Compose | Giao diện | Đã cấu hình | BOM 2026.02.01, Material3 | như trên |
+| CameraX | Camera | Đã cấu hình | 1.5.3 | như trên (chưa có màn hình) |
+| Overlay | Ảnh sản phẩm trên camera | Theo kế hoạch | (Compose Canvas + Coil 2.6.0) | `ui/camera/OverlayCanvas.kt` (khung rỗng) |
+| Retrofit + Hilt | API, DI | Đã cấu hình | Retrofit 2.11.0, Hilt 2.59.2, hilt-navigation-compose 1.3.0 | như trên |
 
-Khác: Hilt 2.51.1 (+ `hilt-navigation-compose` 1.2.0), Retrofit 2.11.0 + Gson, Coil 2.6.0 đã khai báo. Hilt 2.51.1 khá cũ so với AGP 9.2.1 và Kotlin 2.2.10, **có khả năng cần nâng hoặc chỉnh cấu hình khi build lần đầu (chưa xác minh)**.
+Thư viện đã thêm: `navigation-compose` 2.9.7, `lifecycle-viewmodel-compose` 2.11.0, `kotlinx-coroutines-android` 1.10.2, `datastore-preferences` 1.2.1, OkHttp `logging-interceptor` 4.12.0 (D-T44). `BuildConfig.API_BASE_URL` theo build type; HTTP chỉ ở bản debug.
 
 ### 2.3. Backend và hạ tầng
 
-| Công nghệ | Vai trò mục tiêu | Trạng thái | Gói & phiên bản (khai báo → thực cài) | Nơi cấu hình | Nơi sử dụng (file:dòng) | Ghi chú |
-| --- | --- | --- | --- | --- | --- | --- |
-| PostgreSQL | Database chính | ✅ | `postgres:16-alpine` (container healthy, DB dev `aurelia_dev`, DB test `aurelia_test`) | `docker-compose.yml` (`postgres`, `postgres-test`), `DATABASE_URL` trong `env.validation.ts:15`, `.env.example` | 44 bảng, 36 trigger; `prisma migrate status`: up to date | 2 migration (`0_init`, `20261006134647_media_file_size_int`) |
-| Prisma | Làm việc với PostgreSQL | ✅ | `@prisma/client` ^5.14.0 → 5.22.0; `prisma` 5.22.0 | `apps/api/prisma/schema.prisma`, `apps/api/src/prisma/prisma.service.ts:1-12` | `media.service.ts:59,108`, `model-processing.service.ts:31,38,45`, `activity-log.service.ts`, `prisma/seed.ts` | Chưa có query nghiệp vụ Product/Order (module còn khung rỗng) |
-| Redis | Cache, dữ liệu tạm, queue state | ⚠️ | `redis:7-alpine` (healthy, cổng host 6380); `ioredis` ^5.11.1 → 5.11.1 | `docker-compose.yml` (`redis`), `env.validation.ts:22-23`, `.env.example` | Queue: `jobs.module.ts:26-36`; throttler: `app.module.ts:27-39`; `/health` | Chỉ làm queue và giới hạn tốc độ. KHÔNG cache, KHÔNG OTP/session (mục 3.2, 3.3) |
-| BullMQ | Hàng đợi nền | ✅ (một phần) | `bullmq` ^5.7.0 → 5.81.5; `@nestjs/bullmq` 10.2.3; `@bull-board/*` 9.10.4 | `jobs.module.ts:26,38-47` (Redis, 2 queue, Bull Board `/admin/queues`) | Processor: `model-processing.processor.ts:11`, `image-processing.processor.ts:6`; đẩy job: `media.service.ts:69,118`, `product-models.service.ts:75` | Đúng vai trò cho xử lý nền (LOD, webp). Chưa có queue email/notification (mục 3.4) |
-| MinIO | Lưu file (dev) | ✅ | `bitnamilegacy/minio:2025.4.22-debian-12-r2` (healthy; Console 9001 trả 200); `@aws-sdk/client-s3` ^3.1147.0 + `@aws-sdk/s3-request-presigner` | `docker-compose.yml` (`minio`, `minio-init`), `env.validation.ts:25-40`, `.env.example` | `minio-storage.service.ts:49-56,107,128`; e2e `storage-jobs.e2e-spec.ts` | 2 bucket public/private, presigned PUT/GET. Ảnh chính thức `minio/minio` đã bị gỡ (DECISIONS D-T23) |
-| S3 | Object storage production | ➖ | Cùng SDK `@aws-sdk/client-s3` | Chưa có cấu hình production | Không | Chuyển sang S3 cần sửa nhỏ, không chỉ đổi biến môi trường (mục 3.5) |
+| Công nghệ | Vai trò | Trạng thái | Phiên bản thực cài | Nơi cấu hình | Nơi dùng |
+| --- | --- | --- | --- | --- | --- |
+| PostgreSQL | Database chính | Đã dùng | 16 (`postgres:16-alpine`) | `docker-compose.yml`, `DATABASE_URL` | 44 bảng, 36 trigger, 2 migration |
+| Prisma | ORM | Đã dùng | 5.22.0 | `prisma/schema.prisma`, `src/prisma/prisma.service.ts` | Media, ModelFile, Product3DModel, seed |
+| Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Đã dùng (queue, throttler); cache đã cấu hình | 7 (`redis:7-alpine`), ioredis 5.11.1 | `docker-compose.yml`, `env.validation.ts` | `jobs.module.ts`, `app.module.ts`, `cache/*`, `/health` |
+| BullMQ | Hàng đợi nền | Đã dùng | 5.81.5, `@nestjs/bullmq` 10.2.3, Bull Board 9.10.4 | `modules/jobs/jobs.module.ts` | `model-processing`, `image-processing`, `mail`, `notification` |
+| MinIO | Lưu file (dev) | Đã dùng | `bitnamilegacy/minio:2025.4.22-debian-12-r2` | `docker-compose.yml`, `env.validation.ts` | `storage/minio-storage.service.ts` |
+| S3 | Lưu file (production) | Đã cấu hình | cùng `@aws-sdk/client-s3` 3.1147.0 | `STORAGE_DRIVER=s3`, `S3_FORCE_PATH_STYLE`, `S3_ENDPOINT` tùy chọn | Chưa triển khai thật; 8 unit test cấu hình |
 
-## 3. Mâu thuẫn với tài liệu và quyết định
+## 3. Các mâu thuẫn trước đây và cách đã giải quyết
 
-### 3.1. Mobile
-
-- **Mâu thuẫn:** mục tiêu có đủ 5 công nghệ Android; tài liệu xếp `apps/mobile` ngoài phạm vi: `docs/DECISIONS.md` D-P03, `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md` mục 12.1 #19 và mục 13 ("Ứng dụng Android… Hướng phát triển"), `BAO_CAO_PHAN_TICH_THIET_KE.md` cây thư mục ("Android (Kotlin), ngoài phạm vi"). Không có UC mobile nào trong 76 UC; module `ar-overlay` ở backend cũng là khung rỗng ngoài phạm vi.
-- **Hiện trạng:** khung Android có kiến trúc lớp (data/remote, domain, ui, di) nhưng gần như không có mã (xem 2.2).
-
-Phương án:
-
-| Phương án | Nội dung | Ưu | Nhược |
-| --- | --- | --- | --- |
-| A. Giữ ngoài phạm vi | Bỏ mobile khỏi bảng nộp, ghi vào "Hướng phát triển" | Không tốn công; khớp tài liệu | Mất điểm nhấn "camera overlay" nếu giảng viên yêu cầu |
-| B. Đưa vào tối thiểu | Danh mục, chi tiết sản phẩm, màn hình camera + overlay ảnh sản phẩm (kéo, xoay, đổi kích thước), chụp ảnh lưu máy | Giữ được CameraX + Overlay; ít phụ thuộc backend | Cần chỉnh tài liệu (thêm 3-4 UC mobile) và ảnh PNG nền trong suốt |
-| C. Đưa vào đầy đủ | B + đăng nhập, giỏ hàng, đặt hàng, thông báo | Đủ chức năng | Tốn nhiều, phụ thuộc M02, M08, M09 xong trước |
-
-Ước lượng (giờ) nếu đưa vào phạm vi, dùng chung API với web (M02 đăng nhập, M06/M07 danh mục và sản phẩm, M08 giỏ, M09 đơn):
-
-| Việc | B | C |
+| Mâu thuẫn | Quyết định | Hiện trạng |
 | --- | --- | --- |
-| Dọn Gradle, nâng Hilt/AGP, build được lần đầu, thêm `navigation-compose`, coroutines, OkHttp | 10 | 10 |
-| Lớp mạng (Retrofit, parse response `{success,data,meta}`, xử lý lỗi theo `ErrorCode`), DI | 8 | 8 |
-| Danh mục + chi tiết sản phẩm (2-3 màn hình) | 16 | 16 |
-| Màn hình camera: CameraX preview, xin quyền, overlay ảnh sản phẩm, cử chỉ kéo/xoay/phóng, chụp ảnh ghép | 24 | 24 |
-| Đăng nhập + lưu token (DataStore), làm mới token | 0 | 12 |
-| Giỏ hàng + đặt hàng + đơn của tôi | 0 | 28 |
-| Test (unit ViewModel, UI cơ bản) và tài liệu/UC mobile | 12 | 20 |
-| **Tổng ước lượng** | **~70** | **~118** |
+| Mobile: mục tiêu có, tài liệu xếp ngoài phạm vi | D-P06, D-P07: phương án B (tối thiểu), làm sau M07 | Đã vào phạm vi; nhóm UC-MOB 4 UC trong đặc tả |
+| Redis "OTP, session" vs PostgreSQL | D-T29: giữ PostgreSQL | Redis không lưu phiên/OTP; ghi rõ trong bảng nộp |
+| Redis "cache": chưa có | D-T30 | `CacheService` có, TTL gợi ý: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút; áp dụng ở M06, M07, M01 |
+| BullMQ "email, notification" | D-T31, D-T42 | Có queue `mail` (processor gửi SMTP thật) và `notification` (processor chỉ ghi log); `MailService` đẩy job khi `MAIL_TRANSPORT=queue` |
+| MinIO sang S3 cần sửa mã | D-T33, D-T41 | Đã có driver `s3`; chuyển production chỉ đổi biến môi trường (xem `ENVIRONMENT.md` mục 5) |
+| AR web, ảnh 360° chưa có thư viện | D-T32 | model-viewer (AR); ảnh 360° tự dựng bằng R3F |
+| Zustand với TanStack Query chưa phân chia | Quy ước ở mục 3.1 | Server state dùng Query, UI/token dùng Zustand |
+| Gói không dùng (`passport*`, `cookie-parser`) | D-T35 | Đã gỡ |
 
-Màn hình khoảng 5 (B) hoặc 10 (C). Điều kiện cần: API sản phẩm (M07) xong; ảnh PNG nền trong suốt cho sản phẩm (hiện đã bỏ bước tách nền `remove-background` khỏi queue, xem DECISIONS D-T21; tự chuẩn bị tay hoặc khôi phục bước này).
-
-### 3.2. Redis "OTP, session"
-
-- **Thiết kế hiện hành:** phiên đăng nhập lưu băm refresh token trong PostgreSQL `user_sessions` (D-T06); đặt lại mật khẩu dùng bảng `password_resets` (`tokenHash`, hạn, `usedAt`); xác thực email dùng JWT mục đích `verify_email`, không bảng (D-N09). Không có OTP.
-- **Mâu thuẫn:** mục tiêu mô tả Redis cho OTP/session.
-
-| Phương án | Nội dung | Ưu | Nhược | Ảnh hưởng CSDL / tài liệu |
-| --- | --- | --- | --- | --- |
-| A. Giữ PostgreSQL (khuyến nghị) | Như hiện tại; Redis chỉ queue + throttler (+ cache ở mục 3.3) | Bền vững, truy vấn "danh sách thiết bị", đăng xuất từ xa (UC-ACC-03) dễ, khớp 44 bảng và tài liệu, có audit | Mỗi lần refresh ghi DB | Không đổi. Chỉ ghi chú vai trò Redis trong bảng nộp |
-| B. Chuyển sang Redis | Session và token đặt lại lưu Redis với TTL; có thể thêm OTP email 6 số | TTL tự hết hạn, nhanh, có sẵn OTP | Mất dữ liệu nếu Redis xóa (cần AOF, đã bật `appendonly`); phải bỏ/giữ lại `user_sessions`, `password_resets`; sửa UC-AUTH-03/04/05/06, UC-ACC-03, sơ đồ; tên bảng trong CSDL thành thừa | Cần migration bỏ 2 bảng (hoặc giữ nhưng không dùng) và cập nhật 8+ tài liệu, ~10 giờ |
-| C. Kết hợp | PG lưu phiên; Redis lưu OTP/đếm số lần thử/khóa tạm | OTP và chống brute-force đúng chỗ | Thêm phức tạp | Không đổi bảng; thêm UC nhỏ (OTP) |
-
-### 3.3. Redis "cache"
-
-Hiện **không có đoạn cache nào** (grep `cache|setex|ttl` trong `apps/api/src` không có kết quả; Redis chỉ có ở `jobs.module.ts`, `app.module.ts`, `health.controller.ts`). Đề xuất cache (dùng chính `ioredis` đã có, một `CacheService` nhỏ, xóa khóa khi admin sửa dữ liệu):
-
-| Dữ liệu | Endpoint | TTL gợi ý | Xóa khi |
-| --- | --- | --- | --- |
-| Cây danh mục | `GET /api/categories` (UC-CAT-02) | 10 phút | admin sửa danh mục (UC-ADM-05) |
-| Sản phẩm nổi bật, trang chủ | `GET /api/products?featured=true` (UC-CAT-01) | 2 phút | admin sửa sản phẩm (UC-ADM-09) |
-| Settings công khai | `GET /api/settings` (UC-ADM-03) | 10 phút | admin sửa settings |
-| Trang tĩnh | `GET /api/pages/:slug` (UC-CAT-05) | 10 phút | admin sửa trang (UC-ADM-07) |
-| Chi tiết sản phẩm công khai | `GET /api/products/:slug` | 1 phút | sửa sản phẩm, đánh giá mới |
-
-Không cache dữ liệu theo người dùng (giỏ, đơn).
-
-### 3.4. BullMQ "email, notification"
-
-- Email: `SmtpMailService` gửi **đồng bộ, trực tiếp** (`apps/api/src/mail/smtp-mail.service.ts`), lỗi chỉ ghi log. `MAIL_SERVICE` được đăng ký nhưng **chưa có module nào gọi** (grep không thấy lời gọi ngoài chính module `mail`).
-- Thông báo: bảng `notifications` có; theo D-N19 do Service tạo, không dùng queue.
-- Queue đã đăng ký: chỉ `model-processing` và `image-processing` (`jobs.module.ts:38-41`). D-T25 ghi rõ email gửi trực tiếp, hàng đợi `mail` là "hướng phát triển".
-- Đề xuất nếu muốn khớp mục tiêu: thêm queue `mail` (retry 3 lần, backoff mũ) và `notification`; `MailService.send` đẩy job thay vì gửi trực tiếp; giữ interface không đổi. Khoảng 6 giờ, nên làm cùng M02 (UC-AUTH-01/05).
-
-### 3.5. MinIO và S3
-
-- Code dùng **`@aws-sdk/client-s3`** và **`@aws-sdk/s3-request-presigner`** (không dùng gói `minio`): `apps/api/src/storage/minio-storage.service.ts:1-9,49-56`. SDK này nói chuyện được với S3 thật.
-- Chuyển sang S3 production **không chỉ đổi biến môi trường**, cần:
-  1. Đổi biến: `S3_ENDPOINT` (bỏ hoặc dùng endpoint vùng), `S3_REGION`, khóa truy cập, tên bucket, `STORAGE_PUBLIC_URL` (URL bucket hoặc CloudFront), `S3_PUBLIC_ENDPOINT` bỏ.
-  2. Sửa code nhỏ (~2 giờ): `forcePathStyle: true` đang viết cứng (`minio-storage.service.ts:52`), nên đọc từ biến `S3_FORCE_PATH_STYLE`; `S3_ENDPOINT` đang bắt buộc khi `STORAGE_DRIVER=minio` (`env.validation.ts:60-68`), cần cho phép bỏ; thêm giá trị `s3` cho `STORAGE_DRIVER` (hoặc đổi tên sang `s3` chung).
-  3. Cấu hình hạ tầng (không phải code): chính sách đọc công khai cho bucket public, CORS bucket (MinIO dùng biến `MINIO_API_CORS_ALLOW_ORIGIN`, S3 dùng cấu hình CORS của bucket), IAM tối thiểu.
-
-### 3.6. 3D, AR, 360° trên web
-
-Hiện dự án có: `three`, `@react-three/fiber`, `@react-three/drei` (chỉ khai báo). Tài liệu UC-3D-01 nhắc "React Three Fiber / model-viewer"; UC-3D-02 nhắc "WebXR / Scene Viewer / Quick Look". Chưa gói nào cho AR hay 360° trong `package.json`. Thư viện còn thiếu xem mục 4.
-
-### 3.7. Zustand và TanStack Query
-
-Chưa có phân chia thực tế (cả hai rỗng). Đề xuất quy ước:
+### 3.1. Phân chia Zustand và TanStack Query
 
 | Loại state | Công cụ | Ví dụ |
 | --- | --- | --- |
 | Dữ liệu từ server (danh mục, sản phẩm, đơn, đánh giá, **giỏ hàng**) | TanStack Query | `useQuery(['cart'])`, `useMutation` thêm/sửa/xóa dòng, `invalidateQueries` |
-| State phía client thuần giao diện | Zustand | trạng thái modal/sidebar (`uiStore`), cấu hình trình xem 3D (`viewerStore`), token và người dùng hiện tại (`authStore`) |
+| State phía client thuần giao diện | Zustand | modal/sidebar (`uiStore`), cấu hình trình xem 3D (`viewerStore`), token và người dùng hiện tại (`authStore`) |
 
-`store/cartStore.ts` **nên bỏ hoặc thu nhỏ**: giỏ hàng là dữ liệu server (bảng `carts`, `cart_items`, khách vãng lai không có giỏ theo D-N19). Dùng Query làm nguồn thật và optimistic update khi cập nhật số lượng; Zustand chỉ giữ "ý định thêm vào giỏ" khi khách chưa đăng nhập (đã chốt ở DECISIONS) và số lượng hiển thị tạm trên huy hiệu giỏ nếu cần.
+`store/cartStore.ts` nên bỏ hoặc thu nhỏ: giỏ hàng là dữ liệu server (`carts`, `cart_items`); khách vãng lai không có giỏ (DECISIONS D-N19).
 
-## 4. Thư viện còn thiếu
+## 4. Thư viện
 
-| Gói đề xuất | Lý do | Module / UC | Ưu tiên |
+Mọi thư viện đã chốt đều đã cài (D-T37). Không còn thư viện "thiếu" cho các UC đã đặc tả. Quyết định không dùng: Tiptap (trang tĩnh soạn bằng textarea Markdown), `@react-three/xr` (đã chọn model-viewer), `@photo-sphere-viewer/*` (ảnh 360° tự dựng bằng R3F).
+
+Gói ngoài danh sách ban đầu, đã thêm kèm lý do (xem DECISIONS D-T39, D-T42): `@vitejs/plugin-react`, `jsdom`, `@testing-library/dom` (Vitest và Testing Library cần); `@nestjs/schedule` 4.1.2, `slugify` 1.6.9 (đã duyệt ở báo cáo trước).
+
+## 5. Công nghệ ngoài danh sách mục tiêu
+
+| Công nghệ | Phiên bản | Vai trò | Nên đưa vào bảng nộp? |
 | --- | --- | --- | --- |
-| `@google/model-viewer` | Xem AR trên điện thoại: Scene Viewer (Android, GLB), Quick Look (iOS, USDZ), có kèm xem 3D đơn giản | M12: UC-3D-02; có thể dùng cho UC-3D-01 | Cao |
-| (hoặc) `@react-three/xr` | WebXR thuần Three.js (thay model-viewer); khó hơn, hỗ trợ iOS hạn chế | M12: UC-3D-02 | Thấp (nếu chọn model-viewer) |
-| Bộ xem ảnh 360° | Hiện không có. Hai hướng: (a) tự dựng trong R3F bằng mặt cầu + `TextureLoader` + `drei` `Html` cho hotspot (không thêm gói); (b) `@photo-sphere-viewer/core` + `@photo-sphere-viewer/markers-plugin` | M13: UC-SPACE-02/03, UC-ADM-16 (soạn hotspot) | Cao (chọn hướng) |
-| `@react-three/drei` (đã có) | `useGLTF` (đọc GLB, **tự giải nén Meshopt** nên khớp đầu ra của job), `OrbitControls`, `Environment`, `Html` | M12, M13 | Đã có |
-| `react-hook-form` + `@hookform/resolvers` + `zod` | Form đăng ký/đăng nhập/thanh toán/admin; `lib/validators.ts` đang rỗng | M02, M09, mọi trang admin | Cao |
-| `recharts` (hoặc `chart.js`) | Biểu đồ dashboard, phễu AR và không gian mẫu | M14: UC-ADM-28/29 | Trung bình |
-| ~~Trình soạn nội dung (`@tiptap/react`)~~ **Không dùng**: trang tĩnh soạn bằng textarea Markdown | Soạn trang tĩnh | M06: UC-ADM-07 | Bỏ |
-| `@tanstack/react-query-devtools` | Gỡ lỗi truy vấn khi dev | Web | Thấp |
-| Vitest + Testing Library, Playwright | Test giao diện và e2e web (hiện web chưa có test runner) | Web | Trung bình |
-| `@nestjs/schedule` | Dọn tệp dở dang trong `models/incoming/`, hết hạn phiên | M05, M12, M02 | Trung bình |
-| `slugify` (backend) | Sinh slug sản phẩm/danh mục/không gian | M06, M07, M13 | Thấp |
-| Mobile: `androidx.navigation:navigation-compose`, `lifecycle-viewmodel-compose`, `kotlinx-coroutines-android`, `okhttp` logging, DataStore | Điều hướng, ViewModel, bất đồng bộ, lưu token | Mobile (nếu đưa vào) | Cao (nếu đưa vào) |
-| Mobile: nâng Hilt (và kiểm tra tương thích AGP 9 / Kotlin 2.2), CameraX 1.5.x | Tránh lỗi build lần đầu | Mobile (nếu đưa vào) | Cao (nếu đưa vào) |
+| **NestJS** (core, common, platform-express) | 10.4.22 | Framework backend | **Bắt buộc** (đã có trong mục 6) |
+| `@nestjs/swagger` | 7.4.2 | OpenAPI tại `/docs` | Có (mục 6) |
+| `@nestjs/config` + Zod (API) | 3.3.0 / 3.25.76 | Kiểm tra biến môi trường khi khởi động | Có thể |
+| `@nestjs/jwt`, `bcryptjs` | 10.2.0 / 3.0.3 | Access token JWT, băm mật khẩu (không dùng Passport) | Có thể |
+| `class-validator`, `class-transformer` | 0.14.4 / 0.5.1 | Kiểm tra dữ liệu vào | Có thể |
+| `@nestjs/throttler` + `@nest-lab/throttler-storage-redis` | 6.7.1 / 1.2.0 | Giới hạn tốc độ (nhóm `default` và `auth`) lưu trong Redis | Có thể (gắn với Redis) |
+| `@nestjs/schedule` | 4.1.2 | Công việc định kỳ (chưa có cron) | Không |
+| `helmet`, `multer` | 7.2.0 / 2.0.2 | Header bảo mật; nhận ảnh multipart | Không |
+| `nodemailer`, Mailpit | 6.10.1 / v1.31.4 | Gửi email SMTP; hộp thư giả khi dev | Có (mục 6) |
+| `sharp` | 0.35.5 | Webp, thumbnail, thu nhỏ texture | Có (mục 6) |
+| `@gltf-transform/*`, `meshoptimizer`, `draco3dgltf` | 4.5.1 / 0.18.1 / 1.5.7 | Kiểm tra GLB, sinh LOD, nén | Có (mục 6) |
+| `@aws-sdk/client-s3`, `s3-request-presigner` | 3.1147.0 | MinIO/S3, presigned URL | Có (gắn MinIO/S3) |
+| `slugify` | 1.6.9 | Sinh slug (chưa dùng) | Không |
+| Jest, ts-jest, Supertest | 29.7.0 / 29.4.12 / 7.3.1 | Kiểm thử API | Có (mục 6) |
+| Turborepo, npm workspaces | 2.10.13 / npm 11.19 (Node 24.20 trên máy dev, yêu cầu ≥ 22) | Quản lý monorepo | Có thể |
+| ESLint 8.57.1, Prettier 3.9.9, Husky 9.1.7, lint-staged 15.5.2, commitlint 19.8.1 | | Chất lượng mã, Conventional Commits | Có thể |
+| Docker, Docker Compose | 29.7.2 / 5.4.0 | Môi trường dev (postgres, redis, minio, mailpit, api) | Có (mục 6) |
+| GitHub Actions | `ci.yml`, `mobile.yml` | CI | Có (mục 6) |
+| `packages/shared-types` + `scripts/generate-shared-types.mjs` | 0.1.0 | Kiểu dùng chung sinh từ Prisma | Có thể |
+| Mobile: Material3, Coil, Gson, DataStore, OkHttp, KSP | xem mục 2.2 | Giao diện, tải ảnh, JSON, lưu cấu hình, mạng | Gộp vào dòng Retrofit + Hilt |
+| Mermaid CLI | chạy qua `npx` | Xuất sơ đồ UML | Không (công cụ tài liệu) |
 
-Khai báo nhưng chưa dùng, cân nhắc gỡ: `passport`, `passport-jwt`, `@nestjs/passport`, `cookie-parser`, `@types/passport-jwt` ở `apps/api` (`JwtAuthGuard` dùng `JwtService` trực tiếp, `cookie-parser` chưa gắn). Không cần thiết cho cổng VNPay: ký HMAC dùng `node:crypto`.
-
-## 5. Công nghệ ngoài danh sách
-
-| Công nghệ | Phiên bản (cài) | Vai trò | Nên đưa vào bảng nộp? |
-| --- | --- | --- | --- |
-| **NestJS** (`@nestjs/core` + common, platform-express) | 10.4.22 | Framework backend, DI, guard, pipe, interceptor | **Bắt buộc** (nền của toàn bộ API) |
-| `@nestjs/swagger` | 7.4.2 | Tài liệu OpenAPI tại `/docs` | Nên |
-| `@nestjs/config` + `zod` | 3.x / 3.25.76 | Kiểm tra biến môi trường khi khởi động | Nên (ghi chung "cấu hình") |
-| `@nestjs/jwt`, `bcryptjs` | 10.2.0 / 3.0.3 | Access token JWT, băm mật khẩu | Nên (xác thực) |
-| `class-validator`, `class-transformer` | 0.14.4 / 0.5.1 | Kiểm tra dữ liệu vào (DTO) | Có thể |
-| `@nestjs/throttler` + `@nest-lab/throttler-storage-redis` | 6.7.1 / 1.2.0 | Giới hạn tốc độ lưu bộ đếm trong Redis | Có thể (gắn với Redis) |
-| `helmet`, `multer` | 7.2.0 / 2.0.2 | Header bảo mật; nhận tệp multipart | Có thể |
-| `nodemailer` + Mailpit | 6.10.1 / `axllent/mailpit` | Gửi email SMTP; hộp thư giả khi dev | Nên (email) |
-| `sharp` | 0.35.5 | Tạo webp/thumbnail, thu nhỏ texture | Nên (xử lý ảnh) |
-| `@gltf-transform/core,functions,extensions` + `meshoptimizer` + `draco3dgltf` | 4.5.1 / 0.18.1 / 1.5.7 | Kiểm tra GLB, đo đa giác, sinh LOD, nén Meshopt | Nên (xử lý 3D) |
-| `@aws-sdk/client-s3` + `s3-request-presigner` | 3.1147.0 | Truy cập MinIO/S3, presigned URL | Nên (gắn MinIO/S3) |
-| `@bull-board/*` | 9.10.4 | Giao diện xem hàng đợi | Có thể |
-| Jest, ts-jest, Supertest | 29.7.0 / 29.4.12 / 7.3.1 | Test đơn vị và e2e | Nên |
-| Turborepo, npm workspaces | 2.10.13 / npm 11.19 | Quản lý monorepo, chạy tác vụ | Nên |
-| ESLint, typescript-eslint, Prettier | 8.57.1 / 7.x / 3.9.9 | Chất lượng và định dạng mã | Có thể |
-| Husky, lint-staged, commitlint | 9.1.7 / 15.5.2 / 19.8.1 | Hook git, Conventional Commits | Có thể |
-| Docker, Docker Compose | 29.7.2 / 5.4.0 | Môi trường dev (postgres, redis, minio, mailpit, api) | **Nên** |
-| GitHub Actions | workflow `ci.yml` | CI: lint, typecheck, test, build | Nên |
-| `packages/shared-types` + script sinh từ Prisma | `scripts/generate-shared-types.mjs` | Kiểu dùng chung web/api, sinh từ `schema.prisma` | Có thể |
-| Mermaid CLI | `@mermaid-js/mermaid-cli` (npx) | Xuất sơ đồ UML | Không (công cụ tài liệu) |
-| Mobile (nếu đưa vào): Hilt 2.51.1, Retrofit 2.11.0 + Gson, Coil 2.6.0, Material3, KSP | | DI, gọi API, tải ảnh, giao diện | Nếu có mobile |
+**Số endpoint:** thiết kế 144, đã cài 6 route (mục 1, điểm 4).
 
 ## 6. Bảng công nghệ nộp giảng viên (CHÍNH THỨC)
 

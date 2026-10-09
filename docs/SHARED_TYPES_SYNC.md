@@ -26,7 +26,7 @@
 | Loại                      | Vị trí                                                | Nguồn                           |
 | ------------------------- | ----------------------------------------------------- | ------------------------------- |
 | Entity (hình dạng bản ghi) | `entities.generated.ts`, `enums.generated.ts`        | Sinh từ Prisma                  |
-| Response/Request API dùng chung | `api.ts`, `auth.types.ts`, `health.types.ts`, `error-codes.ts` | Viết tay                  |
+| Response/Request API dùng chung | `api.ts`, `auth.types.ts`, `health.types.ts`, `upload.types.ts`, `error-codes.ts` | Viết tay |
 | DTO của từng module       | Bổ sung vào shared-types khi frontend bắt đầu dùng, đặt `<module>.dto.ts`, tham chiếu entity bằng `Pick`/`Omit` | Viết tay |
 
 ## 3. Bảng khác biệt trước khi sửa
@@ -63,3 +63,10 @@ Kết quả sau xử lý: 0 khác biệt giữa `schema.prisma` và entity/enum 
 
 - Backend/Web import `from '@aurelia-living/shared-types'`.
 - Typecheck và Jest của API ánh xạ trực tiếp tới `packages/shared-types/src` (không cần build trước); build/runtime dùng `dist` nên `npm run build` tự build shared-types trước.
+
+## 6. Thay đổi sau lượt cấu hình môi trường (2026-10-09)
+
+- `health.types.ts`: `HealthStatus.checks` có thêm `smtp` và `queues` (cùng `CheckStatus = 'up' | 'down'`), thêm `queues: Record<string, QueueCounts>` (số job `waiting`, `active`, `delayed`, `failed` của từng hàng đợi) để khớp `GET /health` mới.
+- `upload.types.ts` (mới): kiểu cho luồng tải bằng presigned URL (`PresignUploadRequest`, `PresignedUpload`, `ConfirmUploadRequest`, `PresignModelFileRequest`, `ConfirmModelFileRequest`, `ModelProcessingAccepted`); `UploadKind` chỉ còn `'panorama'` (ảnh thường tải qua API multipart).
+- Entity và enum sinh từ Prisma **không đổi** (lượt này không sửa schema): 44 entity, 18 enum; `npm run types:check` đồng bộ.
+- Web đã khai báo `@aurelia-living/shared-types` là phụ thuộc workspace và `transpilePackages` trong `next.config.js`; chưa có mã web nào import.

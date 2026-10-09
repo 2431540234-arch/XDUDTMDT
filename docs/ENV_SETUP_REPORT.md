@@ -1,5 +1,7 @@
 # Báo cáo cấu hình môi trường phát triển
 
+> **Cập nhật 2026-10-09, commit `b30fc75`. Báo cáo này ghi kết quả lượt cấu hình môi trường; nội dung cũ được giữ nguyên.** Các điểm đã thay đổi sau đó: `docs/CONG_NGHE.md` đã được viết lại mục 1-5 (mục tham chiếu "3, 4, 6, 7, 8" nay là: 2 bảng đối chiếu, 3 mâu thuẫn đã giải quyết, 4 thư viện, 5 công nghệ ngoài danh sách, 6 bảng nộp, 7 kế hoạch, 8 quyết định); phiên bản TypeScript thực cài là **5.7.2** (các tài liệu cũ ghi 5.9.3). Mọi con số kiểm thử trong báo cáo này (29 unit, 23 e2e API, 3 unit web, 2 e2e web) còn đúng tại commit trên. Việc còn tồn đọng và mâu thuẫn tài liệu: xem [DOC_SYNC_REPORT.md](DOC_SYNC_REPORT.md). Trạng thái từng module: [TIEN_DO.md](TIEN_DO.md).
+
 Ngày: 2026-10-09. Quyết định gốc: `docs/DECISIONS.md` D-T37 (cấu hình toàn bộ môi trường một lượt, thay nguyên tắc "cài đúng đợt" của D-T35). Phạm vi: chỉ hạ tầng và cấu hình; không logic nghiệp vụ, không trang giao diện, không endpoint mới (ngoài mở rộng `/health`), không sửa schema Prisma, không migration.
 
 Báo cáo đối chiếu công nghệ đã đọc: `docs/CONG_NGHE.md` (mục 3, 4, 6, 7, 8). Đã đọc thêm `docs/DECISIONS.md` (D-P06, D-P07, D-T29 đến D-T36), `docs/MODULE_ENV_REPORT.md`, `docs/TIEN_DO.md`, `README.md`, `docker-compose.yml`, `.env.example`, `env.validation.ts`, các `package.json`, `turbo.json`, `.github/workflows/`, và cấu hình Gradle, `AndroidManifest.xml` của `apps/mobile`.

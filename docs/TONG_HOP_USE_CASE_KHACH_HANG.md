@@ -2,7 +2,7 @@
 
 Aurelia Living: website thương mại điện tử nội thất (mô hình B2C) tích hợp xem 3D, AR và không gian mẫu 360°.
 
-Tài liệu tổng hợp **đầy đủ 45 use case phía khách hàng**, trình bày theo kiểu sơ đồ use case UML (tác nhân, use case dạng ellipse, `extension points`, ghi chú, quan hệ `«extend»`, `«include»`, kế thừa tác nhân). Mã use case khớp với [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) và [BAO_CAO_PHAN_TICH_THIET_KE.md](BAO_CAO_PHAN_TICH_THIET_KE.md).
+Tài liệu tổng hợp **đầy đủ 49 use case phía khách hàng** (45 trên website và 4 trên ứng dụng Android, nhóm UC-MOB), trình bày theo kiểu sơ đồ use case UML (tác nhân, use case dạng ellipse, `extension points`, ghi chú, quan hệ `«extend»`, `«include»`, kế thừa tác nhân). Mã use case khớp với [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) và [BAO_CAO_PHAN_TICH_THIET_KE.md](BAO_CAO_PHAN_TICH_THIET_KE.md).
 
 ## 1. Tác nhân
 
@@ -29,7 +29,7 @@ Ký hiệu trong sơ đồ: ellipse = use case; ô có dòng **extension points*
 
 File ảnh PNG và SVG (phóng to không vỡ) nằm trong `docs/diagrams/khach-hang/`.
 
-## 3. Danh sách đầy đủ 45 use case
+## 3. Danh sách đầy đủ 49 use case
 
 | STT | Mã | Use case | Tác nhân | Ưu tiên | Hình | Hiển thị trong hình |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -79,7 +79,12 @@ File ảnh PNG và SVG (phóng to không vỡ) nằm trong `docs/diagrams/khach-
 | 44 | UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | Khách thành viên | NC | 3 | Ellipse "Quản lý ảnh AR của tôi" |
 | 45 | UC-SPACE-04 | Lưu / bỏ lưu không gian mẫu yêu thích | Khách thành viên | NC | 3 | Ellipse "Lưu / bỏ lưu không gian mẫu" |
 
-Thống kê: 45 use case (Bắt buộc 17, Nên có 21, Mở rộng 7), gồm 21 ở Hình 1, 11 ở Hình 2, 13 ở Hình 3. Hai use case ghi nhận thống kê (UC-3D-07, UC-SPACE-06) do hệ thống tự thực hiện khi khách xem.
+| 46 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Khách vãng lai (app) | NC | — | Chưa vẽ (dùng lại luồng UC-CAT-02) |
+| 47 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Khách vãng lai (app) | NC | — | Chưa vẽ (dùng lại luồng UC-CAT-04) |
+| 48 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Khách vãng lai (app) | NC | — | Chưa vẽ trong 3 hình này; có activity/sequence A.62, S.62 |
+| 49 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | Khách vãng lai (app) | NC | — | Chưa vẽ trong 3 hình này; có activity/sequence A.63, S.63 |
+
+Thống kê: 49 use case (Bắt buộc 17, Nên có 25, Mở rộng 7), gồm 21 ở Hình 1, 11 ở Hình 2, 13 ở Hình 3 và 4 use case UC-MOB của ứng dụng Android (chưa có hình riêng; sơ đồ use case của nhóm này nằm ở mục 5.2 của `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`). Hai use case ghi nhận thống kê (UC-3D-07, UC-SPACE-06) do hệ thống tự thực hiện khi khách xem.
 
 ## 4. Quy tắc nghiệp vụ chính thể hiện trong sơ đồ
 
@@ -88,4 +93,5 @@ Thống kê: 45 use case (Bắt buộc 17, Nên có 21, Mở rộng 7), gồm 21
 - **Áp mã giảm giá chỉ xem trước** ở giỏ; mã được ghi nhận và kiểm tra lại khi đặt hàng.
 - **Hủy đơn** chỉ khi đơn ở trạng thái chờ xác nhận hoặc đã xác nhận; hệ thống hoàn tồn kho và lượt dùng mã. Đơn đã thanh toán online bị hủy sẽ được cửa hàng hoàn tiền thủ công.
 - **Đánh giá** chỉ cho đơn đã hoàn tất, với email đã xác thực; mỗi sản phẩm một đánh giá cho mỗi đơn; đánh giá chờ admin duyệt.
+- **Ứng dụng Android** chỉ dành cho khách vãng lai (không đăng nhập, không giỏ hàng, không đặt hàng): xem danh mục và sản phẩm, đặt ảnh sản phẩm lên camera để hình dung, chụp ảnh ghép lưu vào máy (phạm vi tối thiểu, DECISIONS D-P06, D-P07).
 - **Xem 3D/AR và không gian mẫu 360°** do cửa hàng dựng sẵn; khách tham quan và tương tác (xoay, đặt thử bằng camera, bấm điểm sản phẩm), không tự dựng phòng.

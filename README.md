@@ -1,6 +1,13 @@
 # Aurelia Living
 
-Website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°. Monorepo gồm `apps/web` (Next.js), `apps/api` (NestJS + Prisma + PostgreSQL) và `apps/mobile` (Android).
+Website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°. Monorepo (npm workspaces + Turborepo) gồm:
+
+- `apps/web`: Next.js 14, React 18, Tailwind, React Three Fiber, model-viewer.
+- `apps/api`: NestJS 10, Prisma 5 + PostgreSQL 16, Redis (BullMQ 4 hàng đợi, cache, giới hạn tốc độ), MinIO (S3 ở production), Mailpit khi dev.
+- `apps/mobile`: Android (Kotlin, Jetpack Compose, CameraX); phạm vi tối thiểu (xem danh mục, camera overlay, chụp ảnh ghép), làm sau M07.
+- `packages/shared-types`: kiểu dùng chung, sinh từ `schema.prisma`.
+
+**Trạng thái:** môi trường phát triển đã cấu hình xong (2026-10-09); nền tảng backend có test; các module nghiệp vụ (144 endpoint theo thiết kế, mới cài 6 route) và giao diện chưa làm, bắt đầu từ M02. Chi tiết: [docs/TIEN_DO.md](docs/TIEN_DO.md).
 
 ## Chạy từ đầu trên máy mới
 
@@ -126,12 +133,12 @@ cd apps/mobile
 | `npm run typecheck`                      | Kiểm tra kiểu mọi package (turbo)                                                                |
 | `npm test`                               | Unit test API (Jest) và web (Vitest)                                                             |
 | `npm run test:e2e`                       | E2E API (Jest + Supertest) rồi web (Playwright); riêng từng bên: `test:e2e:api`, `test:e2e:web`  |
-| `npm run mobile:build`                   | Build APK debug (`apps/mobile`)                                                                  |
+| `npm run mobile:build`                   | Build APK debug (`apps/mobile`); trên Windows nếu `./gradlew` không chạy: `cd apps/mobile` rồi `gradlew.bat assembleDebug` |
 | `npm run build`                          | Build tất cả (shared-types trước)                                                                |
 | `npm run types:generate` / `types:check` | Sinh / kiểm tra kiểu từ `schema.prisma` ([docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md)) |
 | `npm run infra:up` / `infra:down`        | Bật postgres, redis, minio, minio-init, mailpit (không tạo lại container cũ) / dừng              |
 | `npm run docker:up` / `docker:down`      | Bật tất cả (kể cả API trong Docker) / tắt compose                                                |
-| `npm run db:up`                          | Bật riêng service `postgres`                                                                     |
+| `npm run db:up`                          | Bí danh của `infra:up` (bật postgres, redis, minio, minio-init, mailpit)                         |
 | `npm run db:status` / `db:deploy`        | Trạng thái / áp migration                                                                        |
 | `npm run db:seed`                        | Seed dữ liệu (idempotent)                                                                        |
 | `npm run db:studio`                      | Prisma Studio                                                                                    |
@@ -158,7 +165,8 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 - [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
 - [docs/TIEN_DO.md](docs/TIEN_DO.md): tiến độ theo module và theo từng use case
 - [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật (Redis + MinIO + BullMQ, VNPay sandbox, ...)
-- [docs/MODULE_ENV_REPORT.md](docs/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường
+- [docs/MODULE_ENV_REPORT.md](docs/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường (báo cáo chụp thời điểm 2026-10-08, đã lỗi thời một phần)
+- [docs/DOC_SYNC_REPORT.md](docs/DOC_SYNC_REPORT.md): đợt đồng bộ tài liệu (mâu thuẫn còn lại, việc tồn đọng)
 - [docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md): kiểu dùng chung FE/BE sinh từ Prisma
 
 ## Tài liệu CSDL

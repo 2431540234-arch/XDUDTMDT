@@ -4,7 +4,7 @@ Website thương mại điện tử nội thất, tích hợp xem 3D, AR và kh�
 Hệ quản trị: **PostgreSQL 15+** (dùng `UNIQUE NULLS NOT DISTINCT` và `ON DELETE SET NULL (cột)`, đã chạy thử trên 16).
 Nguồn mô tả nghiệp vụ: [CAU_TRUC_DB.md](CAU_TRUC_DB.md). Quy ước khi code: [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md).
 
-> **Nguồn chuẩn cấu trúc CSDL là `apps/api/prisma`** (`schema.prisma` + `migrations/0_init`). Thư mục [`database/`](../database/) chỉ còn là tài liệu tham khảo (SQL thuần, xem [database/README.md](../database/README.md)). Mọi thay đổi về sau làm qua `prisma migrate dev`.
+> **Nguồn chuẩn cấu trúc CSDL là `apps/api/prisma`** (`schema.prisma` + `migrations/`: `0_init` và `20261006134647_media_file_size_int`). Thư mục [`database/`](../database/) chỉ còn là tài liệu tham khảo (SQL thuần, xem [database/README.md](../database/README.md)). Mọi thay đổi về sau làm qua `prisma migrate dev`.
 
 ## 1. Tổng quan và cách dựng
 
@@ -33,7 +33,7 @@ Dựng CSDL thật (khuyến nghị) qua Prisma:
 
 ```bash
 cd apps/api
-npx prisma migrate deploy      # áp migration 0_init
+npx prisma migrate deploy      # áp 2 migration: 0_init, 20261006134647_media_file_size_int (hoặc từ gốc dự án: npm run db:deploy)
 npx prisma db seed             # vai trò, quyền, settings, admin + dữ liệu mẫu (SEED_SAMPLE=false để bỏ dữ liệu mẫu)
 npx prisma migrate reset       # dev: xóa và dựng lại toàn bộ
 ```
@@ -281,7 +281,7 @@ Kho tệp dùng chung: ảnh sản phẩm, ảnh danh mục, tệp mô hình 3D,
 | --- | --- | --- | --- |
 | `id` | integer | PK<br>IDENTITY | Khóa chính |
 | `file_name` | varchar(255) | NOT NULL | Tên tệp gốc |
-| `file_path` | varchar(500) | UNIQUE<br>NOT NULL | Đường dẫn/khóa lưu trữ (duy nhất) |
+| `file_path` | varchar(500) | UNIQUE<br>NOT NULL | Khóa lưu trữ (object key) của tệp trong MinIO/S3 hoặc thư mục local, duy nhất; KHÔNG lưu URL tuyệt đối (URL công khai = `STORAGE_PUBLIC_URL` + key) |
 | `mime_type` | varchar(100) | NOT NULL | Loại tệp (MIME) |
 | `file_size` | integer | NOT NULL | Dung lượng (byte) |
 | `alt_text` | varchar(255) | — | Mô tả ảnh (SEO/trợ năng) |
@@ -500,6 +500,7 @@ Liên kết biến thể với giá trị thuộc tính; mỗi biến thể ch�
 
 - **FK kép** `fk_product_images_variant_id`: (variant_id, product_id) → product_variants(id, product_id), on delete cascade
 - **Partial unique index** `uq_product_images_primary` trên (product_id): `WHERE is_primary`
+- **[ĐANG CHỜ DUYỆT, O-06]** Bảng này chưa có chỗ phân biệt ảnh overlay (PNG nền trong suốt cho app Android, UC-MOB-02/03). Ba phương án đang chờ chủ dự án chọn (xem `docs/DECISIONS.md` O-06); thiết kế bảng giữ nguyên cho tới khi có quyết định.
 
 #### 22. `inventory_movements`
 
