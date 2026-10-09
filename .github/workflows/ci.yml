@@ -68,5 +68,13 @@ jobs:
         run: npm run test
       - name: E2E test (PostgreSQL service)
         run: npm run test:e2e
+
+      - name: Cài trình duyệt cho Playwright
+        run: npx playwright install --with-deps chromium
+        working-directory: apps/web
+
+      - name: Chạy test E2E
+        run: npm run test:e2e
+
       - name: Build (shared-types, api, web)
         run: npm run build
