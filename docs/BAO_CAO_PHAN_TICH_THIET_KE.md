@@ -24,6 +24,10 @@ Tài liệu liên quan: [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO
 ### 1.2. Kiến trúc
 
 ```mermaid
+---
+config:
+  layout: elk
+---
 flowchart LR
     subgraph Client["Trình duyệt"]
         WEB["apps/web (Next.js)<br>pages, components, hooks, store, services"]
@@ -64,14 +68,10 @@ flowchart LR
     APP -. "tải ảnh overlay" .-> S3
     GUARD -- "đếm yêu cầu" --> RL
     SVC --> CACHE --> RC
-    SVC -- "đưa job media" --> Q1
-    SVC -- "đưa job media" --> Q2
-    SVC --> MAILSVC -- "đưa job email" --> Q3
-    SVC -- "việc nền chậm" --> Q4
-    Q1 --> WORKER
-    Q2 --> WORKER
-    Q3 --> WORKER
-    Q4 --> WORKER
+    SVC --> MAILSVC
+    MAILSVC -- "đưa job email" --> QUEUES
+    SVC -- "đưa job media, việc nền chậm" --> QUEUES
+    QUEUES --> WORKER
     WORKER --> S3
     WORKER --> PRISMA
     WORKER -- "gửi email" --> SMTP
@@ -2451,8 +2451,10 @@ flowchart TD
         n12["Trả 201: id, url, mimeType, fileSize"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
+        n15["Bắt đầu transaction"]
         n9["Tạo bản ghi media"]
         n11["Ghi nhật ký hoạt động"]
+        n16["Commit transaction"]
     end
     subgraph LANE_X["MinIO/S3"]
         n8["Lưu tệp lên MinIO/S3"]
@@ -2464,10 +2466,12 @@ flowchart TD
     n4 -->|"Có"| n6
     n6 -->|"Không"| n7
     n6 -->|"Có"| n8
-    n8 --> n9
-    n9 --> n10
-    n10 --> n11
-    n11 --> n12
+    n8 --> n15
+    n15 --> n9
+    n9 --> n11
+    n11 --> n16
+    n16 --> n10
+    n10 --> n12
     n12 --> n13
     n13 --> n14
     n5 --> n14
@@ -2507,8 +2511,10 @@ flowchart TD
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT categories"]
         n11["Truy vấn CSDL: isDescendant CategoriesService"]
+        n19["Bắt đầu transaction"]
         n14["Tạo danh mục"]
         n15["Ghi nhật ký hoạt động"]
+        n20["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -2522,9 +2528,11 @@ flowchart TD
     n9 -->|"Có"| n11
     n11 --> n12
     n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
+    n12 -->|"Có"| n19
+    n19 --> n14
     n14 --> n15
-    n15 --> n16
+    n15 --> n20
+    n20 --> n16
     n16 --> n17
     n17 --> n18
     n5 --> n18
@@ -2563,8 +2571,10 @@ flowchart TD
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT brands"]
+        n16["Bắt đầu transaction"]
         n11["Tạo thương hiệu"]
         n12["Ghi nhật ký hoạt động"]
+        n17["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -2575,9 +2585,11 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
+    n9 -->|"Có"| n16
+    n16 --> n11
     n11 --> n12
-    n12 --> n13
+    n12 --> n17
+    n17 --> n13
     n13 --> n14
     n14 --> n15
     n5 --> n15
@@ -2616,8 +2628,10 @@ flowchart TD
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT pages"]
+        n17["Bắt đầu transaction"]
         n12["Tạo trang (đặt publishedAt khi đăng)"]
         n13["Ghi nhật ký hoạt động"]
+        n18["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -2629,9 +2643,11 @@ flowchart TD
     n8 --> n9
     n9 -->|"Không"| n10
     n9 -->|"Có"| n11
-    n11 --> n12
+    n11 --> n17
+    n17 --> n12
     n12 --> n13
-    n13 --> n14
+    n13 --> n18
+    n18 --> n14
     n14 --> n15
     n15 --> n16
     n5 --> n16
@@ -2669,8 +2685,10 @@ flowchart TD
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT attributes"]
+        n16["Bắt đầu transaction"]
         n11["Tạo thuộc tính"]
         n12["Ghi nhật ký hoạt động"]
+        n17["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -2681,9 +2699,11 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
+    n9 -->|"Có"| n16
+    n16 --> n11
     n11 --> n12
-    n12 --> n13
+    n12 --> n17
+    n17 --> n13
     n13 --> n14
     n14 --> n15
     n5 --> n15
@@ -2725,8 +2745,10 @@ flowchart TD
     subgraph LANE_D["Cơ sở dữ liệu"]
         n9["Truy vấn CSDL: SELECT products"]
         n12["Truy vấn CSDL: SELECT categories"]
+        n20["Bắt đầu transaction"]
         n15["Tạo sản phẩm (rating, cờ 3D/AR do trigger giữ)"]
         n16["Ghi nhật ký hoạt động"]
+        n21["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -2741,9 +2763,11 @@ flowchart TD
     n10 -->|"Có"| n12
     n12 --> n13
     n13 -->|"Không"| n14
-    n13 -->|"Có"| n15
+    n13 -->|"Có"| n20
+    n20 --> n15
     n15 --> n16
-    n16 --> n17
+    n16 --> n21
+    n21 --> n17
     n17 --> n18
     n18 --> n19
     n5 --> n19
@@ -2980,7 +3004,7 @@ flowchart TD
     subgraph LANE_X["MinIO / Redis / Worker"]
         n15["Kiểm tra GLB, đo đa giác và texture, sinh LOD high, medium, low"]
         n15b{"Mỗi LOD dùng cho web ≤ MODEL_SERVE_MAX_MB (5 MB, NFR02)?"}
-        n15c["Tạo thông báo cho admin: LOD vượt giới hạn"]
+        n15c["Transaction: mô hình failed, ghi nhật ký hoạt động, thông báo admin đã tải mô hình"]
         n16["Tải các LOD lên bucket public, tạo media và model_files"]
         n17{"Xử lý thành công?"}
         n19["Mô hình ready; trigger DB cập nhật has3dModel, hasAr"]
@@ -3053,8 +3077,10 @@ flowchart TD
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT spaces"]
         n11["Truy vấn CSDL: spacePanoramas spaces"]
+        n20["Bắt đầu transaction"]
         n14["Đổi trạng thái và đặt thời điểm đăng"]
         n15["Ghi nhật ký hoạt động"]
+        n21["Commit transaction"]
         n16["Trigger DB: Cập nhật updated_at"]
     end
     n1 --> n2
@@ -3069,9 +3095,11 @@ flowchart TD
     n9 -->|"Có"| n11
     n11 --> n12
     n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
+    n12 -->|"Có"| n20
+    n20 --> n14
     n14 --> n15
-    n15 --> n16
+    n15 --> n21
+    n21 --> n16
     n16 --> n17
     n17 --> n18
     n18 --> n19
@@ -3114,8 +3142,10 @@ flowchart TD
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT space_panoramas"]
         n11["Truy vấn CSDL: SELECT space_panoramas"]
+        n20["Bắt đầu transaction"]
         n14["Tạo hotspot"]
         n15["Ghi nhật ký hoạt động"]
+        n21["Commit transaction"]
         n16["Trigger DB: Cập nhật updated_at"]
     end
     n1 --> n2
@@ -3130,9 +3160,11 @@ flowchart TD
     n9 -->|"Có"| n11
     n11 --> n12
     n12 -->|"Không"| n13
-    n12 -->|"Có"| n14
+    n12 -->|"Có"| n20
+    n20 --> n14
     n14 --> n15
-    n15 --> n16
+    n15 --> n21
+    n21 --> n16
     n16 --> n17
     n17 --> n18
     n18 --> n19
@@ -3168,11 +3200,13 @@ flowchart TD
         n7["Trả 400 Trạng thái không hợp lệ"]
         n9{"Đánh giá tồn tại?"}
         n10["Trả 404 Không tìm thấy đánh giá"]
-        n14["Tạo thông báo cho người viết (Service tạo trực tiếp)"]
+        n14["Tạo thông báo cho người viết (cùng transaction)"]
         n15["Trả 200: Đánh giá sau khi duyệt"]
+        n19["Commit transaction"]
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT reviews"]
+        n18["Bắt đầu transaction"]
         n11["Đổi trạng thái đánh giá"]
         n12["Trigger DB: Tính lại ratingAvg và ratingCount (chỉ review approved)"]
         n13["Ghi nhật ký hoạt động"]
@@ -3186,11 +3220,13 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
+    n9 -->|"Có"| n18
+    n18 --> n11
     n11 --> n12
     n12 --> n13
     n13 --> n14
-    n14 --> n15
+    n14 --> n19
+    n19 --> n15
     n15 --> n16
     n16 --> n17
     n5 --> n17
@@ -3228,8 +3264,10 @@ flowchart TD
     end
     subgraph LANE_D["Cơ sở dữ liệu"]
         n8["Truy vấn CSDL: SELECT coupons"]
+        n16["Bắt đầu transaction"]
         n11["Tạo mã giảm giá"]
         n12["Ghi nhật ký hoạt động"]
+        n17["Commit transaction"]
     end
     n1 --> n2
     n2 --> n3
@@ -3240,9 +3278,11 @@ flowchart TD
     n6 -->|"Có"| n8
     n8 --> n9
     n9 -->|"Không"| n10
-    n9 -->|"Có"| n11
+    n9 -->|"Có"| n16
+    n16 --> n11
     n11 --> n12
-    n12 --> n13
+    n12 --> n17
+    n17 --> n13
     n13 --> n14
     n14 --> n15
     n5 --> n15
@@ -6211,17 +6251,19 @@ sequenceDiagram
     C->>S: MediaService.upload(adminId, file, dto)
     S->>X: putObject(file)
     X-->>S: URL tệp
-    S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, altText, uploadedBy: adminId } })
-    P->>D: INSERT INTO media
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: media.create({ data: { fileName, filePath, mimeType, fileSize, altText, uploadedBy: adminId } })
+        P->>D: INSERT INTO media
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'media.upload', targetType: 'media', targetId } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S->>Q: Đưa job vào hàng đợi image-processing (webp + thumbnail bằng sharp)
     Q-)W: Giao job (bất đồng bộ, thử lại 3 lần)
     W->>X: putObject {key}.webp và {key}_thumb.webp
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'media.upload', targetType: 'media', targetId } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
     S-->>C: kết quả
     C-->>FE: 201 id, url, mimeType, fileSize
     FE-->>A: Tệp xuất hiện trong thư viện
@@ -6280,14 +6322,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Danh mục cha không hợp lệ
     end
-    S->>P: category.create({ data: { name, slug, parentId, imageMediaId, sortOrder, isActive, metaTitle, metaDescription } })
-    P->>D: INSERT INTO categories
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'category.create', targetType: 'categories' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: category.create({ data: { name, slug, parentId, imageMediaId, sortOrder, isActive, metaTitle, metaDescription } })
+        P->>D: INSERT INTO categories
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'category.create', targetType: 'categories' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Danh mục mới
     FE-->>A: Cây danh mục được cập nhật
@@ -6339,14 +6383,16 @@ sequenceDiagram
         S-->>C: throw ConflictException
         C-->>FE: 409 Slug đã tồn tại
     end
-    S->>P: brand.create({ data: { name, slug, logoMediaId, isActive } })
-    P->>D: INSERT INTO brands
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'brand.create', targetType: 'brands' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: brand.create({ data: { name, slug, logoMediaId, isActive } })
+        P->>D: INSERT INTO brands
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'brand.create', targetType: 'brands' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Thương hiệu mới
     FE-->>A: Danh sách thương hiệu được cập nhật
@@ -6399,14 +6445,16 @@ sequenceDiagram
         C-->>FE: 409 Slug đã tồn tại
     end
     S->>S: Làm sạch HTML trước khi lưu - sanitizeHtml(content)
-    S->>P: page.create({ data: { title, slug, content, status, metaTitle, metaDescription, publishedAt } })
-    P->>D: INSERT INTO pages
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'page.create', targetType: 'pages' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: page.create({ data: { title, slug, content, status, metaTitle, metaDescription, publishedAt } })
+        P->>D: INSERT INTO pages
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'page.create', targetType: 'pages' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Trang mới
     FE-->>A: Danh sách trang được cập nhật
@@ -6458,14 +6506,16 @@ sequenceDiagram
         S-->>C: throw ConflictException
         C-->>FE: 409 Thuộc tính đã tồn tại
     end
-    S->>P: attribute.create({ data: { code, name } })
-    P->>D: INSERT INTO attributes
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'attribute.create', targetType: 'attributes' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: attribute.create({ data: { code, name } })
+        P->>D: INSERT INTO attributes
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'attribute.create', targetType: 'attributes' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Thuộc tính mới
     FE-->>A: Danh sách thuộc tính được cập nhật
@@ -6526,14 +6576,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Danh mục hoặc thương hiệu không hợp lệ
     end
-    S->>P: product.create({ data: { name, slug, shortDescription, description, categoryId, brandId, status, isFeatured, metaTitle, metaDescription } })
-    P->>D: INSERT INTO products
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'product.create', targetType: 'products', targetId } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: product.create({ data: { name, slug, shortDescription, description, categoryId, brandId, status, isFeatured, metaTitle, metaDescription } })
+        P->>D: INSERT INTO products
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'product.create', targetType: 'products', targetId } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 ProductResponseDto
     FE-->>A: Chuyển tới trang sửa để thêm biến thể, ảnh, mô hình 3D
@@ -6818,10 +6870,21 @@ sequenceDiagram
         P->>D: UPDATE product_3d_models
     end
     alt LOD dùng cho web vượt MODEL_SERVE_MAX_MB (5 MB, NFR02)
-        W->>P: product3DModel.update({ status: 'failed' })
-        P->>D: UPDATE product_3d_models
-        W->>P: notification.create({ data: { userId: adminId, type, title, body } })
-        P->>D: INSERT INTO notifications
+        critical $transaction (Prisma)
+            W->>P: product3DModel.update({ where: { id }, data: { status: 'failed' } })
+            P->>D: UPDATE product_3d_models
+            D-->>P: kết quả
+            P-->>W: kết quả
+            W->>P: activityLog.create({ data: { actorId: uploadedBy, action: 'model.processing_failed', targetType: 'product_3d_models', targetId: modelId } })
+            P->>D: INSERT INTO activity_logs
+            D-->>P: kết quả
+            P-->>W: kết quả
+            W->>P: notification.create({ data: { userId: uploadedBy, type, title, body } })
+            P->>D: INSERT INTO notifications
+            D-->>P: kết quả
+            P-->>W: kết quả
+        end
+        Note over W: Dừng job, thông báo gửi cho admin đã tải mô hình (uploadedBy trong dữ liệu job)
     end
     W->>X: putObject các LOD vào bucket public (models/:id/tên-lod.glb)
     critical $transaction (Prisma)
@@ -6829,9 +6892,9 @@ sequenceDiagram
         P->>D: INSERT INTO media
         W->>P: modelFile.upsert({ where: { modelId_format_lod }, ... polygonCount, textureResolution, isCompressed, checksum })
         P->>D: INSERT INTO model_files
+        W->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } })
+        P->>D: UPDATE product_3d_models
     end
-    W->>P: product3DModel.update({ where: { id }, data: { status: 'ready' } })
-    P->>D: UPDATE product_3d_models
     Note over D: Trigger trg_model_files_refresh_flags, trg_product_3d_models_refresh_flags
     FE->>C: GET trạng thái mô hình (lặp lại)
     C-->>FE: status ready hoặc failed
@@ -6892,14 +6955,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Cần ảnh 360° và một ảnh mở đầu trước khi đăng
     end
-    S->>P: space.update({ where: { id }, data: { status, publishedAt: new Date() } })
-    P->>D: UPDATE spaces
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'space.set_status', targetType: 'spaces', targetId: id } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: space.update({ where: { id }, data: { status, publishedAt: new Date() } })
+        P->>D: UPDATE spaces
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'space.set_status', targetType: 'spaces', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     Note over D: Trigger trg_spaces_set_updated_at
     S-->>C: kết quả
     C-->>FE: 200 Không gian sau khi đổi trạng thái
@@ -6960,14 +7025,16 @@ sequenceDiagram
         S-->>C: throw BadRequestException
         C-->>FE: 400 Ảnh đích không hợp lệ
     end
-    S->>P: spaceHotspot.create({ data: { panoramaId: id, type, yaw, pitch, productId, targetPanoramaId, title, content } })
-    P->>D: INSERT INTO space_hotspots
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'hotspot.create', targetType: 'space_hotspots' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: spaceHotspot.create({ data: { panoramaId: id, type, yaw, pitch, productId, targetPanoramaId, title, content } })
+        P->>D: INSERT INTO space_hotspots
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'hotspot.create', targetType: 'space_hotspots' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     Note over D: Trigger trg_space_hotspots_set_updated_at
     S-->>C: kết quả
     C-->>FE: 201 Hotspot mới
@@ -7020,19 +7087,21 @@ sequenceDiagram
         S-->>C: throw NotFoundException
         C-->>FE: 404 Không tìm thấy đánh giá
     end
-    S->>P: review.update({ where: { id }, data: { status } })
-    P->>D: UPDATE reviews
-    D-->>P: kết quả
-    P-->>S: kết quả
-    Note over D: Trigger trg_reviews_refresh_rating
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'review.moderate', targetType: 'reviews', targetId: id } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: notification.create({ data: { userId, type, title, body } })
-    P->>D: INSERT INTO notifications
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: review.update({ where: { id }, data: { status } })
+        P->>D: UPDATE reviews
+        D-->>P: kết quả
+        P-->>S: kết quả
+        Note over D: Trigger trg_reviews_refresh_rating
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'review.moderate', targetType: 'reviews', targetId: id } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: notification.create({ data: { userId, type, title, body } })
+        P->>D: INSERT INTO notifications
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 200 Đánh giá sau khi duyệt
     FE-->>A: Đánh giá rời hàng đợi chờ duyệt
@@ -7084,14 +7153,16 @@ sequenceDiagram
         S-->>C: throw ConflictException
         C-->>FE: 409 Mã giảm giá đã tồn tại
     end
-    S->>P: coupon.create({ data: { code, type, value, maxDiscount, minOrderValue, usageLimit, perUserLimit, startsAt, endsAt, isActive } })
-    P->>D: INSERT INTO coupons
-    D-->>P: kết quả
-    P-->>S: kết quả
-    S->>P: activityLog.create({ data: { actorId: adminId, action: 'coupon.create', targetType: 'coupons' } })
-    P->>D: INSERT INTO activity_logs
-    D-->>P: kết quả
-    P-->>S: kết quả
+    critical $transaction (Prisma)
+        S->>P: coupon.create({ data: { code, type, value, maxDiscount, minOrderValue, usageLimit, perUserLimit, startsAt, endsAt, isActive } })
+        P->>D: INSERT INTO coupons
+        D-->>P: kết quả
+        P-->>S: kết quả
+        S->>P: activityLog.create({ data: { actorId: adminId, action: 'coupon.create', targetType: 'coupons' } })
+        P->>D: INSERT INTO activity_logs
+        D-->>P: kết quả
+        P-->>S: kết quả
+    end
     S-->>C: kết quả
     C-->>FE: 201 Mã giảm giá mới
     FE-->>A: Danh sách mã được cập nhật

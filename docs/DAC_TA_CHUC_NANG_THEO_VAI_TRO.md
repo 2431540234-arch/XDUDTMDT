@@ -1511,8 +1511,8 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Quy tắc nghiệp vụ** | • `filePath` UNIQUE; `fileSize` ≥ 0 và tối đa 2 GB (cột INTEGER).<br>• Xóa `Media` làm `SET NULL` ở tham chiếu tùy chọn (ảnh danh mục, logo, avatar...) nhưng bị chặn ở tham chiếu bắt buộc. |
 | **Dữ liệu vào** | • file (bắt buộc): ảnh ≤ 10 MB; GLB/USDZ ≤ 100 MB [ĐỀ XUẤT]<br>• altText (tuỳ chọn): ≤ 255 ký tự |
 | **Dữ liệu ra** | • 201: `{ id, fileName, url, mimeType, fileSize, altText }` |
-| **Model + C/R/U/D** | Media (media): C,R,U,D |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_media_set_updated_at`.<br>• Service: lưu tệp và tạo bản ghi; xóa tệp S3 sau khi xóa bản ghi thành công. |
+| **Model + C/R/U/D** | Media (media): C,R,U,D<br>ActivityLog (activity_logs): C |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_media_set_updated_at`.<br>• Service: lưu tệp và tạo bản ghi; xóa tệp S3 sau khi xóa bản ghi thành công.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-05 – Quản lý danh mục sản phẩm
 
@@ -1530,7 +1530,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • name (bắt buộc): ≤ 150 ký tự<br>• slug (tuỳ chọn): ≤ 180, chữ thường/số/dấu gạch<br>• parentId (tuỳ chọn): id danh mục hợp lệ<br>• imageMediaId, sortOrder, isActive, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột |
 | **Dữ liệu ra** | • 200/201: bản ghi `Category` |
 | **Model + C/R/U/D** | Category (categories): C,R,U,D<br>Media (media): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_categories_set_updated_at`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_categories_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-06 – Quản lý thương hiệu
 
@@ -1548,7 +1548,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • name (bắt buộc): ≤ 150 ký tự<br>• slug, logoMediaId, isActive (tuỳ chọn): theo kiểu cột |
 | **Dữ liệu ra** | • 200/201: bản ghi `Brand` |
 | **Model + C/R/U/D** | Brand (brands): C,R,U,D<br>Media (media): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_brands_set_updated_at`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_brands_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-07 – Quản lý trang tĩnh
 
@@ -1565,8 +1565,8 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Quy tắc nghiệp vụ** | • `slug` UNIQUE; chỉ trang `published` hiển thị công khai (UC-CAT-05). |
 | **Dữ liệu vào** | • title (bắt buộc): ≤ 255 ký tự<br>• slug, content, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột<br>• status (bắt buộc (đổi trạng thái)): `draft`, `published`, `archived` |
 | **Dữ liệu ra** | • 200/201: bản ghi `Page` |
-| **Model + C/R/U/D** | Page (pages): C,R,U,D |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_pages_set_updated_at`. |
+| **Model + C/R/U/D** | Page (pages): C,R,U,D<br>ActivityLog (activity_logs): C |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_pages_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-08 – Quản lý thuộc tính và giá trị thuộc tính
 
@@ -1583,8 +1583,8 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Quy tắc nghiệp vụ** | • `Attribute.code`, `Attribute.name` UNIQUE; `UNIQUE (attributeId, value)`. |
 | **Dữ liệu vào** | • code (bắt buộc): ≤ 50 ký tự, chữ thường<br>• name (bắt buộc): ≤ 100 ký tự<br>• value (bắt buộc (giá trị)): ≤ 150 ký tự |
 | **Dữ liệu ra** | • 200/201: thuộc tính/giá trị |
-| **Model + C/R/U/D** | Attribute (attributes): C,R,U,D<br>AttributeValue (attribute_values): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_attributes_set_updated_at`, `trg_attribute_values_set_updated_at`. |
+| **Model + C/R/U/D** | Attribute (attributes): C,R,U,D<br>AttributeValue (attribute_values): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): R<br>ActivityLog (activity_logs): C |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_attributes_set_updated_at`, `trg_attribute_values_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-09 – Quản lý sản phẩm
 
@@ -1602,7 +1602,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • name (bắt buộc): ≤ 255 ký tự<br>• slug (tuỳ chọn): ≤ 280 ký tự<br>• shortDescription (tuỳ chọn): ≤ 500; description<br>• categoryId, brandId (tuỳ chọn): id tồn tại<br>• status (tuỳ chọn): `draft`, `published`, `archived` (mặc định `draft`)<br>• isFeatured, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột |
 | **Dữ liệu ra** | • 200/201: `ProductResponseDto` |
 | **Model + C/R/U/D** | Product (products): C,R,U,D<br>Category (categories): R<br>Brand (brands): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>ActivityLog (activity_logs): C |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_products_set_updated_at`.<br>• Service: ghi `ActivityLog` qua interceptor. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_products_set_updated_at`.<br>• Service: ghi `ActivityLog` qua interceptor.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-10 – Quản lý biến thể sản phẩm
 
@@ -1670,12 +1670,12 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Chọn tệp GLB hoặc USDZ (≤ `UPLOAD_MAX_MODEL_MB` = 100 MB); USDZ có thể kèm LOD.<br>4. Hệ thống: `POST /api/admin/models/:id/files/presign` (`format`, `lod`, `fileName`, `size`): kiểm tra quyền admin, mô hình tồn tại, dung lượng; trả `uploadUrl` (presigned PUT, hiệu lực `PRESIGN_EXPIRES_SECONDS` = 900 giây, ký cả `Content-Type` và `Content-Length`) vào bucket PRIVATE `aurelia-private`, khóa `models/incoming/:id/<uuid>.<glb\|usdz>`.<br>5. Trình duyệt: `PUT` tệp thẳng lên MinIO (không qua API; MinIO bật CORS cho `http://localhost:3000`).<br>6. Frontend: `POST /api/admin/models/:id/files/confirm` (`key`, `format`, `lod`, `fileName`).<br>7. Hệ thống: `head` tệp trên MinIO (tồn tại, không vượt giới hạn), đặt `status = processing`, đẩy job vào hàng đợi `model-processing`, trả 202 `{ modelId, jobId, status }`.<br>8. Worker (`modules/jobs`): tải tệp gốc từ bucket private. GLB: kiểm tra hợp lệ bằng `@gltf-transform/core`, đo `polygonCount`, `textureResolution`, sinh 3 LOD high/medium/low (dedup, prune, simplify bằng Meshopt, thu nhỏ texture bằng `sharp`, nén Meshopt), tải lên bucket public `aurelia-public` (`models/:id/<tên>-<lod>.glb`), tạo `Media` + `ModelFile` (`isCompressed`, `checksum` SHA-256) trong `$transaction`. USDZ (admin tải thủ công từng LOD): chỉ kiểm tra chữ ký ZIP, tính checksum, chép sang bucket public.<br>9. Worker: thành công → `Product3DModel.status = ready`; lỗi → `failed` (tệp hỏng: không thử lại; lỗi tạm thời: thử lại 3 lần, backoff mũ).<br>10. CSDL: Trigger cập nhật `Product.has3dModel`, `Product.hasAr`.<br>11. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; thử lại khi `failed`. |
 | **Luồng thay thế** | 4a. Tệp vượt giới hạn → 413 `PAYLOAD_TOO_LARGE`; không phải GLB/USDZ → 400/415.<br>7a. Chưa thấy tệp trên MinIO khi xác nhận → 404.<br>9a. Xử lý lỗi → `failed`; admin tải lại tệp hợp lệ hoặc bấm "Xử lý lại" (`POST /api/admin/models/:id/reprocess`) → `processing`. Tải lại cùng định dạng/LOD thì ghi đè bản ghi `ModelFile` cũ (upsert, không nhân đôi). |
 | **Ngoại lệ** | • Tệp sai định dạng/quá lớn → 400/413.<br>• Kích thước ≤ 0 → 400 (CHECK `ck_product_3d_models_size`). |
-| **Tiêu chí nghiệm thu (NFR02, D-N21)** | Job `model-processing` phải bảo đảm mỗi tệp LOD dùng cho web có dung lượng ≤ 5 MB (ngưỡng đọc từ biến `MODEL_SERVE_MAX_MB`, mặc định 5). Vượt ngưỡng → đặt `Product3DModel.status = failed` và thông báo cho admin; admin tải lại tệp nhẹ hơn hoặc "Xử lý lại". Hiện mới có biến cấu hình, chưa có logic kiểm tra (làm ở M12). |
+| **Tiêu chí nghiệm thu (NFR02, D-N21)** | Job `model-processing` phải bảo đảm mỗi tệp LOD dùng cho web có dung lượng ≤ 5 MB (ngưỡng đọc từ biến `MODEL_SERVE_MAX_MB`, mặc định 5). Vượt ngưỡng → trong MỘT `prisma.$transaction` worker đặt `Product3DModel.status = failed`, ghi `ActivityLog` (`model.processing_failed`) và tạo `Notification` cho admin đã tải mô hình lên (`uploadedBy` trong dữ liệu job, cũng là `media.uploaded_by`; bảng `product_3d_models`, `model_files` không có cột `created_by`, D-N22); admin tải lại tệp nhẹ hơn hoặc "Xử lý lại". Kiểm tra này chỉ nằm ở UC-ADM-13; UC-3D-04 chỉ ghi chú tiền điều kiện. Hiện mới có biến cấu hình, chưa có logic kiểm tra (làm ở M12). |
 | **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Xử lý nền chạy trong `apps/api/src/modules/jobs` bằng BullMQ + Redis (compose mặc định có `redis`). Worker chạy CÙNG tiến trình API; processor chỉ là lớp mỏng gọi `ModelProcessingService` nên có thể tách sang `apps/worker` mà không sửa logic.<br>• Tệp gốc nằm ở bucket private (chỉ presigned GET), bản đã xử lý ở bucket public. `media.file_path` lưu object key.<br>• Job thất bại được giữ lại để xem ở Bull Board `/admin/queues` (chỉ admin). |
 | **Dữ liệu vào** | • lengthMm, widthMm, heightMm (bắt buộc): số nguyên > 0<br>• placement (bắt buộc): `floor`, `wall`, `table`<br>• allowScaling (tuỳ chọn): boolean<br>• viewerConfig (tuỳ chọn): JSON<br>• posterMediaId, variantId (tuỳ chọn): id hợp lệ (biến thể phải thuộc sản phẩm)<br>• format, lod, file (khi tải tệp) (bắt buộc): `glb |
 | **Dữ liệu ra** | • 201: `Product3DModel` kèm `files[]` và `status` |
-| **Model + C/R/U/D** | Product3DModel (product_3d_models): C,R,U,D<br>ModelFile (model_files): C,R,U,D<br>Media (media): C,R<br>Product (products): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags`, `trg_product_3d_models_set_updated_at`.<br>• Service: cấp presigned URL, đặt `processing`, đẩy job. Worker: kiểm tra tệp, sinh LOD, tạo `Media`/`ModelFile`, đặt `ready`/`failed`. |
+| **Model + C/R/U/D** | Product3DModel (product_3d_models): C,R,U,D<br>ModelFile (model_files): C,R,U,D<br>Media (media): C,R<br>Product (products): R<br>ActivityLog (activity_logs): C<br>Notification (notifications): C |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags`, `trg_product_3d_models_set_updated_at`.<br>• Service: cấp presigned URL, đặt `processing`, đẩy job. Worker: kiểm tra tệp, sinh LOD; `Media`/`ModelFile` và trạng thái `ready` ghi trong MỘT `prisma.$transaction`; nhánh `failed` do LOD vượt ngưỡng ghi `status`, `ActivityLog`, `Notification` trong một transaction (D-T52). |
 
 #### UC-ADM-14 – Cấu hình biến thể chất liệu cho mô hình 3D
 
@@ -1703,7 +1703,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • title (bắt buộc): ≤ 255 ký tự<br>• roomType (bắt buộc): `RoomType`<br>• slug, description, style, categoryId, coverMediaId (tuỳ chọn): theo kiểu cột<br>• (ảnh 360°) mediaId (bắt buộc): media ảnh; defaultYaw, defaultPitch, defaultFov, sortOrder, isStart |
 | **Dữ liệu ra** | • 200/201: không gian kèm danh sách ảnh |
 | **Model + C/R/U/D** | Space (spaces): C,R,U,D<br>SpacePanorama (space_panoramas): C,R,U,D<br>Media (media): C,R<br>Category (categories): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_spaces_set_updated_at`, `trg_space_panoramas_set_updated_at`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_spaces_set_updated_at`, `trg_space_panoramas_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-16 – Quản lý điểm tương tác (hotspot) trên ảnh 360°
 
@@ -1721,7 +1721,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • type (bắt buộc): `product`, `navigation`, `info`<br>• yaw, pitch (bắt buộc): số thập phân (độ)<br>• productId (bắt buộc nếu `product`; targetPanoramaId): Có nếu `navigation`; content<br>• title (tuỳ chọn): ≤ 255 ký tự |
 | **Dữ liệu ra** | • 200/201: bản ghi `SpaceHotspot` |
 | **Model + C/R/U/D** | SpaceHotspot (space_hotspots): C,R,U,D<br>SpacePanorama (space_panoramas): R<br>Product (products): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_space_hotspots_set_updated_at`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_space_hotspots_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-17 – Đặt mô hình 3D sản phẩm vào ảnh 360° (placement)
 
@@ -1749,7 +1749,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • status (bắt buộc): `approved`, `rejected` (và `pending` để hoàn tác) |
 | **Dữ liệu ra** | • 200: review sau khi duyệt |
 | **Model + C/R/U/D** | Review (reviews): R,U,D<br>Product (products): R<br>User (users): R<br>Notification (notifications): C |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_reviews_refresh_rating`, `trg_reviews_set_updated_at`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_reviews_refresh_rating`, `trg_reviews_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` cùng `Notification` cho người viết (nghiệp vụ ghi từ 2 bảng trở lên, D-T52, D-T47). |
 
 #### UC-ADM-19 – Quản lý mã giảm giá
 
@@ -1767,7 +1767,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Dữ liệu vào** | • code (bắt buộc): ≤ 50, duy nhất<br>• type (bắt buộc): `percent`, `fixed`<br>• value (bắt buộc): > 0 (percent ≤ 100)<br>• maxDiscount, minOrderValue (tuỳ chọn): ≥ 0<br>• usageLimit, perUserLimit (tuỳ chọn): > 0 hoặc để trống (không giới hạn)<br>• startsAt (bắt buộc; endsAt): Không<br>• isActive (tuỳ chọn): boolean |
 | **Dữ liệu ra** | • 200/201: bản ghi `Coupon` |
 | **Model + C/R/U/D** | Coupon (coupons): C,R,U,D<br>CouponUsage (coupon_usages): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_coupons_set_updated_at`. |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_coupons_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-20 – Xem danh sách và chi tiết đơn hàng
 
@@ -2067,6 +2067,7 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi
 | Endpoint | `POST /api/payments/:orderId/checkout`, `POST /api/payments/:orderId/retry`, `GET /api/payments/:gateway/return`, `POST\|GET /api/payments/:gateway/ipn` (công khai, xác thực bằng chữ ký) |
 | Chữ ký | VNPay: HMAC-SHA512 (`vnp_SecureHash`) |
 | Giới hạn phạm vi (FR11, D-N20) | Chỉ COD và VNPay sandbox. Ví điện tử MoMo, ZaloPay và thẻ quốc tế là hạn chế của đồ án / hướng phát triển (cần HMAC-SHA256 theo tài liệu từng cổng); thêm bằng adapter mới trong `GatewayFactory`, không đổi luồng UC-PAY-01..03 |
+| Chuyển khoản ngân hàng (D-N23) | Giữ lại vì khách hàng có yêu cầu (KHAO_SAT mục khảo sát câu 4 và FR11, FR37): không qua cổng; đơn ở `pending`, admin đối chiếu và xác nhận thủ công ở UC-ADM-24 |
 | Idempotent | Callback lặp không xử lý lại khi `Payment.status` đã `success` |
 | Biến môi trường | Chưa có trong `.env.example`: `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `MOMO_PARTNER_CODE`, `MOMO_ACCESS_KEY`, `MOMO_SECRET_KEY`, `ZALOPAY_APP_ID`, `ZALOPAY_KEY1`, `ZALOPAY_KEY2`, `PAYMENT_RETURN_URL`, `PAYMENT_IPN_BASE_URL` [CẦN TẠO MỚI] |
 | Phương thức `card` | Thanh toán thẻ đi qua cổng VNPay (đã quyết định) |

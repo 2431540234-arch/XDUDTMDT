@@ -130,10 +130,73 @@ Các lần quét toàn văn trên `docs/` và `README.md` (bỏ qua ba báo cáo
 
 ### 6.5. Điểm chưa rõ và việc còn lại
 
+> Bốn điểm đầu đã được chủ dự án trả lời ở Lượt 3 (mục 7); điểm 6 đã chạy ở Lượt 3.
+
 1. **UC-3D-04 và NFR02:** NFR02 (≤ 5 MB) áp dụng cho LOD mô hình, còn UC-3D-04 là chụp ảnh AR (giới hạn ảnh 10 MB). Đã đặt bước kiểm tra thật sự ở UC-ADM-13 (job `model-processing`) và chỉ thêm ghi chú tiền điều kiện ở UC-3D-04; cần xác nhận cách hiểu.
 2. **UC-ADM-18 không có transaction** trong sơ đồ gốc: thông báo được vẽ là Service tạo trực tiếp, chưa gộp transaction; xem có cần bọc `$transaction` khi cài M09/M10.
 3. Thông báo "admin biết LOD vượt ngưỡng" (UC-ADM-13) vẽ là worker tạo `notifications`; chưa rõ gửi cho một admin hay mọi admin.
 4. D-T47 chưa có mã M09; TIEN_DO vẫn ghi `notification` đợt M09. Sơ đồ kiến trúc layout dagre có nhiều đường chéo, nếu cần bản đẹp hơn cho báo cáo Word nên vẽ lại tay.
 5. Chuyển khoản vẫn là phương thức trong UC-ORD-01 (quyết định chỉ nêu COD + VNPay); cần xác nhận có giữ chuyển khoản (UC-ADM-24) hay không.
 6. Chưa chạy lại `test:e2e:web` (Playwright) trong lượt này.
+
+## 7. Lượt 3 (2026-10-09): trả lời bốn điểm chưa rõ của Lượt 2
+
+### 7.1. Quyết định ghi vào DECISIONS.md
+
+| Điểm | Mã | Nội dung | Tham chiếu |
+| --- | --- | --- | --- |
+| 1 | D-N21 (bổ sung) | Xác nhận: kiểm tra LOD web ≤ 5 MB nằm ở UC-ADM-13 (job `model-processing`); UC-3D-04 chỉ ghi chú tiền điều kiện | NFR02 |
+| 2 | D-T52 | Mọi nghiệp vụ ghi từ 2 bảng trở lên chạy trong một `prisma.$transaction` (kể cả `activity_logs`, `notifications`) | D-T47, QUY_UOC §5 |
+| 3 | D-N22 | "LOD vượt ngưỡng" thông báo cho admin đã tải mô hình, ghi `activity_logs`, cùng `failed` trong một transaction | D-N21, D-T47 |
+| 4 | D-N23 | **Giữ chuyển khoản** (admin xác nhận thủ công ở UC-ADM-24) | D-N20 |
+
+### 7.2. Điểm 4: chuyển khoản ngân hàng, nhánh đã chọn
+
+Chọn nhánh **GIỮ**. Căn cứ trong `docs/KHAO_SAT_VA_YEU_CAU_KHACH_HANG.md`: câu khảo sát 4 (dòng 57, "COD / Chuyển khoản / ..."), FR11 (dòng 121, "COD, chuyển khoản, ví điện tử, VNPay, thẻ") và FR37 (dòng 157, "Xác nhận chuyển khoản", UC-ADM-23, 24). Đã ghi vào D-N20/D-N23 và DAC_TA 11.1. Enum CSDL `payment_method` có `bank_transfer` (dùng) và `momo`, `zalopay`, `card` (chưa dùng); không sửa schema, chỉ ghi chú. Báo lại: enum còn ba giá trị chưa dùng; nếu muốn gọn thì cần migration, chờ chủ dự án.
+
+### 7.3. Điểm 2: rà transaction trong sơ đồ sequence và đặc tả
+
+Quét tất cả sequence: dòng `INSERT/UPDATE/DELETE` theo bảng, đối chiếu khối `critical`. UC đã sửa (sequence, activity, đặc tả DAC_TA):
+
+| UC | Bảng ghi | Sửa |
+| --- | --- | --- |
+| UC-ADM-04 | media, activity_logs | Bọc transaction; đưa job `image-processing` sau commit |
+| UC-ADM-05 | categories, activity_logs | Bọc transaction |
+| UC-ADM-06 | brands, activity_logs | Bọc transaction |
+| UC-ADM-07 | pages, activity_logs | Bọc transaction |
+| UC-ADM-08 | attributes, activity_logs | Bọc transaction |
+| UC-ADM-09 | products, activity_logs | Bọc transaction |
+| UC-ADM-13 | media, model_files, product_3d_models, activity_logs, notifications | Trạng thái `ready` vào cùng transaction với `media`/`model_files`; nhánh LOD vượt ngưỡng có transaction riêng |
+| UC-ADM-15 | spaces, activity_logs | Bọc transaction |
+| UC-ADM-16 | space_hotspots, activity_logs | Bọc transaction |
+| UC-ADM-18 | reviews, activity_logs, notifications | Bọc transaction (bắt đầu từ UC này) |
+| UC-ADM-19 | coupons, activity_logs | Bọc transaction |
+
+Các UC khác đã có transaction đúng (UC-AUTH-01, UC-ORD-01, UC-ORD-03, UC-PAY-02, UC-PAY-03, UC-ADM-21..25...). Không sửa UC-ACC-01: tải ảnh đại diện (`media`) và cập nhật hồ sơ (`users`) là hai request riêng, mỗi request một bảng (ghi thành ngoại lệ trong D-T52). Chỉ sửa tài liệu và sơ đồ, chưa có code nghiệp vụ nào.
+
+### 7.4. Điểm 3: người nhận thông báo
+
+Bảng `product_3d_models` và `model_files` không có `created_by`, nên không thể dùng cột đó. Dùng `uploadedBy` trong dữ liệu job `model-processing` (đã có ở `ModelJobData`, bằng `media.uploaded_by`). Không đổi schema.
+
+### 7.5. Điểm 5: bố trí ELK cho sơ đồ kiến trúc
+
+`mermaid-cli` 12.0.0 hỗ trợ `layout: elk`; bản xuất ảnh hiện có thực ra đã dùng ELK (ảnh trùng từng byte với bản ép `elk`). So sánh ba bản: (a) ELK như cũ, nhiều đường song song và chéo; (b) dagre, đường cong ngắn hơn nhưng khi nối vào subgraph thì có cạnh sai chỗ; (c) ELK sau khi gộp 8 cạnh hàng đợi thành 3 cạnh vào subgraph "Trạng thái hàng đợi". **Giữ (c)**, ghi rõ `layout: elk` trong khối Mermaid. Vẫn còn một số đường dài tới MinIO và PostgreSQL, nhưng ít hơn rõ rệt.
+
+### 7.6. Điểm 6: `npm run test:e2e:web`
+
+Playwright 2/2 đạt (WebGL R3F và trang chủ Tailwind). Có cảnh báo của Next ("lockfile missing swc dependencies, patching" rồi `ENOWORKSPACES`); không ảnh hưởng kết quả, không đổi lockfile.
+
+### 7.7. Kiểm tra
+
+| Kiểm tra | Kết quả |
+| --- | --- |
+| `extract-diagrams.py` | 152/152 khớp |
+| lint, format:check, typecheck, test, build | Đạt (xem lần chạy cuối) |
+| Ảnh | Đã xem UC-ADM-18 sequence và kiến trúc; tiếng Việt đủ dấu |
+
+### 7.8. Việc còn lại
+
+1. Khi cài M09/M10..., code phải theo D-T52 (transaction gồm `activity_logs`, `notifications`).
+2. Enum `payment_method` còn `momo`, `zalopay`, `card` chưa dùng (chờ chủ dự án nếu muốn gọn bằng migration).
+3. UC-ADM-13: sơ đồ chỉ vẽ nhánh `failed` do LOD vượt ngưỡng gửi thông báo; nhánh tệp hỏng vẫn chỉ đặt `failed` (một bảng).
 

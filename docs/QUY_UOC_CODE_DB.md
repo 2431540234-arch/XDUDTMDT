@@ -125,6 +125,8 @@ Gợi ý: định nghĩa hằng `const NOT_DELETED = { deletedAt: null } as cons
 
 CSDL **không** có trigger cho các việc sau; Service phải làm trong **một** `prisma.$transaction` (hoặc không có gì được ghi). CSDL chỉ chặn trạng thái sai cuối cùng (tồn kho âm, trùng `(coupon, order)`, `total` sai).
 
+**Nguyên tắc chung (D-T52):** bất kỳ nghiệp vụ nào ghi từ 2 bảng trở lên (kể cả `activity_logs`, `notifications`) đều nằm trong một `prisma.$transaction`; việc ngoài DB (S3, hàng đợi, email) làm sau commit.
+
 ### 5.1. Trừ / hoàn tồn kho kèm `inventory_movements`
 
 Trừ bằng `updateMany` có điều kiện `gte` (nguyên tử, không bị bán vượt khi hai đơn đồng thời), kiểm tra `count`, rồi ghi movement.
