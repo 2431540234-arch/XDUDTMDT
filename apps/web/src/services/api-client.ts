@@ -91,10 +91,17 @@ export async function request<T>(
   path: string,
   opts: RequestOptions = {},
 ): Promise<{ data: T; meta?: PaginatedMeta }> {
+  const sentToken = useAuthStore.getState().accessToken;
   const { status, body } = await rawRequest(method, path, opts);
   if (!body.success) {
-    if (status === 401 && typeof window !== 'undefined' && useAuthStore.getState().accessToken) {
-      // Token hết hạn/không hợp lệ → đăng xuất cục bộ
+    // Token đã gửi bị từ chối (hết hạn/không hợp lệ) → đăng xuất cục bộ. Không xóa nếu yêu cầu được gửi
+    // khi chưa có token (phiên đăng nhập đang được nạp từ localStorage).
+    if (
+      status === 401 &&
+      typeof window !== 'undefined' &&
+      sentToken &&
+      sentToken === useAuthStore.getState().accessToken
+    ) {
       useAuthStore.getState().clear();
     }
     throw new ApiClientError(

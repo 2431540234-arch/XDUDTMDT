@@ -34,10 +34,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'aurelia-auth',
+      // Đọc localStorage thủ công sau khi mount (xem Providers) để không lệch HTML server/client khi hydrate
+      skipHydration: true,
       partialize: (s) => ({ user: s.user, accessToken: s.accessToken, refreshToken: s.refreshToken }),
-      onRehydrateStorage: () => () => {
-        useAuthStore.setState({ hydrated: true });
-      },
     },
   ),
 );

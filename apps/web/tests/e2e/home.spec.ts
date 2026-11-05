@@ -7,10 +7,11 @@ test('trang chủ mở được, có tiêu đề và Tailwind áp dụng màu th
 
   await page.goto('/');
   await expect(page).toHaveTitle(/Aurelia Living/);
-  const h1 = page.getByRole('heading', { name: 'Aurelia Living' });
-  await expect(h1).toBeVisible();
-  // text-primary lấy từ src/styles/theme.ts (#8B5E3C = rgb(139, 94, 60))
-  await expect(h1).toHaveCSS('color', 'rgb(139, 94, 60)');
+  await expect(page.getByRole('link', { name: /Aurelia Living – Trang chủ/ }).first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Danh mục nổi bật' })).toBeVisible({ timeout: 25_000 });
+  // bg-primary lấy từ src/styles/theme.ts (#8B4A2B = rgb(139, 74, 43))
+  const btn = page.getByRole('link', { name: /KHÁM PHÁ SẢN PHẨM/ });
+  await expect(btn).toHaveCSS('background-color', 'rgb(139, 74, 43)');
   expect(errors).toEqual([]);
 });
 

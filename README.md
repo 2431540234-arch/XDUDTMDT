@@ -174,3 +174,18 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 - [docs/DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md): từ điển dữ liệu, ERD, trigger, ánh xạ bảng ↔ model Prisma
 - [docs/QUY_UOC_CODE_DB.md](docs/QUY_UOC_CODE_DB.md): quy ước bắt buộc khi code với CSDL (ví dụ đúng/sai)
 - [database/README.md](database/README.md): vai trò của thư mục `database/` và quy trình thay đổi CSDL qua Prisma Migrate
+
+
+## Chạy giao diện với dữ liệu giả (không cần backend)
+
+```bash
+npm install
+cp apps/web/.env.example apps/web/.env.development.local   # NEXT_PUBLIC_USE_MOCK=true
+npm run dev -w @aurelia-living/web                          # http://localhost:3000
+```
+
+- Tắt mock: đặt `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL` (không phải sửa code giao diện).
+- Tài khoản: khách `khachhang@aurelia.vn` / `123456`; doanh nghiệp (admin) `admin@aurelia.vn` / `admin123` (đăng nhập tại `/admin/login`); OTP quên mật khẩu luôn `123456`.
+- Khôi phục dữ liệu mẫu: mở URL kèm `?resetMock=1` hoặc Admin → Cài đặt → Dữ liệu giả lập.
+- Trang nên xem trước: `/`, `/products/sofa-nordic`, `/products/sofa-nordic/3d`, `/spaces`, `/cart`, `/admin`.
+- Chi tiết: `apps/web/src/mock-data/README.md`.

@@ -6,7 +6,8 @@ const PORT = 3100;
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 60_000,
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
   reporter: [['list']],
   use: {
     baseURL: `http://localhost:${PORT}`,
@@ -15,6 +16,8 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
     command: `npx next dev -p ${PORT}`,
+    // Chạy giao diện với dữ liệu giả (không cần backend)
+    env: { NEXT_PUBLIC_USE_MOCK: 'true' },
     url: `http://localhost:${PORT}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
