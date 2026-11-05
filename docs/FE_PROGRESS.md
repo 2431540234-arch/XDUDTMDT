@@ -10,13 +10,16 @@
 | 3 | Quét backend | ✅ (BE chỉ là khung rỗng; API lấy từ thiết kế DAC_TA) → §4 |
 | 4 | Quét frontend | ✅ (Next 14, toàn stub) → §5 |
 | 5 | Báo cáo phân tích | ✅ `docs/PROJECT_ANALYSIS.md` |
-| 6 | Design system | ⏳ |
+| 6 | Design system | ✅ tokens, format/status utils, 16 UI primitives, Header/Footer, StoreLayout/AuthLayout/AccountLayout/AdminLayout, ProductCard/FilterSidebar/SortToolbar, CouponCard/OrderCard/ReviewCard/OrderStepper, DataTable/KpiCard/FilterBar/FormSection/UploadDropzone/ChartCard |
 | 7 | mock-data + mock API | ⏳ |
 | 8 | 54 màn hình | ⏳ |
 | 9 | Kiểm tra & bàn giao | ⏳ |
 
 ## File cũ đã sửa (kèm lý do)
-_(chưa có)_
+- `apps/web/src/styles/theme.ts`, `tailwind.config.ts`, `src/styles/globals.css`: thay 2 màu cũ bằng design tokens WIREFRAME 0.1 (đổi `primary` từ `#8B5E3C` sang `#8B4A2B`).
+- `apps/web/src/lib/format.ts`, `src/store/{authStore,uiStore}.ts`, `src/services/*.ts`, `src/hooks/*.ts`, `src/components/{ui,layout,product}/*`, `src/types/*`: file khung 5 dòng được điền nội dung (không đổi tên).
+- `apps/web/src/app/providers.tsx`: thêm `<Toaster />`.
+- `apps/web/vitest.config.mts`: thêm alias `@` → `src` để test chạy được với import `@/…`.
 
 ## Thư viện thêm
 _(chưa có)_
