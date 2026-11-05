@@ -14,8 +14,8 @@ export function useProducts(q: ProductQuery, mode: 'list' | 'search' = 'list') {
 
 export function useProductFacets(q: ProductQuery) {
   return useQuery({
-    queryKey: ['products', 'facets', q.q, q.category],
-    queryFn: () => productApi.facets({ q: q.q, category: q.category }),
+    queryKey: ['products', 'facets', q.q],
+    queryFn: () => productApi.facets({ q: q.q }),
   });
 }
 

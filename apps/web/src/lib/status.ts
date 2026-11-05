@@ -146,3 +146,14 @@ export const roomTypeLabel: Record<RoomType, string> = {
 /** Luồng 5 bước hiển thị ở stepper đơn hàng */
 export const ORDER_FLOW: OrderStatus[] = ['pending', 'confirmed', 'processing', 'shipping', 'completed'];
 export const orderStepLabels = ['Đặt hàng', 'Đã xác nhận', 'Đang xử lý', 'Đang giao', 'Đã giao'];
+
+export const returnReasonLabel: Record<
+  'defect' | 'wrong_item' | 'not_as_described' | 'missing_accessory' | 'change_mind',
+  string
+> = {
+  defect: 'Sản phẩm bị lỗi/hư hỏng',
+  wrong_item: 'Giao sai mẫu/màu',
+  not_as_described: 'Không đúng mô tả',
+  missing_accessory: 'Thiếu phụ kiện',
+  change_mind: 'Đổi ý, không muốn mua nữa',
+};

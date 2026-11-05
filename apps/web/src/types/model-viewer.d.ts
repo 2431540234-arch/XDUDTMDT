@@ -15,6 +15,7 @@ interface ModelViewerAttributes extends HTMLAttributes<HTMLElement> {
   'ar-scale'?: 'auto' | 'fixed';
   'ar-placement'?: 'floor' | 'wall';
   'camera-controls'?: boolean;
+  'camera-orbit'?: string;
   'auto-rotate'?: boolean;
   'shadow-intensity'?: string | number;
   'environment-image'?: string;

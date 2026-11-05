@@ -442,8 +442,14 @@ export function cartLines(db: Db, userId: number) {
   return { cart, items };
 }
 
-export function cartView(db: Db, userId: number): CartView {
-  const { cart, items } = cartLines(db, userId);
+export function cartView(
+  db: Db,
+  userId: number,
+  opts: { itemIds?: number[]; addressId?: number | null } = {},
+): CartView {
+  const { cart, items: allItems } = cartLines(db, userId);
+  const items = opts.itemIds?.length ? allItems.filter((i) => opts.itemIds!.includes(i.id)) : allItems;
+  const isSubset = items.length !== allItems.length;
   const views: CartItemView[] = [];
   for (const it of items) {
     const v = db.productVariants.find((x) => x.id === it.variantId);
@@ -465,10 +471,10 @@ export function cartView(db: Db, userId: number): CartView {
     });
   }
   const subtotal = views.reduce((s, i) => s + i.lineTotal, 0);
-  const shippingFee = views.length ? shippingFeeFor(db, userId, subtotal) : 0;
+  const shippingFee = views.length ? shippingFeeFor(db, userId, subtotal, opts.addressId) : 0;
   let discountAmount = 0;
   let coupon: CartView['coupon'] = null;
-  const code = db.cartCoupons[userId];
+  const code = isSubset ? undefined : db.cartCoupons[userId];
   if (code && views.length) {
     try {
       const r = evaluateCoupon(

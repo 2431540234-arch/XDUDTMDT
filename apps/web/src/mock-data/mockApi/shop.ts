@@ -9,6 +9,8 @@ import {
   notFound,
   ok,
   paginate,
+  qList,
+  qNum,
   qStr,
   validation,
   type Ctx,
@@ -36,7 +38,13 @@ function ensureCart(ctx: Ctx) {
   return cart;
 }
 
-export const getCart = (ctx: Ctx): Result => ok(cartView(ctx.db, ctx.user!.id));
+export const getCart = (ctx: Ctx): Result =>
+  ok(
+    cartView(ctx.db, ctx.user!.id, {
+      itemIds: qList(ctx.query, 'items').map(Number),
+      addressId: qNum(ctx.query, 'addressId', 0) || null,
+    }),
+  );
 
 export function addCartItem(ctx: Ctx): Result {
   const { variantId, quantity = 1 } = ctx.body ?? {};
@@ -205,7 +213,7 @@ export function createOrder(ctx: Ctx): Result {
 
   let couponId: number | null = null;
   let discount = 0;
-  const code = db.cartCoupons[u.id];
+  const code = chosen.length === items.length ? db.cartCoupons[u.id] : undefined; // mã chỉ áp dụng khi đặt cả giỏ
   if (code) {
     const r = evaluateCoupon(
       db,
@@ -333,9 +341,9 @@ export function createOrder(ctx: Ctx): Result {
 }
 
 export function listOrders(ctx: Ctx): Result {
-  const status = qStr(ctx.query, 'status');
+  const statuses = qList(ctx.query, 'status'); // hỗ trợ nhiều trạng thái: status=confirmed,processing
   const list = ctx.db.orders
-    .filter((o) => o.userId === ctx.user!.id && (!status || o.status === status))
+    .filter((o) => o.userId === ctx.user!.id && (!statuses.length || statuses.includes(o.status)))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
     .map((o) => orderView(ctx.db, o));
   return paginate(list, ctx.query, 5);

@@ -21,7 +21,7 @@ export function useCartQuery() {
   const user = useAuthStore((s) => s.user);
   return useQuery({
     queryKey: queryKeys.cart,
-    queryFn: cartApi.get,
+    queryFn: () => cartApi.get(),
     enabled: Boolean(user),
     staleTime: 15_000,
   });

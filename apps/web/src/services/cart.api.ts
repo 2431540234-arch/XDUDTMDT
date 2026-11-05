@@ -4,7 +4,7 @@ import type { CartView, CouponView, OrderView, ReturnRequest, ReviewView, UserCo
 import { http } from './api-client';
 
 export const cartApi = {
-  get: () => http.get<CartView>('/cart'),
+  get: (q?: { items?: number[]; addressId?: number | null }) => http.get<CartView>('/cart', q),
   addItem: (body: { variantId: number; quantity: number }) => http.post<CartView>('/cart/items', body),
   updateItem: (id: number, quantity: number) => http.patch<CartView>(`/cart/items/${id}`, { quantity }),
   removeItem: (id: number) => http.delete<CartView>(`/cart/items/${id}`),
