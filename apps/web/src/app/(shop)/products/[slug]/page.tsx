@@ -1,7 +1,7 @@
 'use client';
 
 // Chi tiết sản phẩm (WIREFRAME 2.3): gallery | thông tin → banner 3D → tabs → sản phẩm liên quan
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
@@ -15,6 +15,7 @@ import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useProduct } from '@/hooks/useProducts';
 import { discountPercent } from '@/lib/format';
 import { pushRecent } from '@/lib/recent';
+import { parseVariantQuery, variantQuery } from '@/lib/variant';
 import { ApiClientError } from '@/services/api-client';
 import { productApi } from '@/services/product.api';
 
@@ -26,6 +27,7 @@ export default function ProductDetailPage() {
     queryFn: () => productApi.related(slug),
     enabled: Boolean(q.data),
   });
+  const qc = useQueryClient();
   const [color, setColor] = useState<string | null>(null);
   const [size, setSize] = useState<string | null>(null);
   const [active, setActive] = useState(0);
@@ -36,8 +38,10 @@ export default function ProductDetailPage() {
   useEffect(() => {
     if (!p) return;
     const dv = p.variants.find((v) => v.id === p.defaultVariantId) ?? p.variants[0];
-    setColor(dv?.color?.name ?? null);
-    setSize(dv?.size ?? null);
+    // ưu tiên lựa chọn từ URL (?color=&size=, đồng bộ với trang Xem 360°)
+    const fromUrl = parseVariantQuery(p.variants, window.location.search);
+    setColor(fromUrl.color ?? dv?.color?.name ?? null);
+    setSize(fromUrl.size ?? dv?.size ?? null);
     setActive(0);
   }, [p?.id]);
 
@@ -102,6 +106,10 @@ export default function ProductDetailPage() {
           active={active}
           onActive={setActive}
           model3dHref={p.model ? `/products/${p.slug}/3d` : null}
+          href360={p.has360 ? `/products/${p.slug}/360${variantQuery(color, size)}` : null}
+          onPrefetch360={() => {
+            void qc.prefetchQuery({ queryKey: ['p360', p.slug], queryFn: () => productApi.view360(p.slug) });
+          }}
           discount={discountPercent(price, original)}
         />
         <ProductInfo

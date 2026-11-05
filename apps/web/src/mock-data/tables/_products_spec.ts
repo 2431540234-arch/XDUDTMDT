@@ -1,7 +1,7 @@
 // Danh mục sản phẩm gốc (52 sản phẩm phủ mọi danh mục lá) – nguồn để sinh products / product_variants / product_images…
 import type { FurnitureType } from '../utils/svg';
 
-export type SizeSet = 'sofa' | 'bed' | 'dining' | 'wardrobe' | 'desk' | 'one';
+export type SizeSet = 'sofa' | 'bed' | 'dining' | 'wardrobe' | 'desk' | 'chair' | 'lamp' | 'one';
 export type ModelKey = 'sofa' | 'table' | 'chair' | 'bed' | 'cabinet' | 'lamp';
 
 export interface ProductSpec {
@@ -47,6 +47,14 @@ export const sizeSets: Record<SizeSet, Array<{ label: string; mult: number; dimM
     { label: '1m2', mult: 0.85, dimMult: 0.85 },
     { label: '1m4', mult: 1, dimMult: 1 },
     { label: '1m6', mult: 1.15, dimMult: 1.15 },
+  ],
+  chair: [
+    { label: 'Tiêu chuẩn', mult: 1, dimMult: 1 },
+    { label: 'Cỡ lớn', mult: 1.2, dimMult: 1.15 },
+  ],
+  lamp: [
+    { label: 'Cao 1m2', mult: 0.8, dimMult: 0.8 },
+    { label: 'Cao 1m5', mult: 1, dimMult: 1 },
   ],
   one: [{ label: 'Tiêu chuẩn', mult: 1, dimMult: 1 }],
 };
@@ -262,7 +270,7 @@ export const productSpecs: ProductSpec[] = [
     material: 'Vải',
     style: 'Bắc Âu',
     colors: ['Kem', 'Xanh rêu', 'Be'],
-    sizeSet: 'one',
+    sizeSet: 'chair',
     model: 'sofa',
     brand: 2,
     featured: true,
@@ -316,7 +324,7 @@ export const productSpecs: ProductSpec[] = [
     price: 12_000_000,
     material: 'Gỗ',
     style: 'Hiện đại',
-    colors: ['Kem', 'Xám'],
+    colors: ['Kem', 'Xám', 'Be'],
     sizeSet: 'bed',
     model: 'bed',
     brand: 1,
@@ -374,7 +382,7 @@ export const productSpecs: ProductSpec[] = [
     price: 9_900_000,
     material: 'Gỗ',
     style: 'Hiện đại',
-    colors: ['Trắng', 'Gỗ sồi'],
+    colors: ['Trắng', 'Gỗ sồi', 'Xám'],
     sizeSet: 'wardrobe',
     model: 'cabinet',
     brand: 1,
@@ -445,7 +453,7 @@ export const productSpecs: ProductSpec[] = [
     price: 6_200_000,
     material: 'Gỗ',
     style: 'Japandi',
-    colors: ['Gỗ sồi', 'Óc chó'],
+    colors: ['Gỗ sồi', 'Óc chó', 'Trắng'],
     sizeSet: 'dining',
     model: 'table',
     brand: 3,
@@ -681,8 +689,8 @@ export const productSpecs: ProductSpec[] = [
     price: 1_200_000,
     material: 'Kim loại',
     style: 'Hiện đại',
-    colors: ['Kem', 'Đen'],
-    sizeSet: 'one',
+    colors: ['Kem', 'Đen', 'Be'],
+    sizeSet: 'lamp',
     model: 'lamp',
     brand: 1,
     featured: true,

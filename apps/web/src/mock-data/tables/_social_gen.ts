@@ -287,15 +287,20 @@ export const wishlists: Wishlist[] = [];
 {
   const nordic = products.find((p) => p.name === 'Sofa Nordic')!;
   const nordicBe = productVariants.find(
-    (v) => v.productId === nordic.id && v.salePrice !== null && v.price === 10_500_000,
+    (v) =>
+      v.productId === nordic.id && v.salePrice !== null && v.price === 10_500_000 && v.stockQuantity >= 5,
   )!;
   const picks = [
     nordicBe.id,
     productVariants.find(
       (v) =>
-        v.productId === products.find((p) => p.name === 'Bàn ăn gỗ tự nhiên')!.id && v.price === 6_200_000,
+        v.productId === products.find((p) => p.name === 'Bàn ăn gỗ tự nhiên')!.id &&
+        v.price === 6_200_000 &&
+        v.stockQuantity >= 5,
     )!.id,
-    productVariants.find((v) => v.productId === products.find((p) => p.name === 'Đèn trang trí')!.id)!.id,
+    productVariants.find(
+      (v) => v.productId === products.find((p) => p.name === 'Đèn trang trí')!.id && v.stockQuantity >= 5,
+    )!.id,
   ];
   users.forEach((u) => {
     if (u.id === ADMIN_ID) return;

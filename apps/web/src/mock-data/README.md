@@ -80,3 +80,16 @@ Các số tổng hợp (doanh thu, số đơn theo trạng thái, top bán chạ
 - Phân quyền: endpoint `/admin/*` chỉ cho role `admin`; khách hàng gọi sẽ nhận `403 FORBIDDEN`. User chỉ thấy dữ liệu của mình (truy cập đơn người khác → `404`).
 - Component **không** import dữ liệu trực tiếp; luôn đi qua `src/services/*.api.ts`.
 - Kiểm tra toàn vẹn: `npm run test -w @aurelia-living/web` (file `tests/unit/mock-data.test.ts`).
+
+## Ảnh 360° sản phẩm (tính năng "Xem 360°")
+
+- Danh sách sản phẩm/màu: `apps/web/scripts/mock-360-products.json` (dùng chung với `tables/_360_gen.ts`).
+- Sinh lại 1.080 frame (10 sản phẩm × 3 màu × 36 frame, SVG dựng bằng khối hộp xoay thật, có ghi góc 0°…350°):
+
+```bash
+node apps/web/scripts/gen-mock-360.mjs   # → apps/web/public/mock/360/<product-slug>/<color-slug>/frame-01..36.svg
+```
+
+- Bảng mock: `product_360`, `product_360_frames`; endpoint mock: `GET /products/:slug/360`, `GET|PUT /admin/products/:id/360`.
+- Sản phẩm có 360°: Sofa Nordic, Sofa Luxury, Sofa góc hiện đại, Ghế thư giãn, Giường hiện đại, Giường bọc nỉ, Bàn ăn gỗ tự nhiên, Bàn làm việc, Tủ quần áo hiện đại, Đèn trang trí.
+- Tổ hợp hết hàng để thử: Sofa Nordic (Xám, 4 chỗ), Giường bọc nỉ (Xanh, 2m), Bàn ăn gỗ tự nhiên (màu Trắng – hết mọi kích thước).

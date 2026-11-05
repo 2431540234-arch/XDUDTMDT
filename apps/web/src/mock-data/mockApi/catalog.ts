@@ -31,6 +31,7 @@ import {
   model3DView,
   notificationView,
   productDetail,
+  product360View,
   productListItem,
   reviewView,
   spaceDetail,
@@ -177,6 +178,13 @@ export function productModel(ctx: Ctx): Result {
   const p = productBySlug(ctx);
   const m = ctx.db.product3dModels.find((x) => x.productId === p.id && x.isPrimary && x.status === 'ready');
   return ok(m ? model3DView(ctx.db, m) : null);
+}
+
+export function product360(ctx: Ctx): Result {
+  const p = productBySlug(ctx);
+  const v = product360View(ctx.db, p, ctx.user?.id);
+  if (!v) throw notFound('Ảnh 360° của sản phẩm');
+  return ok(v);
 }
 
 export function relatedProducts(ctx: Ctx): Result {

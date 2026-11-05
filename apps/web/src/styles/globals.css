@@ -49,3 +49,17 @@
     @apply animate-pulse rounded bg-line/70;
   }
 }
+
+@keyframes rotator-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Lớp ảnh cũ mờ dần khi đổi màu ở trang Xem 360° */
+.rotator-fade {
+  animation: rotator-fade-out 150ms ease-out forwards;
+}

@@ -47,6 +47,7 @@ import {
   userView,
   couponView,
   variantLabel,
+  variantViews,
 } from './views';
 
 const ADMIN_ID = 1;
@@ -1076,6 +1077,8 @@ function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body) {
       style: '',
       costPrice: 0,
       costRatio: 0.62,
+      dims: [1000, 800, 800],
+      sizeDimMult: {},
       minStock: 5,
       features: [],
       specs: [],
@@ -1144,6 +1147,72 @@ export function deleteProduct(ctx: Ctx): Result {
   ctx.db.wishlists = ctx.db.wishlists.filter((w) => w.productId !== p.id);
   log(ctx, 'product.delete', 'product', p.id);
   return done();
+}
+
+// ===================== Ảnh 360° của sản phẩm (TODO: cần thêm vào DB/API) =====================
+export function adminProduct360(ctx: Ctx): Result {
+  const p = ctx.db.products.find((x) => x.id === Number(ctx.params.id) && !x.deletedAt);
+  if (!p) throw notFound('Sản phẩm');
+  const cfg = ctx.db.product360.find((x) => x.productId === p.id);
+  const frames = ctx.db.product360Frames.filter((f) => f.productId === p.id);
+  const variantColors = variantViews(ctx.db, p.id)
+    .flatMap((v) => (v.color ? [v.color] : []))
+    .filter((c, i, a) => a.findIndex((x) => x.name === c.name) === i);
+  return ok({
+    enabled: Boolean(cfg?.enabled),
+    frameCount: cfg?.frameCount ?? 36,
+    autoRotate: cfg?.autoRotate ?? true,
+    colors: frames.map((f) => ({ name: f.colorName, hex: f.colorHex, frames: f.frames })),
+    variantColors,
+  });
+}
+
+export function saveProduct360(ctx: Ctx): Result {
+  const db = ctx.db;
+  const p = db.products.find((x) => x.id === Number(ctx.params.id) && !x.deletedAt);
+  if (!p) throw notFound('Sản phẩm');
+  const b = ctx.body ?? {};
+  const colors = (Array.isArray(b.colors) ? b.colors : []) as Array<{
+    name: string;
+    hex: string;
+    frames: string[];
+  }>;
+  if (b.enabled && !colors.some((c) => c.frames.length >= 2))
+    throw validation({ colors: 'Cần ít nhất một màu có từ 2 ảnh trở lên để bật xem 360°.' });
+  const frameCount = colors.find((c) => c.frames.length)?.frames.length ?? 36;
+  let cfg = db.product360.find((x) => x.productId === p.id);
+  const defColor = colors.find((c) => c.frames.length);
+  const defId = defColor ? ensureAttrValue(db, 1, defColor.name, defColor.hex) : 0;
+  if (!cfg) {
+    cfg = {
+      productId: p.id,
+      enabled: false,
+      frameCount,
+      defaultColorId: defId,
+      autoRotate: true,
+      rotationSpeed: 8,
+    };
+    db.product360.push(cfg);
+  }
+  Object.assign(cfg, {
+    enabled: Boolean(b.enabled),
+    frameCount,
+    autoRotate: b.autoRotate !== false,
+    defaultColorId: defId || cfg.defaultColorId,
+  });
+  db.product360Frames = db.product360Frames.filter((f) => f.productId !== p.id);
+  for (const c of colors.filter((x) => x.frames.length)) {
+    db.product360Frames.push({
+      productId: p.id,
+      colorId: ensureAttrValue(db, 1, c.name, c.hex),
+      colorName: c.name,
+      colorHex: c.hex,
+      frames: c.frames,
+      thumbnail: c.frames[0],
+    });
+  }
+  log(ctx, 'product.update_360', 'product', p.id, { enabled: cfg.enabled });
+  return adminProduct360(ctx);
 }
 
 // ===================== Danh mục =====================

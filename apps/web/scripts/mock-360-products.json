@@ -1,0 +1,47 @@
+{
+  "frameCount": 36,
+  "products": [
+    { "name": "Sofa Nordic", "shape": "sofa", "colors": ["Be", "Kem", "Xám"], "defaultColor": "Be" },
+    { "name": "Sofa Luxury", "shape": "sofa", "colors": ["Xanh", "Nâu", "Kem"], "defaultColor": "Xanh" },
+    { "name": "Sofa góc hiện đại", "shape": "sofa", "colors": ["Xám", "Be", "Xanh"], "defaultColor": "Xám" },
+    {
+      "name": "Ghế thư giãn",
+      "shape": "armchair",
+      "colors": ["Kem", "Xanh rêu", "Be"],
+      "defaultColor": "Kem"
+    },
+    { "name": "Giường hiện đại", "shape": "bed", "colors": ["Kem", "Xám", "Be"], "defaultColor": "Kem" },
+    { "name": "Giường bọc nỉ", "shape": "bed", "colors": ["Be", "Xanh", "Xám"], "defaultColor": "Be" },
+    {
+      "name": "Bàn ăn gỗ tự nhiên",
+      "shape": "table",
+      "colors": ["Gỗ sồi", "Óc chó", "Trắng"],
+      "defaultColor": "Gỗ sồi"
+    },
+    {
+      "name": "Bàn làm việc",
+      "shape": "desk",
+      "colors": ["Gỗ sồi", "Trắng", "Đen"],
+      "defaultColor": "Gỗ sồi"
+    },
+    {
+      "name": "Tủ quần áo hiện đại",
+      "shape": "wardrobe",
+      "colors": ["Trắng", "Gỗ sồi", "Xám"],
+      "defaultColor": "Trắng"
+    },
+    { "name": "Đèn trang trí", "shape": "lamp", "colors": ["Kem", "Đen", "Be"], "defaultColor": "Kem" }
+  ],
+  "colors": {
+    "Kem": "#E8DCC8",
+    "Be": "#D8C3A5",
+    "Trắng": "#F5F5F0",
+    "Nâu": "#7B5239",
+    "Đen": "#2B2B2B",
+    "Xám": "#8E8E8E",
+    "Xanh": "#3F6B8F",
+    "Xanh rêu": "#6B7D5C",
+    "Gỗ sồi": "#C9A26B",
+    "Óc chó": "#5C4033"
+  }
+}

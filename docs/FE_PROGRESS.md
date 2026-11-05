@@ -75,3 +75,46 @@ Không thêm thư viện mới.
 - Backend thật mới là khung rỗng: mọi endpoint ngoài `media`/`models presign` chỉ có ở mock (đánh dấu `TODO: chưa có trong BE`).
 - Thực thể chưa có trong DB (đổi trả, hỏi đáp, banner, bài viết, kho, phiếu chi…): cần quyết định có thêm bảng/migration không.
 - Tài liệu UML lớn (`BAO_CAO_…`, `docs/diagrams`) chỉ đọc mục lục.
+
+---
+
+## Tính năng "Xem 360°" (nhánh `feature/product-360`, theo `docs/PROMPT_360_SAN_PHAM.md`)
+
+**Route mới:** `/products/[slug]/360` (kèm `?color=<slug>&size=<slug>`, ví dụ `?color=kem&size=3-cho`).
+
+**Thử ngay (sau `npm run dev -w @aurelia-living/web`):**
+- http://localhost:3000/products/sofa-nordic/360?color=kem&size=3-cho
+- http://localhost:3000/products/sofa-luxury · /products/giuong-boc-ni · /products/ban-an-go-tu-nhien · /products/den-trang-tri (nút "Xem 360°")
+- Hết hàng: Sofa Nordic màu Xám + 4 chỗ; Bàn ăn gỗ tự nhiên màu Trắng. Sản phẩm không có 360° (không hiện nút): `/products/ke-tivi-hien-dai`.
+- Admin: `/admin/products/1` → tab "Ảnh 360°".
+
+### File tạo/sửa
+- Mới: `components/product/Rotator360.tsx` (khung xoay tự viết), `app/(shop)/products/[slug]/360/page.tsx`, `lib/variant.ts`, `components/admin/Product360Editor.tsx`, `mock-data/tables/{_360_gen,product_360,product_360_frames}.ts`, `scripts/{gen-mock-360.mjs,mock-360-products.json}`, `public/mock/360/**` (1.080 frame), `tests/e2e/product360.spec.ts`.
+- Sửa: `ProductGallery` (badge "360°" + ô "360°" cạnh ô "3D"), trang chi tiết (đọc `?color=&size=`, prefetch khi hover), `ProductCard` (nhãn "Có xem 360°"), `hooks/useCart.ts` (thông báo giỏ tùy biến, giữ cả query khi chuyển tới đăng nhập), `ProductForm` (tab "Ảnh 360°"), mock API/views/db/types/services, `_products_spec.ts` (thêm màu/kích thước cho 5 sản phẩm), `styles/globals.css` (hiệu ứng mờ dần).
+- Thư viện thêm: không (xoay 360° tự viết bằng pointer events).
+
+### Cấu trúc dữ liệu 360° trong mock (`// TODO: cần thêm vào DB/API`)
+- `product_360`: `productId, enabled, frameCount (24|36), defaultColorId, autoRotate, rotationSpeed`.
+- `product_360_frames`: `productId, colorId (attribute_values.id màu), colorName, colorHex, frames[] (góc 0°→350°), thumbnail, sizeId?`.
+- `Product360Data` (response `GET /products/:slug/360`): cấu hình + `colors[]` (frames) + `variants[]` (kèm `dimensionsCm`, `weightKg`) + `product` (ProductDetail) + `policies[4]`. `ProductListItem.has360` cho nút/nhãn.
+- Chính sách lấy từ trang tĩnh sẵn có (`/policies/chinh-sach-van-chuyen|doi-tra|bao-hanh|mua-hang`).
+
+### Đề xuất DB / API thật
+- Bảng `product_360 (product_id PK/FK, enabled bool, frame_count smallint check in (24,36), default_color_value_id FK attribute_values, auto_rotate bool, rotation_speed numeric)`.
+- Bảng `product_360_frames (id, product_id FK, color_value_id FK attribute_values, size_value_id NULL FK, frame_index smallint, media_id FK media, UNIQUE(product_id,color_value_id,size_value_id,frame_index))`.
+- Cột `products.has_360 bool` (trigger hoặc tính từ bảng trên) để lọc/nhãn.
+- API: `GET /api/products/:slug/360` (public, cache), `GET /api/admin/products/:id/360`, `PUT /api/admin/products/:id/360`, tải ảnh bằng `POST /api/admin/media/presign|confirm` (đã có, giới hạn 5MB/ảnh) rồi gửi danh sách `mediaId` theo thứ tự frame.
+- Lưu ý mock: ảnh tải ở admin lưu dạng data URL trong localStorage (có thể vượt hạn mức ~5MB; bản thật dùng presigned URL).
+
+### Kết quả kiểm tra (Playwright `tests/e2e/product360.spec.ts` + lint/build)
+- ✅ Nút "Xem 360°" chỉ hiện ở sản phẩm có 360° (badge trên ảnh lớn + ô thumbnail cạnh "3D"), mang theo biến thể (`?color=kem&size=4-cho`).
+- ✅ Kéo chuột, phím ←/→, Space, thanh trượt, tự xoay, zoom/đặt lại. (Vuốt cảm ứng/pinch dùng chung pointer events – chưa thử trên thiết bị thật; toàn màn hình dùng Fullscreen API, chưa tự động hóa.)
+- ✅ Đổi màu: giữ nguyên góc, URL đổi bằng `replaceState`, không có request document, `history.length` không đổi.
+- ✅ Đổi kích thước: giá, SKU, D×R×C cập nhật; tồn kho/thông số theo biến thể.
+- ✅ Tổ hợp hết hàng bị làm mờ/disabled; chọn màu mà kích thước hiện tại hết thì tự chuyển + toast.
+- ✅ Nút Back về trang chi tiết (không lùi qua từng lần đổi màu); mở link chia sẻ ở tab mới hiện đúng màu/kích thước.
+- ✅ Thêm vào giỏ đúng biến thể, badge giỏ tăng, ở lại trang; Mua ngay → `/checkout?items=…`.
+- ✅ Chính sách đủ 4 mục, link tới `/policies/…`.
+- ✅ Mobile 390px (thanh dưới cố định, menu ⋯) và tablet 768px.
+- ✅ Không lỗi console/HTTP/ảnh vỡ ở trang 360°.
+- Phần 4 (admin tab "Ảnh 360°"): đã dựng (bật/tắt, chọn màu, tải nhiều ảnh tự sắp xếp theo tên tệp, kéo thả đổi thứ tự, xem trước xoay, cảnh báo lệch số frame); chưa có test tự động riêng.

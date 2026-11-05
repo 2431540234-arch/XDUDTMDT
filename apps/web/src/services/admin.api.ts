@@ -11,6 +11,7 @@ import type {
   Model3DAdminRow,
   OrderView,
   Post,
+  Product360AdminData,
   ProductDetail,
   ProductListItem,
   ProductQuestion,
@@ -36,6 +37,12 @@ export const adminApi = {
     update: (id: number, body: Record<string, unknown>) =>
       http.patch<ProductDetail>(`/admin/products/${id}`, body),
     remove: (id: number) => http.delete(`/admin/products/${id}`),
+    /** Ảnh 360° – TODO: chưa có trong BE */
+    get360: (id: number) => http.get<Product360AdminData>(`/admin/products/${id}/360`),
+    save360: (
+      id: number,
+      body: { enabled: boolean; autoRotate: boolean; colors: Product360AdminData['colors'] },
+    ) => http.put<Product360AdminData>(`/admin/products/${id}/360`, body),
   },
   categories: {
     tree: () => http.get<CategoryNode[]>('/admin/categories'),

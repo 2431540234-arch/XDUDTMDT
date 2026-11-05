@@ -49,6 +49,7 @@ import {
   spaceViews,
   spaces,
 } from './tables/_spaces_gen';
+import { product360, product360Frames } from './tables/_360_gen';
 import { attributeValues, attributes, colorHexByValueId } from './tables/attributes';
 import { addressLabels, addresses } from './tables/addresses';
 import { brands } from './tables/brands';
@@ -96,6 +97,8 @@ function seed() {
     productImages: clone(productImages),
     productExtras: clone(productExtras),
     product3dModels: clone(product3dModels),
+    product360: clone(product360),
+    product360Frames: clone(product360Frames),
     modelFiles: clone(modelFiles),
     media: clone(media),
     spaces: clone(spaces),

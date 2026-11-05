@@ -9,6 +9,8 @@ import type {
   CouponView,
   Model3DView,
   NotificationView,
+  PolicyItem,
+  Product360Data,
   OrderView,
   PanoramaView,
   ProductDetail,
@@ -141,6 +143,7 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
     style: extra?.style ?? null,
     sku: dv?.sku ?? '',
     isWishlisted: userId ? db.wishlists.some((w) => w.userId === userId && w.productId === p.id) : false,
+    has360: db.product360.some((x) => x.productId === p.id && x.enabled),
   };
 }
 
@@ -604,3 +607,80 @@ export function spaceDetail(db: Db, s: Db['spaces'][number], userId?: number | n
 }
 
 export const MOCK_TODAY = MOCK_NOW;
+
+// ---------------- Xem 360° ----------------
+const POLICIES: PolicyItem[] = [
+  {
+    key: 'shipping',
+    title: 'Giao hàng & lắp đặt',
+    summary:
+      'Giao toàn quốc trong 2–5 ngày. Miễn phí lắp đặt tại nội thành TP.HCM và Hà Nội; miễn phí vận chuyển cho đơn từ 10 triệu đồng.',
+    href: '/policies/chinh-sach-van-chuyen',
+  },
+  {
+    key: 'returns',
+    title: 'Đổi trả 7 ngày',
+    summary:
+      'Đổi trả trong 7 ngày kể từ ngày nhận hàng nếu sản phẩm lỗi, giao sai hoặc không đúng mô tả. Lấy hàng miễn phí.',
+    href: '/policies/chinh-sach-doi-tra',
+  },
+  {
+    key: 'warranty',
+    title: 'Bảo hành 12 tháng',
+    summary:
+      'Bảo hành chính hãng từ 12 tháng cho kết cấu, vải, mút và da; một số sản phẩm gỗ được bảo hành đến 36 tháng.',
+    href: '/policies/chinh-sach-bao-hanh',
+  },
+  {
+    key: 'payment',
+    title: 'Phương thức thanh toán',
+    summary: 'Thanh toán khi nhận hàng (COD), chuyển khoản, thẻ ngân hàng, VNPAY, MoMo và ZaloPay.',
+    href: '/policies/chinh-sach-mua-hang',
+  },
+];
+
+export function product360View(db: Db, p: Product, userId?: number | null): Product360Data | null {
+  const cfg = db.product360.find((x) => x.productId === p.id && x.enabled);
+  if (!cfg) return null;
+  const extra = db.productExtras.find((e) => e.productId === p.id);
+  const colors = db.product360Frames
+    .filter((f) => f.productId === p.id)
+    .map((f) => ({
+      colorId: f.colorId,
+      name: f.colorName,
+      hex: f.colorHex,
+      thumbnail: f.thumbnail,
+      frames: f.frames,
+    }));
+  const variants = variantViews(db, p.id)
+    .filter((v) => v.isActive)
+    .map((v) => {
+      const [l, w, h] = extra?.dims ?? [0, 0, 0];
+      const k = extra?.sizeDimMult?.[v.size ?? 'Tiêu chuẩn'] ?? 1;
+      const hk = ['Cao 1m2', 'Cao 1m5'].includes(v.size ?? '') ? k : 1;
+      return {
+        ...v,
+        dimensionsCm: {
+          length: Math.round((l * k) / 10),
+          width: Math.round((w * k) / 10),
+          height: Math.round((h * hk) / 10),
+        },
+        weightKg: v.weightGram ? Math.round(v.weightGram / 100) / 10 : null,
+      };
+    });
+  const defColor =
+    db.attributeValues.find((a) => a.id === cfg.defaultColorId)?.value ?? colors[0]?.name ?? '';
+  return {
+    productId: p.id,
+    slug: p.slug,
+    enabled: true,
+    frameCount: cfg.frameCount,
+    defaultColor: defColor,
+    autoRotate: cfg.autoRotate,
+    rotationSpeed: cfg.rotationSpeed,
+    colors,
+    variants,
+    product: productDetail(db, p, userId),
+    policies: POLICIES,
+  };
+}

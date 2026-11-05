@@ -39,6 +39,9 @@ export const SIZES = [
   '1m4',
   '1m6 (bàn)',
   'Tiêu chuẩn',
+  'Cỡ lớn',
+  'Cao 1m2',
+  'Cao 1m5',
 ];
 export const MATERIALS = ['Vải', 'Da', 'Nỉ', 'Gỗ', 'Kim loại', 'Đá', 'Kính'];
 

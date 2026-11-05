@@ -2,6 +2,7 @@
 import type {
   CategoryNode,
   Model3DView,
+  Product360Data,
   ProductDetail,
   ProductFacets,
   ProductListItem,
@@ -34,6 +35,8 @@ export const productApi = {
   facets: (q: ProductQuery) => http.get<ProductFacets>('/products/facets', q), // TODO: chưa có trong BE
   detail: (slug: string) => http.get<ProductDetail>(`/products/${slug}`),
   model: (slug: string) => http.get<Model3DView | null>(`/products/${slug}/model`),
+  /** Dữ liệu xem 360° (ảnh theo màu, biến thể, chính sách) – TODO: chưa có trong BE */
+  view360: (slug: string) => http.get<Product360Data>(`/products/${slug}/360`),
   related: (slug: string) => http.get<ProductListItem[]>(`/products/${slug}/related`), // TODO: chưa có trong BE
   reviews: (slug: string, q: { page?: number; rating?: number } = {}) =>
     http.list<ReviewView>(`/products/${slug}/reviews`, q),

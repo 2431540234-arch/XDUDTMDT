@@ -22,6 +22,8 @@ export interface ProductExtra {
   productId: number;
   style: string; // TODO: chưa có trong DB
   costPrice: number; // TODO: chưa có trong DB (giá vốn của biến thể chuẩn)
+  dims: [number, number, number]; // D×R×C (mm) của kích thước chuẩn – TODO: chưa có trong DB
+  sizeDimMult: Record<string, number>; // nhãn kích thước → hệ số kích thước – TODO: chưa có trong DB
   costRatio: number; // TODO: chưa có trong DB (giá vốn / giá bán, dùng cho mọi biến thể)
   minStock: number; // TODO: chưa có trong DB
   features: string[]; // TODO: chưa có trong DB
@@ -141,6 +143,13 @@ productSpecs.forEach((s, idx) => {
       if (s.stock === 'out') stock = 0;
       else if (s.stock === 'low') stock = rng.int(1, 3);
       else if (rng.chance(0.06)) stock = 0;
+      // Tổ hợp hết hàng cố định để thử trạng thái disabled ở trang 360°
+      if (
+        (s.name === 'Sofa Nordic' && col.name === 'Xám' && sz.label === '4 chỗ') ||
+        (s.name === 'Giường bọc nỉ' && col.name === 'Xanh' && sz.label === '2m') ||
+        (s.name === 'Bàn ăn gỗ tự nhiên' && col.name === 'Trắng')
+      )
+        stock = 0;
       productVariants.push({
         id: vid,
         productId: id,
@@ -206,6 +215,10 @@ productSpecs.forEach((s, idx) => {
     style: s.style,
     costPrice: roundPrice((s.sale ?? s.price) * costRatio),
     costRatio,
+    dims: s.dims,
+    sizeDimMult: Object.fromEntries(
+      sizes.map((z) => [z.label === '1m6' && s.sizeSet === 'desk' ? '1m6 (bàn)' : z.label, z.dimMult]),
+    ),
     minStock: 5,
     features: [...(featurePool[s.material] ?? featurePool['Gỗ']), ...commonFeatures].slice(0, 5),
     specs: [

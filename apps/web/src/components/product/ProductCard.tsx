@@ -59,6 +59,11 @@ export default function ProductCard({ product: p, layout = 'grid', compact }: Pr
             Tạm hết hàng
           </span>
         )}
+        {p.has360 && (
+          <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded bg-white/95 px-2 py-0.5 text-xs font-semibold text-primary shadow">
+            <Icon name="rotate" size={12} /> Có xem 360°
+          </span>
+        )}
         <button
           type="button"
           onClick={() => wl.toggle(p.slug)}

@@ -85,6 +85,8 @@ export interface ProductListItem extends Product {
   style: string | null; // TODO: chưa có trong DB
   sku: string;
   isWishlisted: boolean;
+  /** Sản phẩm có ảnh xoay 360° – TODO: cần thêm vào DB/API */
+  has360: boolean;
 }
 
 export interface VariantView extends ProductVariant {
@@ -503,4 +505,48 @@ export interface FinanceReport {
     amount: number;
   }>;
   topProducts: DashboardStats['topProducts'];
+}
+
+// ---------- Xem 360° (TODO: cần thêm vào DB/API) ----------
+export interface Product360Color {
+  colorId: number;
+  name: string;
+  hex: string;
+  thumbnail: string;
+  /** URL ảnh theo thứ tự góc 0° → 350° */
+  frames: string[];
+}
+
+export interface Product360Variant extends VariantView {
+  dimensionsCm: { length: number; width: number; height: number };
+  weightKg: number | null;
+}
+
+export interface PolicyItem {
+  key: 'shipping' | 'returns' | 'warranty' | 'payment';
+  title: string;
+  summary: string;
+  href: string;
+}
+
+export interface Product360Data {
+  productId: number;
+  slug: string;
+  enabled: boolean;
+  frameCount: number;
+  defaultColor: string;
+  autoRotate: boolean;
+  rotationSpeed: number;
+  colors: Product360Color[];
+  variants: Product360Variant[];
+  product: ProductDetail;
+  policies: PolicyItem[];
+}
+
+export interface Product360AdminData {
+  enabled: boolean;
+  frameCount: number;
+  autoRotate: boolean;
+  colors: Array<{ name: string; hex: string; frames: string[] }>;
+  variantColors: ColorOption[];
 }

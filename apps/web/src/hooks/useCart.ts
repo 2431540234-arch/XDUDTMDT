@@ -36,10 +36,11 @@ export function useCartActions() {
     toast.error(e instanceof ApiClientError ? e.message : 'Không thể cập nhật giỏ hàng.');
 
   const add = useMutation({
-    mutationFn: cartApi.addItem,
-    onSuccess: (c) => {
+    mutationFn: ({ variantId, quantity }: { variantId: number; quantity: number; message?: string }) =>
+      cartApi.addItem({ variantId, quantity }),
+    onSuccess: (c, v) => {
       set(c);
-      toast.success('Đã thêm vào giỏ hàng.');
+      toast.success(v.message ?? 'Đã thêm vào giỏ hàng.');
     },
     onError,
   });
@@ -61,13 +62,13 @@ export function useCartActions() {
     update,
     remove,
     /** Thêm vào giỏ; chưa đăng nhập thì chuyển tới /login (khách vãng lai không có giỏ – D-P02) */
-    addToCart: async (variantId: number, quantity = 1) => {
+    addToCart: async (variantId: number, quantity = 1, message?: string) => {
       if (!user) {
         toast.info('Vui lòng đăng nhập để thêm vào giỏ hàng.');
-        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return null;
       }
-      return add.mutateAsync({ variantId, quantity }).catch(() => null);
+      return add.mutateAsync({ variantId, quantity, message }).catch(() => null);
     },
     adding: add.isPending,
   };
@@ -101,7 +102,7 @@ export function useWishlist() {
     toggle: (slug: string) => {
       if (!user) {
         toast.info('Vui lòng đăng nhập để lưu sản phẩm yêu thích.');
-        router.push(`/login?next=${encodeURIComponent(window.location.pathname)}`);
+        router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       toggle.mutate({ slug, on: !slugs.has(slug) });

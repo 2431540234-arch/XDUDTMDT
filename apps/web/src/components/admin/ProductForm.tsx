@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import FormSection, { FormGrid } from '@/components/admin/FormSection';
 import { PageHeader } from '@/components/admin/FilterBar';
+import Product360Editor from '@/components/admin/Product360Editor';
 import UploadDropzone, { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -20,12 +21,13 @@ import { adminApi } from '@/services/admin.api';
 import { brandApi } from '@/services/product.api';
 import { toast } from '@/store/uiStore';
 
-type Tab = 'basic' | 'images' | 'variants' | 'model' | 'attrs' | 'seo';
+type Tab = 'basic' | 'images' | 'variants' | 'model' | 'view360' | 'attrs' | 'seo';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'basic', label: 'Thông tin cơ bản' },
   { key: 'images', label: 'Hình ảnh' },
   { key: 'variants', label: 'Biến thể' },
   { key: 'model', label: 'Mô hình 3D' },
+  { key: 'view360', label: 'Ảnh 360°' },
   { key: 'attrs', label: 'Thuộc tính' },
   { key: 'seo', label: 'SEO' },
 ];
@@ -302,7 +304,10 @@ export default function ProductForm({ productId }: { productId?: number }) {
   if (editing && q.isLoading) return <PageSkeleton />;
   if (editing && q.isError) return <ErrorState onRetry={() => q.refetch()} />;
 
-  const tabs = TABS.map((t) => ({ ...t, hasError: t.key === 'basic' && Object.values(errs).some(Boolean) }));
+  const tabs = TABS.filter((t) => editing || t.key !== 'view360').map((t) => ({
+    ...t,
+    hasError: t.key === 'basic' && Object.values(errs).some(Boolean),
+  }));
   const catOptions = (cats.data ?? []).flatMap((c) => [
     { value: String(c.id), label: c.name, group: true },
     ...c.children.map((x) => ({ value: String(x.id), label: `— ${x.name}`, group: false })),
@@ -496,6 +501,8 @@ export default function ProductForm({ productId }: { productId?: number }) {
             </LinkButton>
           </div>
         )}
+
+        {tab === 'view360' && editing && <Product360Editor productId={productId!} />}
 
         {tab === 'attrs' && (
           <div className="space-y-5">

@@ -102,6 +102,55 @@ describe('mock-data: toàn vẹn dữ liệu', () => {
   });
 });
 
+describe('mock-data: xem 360°', () => {
+  it('≥ 8 sản phẩm bật 360°, mỗi màu 36 frame, 3–4 màu, 2–3 kích thước, có tổ hợp hết hàng', () => {
+    const on = db.product360.filter((x) => x.enabled);
+    expect(on.length).toBeGreaterThanOrEqual(8);
+    let outOfStock = 0;
+    for (const c of on) {
+      const frames = db.product360Frames.filter((f) => f.productId === c.productId);
+      expect(frames.length).toBeGreaterThanOrEqual(3);
+      expect(frames.length).toBeLessThanOrEqual(4);
+      for (const f of frames) expect(f.frames).toHaveLength(36);
+      const variants = db.productVariants.filter((v) => v.productId === c.productId);
+      const sizes = new Set(
+        variants.map(
+          (v) =>
+            db.variantAttributeValues.find((a) => a.variantId === v.id && a.attributeId === 2)
+              ?.attributeValueId,
+        ),
+      );
+      expect(sizes.size).toBeGreaterThanOrEqual(2);
+      expect(sizes.size).toBeLessThanOrEqual(3);
+      outOfStock += variants.filter((v) => v.stockQuantity === 0).length;
+    }
+    expect(outOfStock).toBeGreaterThan(0);
+  });
+  it('API /products/:slug/360 trả frames, biến thể, chính sách; sản phẩm không bật trả 404', async () => {
+    const ok = await handleMockRequest({
+      method: 'GET',
+      path: '/products/sofa-nordic/360',
+      query: {},
+      body: undefined,
+      token: null,
+    });
+    const d = (
+      ok.body as { data: { colors: Array<{ frames: string[] }>; variants: unknown[]; policies: unknown[] } }
+    ).data;
+    expect(ok.status).toBe(200);
+    expect(d.colors[0].frames).toHaveLength(36);
+    expect(d.policies).toHaveLength(4);
+    const no = await handleMockRequest({
+      method: 'GET',
+      path: '/products/ke-tivi-hien-dai/360',
+      query: {},
+      body: undefined,
+      token: null,
+    });
+    expect(no.status).toBe(404);
+  });
+});
+
 describe('mock API: luồng cơ bản', () => {
   const call = (
     method: string,
