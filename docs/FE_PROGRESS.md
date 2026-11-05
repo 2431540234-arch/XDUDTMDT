@@ -11,7 +11,7 @@
 | 4 | Quét frontend | ✅ (Next 14, toàn stub) → §5 |
 | 5 | Báo cáo phân tích | ✅ `docs/PROJECT_ANALYSIS.md` |
 | 6 | Design system | ✅ tokens, format/status utils, 16 UI primitives, Header/Footer, StoreLayout/AuthLayout/AccountLayout/AdminLayout, ProductCard/FilterSidebar/SortToolbar, CouponCard/OrderCard/ReviewCard/OrderStepper, DataTable/KpiCard/FilterBar/FormSection/UploadDropzone/ChartCard |
-| 7 | mock-data + mock API | ⏳ |
+| 7 | mock-data + mock API | ✅ `apps/web/src/mock-data/` (tables/, mockApi/, utils/, README.md); 12 test toàn vẹn dữ liệu + luồng API đạt |
 | 8 | 54 màn hình | ⏳ |
 | 9 | Kiểm tra & bàn giao | ⏳ |
 
@@ -20,6 +20,8 @@
 - `apps/web/src/lib/format.ts`, `src/store/{authStore,uiStore}.ts`, `src/services/*.ts`, `src/hooks/*.ts`, `src/components/{ui,layout,product}/*`, `src/types/*`: file khung 5 dòng được điền nội dung (không đổi tên).
 - `apps/web/src/app/providers.tsx`: thêm `<Toaster />`.
 - `apps/web/vitest.config.mts`: thêm alias `@` → `src` để test chạy được với import `@/…`.
+- `apps/web/next.config.js`: bỏ yêu cầu `NEXT_PUBLIC_API_URL` khi `NEXT_PUBLIC_USE_MOCK=true`.
+- `apps/web/src/components/layout/AuthLayout.tsx` (mới), `src/services/api-client.ts`: adapter mock/thật.
 
 ## Thư viện thêm
 _(chưa có)_

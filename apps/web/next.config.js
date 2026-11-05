@@ -5,7 +5,8 @@ const { loadEnvConfig } = require('@next/env');
 loadEnvConfig(path.resolve(__dirname, '../..'), process.env.NODE_ENV !== 'production', console, true);
 
 // Dừng ngay lúc khởi động (dev/build/start) nếu thiếu biến bắt buộc
-if (!process.env.NEXT_PUBLIC_API_URL) {
+// Chế độ dữ liệu giả (NEXT_PUBLIC_USE_MOCK=true) không cần địa chỉ API thật
+if (!process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_USE_MOCK !== 'true') {
   throw new Error(
     '[web] Thiếu biến môi trường NEXT_PUBLIC_API_URL (ví dụ http://localhost:4000). Xem .env.example và sao chép thành .env ở thư mục gốc.',
   );

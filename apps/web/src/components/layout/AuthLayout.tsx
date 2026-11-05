@@ -25,7 +25,7 @@ export default function AuthLayout({ children, title }: { children: ReactNode; t
             className="relative hidden min-h-[560px] flex-col justify-end p-10 text-white lg:flex"
             style={{
               backgroundImage:
-                'linear-gradient(180deg, rgba(43,30,22,0.15), rgba(43,30,22,0.85)), url(/mock/images/hero-1.svg)',
+                'linear-gradient(180deg, rgba(43,30,22,0.15), rgba(43,30,22,0.85)), url(/mock-img/banner?n=3&s=Luxury)',
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
