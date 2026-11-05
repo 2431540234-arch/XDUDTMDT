@@ -1,7 +1,7 @@
 'use client';
 
 // Chi tiết sản phẩm (WIREFRAME 2.3): gallery | thông tin → banner 3D → tabs → sản phẩm liên quan
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
@@ -15,9 +15,9 @@ import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useProduct } from '@/hooks/useProducts';
 import { discountPercent } from '@/lib/format';
 import { pushRecent } from '@/lib/recent';
-import { parseVariantQuery, variantQuery } from '@/lib/variant';
-import { ApiClientError } from '@/services/api-client';
+import { parseVariantQuery } from '@/lib/variant';
 import { productApi } from '@/services/product.api';
+import { ApiClientError } from '@/services/api-client';
 
 export default function ProductDetailPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -27,7 +27,6 @@ export default function ProductDetailPage() {
     queryFn: () => productApi.related(slug),
     enabled: Boolean(q.data),
   });
-  const qc = useQueryClient();
   const [color, setColor] = useState<string | null>(null);
   const [size, setSize] = useState<string | null>(null);
   const [active, setActive] = useState(0);
@@ -106,10 +105,6 @@ export default function ProductDetailPage() {
           active={active}
           onActive={setActive}
           model3dHref={p.model ? `/products/${p.slug}/3d` : null}
-          href360={p.has360 ? `/products/${p.slug}/360${variantQuery(color, size)}` : null}
-          onPrefetch360={() => {
-            void qc.prefetchQuery({ queryKey: ['p360', p.slug], queryFn: () => productApi.view360(p.slug) });
-          }}
           discount={discountPercent(price, original)}
         />
         <ProductInfo
@@ -126,24 +121,22 @@ export default function ProductDetailPage() {
         />
       </div>
 
-      {p.model && (
-        <section className="mt-10 flex flex-col items-start justify-between gap-4 rounded-2xl bg-surface-muted p-6 sm:flex-row sm:items-center sm:p-8">
-          <div className="flex items-center gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-primary">
-              <Icon name="cube" size={28} />
-            </span>
-            <div>
-              <h2 className="text-lg font-extrabold">Trải nghiệm sản phẩm 3D</h2>
-              <p className="text-sm text-muted">
-                Xoay 360°, phóng to và đặt thử {p.name} vào căn phòng của bạn bằng AR.
-              </p>
-            </div>
+      <section className="mt-10 flex flex-col items-start justify-between gap-4 rounded-2xl bg-surface-muted p-6 sm:flex-row sm:items-center sm:p-8">
+        <div className="flex items-center gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-primary">
+            <Icon name="cube" size={28} />
+          </span>
+          <div>
+            <h2 className="text-lg font-extrabold">Trải nghiệm sản phẩm 3D</h2>
+            <p className="text-sm text-muted">
+              Xoay 360°, phóng to và đặt thử {p.name} vào căn phòng của bạn bằng AR.
+            </p>
           </div>
-          <LinkButton href={`/products/${p.slug}/3d`} size="lg">
-            Trải nghiệm 3D ngay <Icon name="arrowRight" size={16} />
-          </LinkButton>
-        </section>
-      )}
+        </div>
+        <LinkButton href={`/products/${p.slug}/3d`} size="lg">
+          Trải nghiệm 3D ngay <Icon name="arrowRight" size={16} />
+        </LinkButton>
+      </section>
 
       <ProductTabs product={p} tab={tab} onTab={setTab} />
 

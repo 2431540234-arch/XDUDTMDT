@@ -14,7 +14,7 @@ import { mediaRows, registerMedia } from '../utils/media-registry';
 import { addDays, iso, makeRng, roundPrice } from '../utils/rng';
 import { COLORS, valueId } from './attributes';
 import { categories } from './categories';
-import { productSpecs, sizeSets, type ProductSpec } from './_products_spec';
+import { modelFor, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
 
 const rng = makeRng(303);
 
@@ -242,12 +242,14 @@ productSpecs.forEach((s, idx) => {
       { label: 'Bảo hành', value: `${s.warrantyMonths ?? 12} tháng` },
     ],
     type: s.type,
-    modelKey: s.model,
+    modelKey: modelFor(s),
   });
   void defaultVariantIdx;
 
-  // ----- Mô hình 3D: ~2/3 sản phẩm có model -----
-  if (s.model && idx % 3 !== 2) {
+  // ----- Mô hình 3D: mọi sản phẩm có model đúng loại (modelFor) -----
+  {
+    const modelName = modelFor(s);
+    if (!modelName) throw new Error(`Thiếu mô hình 3D cho loại ${s.type}`);
     const mid = product3dModels.length + 1;
     const placement = ['mirror', 'bookshelf'].includes(s.type)
       ? 'wall'
@@ -276,7 +278,7 @@ productSpecs.forEach((s, idx) => {
     });
     const sizeBytes = Math.round((2.2 + rng.next() * 15) * 1024 * 1024);
     const glbMedia = registerMedia(
-      `/mock/models/${s.model}.glb?p=${id}`,
+      `/mock/models/${modelName}.glb?p=${id}`,
       `${slug.replace(/-/g, '_')}.glb`,
       'model/gltf-binary',
       sizeBytes,

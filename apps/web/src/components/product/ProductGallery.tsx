@@ -16,21 +16,9 @@ interface Props {
   /** Có mô hình 3D → hiện ô "3D" cuối hàng thumbnail */
   model3dHref?: string | null;
   discount?: number;
-  /** Có ảnh 360° → badge 360° trên ảnh lớn và ô 360° cạnh ô 3D */
-  href360?: string | null;
-  onPrefetch360?: () => void;
 }
 
-export default function ProductGallery({
-  images,
-  name,
-  active,
-  onActive,
-  model3dHref,
-  discount,
-  href360,
-  onPrefetch360,
-}: Props) {
+export default function ProductGallery({ images, name, active, onActive, model3dHref, discount }: Props) {
   const [zoom, setZoom] = useState(false);
   const cur = images[active] ?? images[0];
   const go = (d: number) => onActive((active + d + images.length) % images.length);
@@ -40,24 +28,8 @@ export default function ProductGallery({
         {cur && (
           <img src={cur.url} alt={`${name} – ảnh ${active + 1}`} className="h-full w-full object-cover" />
         )}
-        {href360 && (
-          <Link
-            href={href360}
-            onMouseEnter={onPrefetch360}
-            onFocus={onPrefetch360}
-            aria-label="Xem 360°"
-            className="absolute left-3 top-3 flex items-center gap-1.5 rounded-[7px] border border-primary bg-white/95 px-2.5 py-1.5 text-xs font-bold text-primary shadow hover:bg-primary hover:text-white"
-          >
-            <Icon name="rotate" size={15} /> 360°
-          </Link>
-        )}
         {discount ? (
-          <span
-            className={cn(
-              'absolute left-3 rounded bg-danger px-2 py-1 text-xs font-bold text-white',
-              href360 ? 'top-14' : 'top-3',
-            )}
-          >
+          <span className="absolute left-3 top-3 rounded bg-danger px-2 py-1 text-xs font-bold text-white">
             -{discount}%
           </span>
         ) : null}
@@ -106,18 +78,6 @@ export default function ProductGallery({
             <img src={im.url} alt="" className="h-full w-full object-cover" />
           </button>
         ))}
-        {href360 && (
-          <Link
-            href={href360}
-            onMouseEnter={onPrefetch360}
-            onFocus={onPrefetch360}
-            aria-label="Xem sản phẩm 360 độ"
-            className="flex h-16 w-20 shrink-0 flex-col items-center justify-center rounded-md border-2 border-dashed border-primary bg-primary-soft text-primary hover:bg-white"
-          >
-            <Icon name="rotate" size={22} />
-            <span className="text-xs font-extrabold">360°</span>
-          </Link>
-        )}
         {model3dHref && (
           <Link
             href={model3dHref}

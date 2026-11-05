@@ -2,7 +2,69 @@
 import type { FurnitureType } from '../utils/svg';
 
 export type SizeSet = 'sofa' | 'bed' | 'dining' | 'wardrobe' | 'desk' | 'chair' | 'lamp' | 'one';
-export type ModelKey = 'sofa' | 'table' | 'chair' | 'bed' | 'cabinet' | 'lamp';
+export type ModelKey = string;
+
+/** Mô hình 3D đúng loại đồ nội thất (mỗi loại một mẫu GLB riêng) */
+export const MODEL_BY_TYPE: Record<string, ModelKey> = {
+  sofa: 'sofa',
+  armchair: 'armchair',
+  coffee_table: 'coffee_table',
+  tv_stand: 'tv_stand',
+  bed: 'bed',
+  wardrobe: 'wardrobe',
+  nightstand: 'nightstand',
+  dining_table: 'table',
+  dining_chair: 'chair',
+  cabinet: 'cabinet',
+  desk: 'table',
+  office_chair: 'chair',
+  bookshelf: 'bookshelf',
+  lamp: 'lamp',
+  rug: 'rug',
+  mirror: 'mirror',
+  beanbag: 'beanbag',
+};
+
+/** Ghi đè theo từng sản phẩm khi hình dáng khác hẳn các sản phẩm cùng loại (tên GLB trong public/mock/models) */
+export const MODEL_BY_NAME: Record<string, ModelKey> = {
+  'Sofa góc hiện đại': 'sofa_corner',
+  'Sofa văng tối giản': 'sofa_slim',
+  'Sofa da cao cấp': 'sofa_leather',
+  'Sofa module': 'sofa_module',
+  'Sofa giường thông minh': 'sofa_bed',
+  'Ghế bành Bắc Âu': 'armchair_nordic',
+  'Bàn trà gỗ sồi tròn': 'coffee_round',
+  'Bàn trà mặt đá': 'coffee_stone',
+  'Bàn trà lồng nhau': 'coffee_nest',
+  'Kệ tivi gỗ óc chó': 'tv_walnut',
+  'Kệ tivi treo tường': 'tv_wall',
+  'Giường gỗ sồi': 'bed_oak',
+  'Giường bọc nỉ': 'bed_upholstered',
+  'Giường tầng thông minh': 'bed_bunk',
+  'Tủ quần áo 4 cánh': 'wardrobe_4',
+  'Tủ quần áo cánh kính': 'wardrobe_glass',
+  'Tủ đầu giường gỗ sồi': 'nightstand_oak',
+  'Bàn ăn mặt đá': 'table_stone',
+  'Bàn ăn mở rộng': 'table_ext',
+  'Ghế ăn bọc da': 'chair_leather',
+  'Ghế ăn bọc nỉ': 'chair_fabric',
+  'Tủ rượu kính': 'cabinet_wine',
+  'Bàn làm việc chữ L': 'desk_l',
+  'Bàn làm việc nâng hạ': 'desk_stand',
+  'Ghế công thái học': 'office_chair',
+  'Ghế văn phòng lưới': 'office_chair',
+  'Ghế giám đốc bọc da': 'office_chair_boss',
+  'Kệ sách khung thép': 'bookshelf_steel',
+  'Kệ trang trí treo tường': 'shelf_wall',
+  'Đèn trang trí': 'lamp_deco',
+  'Đèn thả trần mây': 'lamp_pendant',
+  'Đèn bàn gốm': 'lamp_table',
+  'Thảm lông tròn': 'rug_round',
+  'Gương tròn khung kim loại': 'mirror_round',
+};
+
+export const modelFor = (spec: { name: string; type: string; model: ModelKey | null }): ModelKey | null =>
+  MODEL_BY_NAME[spec.name] ?? MODEL_BY_TYPE[spec.type] ?? spec.model;
 
 export interface ProductSpec {
   name: string;

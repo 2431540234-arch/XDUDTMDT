@@ -9,7 +9,7 @@ import type {
   ReturnRequest,
 } from '@/types/api';
 import { nextId, resetDb, type Db } from '../db';
-import { productSpecs, sizeSets } from '../tables/_products_spec';
+import { modelFor, productSpecs, sizeSets } from '../tables/_products_spec';
 import { slugify } from '@/lib/format';
 import { cancelOrderCore, notify, placeOrderCore, withReturnItemMeta } from './shop';
 import { settingsView } from './catalog';
@@ -1467,7 +1467,8 @@ export function uploadModel(ctx: Ctx): Result {
     db.product3dModels.push(m);
     void ex;
   }
-  const modelKey = productSpecs.find((s) => s.name === p!.name)?.model ?? 'sofa';
+  const spec = productSpecs.find((s) => s.name === p!.name);
+  const modelKey = (spec && modelFor(spec)) ?? 'sofa';
   const filePath =
     b.format === 'glb'
       ? `/mock/models/${modelKey}.glb?u=${Date.now()}`

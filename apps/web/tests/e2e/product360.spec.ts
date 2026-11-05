@@ -12,18 +12,20 @@ async function waitLoaded(page: Page) {
 
 test.describe.configure({ mode: 'serial' });
 
-test('nút "Xem 360°" chỉ hiện ở sản phẩm có 360° và mang theo biến thể đang chọn', async ({ page }) => {
-  await page.goto('/products/ke-tivi-hien-dai');
-  await expect(page.getByRole('heading', { name: 'Kệ tivi hiện đại' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('link', { name: 'Xem 360°' })).toHaveCount(0);
-
-  await page.goto('/products/sofa-nordic');
-  await expect(page.getByRole('heading', { name: 'Sofa Nordic' })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole('link', { name: 'Xem sản phẩm 360 độ' })).toBeVisible();
-  await page.getByRole('button', { name: 'Kem', exact: true }).click();
-  await page.getByRole('button', { name: '4 chỗ' }).click();
-  await page.getByRole('link', { name: 'Xem 360°' }).click();
-  await expect(page).toHaveURL(/\/products\/sofa-nordic\/360\?color=kem&size=4-cho/);
+test('mọi sản phẩm có banner dẫn tới trang 3D; trang 360° nhận biến thể từ URL', async ({ page }) => {
+  for (const [slug, name] of [
+    ['ke-tivi-hien-dai', 'Kệ tivi hiện đại'],
+    ['sofa-nordic', 'Sofa Nordic'],
+  ]) {
+    await page.goto(`/products/${slug}`);
+    await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole('link', { name: 'Xem 360°' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /Trải nghiệm 3D ngay/ })).toHaveAttribute(
+      'href',
+      `/products/${slug}/3d`,
+    );
+  }
+  await page.goto('/products/sofa-nordic/360?color=kem&size=4-cho');
   await waitLoaded(page);
   await expect(page.getByTestId('color-name')).toHaveText('Kem');
 });
@@ -105,7 +107,7 @@ test('Back về trang chi tiết đúng biến thể; link chia sẻ mở đúng
   await page.goto('/products/sofa-luxury');
   await expect(page.getByRole('heading', { name: 'Sofa Luxury' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Nâu', exact: true }).click();
-  await page.getByRole('link', { name: 'Xem 360°' }).click();
+  await page.goto('/products/sofa-luxury/360?color=nau');
   await waitLoaded(page);
   await page.getByRole('button', { name: 'Kem', exact: true }).click();
   await page.getByRole('radio', { name: /^4 chỗ/ }).click();

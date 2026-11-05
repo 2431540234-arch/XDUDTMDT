@@ -61,7 +61,7 @@ import { userRoles } from './tables/user_roles';
 import { credentials, userProfiles, users } from './tables/users';
 
 // Đổi số phiên bản khi cấu trúc dữ liệu mock thay đổi (dữ liệu cũ trong localStorage sẽ tự bị bỏ, nạp lại dữ liệu mẫu)
-export const DB_STORAGE_KEY = 'aurelia-mock-db-v2';
+export const DB_STORAGE_KEY = 'aurelia-mock-db-v5';
 export const CONFIG_STORAGE_KEY = 'aurelia-mock-config';
 
 export interface MockConfig {
