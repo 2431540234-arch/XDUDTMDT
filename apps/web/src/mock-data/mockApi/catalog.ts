@@ -39,6 +39,8 @@ import {
 } from './views';
 
 export const categories = (ctx: Ctx): Result => ok(categoryTree(ctx.db));
+export const brands = (ctx: Ctx): Result =>
+  ok(ctx.db.brands.filter((b) => b.isActive).map((b) => ({ id: b.id, name: b.name, slug: b.slug })));
 
 // ---------------- Sản phẩm ----------------
 function visibleProducts(db: Db): Product[] {

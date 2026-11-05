@@ -181,6 +181,154 @@ export function notify(
   });
 }
 
+export interface OrderLine {
+  v: Db['productVariants'][number];
+  p: Db['products'][number];
+  qty: number;
+}
+
+/** Lõi tạo đơn: dùng cho khách đặt hàng (từ giỏ) và cho admin tạo đơn hộ khách */
+export function placeOrderCore(
+  db: Db,
+  u: Db['users'][number],
+  addr: Db['addresses'][number],
+  paymentMethod: PaymentMethod,
+  note: string | null,
+  lines: OrderLine[],
+  code: string | undefined,
+  actorId: number | null,
+) {
+  const subtotal = lines.reduce((s, l) => s + effectivePrice(l.v) * l.qty, 0);
+  const shippingFee = shippingFeeFor(db, u.id, subtotal, addr.id);
+
+  let couponId: number | null = null;
+  let discount = 0;
+  if (code) {
+    const r = evaluateCoupon(
+      db,
+      code,
+      u.id,
+      lines.map((l) => ({
+        productId: l.p.id,
+        categoryId: l.p.categoryId,
+        lineTotal: effectivePrice(l.v) * l.qty,
+      })),
+      subtotal,
+      shippingFee,
+    );
+    couponId = r.coupon.id;
+    discount = r.discount;
+  }
+
+  const at = new Date();
+  const id = nextId(db.orders);
+  const orderCode = nextOrderCode(db, at);
+  const total = subtotal - discount + shippingFee;
+  db.orders.push({
+    id,
+    uuid: `30000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
+    orderCode,
+    userId: u.id,
+    status: 'pending',
+    recipientName: addr.recipientName,
+    recipientPhone: addr.phone,
+    shippingProvince: addr.province,
+    shippingDistrict: addr.district,
+    shippingWard: addr.ward,
+    shippingAddress: addr.addressLine,
+    subtotal,
+    discountAmount: discount,
+    shippingFee,
+    total,
+    couponId,
+    paymentMethod,
+    paymentStatus: 'unpaid',
+    note: note ? String(note) : null,
+    cancelReason: null,
+    createdAt: at.toISOString(),
+    updatedAt: at.toISOString(),
+  });
+  for (const l of lines) {
+    db.orderItems.push({
+      id: nextId(db.orderItems),
+      orderId: id,
+      variantId: l.v.id,
+      productName: l.p.name,
+      sku: l.v.sku,
+      unitPrice: effectivePrice(l.v),
+      quantity: l.qty,
+      lineTotal: effectivePrice(l.v) * l.qty,
+      createdAt: at.toISOString(),
+    });
+    l.v.stockQuantity -= l.qty;
+    db.inventoryMovements.push({
+      id: nextId(db.inventoryMovements),
+      variantId: l.v.id,
+      type: 'sale',
+      quantityChange: -l.qty,
+      reason: 'Bán hàng',
+      referenceCode: orderCode,
+      performedBy: null,
+      createdAt: at.toISOString(),
+    });
+    l.p.soldCount += l.qty;
+  }
+  db.payments.push({
+    id: nextId(db.payments),
+    orderId: id,
+    method: paymentMethod,
+    amount: total,
+    status: 'pending',
+    transactionCode: null,
+    gatewayResponse: null,
+    paidAt: null,
+    createdAt: at.toISOString(),
+    updatedAt: at.toISOString(),
+  });
+  addHistory(
+    db,
+    id,
+    null,
+    'pending',
+    actorId ?? u.id,
+    actorId && actorId !== u.id ? 'Doanh nghiệp tạo đơn hàng' : 'Khách hàng đặt hàng',
+  );
+  if (couponId) {
+    db.couponUsages.push({
+      id: nextId(db.couponUsages),
+      couponId,
+      userId: u.id,
+      orderId: id,
+      createdAt: at.toISOString(),
+    });
+    const c = db.coupons.find((x) => x.id === couponId)!;
+    c.usedCount += 1;
+    const uc = db.userCoupons.find(
+      (x) => x.userId === u.id && x.couponId === couponId && x.status === 'unused',
+    );
+    if (uc) uc.status = 'used';
+  }
+  notify(
+    db,
+    u.id,
+    `Đặt hàng thành công ${orderCode}`,
+    'order',
+    `Đơn hàng ${orderCode} đã được ghi nhận. Chúng tôi sẽ liên hệ xác nhận sớm nhất.`,
+    `/account/orders/${orderCode}`,
+  );
+  db.activityLogs.push({
+    id: nextId(db.activityLogs),
+    actorId: actorId ?? u.id,
+    action: 'order.create',
+    targetType: 'order',
+    targetId: id,
+    changes: { orderCode, total },
+    ipAddress: '127.0.0.1',
+    createdAt: at.toISOString(),
+  });
+  return db.orders.find((o) => o.id === id)!;
+}
+
 export function createOrder(ctx: Ctx): Result {
   const db = ctx.db;
   const u = ctx.user!;
@@ -206,138 +354,13 @@ export function createOrder(ctx: Ctx): Result {
         variantId: v.id,
         available: v.stockQuantity,
       });
-    return { it, v, p };
+    return { v, p, qty: it.quantity };
   });
-  const subtotal = lines.reduce((s, l) => s + effectivePrice(l.v) * l.it.quantity, 0);
-  const shippingFee = shippingFeeFor(db, u.id, subtotal, addr!.id);
-
-  let couponId: number | null = null;
-  let discount = 0;
   const code = chosen.length === items.length ? db.cartCoupons[u.id] : undefined; // mã chỉ áp dụng khi đặt cả giỏ
-  if (code) {
-    const r = evaluateCoupon(
-      db,
-      code,
-      u.id,
-      lines.map((l) => ({
-        productId: l.p.id,
-        categoryId: l.p.categoryId,
-        lineTotal: effectivePrice(l.v) * l.it.quantity,
-      })),
-      subtotal,
-      shippingFee,
-    );
-    couponId = r.coupon.id;
-    discount = r.discount;
-  }
-
-  const at = new Date();
-  const id = nextId(db.orders);
-  const orderCode = nextOrderCode(db, at);
-  const total = subtotal - discount + shippingFee;
-  db.orders.push({
-    id,
-    uuid: `30000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
-    orderCode,
-    userId: u.id,
-    status: 'pending',
-    recipientName: addr!.recipientName,
-    recipientPhone: addr!.phone,
-    shippingProvince: addr!.province,
-    shippingDistrict: addr!.district,
-    shippingWard: addr!.ward,
-    shippingAddress: addr!.addressLine,
-    subtotal,
-    discountAmount: discount,
-    shippingFee,
-    total,
-    couponId,
-    paymentMethod,
-    paymentStatus: 'unpaid',
-    note: note ? String(note) : null,
-    cancelReason: null,
-    createdAt: at.toISOString(),
-    updatedAt: at.toISOString(),
-  });
-  for (const l of lines) {
-    db.orderItems.push({
-      id: nextId(db.orderItems),
-      orderId: id,
-      variantId: l.v.id,
-      productName: l.p.name,
-      sku: l.v.sku,
-      unitPrice: effectivePrice(l.v),
-      quantity: l.it.quantity,
-      lineTotal: effectivePrice(l.v) * l.it.quantity,
-      createdAt: at.toISOString(),
-    });
-    l.v.stockQuantity -= l.it.quantity;
-    db.inventoryMovements.push({
-      id: nextId(db.inventoryMovements),
-      variantId: l.v.id,
-      type: 'sale',
-      quantityChange: -l.it.quantity,
-      reason: 'Bán hàng',
-      referenceCode: orderCode,
-      performedBy: null,
-      createdAt: at.toISOString(),
-    });
-    l.p.soldCount += l.it.quantity;
-  }
-  db.payments.push({
-    id: nextId(db.payments),
-    orderId: id,
-    method: paymentMethod,
-    amount: total,
-    status: 'pending',
-    transactionCode: null,
-    gatewayResponse: null,
-    paidAt: null,
-    createdAt: at.toISOString(),
-    updatedAt: at.toISOString(),
-  });
-  addHistory(db, id, null, 'pending', u.id, 'Khách hàng đặt hàng');
-  if (couponId) {
-    db.couponUsages.push({
-      id: nextId(db.couponUsages),
-      couponId,
-      userId: u.id,
-      orderId: id,
-      createdAt: at.toISOString(),
-    });
-    const c = db.coupons.find((x) => x.id === couponId)!;
-    c.usedCount += 1;
-    const uc = db.userCoupons.find(
-      (x) => x.userId === u.id && x.couponId === couponId && x.status === 'unused',
-    );
-    if (uc) uc.status = 'used';
-  }
+  const order = placeOrderCore(db, u, addr!, paymentMethod, note ? String(note) : null, lines, code, null);
   db.cartItems = db.cartItems.filter((i) => !chosen.some((c) => c.id === i.id));
   delete db.cartCoupons[u.id];
-  notify(
-    db,
-    u.id,
-    `Đặt hàng thành công ${orderCode}`,
-    'order',
-    `Đơn hàng ${orderCode} đã được ghi nhận. Chúng tôi sẽ liên hệ xác nhận sớm nhất.`,
-    `/account/orders/${orderCode}`,
-  );
-  db.activityLogs.push({
-    id: nextId(db.activityLogs),
-    actorId: u.id,
-    action: 'order.create',
-    targetType: 'order',
-    targetId: id,
-    changes: { orderCode, total },
-    ipAddress: '127.0.0.1',
-    createdAt: at.toISOString(),
-  });
-  return created(
-    orderView(
-      db,
-      db.orders.find((o) => o.id === id)!,
-    ),
-  );
+  return created(orderView(db, order));
 }
 
 export function listOrders(ctx: Ctx): Result {

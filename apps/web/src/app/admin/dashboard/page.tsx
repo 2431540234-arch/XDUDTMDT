@@ -1,5 +1,6 @@
-// Trang dashboard quản trị
+// Đường dẫn cũ /admin/dashboard → chuyển về /admin (WIREFRAME mục 4: Tổng quan nằm ở /admin)
+import { redirect } from 'next/navigation';
 
-export default function DashboardPage() {
-  return null;
+export default function AdminDashboardRedirect() {
+  redirect('/admin');
 }

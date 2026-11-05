@@ -31,6 +31,7 @@ const routes: Route[] = [
 
   // ----- Danh mục, sản phẩm -----
   ['GET', '/categories', 'public', catalog.categories],
+  ['GET', '/brands', 'public', catalog.brands],
   ['GET', '/products', 'public', catalog.products],
   ['GET', '/products/search', 'public', catalog.searchProducts],
   ['GET', '/products/facets', 'public', catalog.facets],
@@ -104,6 +105,7 @@ const routes: Route[] = [
   ['PATCH', '/admin/categories/:id', 'admin', admin.updateCategory],
   ['DELETE', '/admin/categories/:id', 'admin', admin.deleteCategory],
   ['GET', '/admin/orders', 'admin', admin.adminOrders],
+  ['POST', '/admin/orders', 'admin', admin.adminCreateOrder],
   ['GET', '/admin/orders/counts', 'admin', admin.adminOrderCounts],
   ['GET', '/admin/orders/:code', 'admin', admin.adminOrder],
   ['PATCH', '/admin/orders/:id/status', 'admin', admin.setOrderStatus],

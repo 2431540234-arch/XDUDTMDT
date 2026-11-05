@@ -11,7 +11,7 @@ import type {
 import { nextId, resetDb, type Db } from '../db';
 import { productSpecs, sizeSets } from '../tables/_products_spec';
 import { slugify } from '@/lib/format';
-import { cancelOrderCore, notify, withReturnItemMeta } from './shop';
+import { cancelOrderCore, notify, placeOrderCore, withReturnItemMeta } from './shop';
 import { settingsView } from './catalog';
 import {
   ApiFail,
@@ -24,6 +24,7 @@ import {
   notFound,
   ok,
   paginate,
+  qList,
   qNum,
   qStr,
   sortBy,
@@ -408,12 +409,12 @@ function orderFrom(ctx: Ctx) {
 
 export function adminOrders(ctx: Ctx): Result {
   const q = ctx.query;
-  const status = qStr(q, 'status');
+  const statuses = qList(q, 'status');
   const pay = qStr(q, 'paymentStatus');
   const search = fold(qStr(q, 'q'));
   let list = ctx.db.orders.filter(
     (o) =>
-      (!status || o.status === status) &&
+      (!statuses.length || statuses.includes(o.status)) &&
       (!pay || o.paymentStatus === pay) &&
       inRange(o.createdAt, qStr(q, 'from'), qStr(q, 'to')),
   );
@@ -443,6 +444,44 @@ export function adminOrderCounts(ctx: Ctx): Result {
   for (const s of ['pending', 'confirmed', 'processing', 'shipping', 'completed', 'cancelled', 'refunded'])
     out[s] = ctx.db.orders.filter((o) => o.status === s).length;
   return ok(out);
+}
+
+export function adminCreateOrder(ctx: Ctx): Result {
+  const db = ctx.db;
+  const b = ctx.body ?? {};
+  const errs: Record<string, string> = {};
+  const user = db.users.find((u) => u.id === Number(b.userId) && u.id !== ADMIN_ID);
+  if (!user) errs.userId = 'Vui lòng chọn khách hàng.';
+  if (!Array.isArray(b.items) || !b.items.length) errs.items = 'Vui lòng thêm ít nhất một sản phẩm.';
+  if (!b.paymentMethod) errs.paymentMethod = 'Vui lòng chọn phương thức thanh toán.';
+  if (Object.keys(errs).length) throw validation(errs);
+  const addr =
+    db.addresses.find((a) => a.userId === user!.id && a.isDefault) ??
+    db.addresses.find((a) => a.userId === user!.id);
+  if (!addr) throw new ApiFail('BAD_REQUEST', 'Khách hàng chưa có địa chỉ giao hàng.');
+  const lines = (b.items as Array<{ variantId: number; quantity: number }>).map((it) => {
+    const v = db.productVariants.find((x) => x.id === Number(it.variantId));
+    const p = v ? db.products.find((x) => x.id === v.productId) : null;
+    if (!v || !p) throw notFound('Sản phẩm');
+    const qty = Math.max(1, Math.floor(Number(it.quantity)));
+    if (v.stockQuantity < qty)
+      throw new ApiFail('OUT_OF_STOCK', `"${p.name}" chỉ còn ${v.stockQuantity} sản phẩm trong kho.`, {
+        variantId: v.id,
+        available: v.stockQuantity,
+      });
+    return { v, p, qty };
+  });
+  const order = placeOrderCore(
+    db,
+    user!,
+    addr,
+    b.paymentMethod,
+    b.note ? String(b.note) : null,
+    lines,
+    undefined,
+    ADMIN_ID,
+  );
+  return created(orderView(db, order, { customer: true }));
 }
 
 export const adminOrder = (ctx: Ctx): Result => ok(orderView(ctx.db, orderFrom(ctx), { customer: true }));

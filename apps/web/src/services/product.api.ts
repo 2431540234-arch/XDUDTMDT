@@ -57,6 +57,10 @@ export const categoryApi = {
   tree: () => http.get<CategoryNode[]>('/categories'),
 };
 
+export const brandApi = {
+  list: () => http.get<Array<{ id: number; name: string; slug: string }>>('/brands'), // TODO: chưa có trong BE (có /admin/brands)
+};
+
 export const wishlistApi = {
   list: () => http.get<ProductListItem[]>('/wishlist'),
   add: (slug: string) => http.put<null>(`/wishlist/${slug}`),

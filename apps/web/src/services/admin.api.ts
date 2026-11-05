@@ -47,6 +47,12 @@ export const adminApi = {
   orders: {
     list: (q: Query) => http.list<OrderView>('/admin/orders', q),
     counts: () => http.get<Record<string, number>>('/admin/orders/counts'), // TODO: chưa có trong BE
+    create: (body: {
+      userId: number;
+      paymentMethod: string;
+      note?: string;
+      items: Array<{ variantId: number; quantity: number }>;
+    }) => http.post<OrderView>('/admin/orders', body),
     get: (code: string) => http.get<OrderView>(`/admin/orders/${code}`),
     setStatus: (id: number, status: OrderStatus, note?: string) =>
       http.patch<OrderView>(`/admin/orders/${id}/status`, { status, note }),
