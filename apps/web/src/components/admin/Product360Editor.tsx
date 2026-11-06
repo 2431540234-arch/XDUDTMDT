@@ -139,8 +139,8 @@ export default function Product360Editor({ productId }: { productId: number }) {
       <UploadDropzone
         label={`Tải ảnh frame cho màu ${active}`}
         multiple
-        maxMB={5}
-        hint="Kéo thả nhiều ảnh (frame-01.jpg … frame-36.jpg) – tự sắp xếp theo tên tệp"
+        maxMB={2}
+        hint="Kéo thả nhiều ảnh (frame-01.jpg … frame-36.jpg, tối đa 2MB/ảnh) – tự sắp xếp theo tên tệp"
         onError={toast.error}
         onFiles={addFiles}
       />

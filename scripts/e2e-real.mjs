@@ -24,7 +24,10 @@ const GROUPS = [
     files: ['tests/e2e/home.spec.ts', 'tests/e2e/screens.spec.ts'],
     grepInvert: 'admin: đăng nhập và duyệt mọi màn hình',
   },
-  { name: 'xem-360', files: ['tests/e2e/product360.spec.ts'] },
+  {
+    name: 'xem-360',
+    files: ['tests/e2e/product360.spec.ts', 'tests/e2e/spaces360.spec.ts', 'tests/e2e/admin360.spec.ts'],
+  },
   { name: 'admin-m2', files: ['tests/e2e/admin-m2.spec.ts'] },
   { name: 'admin-m3', files: ['tests/e2e/admin-m3.spec.ts'] },
 ];

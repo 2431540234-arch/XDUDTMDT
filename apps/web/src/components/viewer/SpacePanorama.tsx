@@ -4,7 +4,7 @@
 // hotspot lưu tọa độ (yaw, pitch). Kéo để xoay, cuộn để zoom, tự xoay, toàn màn hình.
 import { Html, OrbitControls, useTexture } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect, useRef, useState } from 'react';
+import { Component, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import Icon from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
@@ -109,6 +109,38 @@ function HotspotDot({
   );
 }
 
+/** Ảnh 360° tải lỗi (mất mạng, tệp bị xóa…) chỉ làm hỏng khung xem, không làm sập cả trang */
+class PanoramaBoundary extends Component<{ children: ReactNode; resetKey: string }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: false });
+  }
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div
+        role="alert"
+        className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 bg-ink p-6 text-center text-white/80"
+      >
+        <p className="text-sm">Không tải được ảnh 360° này. Vui lòng kiểm tra kết nối rồi thử lại.</p>
+        <button
+          type="button"
+          onClick={() => {
+            useTexture.clear(this.props.resetKey); // bỏ kết quả lỗi đã nhớ để tải lại thật sự
+            this.setState({ failed: false });
+          }}
+          className="rounded-btn bg-white px-4 py-1.5 text-sm font-semibold text-ink"
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
+}
+
 interface Props {
   panorama: PanoramaView;
   onSelect: (h: Hotspot) => void;
@@ -135,17 +167,19 @@ export default function SpacePanorama({ panorama, onSelect, selectedId, overlay,
       className={cn('relative h-full min-h-[360px] w-full overflow-hidden bg-ink', className)}
       onWheel={(e) => zoom(e.deltaY > 0 ? 4 : -4)}
     >
-      <Canvas
-        camera={{ fov, near: 0.1, far: 200, position: [0, 0, 0.1] }}
-        dpr={[1, 2]}
-        aria-label="Ảnh 360 độ"
-      >
-        <Sphere url={panorama.url} />
-        <Rig yaw={panorama.defaultYaw} pitch={panorama.defaultPitch} fov={fov} autoRotate={auto} />
-        {panorama.hotspots.map((h) => (
-          <HotspotDot key={h.id} h={h} onSelect={onSelect} active={selectedId === h.id} />
-        ))}
-      </Canvas>
+      <PanoramaBoundary resetKey={panorama.url}>
+        <Canvas
+          camera={{ fov, near: 0.1, far: 200, position: [0, 0, 0.1] }}
+          dpr={[1, 2]}
+          aria-label="Ảnh 360 độ"
+        >
+          <Sphere url={panorama.url} />
+          <Rig yaw={panorama.defaultYaw} pitch={panorama.defaultPitch} fov={fov} autoRotate={auto} />
+          {panorama.hotspots.map((h) => (
+            <HotspotDot key={h.id} h={h} onSelect={onSelect} active={selectedId === h.id} />
+          ))}
+        </Canvas>
+      </PanoramaBoundary>
       <span className="pointer-events-none absolute left-4 top-4 rounded-full bg-black/55 px-3 py-1.5 text-xs font-medium text-white">
         360° · Kéo để xoay
       </span>
