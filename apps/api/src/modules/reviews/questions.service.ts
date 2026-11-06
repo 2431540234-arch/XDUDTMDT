@@ -13,6 +13,8 @@ export const QUESTION_INCLUDE = {
   product: { include: { productImages: { where: { isPrimary: true }, include: { media: true }, take: 1 } } },
 } satisfies Prisma.ProductQuestionInclude;
 
+export const MAX_QUESTIONS_PER_HOUR = 5;
+
 export type QuestionRow = Prisma.ProductQuestionGetPayload<{ include: typeof QUESTION_INCLUDE }>;
 
 @Injectable()
@@ -57,6 +59,23 @@ export class QuestionsService {
     const p = await this.products.bySlug(slug);
     const content = str(asBody(raw).content).trim();
     if (content.length < 10) new FieldErrors().add('content', 'Câu hỏi tối thiểu 10 ký tự.').throwIfAny();
+    if (content.length > 500) new FieldErrors().add('content', 'Câu hỏi tối đa 500 ký tự.').throwIfAny();
+    // chống spam: không quá 5 câu hỏi/giờ/khách và không gửi lại đúng nội dung cũ trong 24 giờ
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    const dayAgo = new Date(Date.now() - 86_400_000);
+    const [recent, dup] = await Promise.all([
+      this.prisma.productQuestion.count({ where: { userId, createdAt: { gte: hourAgo } } }),
+      this.prisma.productQuestion.findFirst({
+        where: { userId, productId: p.id, content, createdAt: { gte: dayAgo } },
+      }),
+    ]);
+    if (recent >= MAX_QUESTIONS_PER_HOUR) {
+      throw new AppException(
+        ErrorCode.RATE_LIMITED,
+        'Bạn gửi câu hỏi quá nhanh, vui lòng thử lại sau ít phút.',
+      );
+    }
+    if (dup) throw new AppException(ErrorCode.CONFLICT, 'Bạn đã gửi câu hỏi này rồi.');
     const row = await this.prisma.productQuestion.create({
       data: { productId: p.id, userId, content },
       include: QUESTION_INCLUDE,

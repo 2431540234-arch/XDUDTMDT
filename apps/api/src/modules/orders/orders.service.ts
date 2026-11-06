@@ -7,10 +7,10 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { nextOrderCode } from '../../common/utils/code-generator';
 import { qList, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { notify } from '../../common/utils/notify';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CartService } from '../cart/cart.service';
 import { CouponsService } from '../coupons/coupons.service';
 import { ORDER_INCLUDE, OrderViewsService, type OrderRow } from './order-views.service';
@@ -46,6 +46,7 @@ export class OrdersService {
     private readonly orderViews: OrderViewsService,
     private readonly cart: CartService,
     private readonly coupons: CouponsService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** Ghi người thực hiện + ghi chú cho trigger trg_orders_log_status (order_status_history) trong transaction hiện tại */
@@ -247,7 +248,7 @@ export class OrdersService {
           if (cartItemIds.length) await tx.cartItem.deleteMany({ where: { id: { in: cartItemIds } } });
           if (wholeCart) await tx.cart.updateMany({ where: { userId: p.userId }, data: { couponId: null } });
         }
-        await notify(
+        await this.notifications.notify(
           tx,
           p.userId,
           `Đặt hàng thành công ${orderCode}`,
@@ -367,7 +368,7 @@ export class OrdersService {
       await tx.payment.updateMany({ where: { orderId, status: 'pending' }, data: { status: 'failed' } });
       await this.setActor(tx, actorId, reason);
       await tx.order.update({ where: { id: orderId }, data: { status: 'cancelled', cancelReason: reason } });
-      await notify(
+      await this.notifications.notify(
         tx,
         o.user_id,
         `Đơn ${o.order_code} đã được hủy`,

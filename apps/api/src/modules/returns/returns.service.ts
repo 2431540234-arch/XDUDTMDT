@@ -7,11 +7,11 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { nextReturnCode } from '../../common/utils/code-generator';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { notify } from '../../common/utils/notify';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { RETURN_WINDOW_DAYS } from '../orders/order-views.service';
 
 export const RETURN_INCLUDE = {
@@ -39,6 +39,20 @@ export const RETURN_INCLUDE = {
 
 export type ReturnRow = Prisma.ReturnRequestGetPayload<{ include: typeof RETURN_INCLUDE }>;
 
+/** Đổi trả chỉ trong N ngày kể từ khi giao thành công (đơn completed) */
+export function isWithinReturnWindow(
+  deliveredAt: Date | null,
+  now: Date = new Date(),
+  days = RETURN_WINDOW_DAYS,
+): boolean {
+  return Boolean(deliveredAt) && deliveredAt!.getTime() + days * 86_400_000 >= now.getTime();
+}
+
+/** Số lượng còn được yêu cầu = số đã mua − số đã nằm trong các yêu cầu khác (không bị từ chối) */
+export function returnableQuantity(purchased: number, alreadyRequested: number): number {
+  return Math.max(0, purchased - alreadyRequested);
+}
+
 const REASONS = ['defect', 'wrong_item', 'not_as_described', 'missing_accessory', 'change_mind'];
 
 @Injectable()
@@ -47,6 +61,7 @@ export class ReturnsService {
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
     private readonly ingest: MediaIngestService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /** ReturnRequest theo contract */
@@ -117,8 +132,7 @@ export class ReturnsService {
 
     // hạn đổi trả: đơn đã giao và trong 7 ngày kể từ lúc giao
     const delivered = o.shipments.find((s) => s.deliveredAt)?.deliveredAt ?? null;
-    const until = delivered ? delivered.getTime() + RETURN_WINDOW_DAYS * 86_400_000 : 0;
-    if (o.status !== 'completed' || !delivered || until < Date.now()) {
+    if (o.status !== 'completed' || !isWithinReturnWindow(delivered)) {
       throw new AppException(
         ErrorCode.INVALID_STATE,
         `Đơn hàng đã quá hạn ${RETURN_WINDOW_DAYS} ngày đổi trả.`,
@@ -135,10 +149,16 @@ export class ReturnsService {
     const lines = rawItems.map((x) => {
       const it = o.orderItems.find((y) => y.id === toId(x.orderItemId));
       if (!it) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Sản phẩm trong đơn không tồn tại.');
-      const left = it.quantity - (taken.get(it.id) ?? 0);
+      const left = returnableQuantity(it.quantity, taken.get(it.id) ?? 0);
       if (left <= 0)
         throw new AppException(ErrorCode.INVALID_STATE, `"${it.productName}" đã được yêu cầu đổi trả.`);
-      return { it, qty: Math.min(Math.max(1, Math.floor(Number(x.quantity) || 1)), left) };
+      const qty = Math.floor(Number(x.quantity) || 1);
+      if (qty < 1 || qty > left) {
+        throw new AppException(ErrorCode.VALIDATION_FAILED, 'Dữ liệu không hợp lệ.', {
+          items: [`"${it.productName}": số lượng đổi trả tối đa là ${left}.`],
+        });
+      }
+      return { it, qty };
     });
     const refundAmount = lines.reduce((s, l) => s + Number(l.it.unitPrice) * l.qty, 0);
 
@@ -162,7 +182,7 @@ export class ReturnsService {
         },
         include: RETURN_INCLUDE,
       });
-      await notify(
+      await this.notifications.notify(
         tx,
         userId,
         `Đã nhận yêu cầu đổi trả ${code}`,

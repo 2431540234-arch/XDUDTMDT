@@ -462,6 +462,12 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 - Khóa tài khoản: mọi request của người bị khóa (kể cả token còn hạn) ⇒ `403 AUTH_ACCOUNT_LOCKED`.
 - `POST /admin/users`: mật khẩu tạm ngẫu nhiên gửi qua email (mock đặt `12345678`).
 - `POST /admin/settings/reset-mock`: chỉ có ở mock, BE không cài.
+- **Mốc 3 – endpoint thêm/khác mock**: `PATCH /admin/banners/reorder` `{ids}`; `GET /posts/:slug`; `POST|PATCH|DELETE /admin/pages`; `/admin/faq` (+ `/topics`, `/items`); `GET /admin/contact-messages` + `PATCH /admin/contact-messages/:id/handled`; `POST /spaces/:slug/add-to-cart` → `{ added, unavailable:[{productId,name,reason}], cart }`; `POST /admin/models/upload` (multipart `file` + `productId`, `variantId?`, `allowAr?`, `scale?`, `unit?`, `placement?`).
+- **Đổi trả**: `POST /returns` số lượng vượt `đã mua − đã yêu cầu` ⇒ `400 VALIDATION_FAILED` (`details.items`); quá 7 ngày ⇒ `409 INVALID_STATE`; `PATCH /admin/returns/:id` loại `refund` chỉ sang `refunded`, loại `exchange` chỉ sang `exchanged`; từ chối bắt buộc `adminNote`.
+- **Hỏi đáp**: `PATCH /admin/questions/:id` nhận thêm `{ status: "visible" }` (hiện lại). `POST /products/:slug/questions` giới hạn 5 câu/giờ (`429 RATE_LIMITED`), trùng nội dung 24h ⇒ `409 CONFLICT`.
+- **Đánh giá**: `images` tối đa 5 (`400`), mỗi ảnh ≤ 5MB (`413`), sai chữ ký tệp (`415`).
+- **Mô hình 3D**: `POST /admin/models` nhận thêm `fileData` (data-URL) / `unit`; tệp ≤ 50MB, `.glb|.gltf|.usdz`, kiểm tra chữ ký; không có `fileData` ⇒ BE dùng tệp mẫu cùng định dạng (FE chưa gửi nhị phân).
+- **Liên hệ**: `POST /contact` giới hạn 5 lần/phút/IP (`429`).
 - Cổng API mặc định **4000** (`NEXT_PUBLIC_API_URL=http://localhost:4000`).
 
 ## 6. Ghi chú đối chiếu FE ⇄ shared-types

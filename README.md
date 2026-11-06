@@ -189,3 +189,19 @@ npm run dev -w @aurelia-living/web                          # http://localhost:3
 - Khôi phục dữ liệu mẫu: mở URL kèm `?resetMock=1` hoặc Admin → Cài đặt → Dữ liệu giả lập.
 - Trang nên xem trước: `/`, `/products/sofa-nordic`, `/products/sofa-nordic/3d`, `/spaces`, `/cart`, `/admin`.
 - Chi tiết: `apps/web/src/mock-data/README.md`.
+
+## Backend thật + kiểm thử (Mốc 1–3)
+
+| Việc | Lệnh |
+|---|---|
+| Hạ tầng dev (Postgres, Redis, MinIO, Mailpit) | `npm run docker:up` (service `api` cũ nằm trong profile `legacy`, không tự chạy) |
+| Tạo/seed DB demo từ mock-data | `node scripts/db-reset.mjs aurelia_demo` (chỉ chấp nhận `aurelia_demo` hoặc `aurelia_test`) |
+| Chạy API (cổng 4000, DB `aurelia_demo`) | `DATABASE_URL=postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public npm run start:dev -w @aurelia-living/api` |
+| FE dùng API thật | `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL=http://localhost:4000` trong `apps/web/.env.development.local` |
+| Swagger | http://localhost:4000/api/docs |
+| Email dev (OTP, mật khẩu tạm) | Mailpit http://localhost:8025 |
+| Unit test API | `npm test -w @aurelia-living/api` |
+| E2E API (supertest, DB `aurelia_test`) | `node scripts/db-reset.mjs aurelia_test && npm run test:e2e:db` |
+| **Playwright với API thật (một lệnh)** | `npm run test:e2e:real` – tự reset `aurelia_test`, build + chạy API test, chạy tuần tự các nhóm, tự dọn tiến trình (`E2E_ONLY=admin-m3` để chạy một nhóm) |
+
+Tài khoản: `admin@aurelia.vn` / `admin123`, `khachhang@aurelia.vn` / `123456`. **Không** chạy seed/reset trên `aurelia_dev`. Chi tiết: `docs/BE_PROGRESS.md`.

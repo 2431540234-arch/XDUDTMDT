@@ -1,5 +1,6 @@
 // Nội dung công khai: /banners, /posts, /faq, /contact, /settings/public
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from '../../common/decorators/auth.decorators';
 import { ContentService } from './content.service';
@@ -23,11 +24,19 @@ export class ContentController {
   }
 
   @Public()
+  @Get('posts/:slug')
+  post(@Param('slug') slug: string) {
+    return this.content.postBySlug(slug);
+  }
+
+  @Public()
   @Get('faq')
   faq() {
     return this.content.faq();
   }
 
+  // chống spam: tối đa 5 tin nhắn / phút / IP
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Public()
   @HttpCode(200)
   @Post('contact')

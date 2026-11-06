@@ -12,7 +12,7 @@
 | 4 | Trích xuất API contract → `docs/API_CONTRACT.md` | ✅ |
 | 5 | Thiết kế → `docs/BACKEND_DESIGN.md` | ✅ |
 | 6 | ⛔ Điểm dừng – người dùng đã "Đồng ý" (2026-11-06) | ✅ |
-| 7–9 | Nền tảng, migration/seed, module theo 4 mốc | 🟡 Mốc 1 ✅ · Mốc 2 ✅ · Mốc 3–4 chưa làm |
+| 7–9 | Nền tảng, migration/seed, module theo 4 mốc | 🟡 Mốc 1 ✅ · Mốc 2 ✅ · Mốc 3 ✅ · Mốc 4 chưa làm |
 | 10–12 | Test, nối FE, bàn giao | 🟡 đang làm dần theo từng mốc |
 
 ## Giai đoạn 1 – Tài liệu đã đọc & quy tắc nghiệp vụ tìm được
@@ -177,3 +177,60 @@ Lưu ý khi chạy với API thật: dữ liệu thay đổi giữa các test n�
 4. Tạo khách hàng từ admin: mock đặt mật khẩu `12345678`; BE sinh mật khẩu tạm ngẫu nhiên và gửi email (dev: in log + Mailpit).
 5. Cổng thanh toán online vẫn là giả lập; VNPAY sandbox thật ở Mốc 4.
 6. Chưa làm: Mốc 3 (đánh giá, hỏi đáp, đổi trả phía admin, thông báo admin, nội dung, không gian mẫu admin, mô hình 3D), Mốc 4 (kho, thu chi + báo cáo, cài đặt, VNPAY). Các trang admin tương ứng sẽ lỗi 404 với API thật cho đến khi làm xong.
+
+
+---
+
+## Mốc 3 – Tương tác khách hàng & nội dung (2026-11-06) ✅
+
+### 0. Hạ tầng làm trước
+| Việc | Cách xử lý |
+|---|---|
+| `docker-compose` service `api` cũ | **Cách (b)**: đưa vào `profiles: ['legacy']` ⇒ `docker compose up` không tự chạy và không tranh cổng 4000 nữa (`docker compose config --services` mặc định chỉ còn `mailpit minio minio-init postgres redis`). Muốn chạy bản cũ: `docker compose --profile legacy up api`. Không xóa container/volume. API mới chạy bằng `npm run start:dev -w @aurelia-living/api` (cổng 4000, `DATABASE_URL` trỏ `aurelia_demo`). |
+| Tiến trình API test còn chạy | Đã kiểm tra cổng 4000/4001/4002/3100: chỉ có API demo ở 4000. Runner `test:e2e:real` tự dọn 4002/3100 trước và sau khi chạy. |
+| Playwright với API thật – **một lệnh** | `npm run test:e2e:real` (script `scripts/e2e-real.mjs`): dừng tiến trình sót → build API → reset `aurelia_test` → khởi động API test (cổng 4002, DB `aurelia_test`) → với từng nhóm `khach-hang`, `xem-360`, `admin-m2`, `admin-m3` **reset lại aurelia_test rồi chạy Playwright** (web dev dùng `.next-e2e` riêng) → luôn dọn tiến trình. Chạy một nhóm: `E2E_ONLY=admin-m3 npm run test:e2e:real`. Chỉ đụng `aurelia_test`. |
+| E2E DB (supertest) | `node scripts/db-reset.mjs aurelia_test && npm run test:e2e:db` (tự dừng nếu không phải `aurelia_test`). |
+| Thông báo email dev | Email (OTP, mật khẩu tạm khi admin tạo khách) xem tại **Mailpit http://localhost:8025** (SMTP 1025); `MAIL_TRANSPORT=direct` gửi ngay, `queue` đi qua BullMQ. Mật khẩu tạm còn được in ra log API ở môi trường dev. |
+| `aurelia_dev` | Chỉ `migrate deploy` migration `add_contact_handled`: số dòng không đổi (users 3, categories 4, products 2, orders 1), `_prisma_migrations` 6 → 7. |
+
+### 1. Điểm lệch Mốc 2 đã chốt
+`completed` = "Đã giao"; Ẩn đánh giá = `rejected`, hiện lại = `approved`; nút "Khôi phục dữ liệu mẫu": **FE đã tự ẩn khi `NEXT_PUBLIC_USE_MOCK=false`** (tab "Dữ liệu giả lập" chỉ nằm trong menu khi `USE_MOCK=true`, xem `app/admin/settings/page.tsx` dòng `menu`) nên không cần sửa FE; mật khẩu tạm ngẫu nhiên + email giữ nguyên; `GET /admin/orders/:code/invoice` giữ nguyên. *(Mục "cần ẩn nút" ở báo cáo Mốc 2 là mình ghi chưa kiểm tra kỹ.)*
+
+### 2. Endpoint Mốc 3 và trạng thái kiểm thử
+**U** = unit, **E** = e2e supertest (`mock-m3.db-spec.ts`), **P** = Playwright với API thật.
+| Module | Endpoint | Test |
+|---|---|---|
+| Đánh giá (admin) | `GET /admin/reviews` (tab Tất cả/Chờ duyệt/Đã duyệt/Ẩn = `status`, `productId`, `q`, `sort`) · `PATCH /admin/reviews/:id/status` (duyệt/ẩn/hiện lại; duyệt ⇒ thông báo; điểm trung bình do trigger DB, chỉ `approved`) | U (điều kiện, trung bình) · E · P (trang) |
+| Đánh giá (khách) | `POST /products/:slug/reviews` (chỉ đơn `completed` của mình, 1/sản phẩm/đơn, ≤ 5 ảnh ≤ 5MB, mới = `pending`) · `PATCH /reviews/:id` (sửa ⇒ `pending`) · `DELETE /reviews/:id` · `GET /reviews/me` | U · E |
+| Hỏi đáp | `POST /products/:slug/questions` (đăng nhập; ≤ 5 câu/giờ, trùng nội dung 24h ⇒ 409) · `GET /products/:slug/questions` (chỉ đã trả lời + công khai) · `GET /admin/questions` (tab) · `PATCH /admin/questions/:id` (trả lời/sửa `{answer,isPublic}`, ẩn `{status:hidden}`, hiện `{status:visible}`; thông báo khi trả lời) | E · P (trang) |
+| Đổi trả | Khách: `POST /returns` (≤ 7 ngày kể từ lúc giao, số lượng ≤ đã mua − đã yêu cầu, ảnh bắt buộc, mã `RTnnnn`), `GET /returns` · Admin: `GET /admin/returns`, `PATCH /admin/returns/:id` (pending→picking→inspecting→refunded\|exchanged \| rejected; nhận hàng về ⇒ cộng tồn đúng biến thể + movement `return`; hoàn tiền ⇒ phiếu chi `refund`, đủ tiền hàng ⇒ đơn/thanh toán `refunded`; mỗi bước: thông báo + activity log; sai thứ tự 409) | U (7 ngày, số lượng, máy trạng thái) · E · P |
+| Thông báo | Khách: `GET /notifications` (tab `type=order\|promo\|system`), `/unread-count`, `PATCH /:id/read`, `/read-all` · Admin: `GET /admin/notifications` · **`NotificationsService` dùng chung** (Global) cho orders, payments, admin-orders, đổi trả, đánh giá, hỏi đáp | E |
+| Banner | `GET\|POST /admin/banners`, `PATCH\|DELETE /admin/banners/:id`, **`PATCH /admin/banners/reorder`** `{ids}` (lưu thứ tự kéo thả) · công khai `GET /banners` chỉ trả banner bật + trong thời gian | E · P |
+| Bài viết | `GET\|POST /admin/posts`, `PATCH\|DELETE /admin/posts/:id` (slug unique, HTML lọc XSS bằng `sanitize-html`, nháp/xuất bản) · công khai `GET /posts`, **`GET /posts/:slug`** (+ lượt xem) | U (XSS) · E |
+| Trang tĩnh & FAQ | `GET\|POST /admin/pages`, `PATCH\|DELETE /admin/pages/:id` (không xóa 7 trang hệ thống) · `GET /admin/faq`, `POST\|PATCH\|DELETE /admin/faq/topics`, `/admin/faq/items` · công khai `GET /pages`, `/pages/:slug`, `/faq` | E |
+| Liên hệ | `POST /contact` (giới hạn 5 lần/phút/IP) · `GET /admin/contact-messages` (`handled`) · `PATCH /admin/contact-messages/:id/handled` | E |
+| Không gian mẫu | Admin 5 tab: `GET\|POST /admin/spaces`, `GET\|PATCH\|DELETE /admin/spaces/:id` (ảnh 360° upload + thứ tự, hotspot yaw/pitch → sản phẩm có kiểm tra tồn tại/biến thể, sản phẩm gợi ý, trạng thái, `comboDiscountPercent`) · công khai `GET /spaces` (lọc), `/spaces/:slug` (giá combo tính ở server) · **`POST /spaces/:slug/add-to-cart`** (thêm các biến thể còn hàng, trả `{added, unavailable[{productId,name,reason}], cart}`) | U (giá combo) · E · P (trang) |
+| Mô hình 3D | `GET /admin/models` (lọc `productId`, `format`) · `POST /admin/models` (JSON, `fileData` data-URL tùy chọn) · **`POST /admin/models/upload` (multipart, tệp thật)** · `DELETE /admin/models/:id` · công khai `GET /products/:slug/model` (+ chi tiết sản phẩm, trang 360° dùng chung) | U (kiểm tra tệp) · E · P (trang) |
+Mọi route `/admin/*` có `@Roles('admin')` (khách ⇒ 403, không token ⇒ 401) và ghi `activity_logs`.
+
+### 3. Kiểm thử Mốc 3
+| Loại | Số lượng / kết quả |
+|---|---|
+| Unit (`npm test -w @aurelia-living/api`) | **87** test, 10 suite ✅ (mới: đánh giá, đổi trả, combo, kiểm tra tệp upload, lọc XSS) |
+| E2E supertest `aurelia_test` (`npm run test:e2e:db`) | **94** test ✅ (Mốc 2: 47 + Mốc 3: 47). Mốc 3 gồm: đặt hàng → completed → đánh giá → admin duyệt → điểm đổi; ẩn/hiện; đổi trả → hoàn tiền → tồn kho + phiếu chi đúng; đổi hàng không tạo phiếu chi; quá 7 ngày; không đụng dữ liệu người khác; 403 cho mọi `/admin/*`; banner/bài viết/XSS/trang/FAQ/liên hệ; không gian + thêm cả bộ vào giỏ (1 món hết hàng); upload mô hình (chữ ký, 50MB, MIME, path traversal) |
+| Playwright + API thật (`npm run test:e2e:real`) | **20** test ✅: khách + trang chủ 6 · 360° 8 · admin Mốc 2 · 3 · admin Mốc 3 · 3 |
+| `tsc` (API + web), `eslint` (0 lỗi), `nest build`, `next build` | ✅ |
+
+### 4. Thay đổi kỹ thuật đáng chú ý
+- **Migration mới** `add_contact_handled` (`contact_messages.handled_at`, `handled_by`).
+- **Thư viện mới**: `sanitize-html@2.13.0` (lọc HTML rich text chống XSS; ghim bản dùng `htmlparser2` CommonJS để chạy được trên Node 20 của CI) + `@types/sanitize-html`.
+- Đánh giá/đổi trả hiểu **"một đánh giá / sản phẩm / đơn"** và **"số lượng ≤ đã mua − đã yêu cầu"** ở cả service lẫn test; số lượng vượt ⇒ 400 với thông báo tiếng Việt (mock cũ chỉ kẹp số lượng).
+- Hoàn tiền một phần (chưa hoàn đủ tiền hàng): đơn vẫn `completed`, chỉ tạo phiếu chi; hoàn đủ ⇒ đơn + thanh toán `refunded`.
+- Lịch sử đổi trả = `activity_logs` (`return.update_status` kèm `from/to`), không thêm bảng.
+
+### 5. Còn lệch với FE / việc tồn đọng
+1. **Tải mô hình 3D**: FE hiện chỉ gửi metadata `{productId,fileName,sizeMB,format,allowAr,scale}` (không gửi nhị phân). BE xử lý bằng cách tạo bản sao tệp mẫu cùng định dạng (dữ liệu demo) khi không có `fileData`; đường tải tệp thật là `POST /admin/models/upload` (multipart) và `fileData` – **FE chưa gọi** (cần sửa FE nếu muốn tải thật).
+2. `.gltf` được lưu chung nhóm định dạng `glb` (enum DB chỉ có `glb|usdz`).
+3. **FAQ admin, liên hệ admin, đăng ký/sửa trang tĩnh (POST/DELETE), `GET /posts/:slug`, `PATCH /admin/banners/reorder`, `POST /spaces/:slug/add-to-cart`** là endpoint thêm theo yêu cầu – FE chưa có màn hình/gọi tương ứng (FE hiện "Thêm cả bộ" lặp từng `cartApi.addItem`; kéo thả banner chưa lưu thứ tự qua API).
+4. Hotspot DB chỉ có `productId` (không có `variantId`): BE kiểm tra biến thể thuộc sản phẩm nhưng không lưu.
+5. Chưa làm: **Mốc 4** (kho, thu chi + báo cáo, cài đặt, VNPAY sandbox). Các trang admin Kho/Thu chi/Cài đặt vẫn lỗi 404 với API thật.

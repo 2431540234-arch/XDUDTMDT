@@ -5,11 +5,15 @@
 import { Module } from '@nestjs/common';
 import { SpacesController } from './spaces.controller';
 import { AdminSpacesController } from './admin-spaces.controller';
+import { CartModule } from '../cart/cart.module';
+import { ProductsModule } from '../products/products.module';
+import { AdminSpacesService } from './admin-spaces.service';
 import { SpacesService } from './spaces.service';
 
 @Module({
+  imports: [CartModule, ProductsModule],
   controllers: [SpacesController, AdminSpacesController],
-  providers: [SpacesService],
-  exports: [SpacesService],
+  providers: [SpacesService, AdminSpacesService],
+  exports: [SpacesService, AdminSpacesService],
 })
 export class SpacesModule {}

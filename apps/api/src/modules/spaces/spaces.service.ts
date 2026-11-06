@@ -9,10 +9,16 @@ import { serialize } from '../../common/utils/serialize';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews, PRODUCT_INCLUDE } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { CartService } from '../cart/cart.service';
 
 export const COMBO_DISCOUNT_PERCENT = 10;
 
-const SPACE_INCLUDE = {
+/** Giá combo: tổng giá hiện tại của các sản phẩm × (100 − %giảm)/100, làm tròn đến nghìn đồng */
+export function calcComboTotal(originalTotal: number, discountPercent: number): number {
+  return Math.round((originalTotal * (100 - discountPercent)) / 100 / 1000) * 1000;
+}
+
+export const SPACE_INCLUDE = {
   coverMedia: true,
   spacePanoramas: {
     orderBy: { sortOrder: 'asc' },
@@ -24,13 +30,14 @@ const SPACE_INCLUDE = {
   },
 } satisfies Prisma.SpaceInclude;
 
-type SpaceRow = Prisma.SpaceGetPayload<{ include: typeof SPACE_INCLUDE }>;
+export type SpaceRow = Prisma.SpaceGetPayload<{ include: typeof SPACE_INCLUDE }>;
 
 @Injectable()
 export class SpacesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
+    private readonly cart: CartService,
   ) {}
 
   private productIds(s: SpaceRow): number[] {
@@ -115,7 +122,22 @@ export class SpacesService {
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
     await this.prisma.space.update({ where: { id: s.id }, data: { viewCount: { increment: 1 } } });
     s.viewCount += 1;
+    return this.buildDetail(s, userId);
+  }
 
+  /** Chi tiết cho admin: mọi trạng thái, không tính lượt xem */
+  async adminDetail(id: number) {
+    const s = await this.prisma.space.findUnique({ where: { id }, include: SPACE_INCLUDE });
+    if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
+    return this.buildDetail(s, null);
+  }
+
+  adminListItems(rows: SpaceRow[]) {
+    const none = new Set<number>();
+    return rows.map((s) => this.listItem(s, none));
+  }
+
+  private async buildDetail(s: SpaceRow, userId: number | null) {
     const bm = await this.bookmarks(userId);
     const ids = this.productIds(s);
     const productRows = ids.length
@@ -162,16 +184,55 @@ export class SpacesService {
       take: 4,
       orderBy: { id: 'asc' },
     });
-    const discount = Number(s.comboDiscountPercent ?? COMBO_DISCOUNT_PERCENT) || COMBO_DISCOUNT_PERCENT;
+    const discount = Number(s.comboDiscountPercent ?? 0) || COMBO_DISCOUNT_PERCENT;
     return {
       ...this.listItem(s, bm),
       panoramas,
       products: items,
       originalTotal,
-      comboTotal: Math.round((originalTotal * (100 - discount)) / 100 / 1000) * 1000,
+      comboTotal: calcComboTotal(originalTotal, discount),
       comboDiscountPercent: discount,
       similar: similarRows.map((x) => this.listItem(x, bm)),
     };
+  }
+
+  /**
+   * "Thêm cả bộ vào giỏ": thêm biến thể mặc định của từng sản phẩm trong không gian (nếu còn hàng).
+   * Món hết hàng/ngừng bán không làm hỏng cả thao tác: trả danh sách `unavailable` kèm lý do.
+   */
+  async addAllToCart(userId: number, slug: string) {
+    const s = await this.prisma.space.findFirst({
+      where: { slug, status: 'published' },
+      include: SPACE_INCLUDE,
+    });
+    if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
+    const ids = this.productIds(s);
+    const rows = ids.length
+      ? await this.prisma.product.findMany({ where: { id: { in: ids } }, include: PRODUCT_INCLUDE })
+      : [];
+    const added: Array<{ productId: number; name: string; variantId: number }> = [];
+    const unavailable: Array<{ productId: number; name: string; reason: string }> = [];
+    for (const id of ids) {
+      const p = rows.find((r) => r.id === id);
+      if (!p) continue;
+      const dv = this.views.defaultVariant(p);
+      if (p.status !== 'published' || p.deletedAt || !dv) {
+        unavailable.push({ productId: id, name: p.name, reason: 'Sản phẩm tạm ngừng bán' });
+        continue;
+      }
+      try {
+        await this.cart.addItem(userId, { variantId: dv.id, quantity: 1 });
+        added.push({ productId: id, name: p.name, variantId: dv.id });
+      } catch (e) {
+        if (
+          e instanceof AppException &&
+          (e.code === ErrorCode.OUT_OF_STOCK || e.code === ErrorCode.RESOURCE_NOT_FOUND)
+        ) {
+          unavailable.push({ productId: id, name: p.name, reason: e.message });
+        } else throw e;
+      }
+    }
+    return { added, unavailable, cart: await this.cart.view(userId) };
   }
 
   private async bySlug(slug: string) {

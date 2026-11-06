@@ -13,6 +13,34 @@ import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 
+export const MAX_REVIEW_IMAGES = 5;
+
+/**
+ * Điều kiện được đánh giá: sản phẩm nằm trong đơn "completed" của chính khách (purchasedAndDelivered),
+ * và chưa có đánh giá nào cho (khách, sản phẩm, đơn) đó.
+ */
+export function reviewEligibility(input: {
+  purchasedAndDelivered: boolean;
+  alreadyReviewed: boolean;
+}): null | 'PURCHASE_REQUIRED' | 'CONFLICT' {
+  if (!input.purchasedAndDelivered) return 'PURCHASE_REQUIRED';
+  if (input.alreadyReviewed) return 'CONFLICT';
+  return null;
+}
+
+/** Điểm trung bình hiển thị: chỉ tính đánh giá approved, làm tròn 2 chữ số (giống trigger refresh_product_rating) */
+export function averageRating(reviews: Array<{ rating: number; status: string }>): {
+  avg: number;
+  count: number;
+} {
+  const ok = reviews.filter((r) => r.status === 'approved');
+  if (!ok.length) return { avg: 0, count: 0 };
+  return {
+    avg: Math.round((ok.reduce((s, r) => s + r.rating, 0) / ok.length) * 100) / 100,
+    count: ok.length,
+  };
+}
+
 export const REVIEW_INCLUDE = {
   user: { include: { avatarMedia: true } },
   product: { include: { productImages: { where: { isPrimary: true }, include: { media: true }, take: 1 } } },
@@ -106,20 +134,26 @@ export class ReviewsService {
       },
       select: { id: true },
     });
-    if (!bought) {
+    const dup = bought
+      ? await this.prisma.review.findFirst({ where: { userId, productId: p.id, orderId: bought.id } })
+      : null;
+    const verdict = reviewEligibility({
+      purchasedAndDelivered: Boolean(bought),
+      alreadyReviewed: Boolean(dup),
+    });
+    if (verdict === 'PURCHASE_REQUIRED') {
       throw new AppException(
         ErrorCode.PURCHASE_REQUIRED,
         'Bạn chỉ có thể đánh giá sản phẩm đã mua và nhận hàng.',
       );
     }
-    const dup = await this.prisma.review.findFirst({
-      where: { userId, productId: p.id, orderId: bought.id },
-    });
-    if (dup) throw new AppException(ErrorCode.CONFLICT, 'Bạn đã đánh giá sản phẩm này rồi.');
+    if (verdict === 'CONFLICT')
+      throw new AppException(ErrorCode.CONFLICT, 'Bạn đã đánh giá sản phẩm này rồi.');
 
-    const imageUrls = Array.isArray(b.images)
-      ? (b.images as unknown[]).map(str).filter(Boolean).slice(0, 5)
-      : [];
+    const imageUrls = Array.isArray(b.images) ? (b.images as unknown[]).map(str).filter(Boolean) : [];
+    if (imageUrls.length > MAX_REVIEW_IMAGES) {
+      new FieldErrors().add('images', `Tối đa ${MAX_REVIEW_IMAGES} ảnh cho mỗi đánh giá.`).throwIfAny();
+    }
     const mediaIds: number[] = [];
     for (const u of imageUrls)
       mediaIds.push(await this.ingest.ingestImage(u, { userId, folder: `reviews/${p.id}` }));
@@ -128,7 +162,7 @@ export class ReviewsService {
       data: {
         userId,
         productId: p.id,
-        orderId: bought.id,
+        orderId: bought!.id,
         rating,
         content,
         status: 'pending', // chờ admin duyệt

@@ -1,7 +1,7 @@
 // M14 – Thông báo của khách: danh sách (lọc theo loại), số chưa đọc, đánh dấu đã đọc. Bảng: notifications
 // Thông báo do Service nghiệp vụ tạo (common/utils/notify.ts), data = { type, content, link }.
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
@@ -21,9 +21,26 @@ export function notificationView(n: NotificationRow) {
   };
 }
 
+export type NotificationType = 'order' | 'promo' | 'system';
+
+/**
+ * Dịch vụ thông báo DÙNG CHUNG cho mọi module (D-N19: Service tạo thông báo, không dùng trigger).
+ * data = { type, content, link } theo contract. Truyền `tx` để ghi cùng transaction với thao tác chính.
+ */
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  notify(
+    db: PrismaClient | Prisma.TransactionClient,
+    userId: number,
+    title: string,
+    type: NotificationType,
+    content: string,
+    link: string | null,
+  ) {
+    return db.notification.create({ data: { userId, title, data: { type, content, link } } });
+  }
 
   async list(userId: number, q: RawQuery) {
     const type = qStr(q, 'type');

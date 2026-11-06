@@ -3,12 +3,15 @@
 // Bảng: product_3d_models, model_files, model_material_variants
 // TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
 import { Module } from '@nestjs/common';
+import { ProductsModule } from '../products/products.module';
+import { AdminModelCatalogService } from './admin-model-catalog.service';
 import { AdminModelsController } from './admin-models.controller';
 import { ProductModelsService } from './product-models.service';
 
 @Module({
+  imports: [ProductsModule],
   controllers: [AdminModelsController],
-  providers: [ProductModelsService],
-  exports: [ProductModelsService],
+  providers: [ProductModelsService, AdminModelCatalogService],
+  exports: [ProductModelsService, AdminModelCatalogService],
 })
 export class ProductModelsModule {}

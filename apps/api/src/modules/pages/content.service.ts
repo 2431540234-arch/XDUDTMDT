@@ -91,6 +91,21 @@ export class ContentService {
     return rows.map((p) => this.postView(p));
   }
 
+  /** Chi tiết bài viết đã xuất bản (tăng lượt xem) */
+  async postBySlug(slug: string) {
+    const p = await this.prisma.post.findFirst({
+      where: { slug, status: 'published' },
+      include: { cover: true },
+    });
+    if (!p) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Bài viết không tồn tại.');
+    const updated = await this.prisma.post.update({
+      where: { id: p.id },
+      data: { views: { increment: 1 } },
+      include: { cover: true },
+    });
+    return this.postView(updated);
+  }
+
   // ---------------- trang tĩnh ----------------
   async pageBySlug(slug: string) {
     const p = await this.prisma.page.findFirst({ where: { slug, status: 'published' } });

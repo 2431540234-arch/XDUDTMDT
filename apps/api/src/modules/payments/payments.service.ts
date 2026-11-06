@@ -4,10 +4,10 @@ import { Injectable } from '@nestjs/common';
 import { PaymentMethod } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
-import { notify } from '../../common/utils/notify';
 import { asBody, str } from '../../common/utils/validate';
 import { AppConfig } from '../../config/app-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from '../orders/orders.service';
 
 const ONLINE: PaymentMethod[] = ['vnpay', 'momo', 'zalopay', 'card'];
@@ -18,6 +18,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
     private readonly config: AppConfig,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async own(userId: number, orderId: number) {
@@ -64,7 +65,7 @@ export class PaymentsService {
           where: { id: orderId },
           data: { paymentStatus: 'paid', ...(o.status === 'pending' ? { status: 'confirmed' } : {}) },
         });
-        await notify(
+        await this.notifications.notify(
           tx,
           o.user_id,
           `Thanh toán đơn ${o.order_code} thành công`,

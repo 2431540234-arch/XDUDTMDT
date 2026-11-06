@@ -5,13 +5,15 @@
 import { Module } from '@nestjs/common';
 import { PagesController } from './pages.controller';
 import { AdminPagesController } from './admin-pages.controller';
+import { AdminContentController } from './admin-content.controller';
+import { AdminContentService } from './admin-content.service';
 import { ContentController } from './content.controller';
 import { ContentService } from './content.service';
 import { PagesService } from './pages.service';
 
 @Module({
-  controllers: [PagesController, ContentController, AdminPagesController],
-  providers: [PagesService, ContentService],
-  exports: [PagesService, ContentService],
+  controllers: [PagesController, ContentController, AdminPagesController, AdminContentController],
+  providers: [PagesService, ContentService, AdminContentService],
+  exports: [PagesService, ContentService, AdminContentService],
 })
 export class PagesModule {}

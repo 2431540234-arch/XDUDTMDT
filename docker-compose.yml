@@ -96,6 +96,10 @@ services:
         echo "MinIO sẵn sàng: $$S3_BUCKET_PUBLIC (public), $$S3_BUCKET_PRIVATE (private)"
 
   api:
+    # LEGACY (đã chọn cách (b), xem docs/BE_PROGRESS.md "Hạ tầng Mốc 3"): bản API khung cũ chạy trên aurelia_dev, từng
+    # chiếm cổng 4000. Đưa vào profile riêng nên `docker compose up` KHÔNG tự chạy nó nữa. API mới chạy bằng
+    # `npm run start:dev -w @aurelia-living/api` (cổng 4000, DB aurelia_demo). Muốn chạy bản cũ: docker compose --profile legacy up api
+    profiles: ['legacy']
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.api

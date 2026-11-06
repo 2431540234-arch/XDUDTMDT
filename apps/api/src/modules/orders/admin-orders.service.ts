@@ -12,10 +12,10 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qList, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { notify } from '../../common/utils/notify';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { ORDER_INCLUDE, OrderViewsService } from './order-views.service';
 import { OrdersService } from './orders.service';
 
@@ -51,6 +51,7 @@ export class AdminOrdersService {
     private readonly orders: OrdersService,
     private readonly orderViews: OrderViewsService,
     private readonly activity: ActivityLogService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async find(key: string) {
@@ -249,7 +250,7 @@ export class AdminOrdersService {
 
       await this.orders.setActor(tx, adminId, str(b.note) || null);
       await tx.order.update({ where: { id: cur.id }, data: { status: to } });
-      await notify(
+      await this.notifications.notify(
         tx,
         cur.userId,
         `Đơn ${cur.orderCode} ${STATUS_LABEL[to] ?? to}`,
@@ -309,7 +310,7 @@ export class AdminOrdersService {
           orderId: o.id,
         },
       });
-      await notify(
+      await this.notifications.notify(
         tx,
         o.userId,
         `Đơn ${o.orderCode} đã được hoàn tiền`,
@@ -370,7 +371,7 @@ export class AdminOrdersService {
         where: { id: o.id },
         data: { paymentStatus: 'paid', ...(o.status === 'pending' ? { status: 'confirmed' } : {}) },
       });
-      await notify(
+      await this.notifications.notify(
         tx,
         o.userId,
         `Thanh toán đơn ${o.orderCode} đã được xác nhận`,

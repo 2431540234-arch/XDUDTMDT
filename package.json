@@ -34,6 +34,8 @@
     "infra:down": "docker compose stop postgres redis minio mailpit",
     "test:e2e:api": "npm run test:e2e -w @aurelia-living/api",
     "test:e2e:web": "npm run test:e2e -w @aurelia-living/web",
+    "test:e2e:real": "node scripts/e2e-real.mjs",
+    "test:e2e:db": "npm run test:e2e:db -w @aurelia-living/api",
     "mobile:build": "node scripts/mobile-build.mjs"
   },
   "devDependencies": {

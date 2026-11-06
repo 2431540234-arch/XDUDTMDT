@@ -1,12 +1,30 @@
-// M11 – Đánh giá sản phẩm. Đánh giá sản phẩm
-// Controller – UC-ADM-18
-// Bảng: reviews
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators/auth.decorators';
+// UC-ADM-18 – Quản trị đánh giá: /admin/reviews (chỉ role admin). Bảng: reviews
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
+import { paginated } from '../../common/interceptors/transform-response.interceptor';
+import type { RawQuery } from '../../common/utils/list-query';
+import { AdminReviewsService } from './admin-reviews.service';
 
 @ApiTags('Admin – reviews')
+@ApiBearerAuth()
 @Roles('admin')
 @Controller('admin/reviews')
-export class AdminReviewsController {}
+export class AdminReviewsController {
+  constructor(private readonly reviews: AdminReviewsService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Danh sách (status=pending|approved|rejected, productId, q, sort=createdAt|rating)',
+  })
+  async list(@Query() q: RawQuery) {
+    const r = await this.reviews.list(q);
+    return paginated(r.items, r.page, r.pageSize, r.total);
+  }
+
+  @Patch(':id/status')
+  @ApiOperation({ summary: 'Duyệt / Ẩn (rejected) / Hiện lại (approved): { status }' })
+  status(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    return this.reviews.setStatus(adminId, id, body);
+  }
+}
