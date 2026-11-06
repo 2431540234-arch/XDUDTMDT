@@ -32,9 +32,11 @@ import { PanoramasModule } from './panoramas/panoramas.module';
 import { HotspotsModule } from './hotspots/hotspots.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { AdminStatsModule } from './admin-stats/admin-stats.module';
+import { ReturnsModule } from './returns/returns.module';
 
 export const FEATURE_MODULES = [
   SettingsModule,
+  ReturnsModule,
   ActivityLogsModule,
   AuthModule,
   UsersModule,

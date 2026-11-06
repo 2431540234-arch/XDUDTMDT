@@ -15,6 +15,8 @@ if (!process.env.NEXT_PUBLIC_API_URL && process.env.NEXT_PUBLIC_USE_MOCK !== 'tr
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Thư mục build riêng cho e2e (NEXT_DIST_DIR) để chạy Playwright không đè lên server dev đang dùng .next
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@aurelia-living/shared-types'],
 };
 

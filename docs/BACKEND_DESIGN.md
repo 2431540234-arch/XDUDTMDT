@@ -7,7 +7,7 @@
 
 | Lớp | Hiện trạng |
 |---|---|
-| DB | PostgreSQL 16 (`xdudtmdt-postgres-1`, host `localhost:55432`, DB `aurelia_dev`). Prisma 5.14; 2 migration (`0_init`, `20261006134647_media_file_size_int`), `migrate status` = **up to date**. **Mọi bảng đang rỗng (0 dòng)** ⇒ migration additive **không có rủi ro mất dữ liệu**. 41 bảng, 19 enum. |
+| DB | PostgreSQL 16 (`xdudtmdt-postgres-1`, host `localhost:55432`, DB `aurelia_dev`). Prisma 5.14; 2 migration (`0_init`, `20261006134647_media_file_size_int`), `migrate status` = **up to date**. Bảng thống kê `pg_stat_user_tables` báo 0 dòng nhưng **thực tế DB `aurelia_dev` có sẵn bộ dữ liệu mẫu cũ (ngày 2026-10-06)**; migration chỉ thêm cột/bảng nên không làm mất dữ liệu đó. *(Đính chính ở Mốc 1.)* 41 bảng, 19 enum. |
 | Nền tảng BE (`apps/api`) | NestJS 10, prefix `/api`, `helmet`, CORS, `ValidationPipe`, `TransformResponseInterceptor` (envelope), `AllExceptionsFilter` (mã lỗi + tiếng Việt), `JwtAuthGuard` + `RolesGuard` toàn cục, Swagger `/docs`, `/health`, cấu hình env có validate, `StorageService` (local/MinIO/S3), mail (SMTP/Mailpit + BullMQ), Redis cache + throttler, `serialize()` (Decimal→number), `ActivityLogService`. **Đã dùng được, giữ nguyên.** |
 | Module nghiệp vụ | 35 thư mục `modules/*` nhưng controller/service là **khung rỗng** ("khung rỗng, chưa cài đặt logic"). Chỉ `media` (presign/confirm) và `health` có route thật. ⇒ **gần như toàn bộ 139 endpoint của contract phải xây mới.** |
 | FE | 54 màn hình + Xem 360° chạy trên mock; hợp đồng = `mockApi`. FE chỉ gửi Bearer access token, không dùng refresh. |

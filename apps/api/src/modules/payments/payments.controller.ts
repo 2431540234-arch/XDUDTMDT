@@ -1,10 +1,34 @@
-// M10 – Thanh toán và vận chuyển. Thanh toán (VNPay sandbox), IPN, xác nhận chuyển khoản, hoàn tiền thủ công
-// Controller – UC-PAY-01, 02, 03
-// Bảng: payments
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+// M12 – Thanh toán của khách: /payments/:orderId/checkout, /payments/:orderId/retry. Bảng: payments
+import { Body, Controller, HttpCode, Param, ParseIntPipe, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../common/decorators/auth.decorators';
+import { PaymentsService } from './payments.service';
 
 @ApiTags('payments')
+@ApiBearerAuth()
 @Controller('payments')
-export class PaymentsController {}
+export class PaymentsController {
+  constructor(private readonly payments: PaymentsService) {}
+
+  @Post(':orderId/checkout')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Bắt đầu thanh toán: trả redirectUrl (trang kết quả hoặc URL cổng thanh toán)' })
+  checkout(
+    @CurrentUser('id') uid: number,
+    @Param('orderId', ParseIntPipe) orderId: number,
+    @Body() body: unknown,
+  ) {
+    return this.payments.checkout(uid, orderId, body);
+  }
+
+  @Post(':orderId/retry')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Thanh toán lại (có thể đổi phương thức)' })
+  retry(
+    @CurrentUser('id') uid: number,
+    @Param('orderId', ParseIntPipe) orderId: number,
+    @Body() body: unknown,
+  ) {
+    return this.payments.retry(uid, orderId, body);
+  }
+}

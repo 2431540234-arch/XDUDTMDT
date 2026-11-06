@@ -74,6 +74,14 @@ export const envSchema = z.object({
   CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
   SWAGGER_ENABLED: bool.default('true'),
+
+  // Chỉ cho dev/test: OTP quên mật khẩu cố định (để Playwright chạy được). Production bật biến này => app KHÔNG khởi động.
+  OTP_FIXED_CODE: optional(z.string().regex(/^\d{6}$/, 'phải gồm đúng 6 chữ số')),
+  // Google OAuth (tùy chọn): chưa có thì POST /auth/google trả lỗi rõ ràng, các luồng khác không ảnh hưởng
+  GOOGLE_CLIENT_ID: optional(z.string()),
+  GOOGLE_CLIENT_SECRET: optional(z.string()),
+  // Cổng thanh toán giả lập khi chưa có khóa VNPAY: checkout trả redirect tới trang thành công/thất bại của FE
+  PAYMENT_SANDBOX_FAKE: bool.default('true'),
 });
 
 const MINIO_REQUIRED = ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] as const;
@@ -84,6 +92,13 @@ export function resolveForcePathStyle(env: Pick<Env, 'STORAGE_DRIVER' | 'S3_FORC
 }
 
 const envSchemaChecked = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && env.OTP_FIXED_CODE) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['OTP_FIXED_CODE'],
+      message: 'KHÔNG được bật ở NODE_ENV=production (OTP cố định là lỗ hổng bảo mật). Hãy xóa biến này.',
+    });
+  }
   if (env.STORAGE_DRIVER !== 'minio') return;
   for (const key of MINIO_REQUIRED) {
     if (!env[key]) {

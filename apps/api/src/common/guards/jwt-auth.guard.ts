@@ -26,9 +26,23 @@ export class JwtAuthGuard implements CanActivate {
       ctx.getHandler(),
       ctx.getClass(),
     ]);
-    if (isPublic) return true;
-
     const req = ctx.switchToHttp().getRequest<Request & { user?: RequestUser }>();
+    if (isPublic) {
+      // Route công khai vẫn nhận diện người dùng nếu có token hợp lệ (ví dụ isWishlisted); token sai thì coi như khách
+      const [sch, tok] = req.headers.authorization?.split(' ') ?? [];
+      if (sch === 'Bearer' && tok) {
+        try {
+          const payload = await this.jwt.verifyAsync<AccessTokenPayload>(tok, {
+            secret: this.config.get('JWT_ACCESS_SECRET'),
+          });
+          req.user = { id: payload.sub, roles: payload.roles ?? [] };
+        } catch {
+          /* bỏ qua: khách vãng lai */
+        }
+      }
+      return true;
+    }
+
     const [scheme, token] = req.headers.authorization?.split(' ') ?? [];
     if (scheme !== 'Bearer' || !token) {
       throw new AppException(ErrorCode.AUTH_UNAUTHENTICATED, 'Bạn chưa đăng nhập.');

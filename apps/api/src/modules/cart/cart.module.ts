@@ -4,9 +4,11 @@
 // TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
 import { Module } from '@nestjs/common';
 import { CartController } from './cart.controller';
+import { CouponsModule } from '../coupons/coupons.module';
 import { CartService } from './cart.service';
 
 @Module({
+  imports: [CouponsModule],
   controllers: [CartController],
   providers: [CartService],
   exports: [CartService],

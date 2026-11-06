@@ -5,11 +5,14 @@
 import { Module } from '@nestjs/common';
 import { ReviewsController } from './reviews.controller';
 import { AdminReviewsController } from './admin-reviews.controller';
+import { ProductsModule } from '../products/products.module';
+import { QuestionsService } from './questions.service';
 import { ReviewsService } from './reviews.service';
 
 @Module({
+  imports: [ProductsModule],
   controllers: [ReviewsController, AdminReviewsController],
-  providers: [ReviewsService],
-  exports: [ReviewsService],
+  providers: [ReviewsService, QuestionsService],
+  exports: [ReviewsService, QuestionsService],
 })
 export class ReviewsModule {}

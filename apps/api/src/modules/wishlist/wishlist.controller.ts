@@ -1,10 +1,27 @@
-// M03 – Tài khoản cá nhân. Danh sách yêu thích
-// Controller – UC-ACC-06
-// Bảng: wishlists
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+// M08 – Yêu thích: /wishlist (chỉ của chính khách)
+import { Controller, Delete, Get, Param, Put } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../../common/decorators/auth.decorators';
+import { WishlistService } from './wishlist.service';
 
 @ApiTags('wishlist')
+@ApiBearerAuth()
 @Controller('wishlist')
-export class WishlistController {}
+export class WishlistController {
+  constructor(private readonly wishlist: WishlistService) {}
+
+  @Get()
+  list(@CurrentUser('id') uid: number) {
+    return this.wishlist.list(uid);
+  }
+
+  @Put(':slug')
+  add(@CurrentUser('id') uid: number, @Param('slug') slug: string) {
+    return this.wishlist.add(uid, slug);
+  }
+
+  @Delete(':slug')
+  remove(@CurrentUser('id') uid: number, @Param('slug') slug: string) {
+    return this.wishlist.remove(uid, slug);
+  }
+}

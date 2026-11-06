@@ -19,6 +19,7 @@ import { MailModule } from './mail/mail.module';
 import { FEATURE_MODULES } from './modules';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ViewsModule } from './common/views/views.module';
 import { StorageModule } from './storage/storage.module';
 
 // ValidationPipe được gắn trong app.setup.ts (cần cho cả app thật lẫn test e2e).
@@ -26,6 +27,7 @@ import { StorageModule } from './storage/storage.module';
   imports: [
     ConfigModule,
     PrismaModule,
+    ViewsModule,
     // Giới hạn tốc độ dùng chung giữa các tiến trình nhờ lưu bộ đếm trong Redis (M02 siết chặt hơn bằng @Throttle)
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],

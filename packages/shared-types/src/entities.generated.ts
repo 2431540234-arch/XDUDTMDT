@@ -26,7 +26,7 @@ export interface Address {
   ward: string;
   addressLine: string;
   isDefault: boolean;
-  label: string;
+  label?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -65,7 +65,7 @@ export interface AttributeValue {
   id: number;
   attributeId: number;
   value: string;
-  colorHex: string | null;
+  colorHex?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,7 +100,7 @@ export interface CartItem {
 export interface Cart {
   id: number;
   userId: number;
-  couponId: number | null;
+  couponId?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,8 +113,8 @@ export interface Category {
   imageMediaId: number | null;
   sortOrder: number;
   isActive: boolean;
-  description: string | null;
-  isFeatured: boolean;
+  description?: string | null;
+  isFeatured?: boolean;
   metaTitle: string | null;
   metaDescription: string | null;
   createdAt: string;
@@ -132,9 +132,10 @@ export interface CouponUsage {
 export interface Coupon {
   id: number;
   code: string;
-  name: string | null;
-  description: string | null;
-  appliesTo: string;
+  name?: string | null;
+  description?: string | null;
+  appliesTo?: string;
+  appliesToLabel?: string | null;
   type: CouponType;
   value: number;
   maxDiscount: number | null;
@@ -211,9 +212,9 @@ export interface OrderItem {
   variantId: number | null;
   productName: string;
   sku: string;
-  variantLabel: string | null;
-  imageMediaId: number | null;
-  costPrice: number;
+  variantLabel?: string | null;
+  imageMediaId?: number | null;
+  costPrice?: number;
   unitPrice: number;
   quantity: number;
   lineTotal: number | null;
@@ -251,7 +252,7 @@ export interface Order {
   paymentStatus: OrderPaymentStatus;
   note: string | null;
   cancelReason: string | null;
-  internalNote: string | null;
+  internalNote?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -260,7 +261,7 @@ export interface Page {
   id: number;
   title: string;
   slug: string;
-  type: string;
+  type?: string;
   content: string | null;
   status: ContentStatus;
   metaTitle: string | null;
@@ -275,9 +276,9 @@ export interface PasswordReset {
   userId: number;
   expiresAt: string;
   usedAt: string | null;
-  otpHash: string | null;
-  attempts: number;
-  lastSentAt: string | null;
+  otpHash?: string | null;
+  attempts?: number;
+  lastSentAt?: string | null;
   createdAt: string;
 }
 
@@ -340,12 +341,12 @@ export interface ProductVariant {
   salePrice: number | null;
   stockQuantity: number;
   weightGram: number | null;
-  costPrice: number;
-  minStock: number;
-  reservedQuantity: number;
-  lengthCm: number | null;
-  widthCm: number | null;
-  heightCm: number | null;
+  costPrice?: number;
+  minStock?: number;
+  reservedQuantity?: number;
+  lengthCm?: number | null;
+  widthCm?: number | null;
+  heightCm?: number | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -366,8 +367,8 @@ export interface Product {
   soldCount: number;
   has3dModel: boolean;
   hasAr: boolean;
-  style: string | null;
-  features: JsonValue;
+  style?: string | null;
+  features?: JsonValue;
   metaTitle: string | null;
   metaDescription: string | null;
   deletedAt: string | null;
@@ -382,8 +383,8 @@ export interface Review {
   orderId: number | null;
   rating: number;
   content: string | null;
-  tags: string;
-  isAnonymous: boolean;
+  tags?: string[];
+  isAnonymous?: boolean;
   status: ReviewStatus;
   createdAt: string;
   updatedAt: string;
@@ -501,7 +502,7 @@ export interface Space {
   coverMediaId: number | null;
   status: ContentStatus;
   viewCount: number;
-  comboDiscountPercent: number;
+  comboDiscountPercent?: number;
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -530,10 +531,10 @@ export interface User {
   fullName: string;
   email: string;
   phone: string | null;
-  gender: string | null;
-  birthday: string | null;
-  loyaltyPoints: number;
-  adminNote: string | null;
+  gender?: string | null;
+  birthday?: string | null;
+  loyaltyPoints?: number;
+  adminNote?: string | null;
   avatarMediaId: number | null;
   status: UserStatus;
   emailVerifiedAt: string | null;
@@ -571,6 +572,7 @@ export interface Product360Config {
   enabled: boolean;
   autoRotate: boolean;
   rotationSpeed: number;
+  defaultColorId?: number | null;
   frameCount: number;
   createdAt: string;
   updatedAt: string;

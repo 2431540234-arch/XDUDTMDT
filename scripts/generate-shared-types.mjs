@@ -55,7 +55,7 @@ for (const m of text.matchAll(/^model (\w+) \{\n([\s\S]*?)^\}/gm)) {
     const [, fname, ftype, mod] = fm;
     if (modelNames.includes(ftype)) continue; // bỏ quan hệ
     if ((SENSITIVE[name] ?? []).includes(fname)) continue;
-    fields.push({ name: fname, type: ftype, optional: mod === '?' });
+    fields.push({ name: fname, type: ftype, optional: mod === '?', list: mod === '[]' });
   }
   models.push({ name, fields });
 }
@@ -82,6 +82,41 @@ const enumsOut =
     )
     .join('\n');
 
+const BACKEND_EXTRA = new Set([
+  'User.gender',
+  'User.birthday',
+  'User.loyaltyPoints',
+  'User.adminNote',
+  'PasswordReset.otpHash',
+  'PasswordReset.attempts',
+  'PasswordReset.lastSentAt',
+  'Address.label',
+  'Category.description',
+  'Category.isFeatured',
+  'Product.style',
+  'Product.features',
+  'ProductVariant.costPrice',
+  'ProductVariant.minStock',
+  'ProductVariant.reservedQuantity',
+  'ProductVariant.lengthCm',
+  'ProductVariant.widthCm',
+  'ProductVariant.heightCm',
+  'AttributeValue.colorHex',
+  'Review.tags',
+  'Review.isAnonymous',
+  'Coupon.name',
+  'Coupon.description',
+  'Coupon.appliesTo',
+  'Coupon.appliesToLabel',
+  'Cart.couponId',
+  'Order.internalNote',
+  'OrderItem.variantLabel',
+  'OrderItem.imageMediaId',
+  'OrderItem.costPrice',
+  'Page.type',
+  'Space.comboDiscountPercent',
+  'Product360Config.defaultColorId',
+]);
 const usedEnums = new Set();
 const body = models
   .map((mo) => {
@@ -92,7 +127,10 @@ const body = models
         t = f.type;
         usedEnums.add(f.type);
       }
-      return `  ${f.name}: ${t}${f.optional ? ' | null' : ''};`;
+      if (f.list) t = `${t}[]`;
+      // Cột bổ sung của backend (migration add_backend_extras): khai báo tùy chọn để mock-data của FE (chưa có các trường này) vẫn biên dịch
+      const opt = BACKEND_EXTRA.has(`${mo.name}.${f.name}`) ? '?' : '';
+      return `  ${f.name}${opt}: ${t}${f.optional ? ' | null' : ''};`;
     });
     return `export interface ${mo.name} {\n${lines.join('\n')}\n}\n`;
   })

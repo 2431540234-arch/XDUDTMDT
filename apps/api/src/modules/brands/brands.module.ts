@@ -4,10 +4,11 @@
 // TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
 import { Module } from '@nestjs/common';
 import { AdminBrandsController } from './admin-brands.controller';
+import { BrandsController } from './brands.controller';
 import { BrandsService } from './brands.service';
 
 @Module({
-  controllers: [AdminBrandsController],
+  controllers: [BrandsController, AdminBrandsController],
   providers: [BrandsService],
   exports: [BrandsService],
 })

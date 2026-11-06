@@ -172,6 +172,63 @@ async function main() {
     `đọc mock-data: ${db.users.length} người dùng, ${db.products.length} sản phẩm, ${db.orders.length} đơn`,
   );
 
+  // ---- bảo vệ dữ liệu có sẵn: nếu DB đã có người dùng/sản phẩm KHÔNG thuộc mock (ví dụ bộ dữ liệu mẫu cũ), id sẽ trùng nhau
+  //      và ON CONFLICT DO NOTHING sẽ trộn hai bộ dữ liệu. Dừng lại và hướng dẫn dùng DB riêng thay vì ghi đè.
+  const mockEmails = db.users.map((u) => u.email.toLowerCase());
+  const mockSlugs = db.products.map((p) => p.slug);
+  const [foreignUsers, foreignProducts] = await Promise.all([
+    prisma.user.count({ where: { email: { notIn: mockEmails } } }),
+    prisma.product.count({ where: { slug: { notIn: mockSlugs } } }),
+  ]);
+  if ((foreignUsers > 0 || foreignProducts > 0) && process.env.SEED_FORCE !== '1') {
+    throw new Error(
+      [
+        `CSDL đang có dữ liệu không thuộc mock (${foreignUsers} người dùng, ${foreignProducts} sản phẩm lạ).`,
+        'Seed mock giữ nguyên id của mock nên sẽ trộn lẫn với dữ liệu đó. Hãy seed vào một DB trống:',
+        '  tạo DB mới (vd. aurelia_demo) → đặt DATABASE_URL tới DB đó → npm run db:deploy → npm run db:seed',
+        '(đặt SEED_FORCE=1 nếu vẫn muốn chạy).',
+      ].join('\n'),
+    );
+  }
+
+  // ---- thuộc tính: DB có thể đã có sẵn attributes/attribute_values (dữ liệu cũ) với id khác mock → ánh xạ theo
+  //      (code thuộc tính) và (thuộc tính, giá trị); chỉ tạo mới những gì chưa có, không sửa/xóa dữ liệu cũ.
+  const dbAttrs = await prisma.attribute.findMany();
+  const dbVals = await prisma.attributeValue.findMany();
+  const usedAttr = new Set(dbAttrs.map((a) => a.id));
+  const usedVal = new Set(dbVals.map((v) => v.id));
+  const attrMap = new Map<number, number>();
+  const newAttrs: Prisma.AttributeCreateManyInput[] = [];
+  for (const a of db.attributes) {
+    const ex = dbAttrs.find((x) => x.code === a.code);
+    if (ex) attrMap.set(a.id, ex.id);
+    else {
+      let id = usedAttr.has(a.id) ? Math.max(...usedAttr) + 1 : a.id;
+      while (usedAttr.has(id)) id++;
+      usedAttr.add(id);
+      attrMap.set(a.id, id);
+      newAttrs.push({ ...a, id });
+    }
+  }
+  const valMap = new Map<number, number>();
+  const newVals: Prisma.AttributeValueCreateManyInput[] = [];
+  const hexUpdates: Array<{ id: number; hex: string }> = [];
+  for (const v of db.attributeValues) {
+    const attrId = attrMap.get(v.attributeId)!;
+    const ex = dbVals.find((x) => x.attributeId === attrId && x.value === v.value);
+    const hexv = db.colorHexByValueId[v.id] ?? null;
+    if (ex) {
+      valMap.set(v.id, ex.id);
+      if (hexv && !ex.colorHex) hexUpdates.push({ id: ex.id, hex: hexv });
+    } else {
+      let id = usedVal.has(v.id) ? Math.max(...usedVal) + 1 : v.id;
+      while (usedVal.has(id)) id++;
+      usedVal.add(id);
+      valMap.set(v.id, id);
+      newVals.push({ ...v, id, attributeId: attrId, colorHex: hexv });
+    }
+  }
+
   // ---- media: giữ id của mock; URL phát sinh thêm (banner, bài viết, frame 360, ảnh đánh giá…) cấp id mới
   const mediaRows: MediaOut[] = [];
   const byUrl = new Map<string, number>();
@@ -315,7 +372,7 @@ async function main() {
     for (const u of f.frames) {
       frames360.push({
         configId: cfg.productId, // tạm dùng productId = configId (đặt id cấu hình = productId)
-        attributeValueId: f.colorId,
+        attributeValueId: valMap.get(f.colorId)!,
         frameIndex: i++,
         mediaId: await mediaIdFor(u),
       });
@@ -357,11 +414,11 @@ async function main() {
         skipDuplicates: true,
       });
       await tx.brand.createMany({ data: db.brands, skipDuplicates: true });
-      await tx.attribute.createMany({ data: db.attributes, skipDuplicates: true });
-      await tx.attributeValue.createMany({
-        data: db.attributeValues.map((v) => ({ ...v, colorHex: db.colorHexByValueId[v.id] ?? null })),
-        skipDuplicates: true,
-      });
+      await tx.attribute.createMany({ data: newAttrs, skipDuplicates: true });
+      await tx.attributeValue.createMany({ data: newVals, skipDuplicates: true });
+      for (const h of hexUpdates) {
+        await rawTx.attributeValue.update({ where: { id: h.id }, data: { colorHex: h.hex } });
+      }
 
       await tx.product.createMany({
         data: db.products.map((p) => ({
@@ -377,25 +434,48 @@ async function main() {
         ),
         skipDuplicates: true,
       });
-      await tx.productVariant.createMany({
-        data: db.productVariants.map((v) => {
-          const e = extras.get(v.productId);
-          const [l, w, h] = e?.dims ?? [0, 0, 0];
-          const k = e?.sizeDimMult?.[sizeOfVariant.get(v.id) ?? 'Tiêu chuẩn'] ?? 1;
-          const price = v.salePrice ?? v.price;
-          return {
-            ...v,
-            costPrice: Math.round(price * (e?.costRatio ?? 0.62)),
-            minStock: e?.minStock ?? 5,
-            reservedQuantity: reserved.get(v.id) ?? 0,
-            lengthCm: l ? Math.round((l * k) / 10) : null,
-            widthCm: w ? Math.round((w * k) / 10) : null,
-            heightCm: h ? Math.round((h * k) / 10) : null,
-          };
-        }),
+      // Mock lưu tồn "có thể bán" (đã trừ hàng đang giữ cho đơn chưa giao); DB lưu tồn vật lý + số đang giữ
+      const variantRows = db.productVariants.map((v) => {
+        const e = extras.get(v.productId);
+        const [l, w, h] = e?.dims ?? [0, 0, 0];
+        const size = sizeOfVariant.get(v.id) ?? 'Tiêu chuẩn';
+        const k = e?.sizeDimMult?.[size] ?? 1;
+        const hk = ['Cao 1m2', 'Cao 1m5'].includes(size) ? k : 1; // chỉ biến thể "Cao" đổi chiều cao
+        const price = v.salePrice ?? v.price;
+        const held = reserved.get(v.id) ?? 0;
+        return {
+          ...v,
+          stockQuantity: v.stockQuantity + held,
+          reservedQuantity: held,
+          costPrice: Math.round(price * (e?.costRatio ?? 0.62)),
+          minStock: e?.minStock ?? 5,
+          lengthCm: l ? Math.round((l * k) / 10) : null,
+          widthCm: w ? Math.round((w * k) / 10) : null,
+          heightCm: h ? Math.round((h * hk) / 10) : null,
+        };
+      });
+      await tx.productVariant.createMany({ data: variantRows, skipDuplicates: true });
+      // thông số tĩnh của biến thể (kích thước, giá vốn) luôn đồng bộ lại; tồn kho/giữ hàng là dữ liệu vận hành nên không ghi đè
+      for (const v of variantRows) {
+        await rawTx.productVariant.update({
+          where: { id: v.id },
+          data: {
+            lengthCm: v.lengthCm,
+            widthCm: v.widthCm,
+            heightCm: v.heightCm,
+            costPrice: v.costPrice,
+            minStock: v.minStock,
+          },
+        });
+      }
+      await tx.variantAttributeValue.createMany({
+        data: db.variantAttributeValues.map((x) => ({
+          ...x,
+          attributeId: attrMap.get(x.attributeId)!,
+          attributeValueId: valMap.get(x.attributeValueId)!,
+        })),
         skipDuplicates: true,
       });
-      await tx.variantAttributeValue.createMany({ data: db.variantAttributeValues, skipDuplicates: true });
       await tx.productImage.createMany({ data: db.productImages, skipDuplicates: true });
       await tx.product3DModel.createMany({
         data: db.product3dModels.map((m) => ({ ...m, uuid: fixUuid(m.uuid) })) as never,
@@ -411,10 +491,17 @@ async function main() {
           autoRotate: c.autoRotate,
           rotationSpeed: c.rotationSpeed,
           frameCount: c.frameCount,
+          defaultColorId: valMap.get(c.defaultColorId) ?? null,
         })),
         skipDuplicates: true,
       });
       await tx.product360Frame.createMany({ data: frames360, skipDuplicates: true });
+      for (const c of db.product360) {
+        await rawTx.product360Config.update({
+          where: { productId: c.productId },
+          data: { defaultColorId: valMap.get(c.defaultColorId) ?? null },
+        });
+      }
 
       // không gian mẫu
       await tx.space.createMany({
@@ -444,10 +531,15 @@ async function main() {
             name: x?.name ?? null,
             description: x?.description ?? null,
             appliesTo: x?.appliesTo ?? 'all',
+            appliesToLabel: x?.appliesToLabel ?? 'Tất cả sản phẩm',
           };
         }),
         skipDuplicates: true,
       });
+      for (const c of db.coupons) {
+        const x = cx.get(c.id);
+        if (x) await rawTx.coupon.update({ where: { id: c.id }, data: { appliesToLabel: x.appliesToLabel } });
+      }
       await tx.couponScope.createMany({
         data: db.couponExtras.flatMap((x) =>
           x.categoryIds.map((id) => ({ couponId: x.couponId, targetType: 'category', targetId: id })),
