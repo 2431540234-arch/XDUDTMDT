@@ -743,5 +743,7 @@ export interface ContactMessage {
   email: string;
   subject: string;
   content: string;
+  handledAt: string | null;
+  handledBy: number | null;
   createdAt: string;
 }
