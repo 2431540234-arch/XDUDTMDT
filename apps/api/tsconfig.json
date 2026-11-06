@@ -18,9 +18,11 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@aurelia-living/shared-types": ["../../packages/shared-types/src/index.ts"]
+      "@aurelia-living/shared-types": ["../../packages/shared-types/src/index.ts"],
+      "@/*": ["../web/src/*"]
     },
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
   "include": ["src/**/*", "test/**/*", "prisma/**/*"]
 }
