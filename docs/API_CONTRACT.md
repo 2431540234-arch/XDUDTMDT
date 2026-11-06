@@ -34,12 +34,13 @@
 
 ### 1.2 Xác thực (cách FE đang làm)
 
-- FE chỉ lưu `accessToken` (Zustand persist `localStorage`) và gửi `Authorization: Bearer`. **FE chưa dùng refresh token** và không đọc cookie ⇒ BE trả `{ user, tokens:{accessToken, refreshToken} }` trong body; `accessToken` nên sống đủ lâu cho phiên làm việc (đề xuất 12 giờ ở môi trường dev, cấu hình `JWT_ACCESS_EXPIRES_IN`). BE vẫn cung cấp `POST /auth/refresh` (xoay vòng) cho giai đoạn sau; **không cần sửa FE** để chạy.
+- FE lưu `accessToken` + `refreshToken` (Zustand persist `localStorage`) và gửi `Authorization: Bearer`. Khi gặp `401` FE gọi `POST /auth/refresh` **một lần** (dùng chung một promise cho các request song song) rồi thử lại; refresh thất bại ⇒ đăng xuất cục bộ. BE trả `{ user, tokens:{accessToken, refreshToken} }` trong body. Access token sống `JWT_ACCESS_EXPIRES_IN` (production ≤ 15 phút); refresh token xoay vòng, `POST /auth/logout` gửi `refreshToken` để thu hồi.
 - 401 khi **có gửi token** ⇒ FE đăng xuất cục bộ. Vì vậy chỉ trả 401 khi token thật sự sai/hết hạn; thiếu quyền trả 403.
 - Khách gọi `/admin/*` ⇒ `403 FORBIDDEN` ("Bạn không có quyền truy cập khu vực quản trị."). Tài khoản `suspended/banned` ⇒ `403 AUTH_ACCOUNT_LOCKED` ở đăng nhập và ở mọi request.
 - Đăng nhập admin dùng cùng endpoint `POST /auth/login` với `adminOnly: true`; tài khoản không phải admin ⇒ `403 FORBIDDEN` ("Tài khoản không có quyền quản trị.").
 - Thông báo lỗi đăng nhập: sai email/mật khẩu ⇒ `401 AUTH_INVALID_CREDENTIALS` "Email hoặc mật khẩu không đúng." (không tiết lộ email có tồn tại hay không).
-- OTP quên mật khẩu: mock luôn là `123456`; **BE thật sinh OTP 6 số ngẫu nhiên** (hết hạn 5 phút, tối đa 5 lần thử, gửi lại sau 60 giây), dev in ra log và gửi Mailpit. Seed/e2e có thể bật `OTP_FIXED_CODE=123456` ở môi trường dev/test để giữ test FE chạy được.
+- Quên mật khẩu **bằng liên kết token qua email** (không còn OTP): `POST /auth/forgot-password` gửi email chứa `/reset-password?token=<64 hex>`; token hash SHA-256 trong `password_resets`, hết hạn sau 30 phút, chỉ dùng một lần, gửi lại tối thiểu cách 60 giây. Email dev xem ở Mailpit (http://localhost:8025).
+- Xác thực email: đăng ký gửi email chứa `/verify-email?token=<JWT purpose verify_email>`; `POST /auth/verify-email {token}`, `POST /auth/resend-verification` (cần đăng nhập). **Chưa xác thực email ⇒ không đánh giá được** (`403 EMAIL_NOT_VERIFIED`).
 
 ### 1.3 Nguyên tắc khớp dữ liệu
 
@@ -55,7 +56,9 @@
 | `POST /auth/login`, `/auth/register`, `/auth/google` | `{ user: SessionUser, tokens: { accessToken, refreshToken } }` – `SessionUser = { id, uuid, email, fullName, status, roles: ('admin'\|'user')[], avatarUrl: string\|null, phone: string\|null }` (201 cho register) |
 | `POST /auth/logout` | `null` |
 | `POST /auth/forgot-password` | `{ sent: true }` (luôn thành công kể cả email không tồn tại – chống dò email) |
-| `POST /auth/reset-password` | `null`; OTP sai/hết hạn ⇒ `400 BAD_REQUEST` ("Mã OTP không đúng hoặc đã hết hạn.") |
+| `POST /auth/reset-password` | `null`; token sai/hết hạn/đã dùng ⇒ `400 BAD_REQUEST` |
+| `POST /auth/verify-email` | `null`; token sai/hết hạn ⇒ `400 BAD_REQUEST` |
+| `POST /auth/resend-verification` | `{ sent: true }` |
 | `GET /orders/counts`, `GET /admin/orders/counts` | `{ all, pending, confirmed, processing, shipping, completed, cancelled, refunded }` (số đơn theo trạng thái; admin: toàn hệ thống, khách: của mình) |
 | `POST /payments/:orderId/checkout`, `/retry` | `{ redirectUrl: string }` – URL tương đối của FE (`/checkout/success?order=<code>` hoặc `/checkout/failed?order=<code>`) hoặc URL cổng thanh toán (VNPAY) |
 | `GET /notifications/unread-count` | `{ count: number }` |
@@ -106,7 +109,9 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | POST | `/auth/register` | public | `auth.` |  | { fullName, email, phone, password } | `EMAIL_ALREADY_EXISTS` |
 | POST | `/auth/logout` | public | `auth.logout` |  |  |  |
 | POST | `/auth/forgot-password` | public | `auth.forgotPassword` |  | { email } |  |
-| POST | `/auth/reset-password` | public | `auth.` |  | { email, otp, password } | `BAD_REQUEST` |
+| POST | `/auth/reset-password` | public | `auth.` |  | { token, password } | `BAD_REQUEST` |
+| POST | `/auth/verify-email` | public | `auth.` |  | { token } | `BAD_REQUEST` |
+| POST | `/auth/resend-verification` | user | `auth.` |  |  | `RATE_LIMITED` |
 | POST | `/auth/google` | public | `auth.googleLogin` |  |  |  |
 
 ### 4. `users`
@@ -207,7 +212,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
-| POST | `/payments/:orderId/checkout` | user | `cart.` |  | { outcome?: "success"\|"failed" } | `INVALID_STATE` |
+| POST | `/payments/:orderId/checkout` | user | `cart.` |  | (không có body; nếu có `outcome` sẽ bị bỏ qua) | `INVALID_STATE`, `503` khi tắt giả lập và chưa có VNPAY |
 | POST | `/payments/:orderId/retry` | user | `cart.` |  | { method? } | `INVALID_STATE` |
 
 ### 4. `returns`
@@ -433,7 +438,6 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/inventory` | admin | `admin.rows` | `categoryId`, `q`, `sort`, `state` |  |  |
 | GET | `/admin/inventory/summary` | admin | `admin.` |  |  |  |
 | GET | `/admin/inventory/receipts` | admin | `admin.receipts` |  |  |  |
-| GET | `/admin/inventory/suppliers` | admin | `admin.suppliers` |  |  |  |
 | POST | `/admin/inventory/receipts` | admin | `admin.createReceipt` |  | { type:"in"\|"out", supplierId?, items:[{variantId, quantity, costPrice}] } | `OUT_OF_STOCK` |
 
 ### 4. `admin/expenses`
@@ -908,7 +912,7 @@ export interface InventoryRow {
   categoryName: string;
   costPrice: number; // TODO: chưa có trong DB
   stockQuantity: number;
-  reservedQty: number; // TODO: chưa có trong DB (suy từ đơn chưa giao)
+  reservedQty: number; // KHÔNG còn giữ chỗ (tồn bị trừ ngay khi đặt hàng); Mốc 4 quyết định suy ra hay bỏ cột
   available: number;
   minStock: number; // TODO: chưa có trong DB
   state: 'in_stock' | 'low' | 'out';

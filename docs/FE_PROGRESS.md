@@ -118,3 +118,13 @@ Không thêm thư viện mới.
 - ✅ Mobile 390px (thanh dưới cố định, menu ⋯) và tablet 768px.
 - ✅ Không lỗi console/HTTP/ảnh vỡ ở trang 360°.
 - Phần 4 (admin tab "Ảnh 360°"): đã dựng (bật/tắt, chọn màu, tải nhiều ảnh tự sắp xếp theo tên tệp, kéo thả đổi thứ tự, xem trước xoay, cảnh báo lệch số frame); chưa có test tự động riêng.
+
+---
+
+## Cập nhật 2026-11-07 (đợt đưa về chuẩn + hoàn thiện web)
+
+- **API thật:** chạy với `NEXT_PUBLIC_USE_MOCK=false`; FE tự refresh access token khi 401 (`services/api-client.ts`), có test `tests/unit/api-refresh.test.ts`.
+- **Màn mới/đổi:** `/verify-email` (xác thực email), `/reset-password?token=` (đặt lại bằng liên kết), banner xác thực email ở hồ sơ; `RichText` dùng `react-markdown` (không HTML thô); trang không gian ghi 1 lượt xem (`POST /spaces/:slug/views`); thanh toán online không gửi `outcome`.
+- **360°:** `components/viewer/SpacePanorama.tsx` có error boundary (ảnh lỗi ⇒ thông báo + "Thử lại", không sập trang); editor 360° sản phẩm giới hạn 2 MB/frame cho khớp máy chủ.
+- **Test mới:** `tests/e2e/spaces360.spec.ts` (khách: xem/xoay, hotspot, thêm cả bộ, lưu, mobile 390px, ảnh lỗi), `tests/e2e/admin360.spec.ts` (admin: tải/sửa/xóa 360° sản phẩm; tạo/sửa/xóa không gian với hotspot).
+- **Còn lại cho FE:** nút vào trang `/products/[slug]/360` đã bị gỡ ở commit `2505d25` (cần quyết định khôi phục); cột "Đang giữ" ở Kho; ~30 chú thích `TODO: chưa có trong BE` cũ; bỏ gọi `GET /admin/inventory/suppliers` và đổi ô chọn nhà cung cấp thành ô nhập chữ khi làm Mốc 4.

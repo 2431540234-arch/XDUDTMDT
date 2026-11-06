@@ -234,3 +234,38 @@ Mọi route `/admin/*` có `@Roles('admin')` (khách ⇒ 403, không token ⇒ 4
 3. **FAQ admin, liên hệ admin, đăng ký/sửa trang tĩnh (POST/DELETE), `GET /posts/:slug`, `PATCH /admin/banners/reorder`, `POST /spaces/:slug/add-to-cart`** là endpoint thêm theo yêu cầu – FE chưa có màn hình/gọi tương ứng (FE hiện "Thêm cả bộ" lặp từng `cartApi.addItem`; kéo thả banner chưa lưu thứ tự qua API).
 4. Hotspot DB chỉ có `productId` (không có `variantId`): BE kiểm tra biến thể thuộc sản phẩm nhưng không lưu.
 5. Chưa làm: **Mốc 4** (kho, thu chi + báo cáo, cài đặt, VNPAY sandbox). Các trang admin Kho/Thu chi/Cài đặt vẫn lỗi 404 với API thật.
+
+---
+
+## Đợt "Đưa code về chuẩn + hoàn thiện web" (2026-11-07) ✅
+
+Chuẩn: `CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`, `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`. Phần giữ/làm thêm ngoài chuẩn: **`CHUAN_MO_RONG.md`** (thay cho việc cập nhật `DATABASE_SCHEMA.md` sau mỗi migration). Kế hoạch gốc: `DB_ALIGNMENT_PLAN.md`, `BAO_CAO_BUOC_2.md`, ghi chú nhận việc: `ONBOARDING_NOTES.md`.
+
+| Bước | Commit | Nội dung |
+|---|---|---|
+| 1–3 | `28f73d5`, `4083b0b`, `66a1950` | 19 bảng mới dùng IDENTITY + trigger `updated_at` + `COMMENT ON`; FAQ gộp vào `settings`; bỏ `suppliers`; trừ `stock_quantity` ngay khi đặt, cộng lại khi hủy, bỏ `reserved_quantity` |
+| 4 | `5d8b26f` | Bỏ OTP; đặt lại mật khẩu bằng liên kết token qua email (hết hạn 30 phút, một lần) |
+| 5 | `1b79771` | Markdown nguyên văn + `react-markdown`, bỏ `sanitize-html`, FE tự refresh token, Swagger `/docs`, ghim phiên bản, TTL access production ≤ 15 phút |
+| 6 | `a295c2a` | Xác thực email (đánh giá yêu cầu email đã xác thực), `sold_count` tăng khi đơn hoàn tất (migration tính lại), lượt xem không gian `POST /spaces/:slug/views` |
+| 7 | `6dbcb97` | Thanh toán giả an toàn (khách không chọn kết quả; production cấm), hoàn tiền theo tiền thực trả (chia coupon, không hoàn phí ship), đổi hàng cộng/trừ tồn hai biến thể (+ migration `return_exchange_variant`) |
+| 8 | `e954bc4` | Rà soát 360°: thêm test khách + admin với API thật; khung xem panorama báo lỗi thay vì sập trang; giới hạn frame 360° ở FE khớp 2 MB của máy chủ |
+
+### Kết quả kiểm thử (sau bước 8)
+Typecheck + lint sạch; Vitest web 23; Jest unit API 99; supertest DB thật 109; Playwright API thật: `khach-hang` 8, `xem-360` 23 (gồm `spaces360` 9 + `admin360` 6), `admin-m2` 3, `admin-m3` 3.
+Migration: 15 (gồm `0_init`); mỗi migration đã `pg_dump` + diễn tập trên `aurelia_rehearsal` + đối chiếu `count(*)` (dữ liệu `aurelia_dev` không đổi, chỉ `_prisma_migrations` 7 → 15).
+
+### Để sau (đã được chủ dự án hoãn)
+- MinIO/presign upload; Redis cache (`CacheService`); xử lý nền mô hình 3D (LOD, đo đa giác) và giới hạn 100 MB.
+- `PermissionsGuard`, `ActivityLogInterceptor` (nhật ký hiện ghi trực tiếp trong service).
+- Mọi UC "Mốc 5": AR, đổi chất liệu 3D, placement, quản lý phiên, xóa tài khoản, thương hiệu, thuộc tính, media, vận đơn, gửi thông báo thủ công, màn nhật ký, thống kê AR.
+- **Mốc 4** (chờ chủ dự án gọi): Kho (phiếu ⇒ `inventory_movements`, nhà cung cấp là cột chữ), Thu chi + báo cáo, Cài đặt, VNPAY (URL/chữ ký/IPN thử bằng khóa giả; giữ chế độ giả lập demo).
+- Android (Mốc 6).
+
+### Còn nợ
+Xem `CHUAN_MO_RONG.md` Phần 3 (19 mục), nổi bật:
+1. Lối vào trang `/products/[slug]/360` đã bị gỡ khỏi trang chi tiết (commit `2505d25`) — khách chỉ vào được bằng URL.
+2. Giá combo của không gian chỉ hiển thị, giỏ hàng chưa áp.
+3. Đổi tên không gian làm đổi slug (liên kết cũ 404).
+4. Tải ảnh qua JSON base64 (body 25 MB): nhiều frame 360°/panorama lớn có thể vượt giới hạn.
+5. `users.loyalty_points`, `carts.coupon_id`, chiều trạng thái vận đơn: chờ xác nhận giữ/bỏ.
+6. Hai lần fail chập chờn chưa tái hiện (supertest "Hỏi đáp" 404; Playwright `khach-hang` lúc máy nặng).

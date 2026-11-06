@@ -32,8 +32,8 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | --- | --- | --- | --- | --- |
 | `JWT_ACCESS_SECRET` | **Có** (≥ 16 ký tự) | không | guard JWT, M02 | `openssl rand -hex 32` |
 | `JWT_REFRESH_SECRET` | **Có** (≥ 16 ký tự) | không | M02 | như trên |
-| `JWT_ACCESS_EXPIRES_IN` | Tùy chọn | `15m` | M02 | Chưa có chỗ đọc, M02 sẽ dùng |
-| `JWT_REFRESH_EXPIRES_IN` | Tùy chọn | `7d` | M02 | như trên |
+| `JWT_ACCESS_EXPIRES_IN` | Tùy chọn | `15m` | Auth | Thời hạn access token. FE tự refresh khi 401. Với `NODE_ENV=production` tối đa `15m` (vượt thì API không khởi động) |
+| `JWT_REFRESH_EXPIRES_IN` | Tùy chọn | `7d` | Auth | Refresh token xoay vòng (dùng một lần) |
 
 ## 4. Redis, hàng đợi, giới hạn tốc độ, cache
 
@@ -81,11 +81,12 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT` | Tùy chọn | `1025`, `8025` | docker-compose | Cổng SMTP và giao diện Mailpit |
 | `MAILPIT_API_URL` | Tùy chọn | `http://localhost:$MAILPIT_UI_PORT` | test e2e | Test kiểm tra thư đã tới |
 
-## 7. Thanh toán (VNPay sandbox, chưa dùng cho đến M10)
+## 7. Thanh toán (giả lập + VNPay sandbox)
 
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
-| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Tùy chọn | trống | M10 | Lấy từ tài khoản sandbox VNPay |
+| `PAYMENT_SANDBOX_FAKE` | Tùy chọn | `false` | Payments | `true` = thanh toán online giả lập (chỉ dev/test; khách không chọn được kết quả, ghi chú đơn chứa `[fail]` ép thất bại). **`NODE_ENV=production` + `true` ⇒ API không khởi động.** Tắt ⇒ `POST /payments/:id/checkout` trả 503 cho tới khi có VNPAY |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Tùy chọn | trống | Payments (Mốc 4) | Từ tài khoản sandbox VNPay; chưa có thì dùng khóa giả để thử chữ ký |
 | `VNPAY_URL`, `VNPAY_RETURN_URL`, `VNPAY_IPN_URL` | Tùy chọn | trống | M10 | URL hợp lệ nếu đặt; IPN cần địa chỉ công khai (tunnel) |
 
 ## 8. Seed
