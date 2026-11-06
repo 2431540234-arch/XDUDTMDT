@@ -1,5 +1,5 @@
 // Nội dung công khai: banner, bài viết, trang tĩnh/chính sách, FAQ, liên hệ, cài đặt cửa hàng công khai.
-// Bảng: banners, posts, pages, faq_topics, faq_items, contact_messages, settings
+// Bảng: banners, posts, pages, contact_messages, settings
 import { Injectable } from '@nestjs/common';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -124,16 +124,11 @@ export class ContentService {
   }
 
   // ---------------- FAQ ----------------
-  async faq() {
-    const topics = await this.prisma.faqTopic.findMany({
-      orderBy: { sortOrder: 'asc' },
-      include: { items: { orderBy: { sortOrder: 'asc' } } },
-    });
-    return topics.map((t) => ({
-      key: t.key,
-      label: t.label,
-      items: t.items.map((i) => ({ id: i.id, question: i.question, answer: i.answer })),
-    }));
+  async faq(): Promise<
+    Array<{ key: string; label: string; items: Array<{ question: string; answer: string }> }>
+  > {
+    const row = await this.prisma.setting.findUnique({ where: { key: 'faq' } });
+    return Array.isArray(row?.value) ? (row!.value as never) : [];
   }
 
   // ---------------- liên hệ ----------------

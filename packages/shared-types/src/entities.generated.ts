@@ -653,20 +653,11 @@ export interface ReturnRequestImage {
   mediaId: number;
 }
 
-export interface Supplier {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  createdAt: string;
-}
-
 export interface StockReceipt {
   id: number;
   code: string;
   type: StockReceiptType;
-  supplierId: number | null;
+  supplierName: string | null;
   orderCode: string | null;
   status: StockReceiptStatus;
   createdBy: number | null;
@@ -719,21 +710,6 @@ export interface Post {
   views: number;
   publishedAt: string | null;
   createdAt: string;
-}
-
-export interface FaqTopic {
-  id: number;
-  key: string;
-  label: string;
-  sortOrder: number;
-}
-
-export interface FaqItem {
-  id: number;
-  topicId: number;
-  question: string;
-  answer: string;
-  sortOrder: number;
 }
 
 export interface ContactMessage {

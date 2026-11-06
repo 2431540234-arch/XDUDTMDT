@@ -655,20 +655,30 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       const core = await prisma.page.findFirstOrThrow({ where: { slug: 'chinh-sach-doi-tra' } });
       expect((await api('delete', `/admin/pages/${core.id}`, admin)).status).toBe(409);
 
-      const t = await api('post', '/admin/faq/topics', admin, { label: 'Chủ đề e2e' });
-      expect(t.status).toBe(201);
-      const it1 = await api('post', '/admin/faq/items', admin, {
-        topicId: t.body.data.id,
-        question: 'Câu hỏi e2e là gì?',
-        answer: 'Đây là câu trả lời <script>x</script>e2e',
+      // FAQ lưu trong settings: PUT thay toàn bộ, văn bản thuần (không tự sinh HTML)
+      const before = (await api('get', '/faq')).body.data;
+      expect(before.length).toBeGreaterThan(0);
+      const put = await api('put', '/admin/faq', admin, {
+        topics: [
+          ...before,
+          { label: 'Chủ đề e2e', items: [{ question: 'Câu hỏi e2e là gì?', answer: 'Trả lời <b>e2e</b>' }] },
+        ],
       });
-      expect(it1.status).toBe(201);
+      expect(put.status).toBe(200);
       const pub = (await api('get', '/faq')).body.data.find(
-        (x: { key: string }) => x.key === t.body.data.key,
+        (x: { label: string }) => x.label === 'Chủ đề e2e',
       );
-      expect(pub.items[0].answer).not.toContain('script');
-      expect((await api('post', '/admin/faq/items', admin, { question: 'ngắn' })).status).toBe(400);
-      expect((await api('delete', `/admin/faq/topics/${t.body.data.id}`, admin)).status).toBe(200);
+      expect(pub.key).toBe('chu-de-e2e');
+      expect(pub.items[0].answer).toBe('Trả lời <b>e2e</b>'); // lưu nguyên văn, FE hiển thị có escape
+      expect(
+        (
+          await api('put', '/admin/faq', admin, {
+            topics: [{ label: 'x', items: [{ question: 'ngắn', answer: 'a' }] }],
+          })
+        ).status,
+      ).toBe(400);
+      expect((await api('put', '/admin/faq', admin, { topics: before })).status).toBe(200);
+      expect((await api('get', '/faq')).body.data.length).toBe(before.length);
     });
 
     it('liên hệ: validation, lưu tin nhắn, giới hạn 5 lần/phút, admin xem và đánh dấu đã xử lý', async () => {

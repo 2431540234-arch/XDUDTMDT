@@ -1371,18 +1371,6 @@ model ReturnRequestImage {
   @@map("return_request_images")
 }
 
-model Supplier {
-  id        Int            @id(map: "pk_suppliers") @default(autoincrement())
-  name      String         @db.VarChar(150)
-  phone     String         @default("") @db.VarChar(30)
-  email     String         @default("") @db.VarChar(150)
-  address   String         @default("") @db.VarChar(255)
-  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  receipts  StockReceipt[]
-
-  @@map("suppliers")
-}
-
 enum StockReceiptType {
   in
   out
@@ -1399,17 +1387,16 @@ enum StockReceiptStatus {
 }
 
 model StockReceipt {
-  id         Int                @id(map: "pk_stock_receipts") @default(autoincrement())
-  code       String             @unique(map: "uq_stock_receipts_code") @db.VarChar(20)
-  type       StockReceiptType
-  supplierId Int?               @map("supplier_id")
-  orderCode  String?            @map("order_code") @db.VarChar(30)
-  status     StockReceiptStatus @default(completed)
-  createdBy  Int?               @map("created_by")
-  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  supplier   Supplier?          @relation(fields: [supplierId], references: [id], onUpdate: NoAction, map: "fk_stock_receipts_supplier_id")
-  items      StockReceiptItem[]
-  expenses   Expense[]
+  id           Int                @id(map: "pk_stock_receipts") @default(autoincrement())
+  code         String             @unique(map: "uq_stock_receipts_code") @db.VarChar(20)
+  type         StockReceiptType
+  supplierName String?            @map("supplier_name") @db.VarChar(150)
+  orderCode    String?            @map("order_code") @db.VarChar(30)
+  status       StockReceiptStatus @default(completed)
+  createdBy    Int?               @map("created_by")
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  items        StockReceiptItem[]
+  expenses     Expense[]
 
   @@index([createdAt(sort: Desc)], map: "idx_stock_receipts_created")
   @@map("stock_receipts")
@@ -1501,28 +1488,6 @@ model Post {
 
   @@index([status, publishedAt(sort: Desc)], map: "idx_posts_status")
   @@map("posts")
-}
-
-model FaqTopic {
-  id        Int       @id(map: "pk_faq_topics") @default(autoincrement())
-  key       String    @unique(map: "uq_faq_topics_key") @db.VarChar(50)
-  label     String    @db.VarChar(150)
-  sortOrder Int       @default(0) @map("sort_order")
-  items     FaqItem[]
-
-  @@map("faq_topics")
-}
-
-model FaqItem {
-  id        Int      @id(map: "pk_faq_items") @default(autoincrement())
-  topicId   Int      @map("topic_id")
-  question  String   @db.VarChar(500)
-  answer    String
-  sortOrder Int      @default(0) @map("sort_order")
-  topic     FaqTopic @relation(fields: [topicId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_faq_items_topic_id")
-
-  @@index([topicId, sortOrder], map: "idx_faq_items_topic")
-  @@map("faq_items")
 }
 
 model ContactMessage {

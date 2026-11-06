@@ -302,99 +302,46 @@ export class AdminContentService {
     return null;
   }
 
-  // ------------------------------------------------------------ FAQ
-  async faq() {
-    const topics = await this.prisma.faqTopic.findMany({
-      orderBy: { sortOrder: 'asc' },
-      include: { items: { orderBy: { sortOrder: 'asc' } } },
-    });
-    return topics.map((t) => ({
-      id: t.id,
-      key: t.key,
-      label: t.label,
-      sortOrder: t.sortOrder,
-      items: t.items,
-    }));
+  // ------------------------------------------------------------ FAQ (lưu trong settings, khóa `faq`)
+  faq() {
+    return this.content.faq();
   }
 
-  async saveTopic(adminId: number, id: number | null, raw: unknown) {
+  /** Thay toàn bộ danh sách FAQ: [{ key?, label, items: [{ question, answer }] }]; văn bản thuần (FE escape khi hiển thị) */
+  async saveFaq(adminId: number, raw: unknown) {
     const b = asBody(raw);
-    const cur = id ? await this.prisma.faqTopic.findUnique({ where: { id } }) : null;
-    if (id && !cur) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Chủ đề không tồn tại.');
-    if (str(b.label).trim().length < 2)
-      new FieldErrors().add('label', 'Vui lòng nhập tên chủ đề.').throwIfAny();
-    const key = cur?.key ?? toSlug(str(b.key) || str(b.label));
-    if (!cur && (await this.prisma.faqTopic.findUnique({ where: { key } })))
-      new FieldErrors().add('label', 'Chủ đề đã tồn tại.').throwIfAny();
-    const data = {
-      label: str(b.label).trim(),
-      ...(b.sortOrder !== undefined ? { sortOrder: Number(b.sortOrder) } : {}),
-    };
-    const row = cur
-      ? await this.prisma.faqTopic.update({ where: { id: cur.id }, data })
-      : await this.prisma.faqTopic.create({ data: { ...data, key } });
-    await this.activity.log({
-      actorId: adminId,
-      action: cur ? 'faq.topic_update' : 'faq.topic_create',
-      targetType: 'faq_topic',
-      targetId: row.id,
-    });
-    return row;
-  }
-
-  async deleteTopic(adminId: number, id: number) {
-    if (!(await this.prisma.faqTopic.findUnique({ where: { id } })))
-      throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Chủ đề không tồn tại.');
-    await this.prisma.faqTopic.delete({ where: { id } });
-    await this.activity.log({
-      actorId: adminId,
-      action: 'faq.topic_delete',
-      targetType: 'faq_topic',
-      targetId: id,
-    });
-    return null;
-  }
-
-  async saveItem(adminId: number, id: number | null, raw: unknown) {
-    const b = asBody(raw);
-    const cur = id ? await this.prisma.faqItem.findUnique({ where: { id } }) : null;
-    if (id && !cur) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Câu hỏi không tồn tại.');
     const errs = new FieldErrors();
-    if (str(b.question).trim().length < 5) errs.add('question', 'Câu hỏi tối thiểu 5 ký tự.');
-    if (str(b.answer).trim().length < 5) errs.add('answer', 'Câu trả lời tối thiểu 5 ký tự.');
-    const topicId = b.topicId ? toId(b.topicId) : cur?.topicId;
-    if (!topicId || !(await this.prisma.faqTopic.findUnique({ where: { id: topicId } })))
-      errs.add('topicId', 'Vui lòng chọn chủ đề.');
+    const topics = Array.isArray(b.topics) ? (b.topics as Array<Record<string, unknown>>) : null;
+    if (!topics) errs.add('topics', 'Danh sách chủ đề không hợp lệ.');
     errs.throwIfAny();
-    const data = {
-      topicId: topicId!,
-      question: str(b.question).trim(),
-      answer: sanitizeRichText(str(b.answer)),
-      ...(b.sortOrder !== undefined ? { sortOrder: Number(b.sortOrder) } : {}),
-    };
-    const row = cur
-      ? await this.prisma.faqItem.update({ where: { id: cur.id }, data })
-      : await this.prisma.faqItem.create({ data });
-    await this.activity.log({
-      actorId: adminId,
-      action: cur ? 'faq.item_update' : 'faq.item_create',
-      targetType: 'faq_item',
-      targetId: row.id,
+    const used = new Set<string>();
+    const value = topics!.map((t, i) => {
+      const label = str(t.label).trim();
+      if (label.length < 2) errs.add(`topics.${i}.label`, 'Vui lòng nhập tên chủ đề.');
+      let key = str(t.key).trim() || toSlug(label) || `chu-de-${i + 1}`;
+      for (let n = 2; used.has(key); n++) key = `${key}-${n}`;
+      used.add(key);
+      const items = Array.isArray(t.items) ? (t.items as Array<Record<string, unknown>>) : [];
+      return {
+        key,
+        label,
+        items: items.map((it, j) => {
+          const question = str(it.question).trim();
+          const answer = str(it.answer).trim();
+          if (question.length < 5) errs.add(`topics.${i}.items.${j}.question`, 'Câu hỏi tối thiểu 5 ký tự.');
+          if (answer.length < 5) errs.add(`topics.${i}.items.${j}.answer`, 'Câu trả lời tối thiểu 5 ký tự.');
+          return { question, answer };
+        }),
+      };
     });
-    return row;
-  }
-
-  async deleteItem(adminId: number, id: number) {
-    if (!(await this.prisma.faqItem.findUnique({ where: { id } })))
-      throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Câu hỏi không tồn tại.');
-    await this.prisma.faqItem.delete({ where: { id } });
-    await this.activity.log({
-      actorId: adminId,
-      action: 'faq.item_delete',
-      targetType: 'faq_item',
-      targetId: id,
+    errs.throwIfAny();
+    await this.prisma.setting.upsert({
+      where: { key: 'faq' },
+      update: { value },
+      create: { key: 'faq', value, description: 'Câu hỏi thường gặp theo chủ đề' },
     });
-    return null;
+    await this.activity.log({ actorId: adminId, action: 'faq.update', targetType: 'setting', targetId: 0 });
+    return this.content.faq();
   }
 
   // ------------------------------------------------------------ liên hệ

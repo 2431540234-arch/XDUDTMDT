@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -81,48 +82,16 @@ export class AdminContentController {
     return this.content.deletePost(adminId, id);
   }
 
-  // ---- FAQ
+  // ---- FAQ (lưu trong settings)
   @Get('faq')
   faq() {
     return this.content.faq();
   }
 
-  @Post('faq/topics')
-  createTopic(@CurrentUser('id') adminId: number, @Body() body: unknown) {
-    return this.content.saveTopic(adminId, null, body);
-  }
-
-  @Patch('faq/topics/:id')
-  updateTopic(
-    @CurrentUser('id') adminId: number,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: unknown,
-  ) {
-    return this.content.saveTopic(adminId, id, body);
-  }
-
-  @Delete('faq/topics/:id')
-  deleteTopic(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.content.deleteTopic(adminId, id);
-  }
-
-  @Post('faq/items')
-  createItem(@CurrentUser('id') adminId: number, @Body() body: unknown) {
-    return this.content.saveItem(adminId, null, body);
-  }
-
-  @Patch('faq/items/:id')
-  updateItem(
-    @CurrentUser('id') adminId: number,
-    @Param('id', ParseIntPipe) id: number,
-    @Body() body: unknown,
-  ) {
-    return this.content.saveItem(adminId, id, body);
-  }
-
-  @Delete('faq/items/:id')
-  deleteItem(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.content.deleteItem(adminId, id);
+  @Put('faq')
+  @ApiOperation({ summary: 'Thay toàn bộ FAQ: { topics: [{ key?, label, items: [{ question, answer }] }] }' })
+  saveFaq(@CurrentUser('id') adminId: number, @Body() body: unknown) {
+    return this.content.saveFaq(adminId, body);
   }
 
   // ---- liên hệ

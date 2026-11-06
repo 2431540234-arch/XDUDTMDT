@@ -638,22 +638,11 @@ async function main() {
         data: db.pages.map((p) => ({ ...p, type: p.slug.startsWith('chinh-sach') ? 'policy' : 'static' })),
         skipDuplicates: true,
       });
-      await tx.faqTopic.createMany({
-        data: db.faqTopics.map((t, i) => ({ id: i + 1, key: t.key, label: t.label, sortOrder: i })),
-        skipDuplicates: true,
-      });
-      let faqId = 0;
-      await tx.faqItem.createMany({
-        data: db.faqTopics.flatMap((t, ti) =>
-          t.items.map(({ question, answer }, i) => ({
-            id: ++faqId,
-            topicId: ti + 1,
-            question,
-            answer,
-            sortOrder: i,
-          })),
-        ),
-        skipDuplicates: true,
+      // FAQ lưu trong settings (khóa faq) theo chuẩn: không có bảng riêng
+      await tx.setting.upsert({
+        where: { key: 'faq' },
+        update: { value: db.faqTopics as never },
+        create: { key: 'faq', value: db.faqTopics as never, description: 'Câu hỏi thường gặp theo chủ đề' },
       });
       await tx.banner.createMany({ data: bannerRows, skipDuplicates: true });
       await tx.post.createMany({ data: postRows, skipDuplicates: true });
@@ -670,13 +659,12 @@ async function main() {
       }
 
       // kho & chi
-      await tx.supplier.createMany({ data: db.suppliers, skipDuplicates: true });
       await tx.stockReceipt.createMany({
         data: db.stockReceipts.map((r) => ({
           id: r.id,
           code: r.code,
           type: r.type,
-          supplierId: r.supplierId,
+          supplierName: r.supplierName,
           orderCode: r.orderCode,
           status: r.status,
           createdAt: r.createdAt,
