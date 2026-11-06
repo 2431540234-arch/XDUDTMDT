@@ -112,6 +112,13 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
     let addressId = 0;
     let orderId = 0;
     const snap = async () => prisma.productVariant.findUniqueOrThrow({ where: { id: variantId } });
+    const sold = async () =>
+      (
+        await prisma.product.findUniqueOrThrow({
+          where: { id: (await snap()).productId },
+          select: { soldCount: true },
+        })
+      ).soldCount;
 
     it('chuẩn bị: chọn biến thể còn nhiều hàng', async () => {
       const v = await prisma.productVariant.findFirstOrThrow({
@@ -129,8 +136,10 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
 
     it('tạo đơn COD ⇒ trừ tồn ngay (stock −= qty) và ghi movement "sale"', async () => {
       const before = await snap();
+      const soldBefore = await sold();
       expect((await api('post', '/cart/items', cust, { variantId, quantity: 2 })).status).toBe(201);
       const r = await api('post', '/orders', cust, { addressId, paymentMethod: 'cod' });
+      expect(await sold()).toBe(soldBefore); // sold_count chưa tăng lúc đặt hàng
       expect(r.status).toBe(201);
       expect(r.body.data.orderCode).toMatch(/^ALV-\d{8}-\d{4}$/);
       expect(r.body.data.status).toBe('pending');
@@ -183,10 +192,12 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect((await api('post', `/admin/orders/${orderId}/cancel`, admin, { reason: 'x' })).status).toBe(409);
     });
 
-    it('sang completed ⇒ COD tự đánh dấu đã thanh toán, ghi lịch sử và thông báo cho khách', async () => {
+    it('sang completed ⇒ sold_count tăng; COD tự đánh dấu đã thanh toán, ghi lịch sử và thông báo cho khách', async () => {
       const notiBefore = await prisma.notification.count({ where: { userId: 2 } });
+      const soldBefore = await sold();
       const r = await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'completed' });
       expect(r.status).toBe(200);
+      expect(await sold()).toBe(soldBefore + 2);
       expect(r.body.data.paymentStatus).toBe('paid');
       expect(r.body.data.payment.status).toBe('success');
       expect(r.body.data.history.map((h: { toStatus: string }) => h.toStatus)).toEqual([
@@ -207,8 +218,10 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       await api('post', '/cart/items', cust, { variantId, quantity: 3 });
       const o = await api('post', '/orders', cust, { addressId, paymentMethod: 'cod' });
       expect((await snap()).stockQuantity).toBe(before.stockQuantity - 3);
+      const soldBefore = await sold();
       const c = await api('post', `/orders/${o.body.data.id}/cancel`, cust, { reason: 'đổi ý' });
       expect(c.status).toBe(200);
+      expect(await sold()).toBe(soldBefore); // đơn hủy không làm đổi sold_count
       expect(c.body.data.status).toBe('cancelled');
       const after = await snap();
       expect(after.stockQuantity).toBe(before.stockQuantity);
@@ -875,6 +888,84 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
         password: 'matkhau-khac-3',
       });
       expect(reuse.status).toBe(400);
+    });
+  });
+
+  // ------------------------------------------------------------ xác thực email (UC-AUTH-07)
+  describe('xác thực email (JWT verify_email)', () => {
+    const email = `verify-${Date.now()}@example.com`;
+    let token = '';
+    let access = '';
+    const linkToken = (m: MailMessage) => /token=([\w.-]+)/.exec(m.text ?? '')?.[1] ?? '';
+    const reviewBody = (orderId: number) => ({
+      orderId,
+      rating: 5,
+      content: 'Sản phẩm rất tốt, giao hàng nhanh và đóng gói cẩn thận.',
+    });
+
+    it('đăng ký ⇒ gửi email xác thực, tài khoản chưa xác thực', async () => {
+      const before = outbox.length;
+      const reg = await api('post', '/auth/register', undefined, {
+        fullName: 'Khách Xác Thực',
+        email,
+        phone: '0911222333',
+        password: 'matkhau-12345',
+      });
+      expect(reg.status).toBe(201);
+      access = reg.body.data.tokens.accessToken;
+      expect(outbox.length).toBe(before + 1);
+      token = linkToken(outbox[outbox.length - 1]);
+      expect(token.split('.')).toHaveLength(3);
+      expect((await prisma.user.findFirstOrThrow({ where: { email } })).emailVerifiedAt).toBeNull();
+    });
+
+    it('chưa xác thực ⇒ đánh giá bị chặn 403 EMAIL_NOT_VERIFIED (kiểm tra trước khi xét đã mua)', async () => {
+      const p = await prisma.product.findFirstOrThrow({ where: { status: 'published', deletedAt: null } });
+      const r = await api('post', `/products/${p.slug}/reviews`, access, reviewBody(1));
+      expect(r.status).toBe(403);
+      expect(r.body.error.code).toBe('EMAIL_NOT_VERIFIED');
+    });
+
+    it('token sai, token khác mục đích (access token) hoặc thiếu ⇒ 400', async () => {
+      expect((await api('post', '/auth/verify-email', undefined, { token: 'abc' })).status).toBe(400);
+      expect((await api('post', '/auth/verify-email', undefined, { token: access })).status).toBe(400);
+      expect((await api('post', '/auth/verify-email', undefined, {})).status).toBe(400);
+    });
+
+    it('gửi lại email (có giới hạn 60 giây), rồi xác thực bằng liên kết ⇒ đã xác thực; xác thực lại vẫn 200', async () => {
+      const first = await api('post', '/auth/resend-verification', access);
+      expect(first.status).toBe(200);
+      expect(first.body.data).toEqual({ sent: true, verified: false });
+      expect((await api('post', '/auth/resend-verification', access)).status).toBe(429);
+      expect((await api('post', '/auth/resend-verification')).status).toBe(401);
+
+      const ok = await api('post', '/auth/verify-email', undefined, { token });
+      expect(ok.status).toBe(200);
+      expect(ok.body.data).toEqual({ verified: true });
+      expect((await prisma.user.findFirstOrThrow({ where: { email } })).emailVerifiedAt).not.toBeNull();
+      expect((await api('post', '/auth/verify-email', undefined, { token })).status).toBe(200);
+      const again = await api('post', '/auth/resend-verification', access);
+      expect(again.body.data).toEqual({ sent: false, verified: true });
+    });
+
+    it('đã xác thực ⇒ qua bước email, chỉ còn bị chặn vì chưa mua hàng (PURCHASE_REQUIRED)', async () => {
+      const p = await prisma.product.findFirstOrThrow({ where: { status: 'published', deletedAt: null } });
+      const r = await api('post', `/products/${p.slug}/reviews`, access, reviewBody(1));
+      expect(r.status).toBe(403);
+      expect(r.body.error.code).toBe('PURCHASE_REQUIRED');
+    });
+
+    it('đổi email sau khi nhận liên kết ⇒ liên kết cũ vô hiệu', async () => {
+      const e2 = `verify2-${Date.now()}@example.com`;
+      await api('post', '/auth/register', undefined, {
+        fullName: 'Khách Đổi Email',
+        email: e2,
+        phone: '0911222444',
+        password: 'matkhau-12345',
+      });
+      const t = linkToken(outbox[outbox.length - 1]);
+      await prisma.user.updateMany({ where: { email: e2 }, data: { email: `moi-${e2}` } });
+      expect((await api('post', '/auth/verify-email', undefined, { token: t })).status).toBe(400);
     });
   });
 

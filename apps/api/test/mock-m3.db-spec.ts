@@ -798,6 +798,47 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       expect(short.body.error.details.description[0]).toBe('Mô tả tối thiểu 10 ký tự.');
     });
 
+    it('lượt xem: mở chi tiết KHÔNG tăng view_count; POST /views ghi space_views và trigger tăng view_count', async () => {
+      const sp = await prisma.space.findFirstOrThrow({
+        where: { status: 'published' },
+        orderBy: { id: 'asc' },
+      });
+      const count = async () => (await prisma.space.findUniqueOrThrow({ where: { id: sp.id } })).viewCount;
+      const v0 = await count();
+      expect((await api('get', `/spaces/${sp.slug}`)).status).toBe(200);
+      expect(await count()).toBe(v0);
+
+      const visitorId = '3f2c1a9e-5b7d-4c88-9a10-0e6d2b4f7a11';
+      const guest = await api('post', `/spaces/${sp.slug}/views`, undefined, {
+        visitorId,
+        hotspotClickCount: 2,
+      });
+      expect(guest.status).toBe(200);
+      expect(await count()).toBe(v0 + 1);
+      const row = await prisma.spaceView.findFirstOrThrow({ where: { spaceId: sp.id, visitorId } });
+      expect(row.userId).toBeNull();
+      expect(row.hotspotClickCount).toBe(2);
+
+      const asUser = await api('post', `/spaces/${sp.slug}/views`, cust, {});
+      expect(asUser.status).toBe(200);
+      expect(await count()).toBe(v0 + 2);
+      expect(
+        (await prisma.spaceView.findFirstOrThrow({ where: { spaceId: sp.id, userId: 2 } })).visitorId,
+      ).toBeNull();
+
+      // thiếu visitorId khi chưa đăng nhập / UUID sai / số lần bấm sai / không gian không tồn tại
+      expect((await api('post', `/spaces/${sp.slug}/views`, undefined, {})).status).toBe(400);
+      expect((await api('post', `/spaces/${sp.slug}/views`, undefined, { visitorId: 'abc' })).status).toBe(
+        400,
+      );
+      expect(
+        (await api('post', `/spaces/${sp.slug}/views`, undefined, { visitorId, hotspotClickCount: -1 }))
+          .status,
+      ).toBe(400);
+      expect((await api('post', '/spaces/khong-ton-tai/views', undefined, { visitorId })).status).toBe(404);
+      expect(await count()).toBe(v0 + 2);
+    });
+
     it('API công khai: lọc phong cách/loại phòng, chi tiết theo slug; nháp không công khai', async () => {
       const list = await api(
         'get',

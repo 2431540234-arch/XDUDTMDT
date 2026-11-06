@@ -709,6 +709,16 @@ async function main() {
         await tx.codeCounter.upsert({ where: { key }, update: { value }, create: { key, value } });
       }
 
+      // sold_count = tổng số lượng của các đơn đã hoàn tất (quy tắc QUY_UOC_CODE_DB 5.2), không dùng số tính sẵn của mock
+      await tx.$executeRawUnsafe(`UPDATE products p
+SET sold_count = COALESCE((
+  SELECT SUM(oi.quantity)
+  FROM order_items oi
+  JOIN orders o ON o.id = oi.order_id
+  JOIN product_variants v ON v.id = oi.variant_id
+  WHERE v.product_id = p.id AND o.status = 'completed'
+), 0)`);
+
       // đặt lại sequence của mọi bảng có cột id tự tăng
       await tx.$executeRawUnsafe(`
         DO $$

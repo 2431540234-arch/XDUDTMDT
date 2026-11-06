@@ -216,6 +216,18 @@ export class AdminOrdersService {
       }
 
       if (to === 'completed') {
+        // sold_count tăng khi đơn hoàn tất (QUY_UOC_CODE_DB 5.2), cùng transaction với việc đổi trạng thái
+        const sold = await tx.orderItem.findMany({
+          where: { orderId: cur.id, variantId: { not: null } },
+          include: { variant: { select: { productId: true } } },
+        });
+        for (const it of sold) {
+          if (!it.variant) continue;
+          await tx.product.update({
+            where: { id: it.variant.productId },
+            data: { soldCount: { increment: it.quantity } },
+          });
+        }
         await tx.shipment.updateMany({
           where: { orderId: cur.id },
           data: { status: 'delivered', deliveredAt: now },

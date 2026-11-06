@@ -18,6 +18,8 @@ const routes: Route[] = [
   ['POST', '/auth/register', 'public', auth.register],
   ['POST', '/auth/logout', 'public', () => ({ data: null })],
   ['POST', '/auth/refresh', 'public', auth.refresh],
+  ['POST', '/auth/verify-email', 'public', auth.verifyEmail],
+  ['POST', '/auth/resend-verification', 'user', auth.resendVerification],
   ['POST', '/auth/forgot-password', 'public', auth.forgotPassword],
   ['POST', '/auth/reset-password', 'public', auth.resetPassword],
   ['POST', '/auth/google', 'public', auth.googleLogin],
@@ -55,6 +57,7 @@ const routes: Route[] = [
   ['GET', '/spaces', 'public', catalog.spaces],
   ['GET', '/spaces/facets', 'public', catalog.spaceFacets],
   ['GET', '/spaces/:slug', 'public', catalog.spaceBySlug],
+  ['POST', '/spaces/:slug/views', 'public', catalog.recordSpaceView],
   ['PUT', '/spaces/:slug/bookmark', 'user', catalog.bookmarkSpace],
   ['DELETE', '/spaces/:slug/bookmark', 'user', catalog.unbookmarkSpace],
 

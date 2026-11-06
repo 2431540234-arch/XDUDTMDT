@@ -23,6 +23,9 @@ export const spaceApi = {
     http.list<SpaceListItem>('/spaces', q as Record<string, string | number | boolean>),
   facets: () => http.get<SpaceFacets>('/spaces/facets'), // TODO: chưa có trong BE
   detail: (slug: string) => http.get<SpaceDetail>(`/spaces/${slug}`),
+  /** Ghi một lượt xem khi mở không gian (UC-SPACE-06); BE để trigger tăng view_count */
+  recordView: (slug: string, body: { visitorId: string; sourceProductId?: number }) =>
+    http.post<null>(`/spaces/${slug}/views`, body),
   bookmark: (slug: string) => http.put<null>(`/spaces/${slug}/bookmark`),
   unbookmark: (slug: string) => http.delete(`/spaces/${slug}/bookmark`),
 };

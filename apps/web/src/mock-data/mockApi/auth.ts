@@ -110,6 +110,21 @@ export function refresh(ctx: Ctx): Result {
   return ok({ user: sessionUser(ctx, u), tokens: tokensFor(u) });
 }
 
+/** Mock không gửi email: trả kèm liên kết xác thực để thử (chỉ có ở mock) */
+export function resendVerification(ctx: Ctx): Result {
+  const u = ctx.user!;
+  if (u.emailVerifiedAt) return ok({ sent: false, verified: true });
+  return ok({ sent: true, verified: false, devVerifyLink: `/verify-email?token=mock.${u.id}` });
+}
+
+export function verifyEmail(ctx: Ctx): Result {
+  const id = Number(/^mock\.(\d+)$/.exec(String(ctx.body?.token ?? ''))?.[1]);
+  const u = ctx.db.users.find((x) => x.id === id);
+  if (!u) throw new ApiFail('BAD_REQUEST', 'Liên kết xác thực không đúng hoặc đã hết hạn.');
+  u.emailVerifiedAt ??= nowIso();
+  return ok({ verified: true });
+}
+
 export function forgotPassword(ctx: Ctx): Result {
   const email = String(ctx.body?.email ?? '')
     .trim()

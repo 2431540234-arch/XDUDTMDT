@@ -19,6 +19,11 @@ export const authApi = {
   forgotPassword: (email: string) =>
     http.post<{ sent: true; devResetLink?: string }>('/auth/forgot-password', { email }),
   resetPassword: (body: { token: string; password: string }) => http.post<null>('/auth/reset-password', body),
+  /** Xác thực email bằng token trong liên kết (JWT verify_email) */
+  verifyEmail: (token: string) => http.post<{ verified: true }>('/auth/verify-email', { token }),
+  /** Gửi lại email xác thực cho tài khoản đang đăng nhập (cách nhau 60 giây) */
+  resendVerification: () =>
+    http.post<{ sent: boolean; verified: boolean; devVerifyLink?: string }>('/auth/resend-verification'),
   googleLogin: () => http.post<AuthResult>('/auth/google'), // TODO: chưa có trong BE – giả lập
 };
 

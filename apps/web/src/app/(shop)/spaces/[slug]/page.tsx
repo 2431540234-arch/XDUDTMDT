@@ -4,8 +4,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import SpaceCard from '@/components/product/SpaceCard';
 import Breadcrumb from '@/components/ui/Breadcrumb';
 import Button, { LinkButton } from '@/components/ui/Button';
@@ -16,6 +16,7 @@ import { queryKeys } from '@/hooks/useCart';
 import { useSpace } from '@/hooks/useSpaces';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
+import { getVisitorId } from '@/lib/visitor';
 import { roomTypeLabel } from '@/lib/status';
 import { ApiClientError } from '@/services/api-client';
 import { cartApi } from '@/services/cart.api';
@@ -43,11 +44,21 @@ export default function SpaceDetailPage() {
   const [panoId, setPanoId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Hotspot | null>(null);
   const [checked, setChecked] = useState<number[]>([]);
+  const search = useSearchParams();
+  const viewed = useRef<string | null>(null);
 
   useEffect(() => {
     if (!s) return;
     setPanoId(s.panoramas.find((p) => p.isStart)?.id ?? s.panoramas[0]?.id ?? null);
     setChecked(s.products.map((p) => p.id));
+  }, [s?.id]);
+
+  // Ghi MỘT lượt xem khi mở không gian (UC-SPACE-06); ?from=<id sản phẩm> nếu khách đi từ trang sản phẩm
+  useEffect(() => {
+    if (!s || viewed.current === slug) return;
+    viewed.current = slug;
+    const from = Number(search.get('from')) || undefined;
+    spaceApi.recordView(slug, { visitorId: getVisitorId(), sourceProductId: from }).catch(() => undefined);
   }, [s?.id]);
 
   const pano = s?.panoramas.find((p) => p.id === panoId) ?? s?.panoramas[0];

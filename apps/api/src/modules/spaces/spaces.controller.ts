@@ -1,5 +1,5 @@
 // M15 – Không gian mẫu (công khai + lưu yêu thích): /spaces. Quản trị ở admin-spaces.
-import { Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
@@ -32,6 +32,17 @@ export class SpacesController {
   @ApiOperation({ summary: 'Chi tiết: ảnh 360°, hotspot, sản phẩm trong không gian, giá combo' })
   detail(@Param('slug') slug: string, @CurrentUser('id') userId?: number) {
     return this.spaces.detail(slug, userId ?? null);
+  }
+
+  @Public()
+  @Post(':slug/views')
+  @HttpCode(200)
+  @ApiOperation({
+    summary:
+      'Ghi một lượt xem (trigger tăng view_count): { visitorId (bắt buộc nếu chưa đăng nhập), sourceProductId?, hotspotClickCount?, addedToCart? }',
+  })
+  view(@Param('slug') slug: string, @Body() body: unknown, @CurrentUser('id') userId?: number) {
+    return this.spaces.recordView(slug, userId ?? null, body);
   }
 
   @ApiBearerAuth()

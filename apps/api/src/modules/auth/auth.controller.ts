@@ -16,6 +16,24 @@ export class AuthController {
   @Public()
   @AuthThrottle()
   @HttpCode(200)
+  @Post('verify-email')
+  @ApiOperation({ summary: 'Xác thực email bằng token trong liên kết: { token }' })
+  verifyEmail(@Body() body: unknown) {
+    return this.auth.verifyEmail(body);
+  }
+
+  @ApiBearerAuth()
+  @AuthThrottle()
+  @HttpCode(200)
+  @Post('resend-verification')
+  @ApiOperation({ summary: 'Gửi lại email xác thực cho tài khoản đang đăng nhập (cách nhau 60 giây)' })
+  resendVerification(@CurrentUser('id') userId: number) {
+    return this.auth.resendVerification(userId);
+  }
+
+  @Public()
+  @AuthThrottle()
+  @HttpCode(200)
   @Post('login')
   @ApiOperation({ summary: 'Đăng nhập (adminOnly=true cho trang quản trị)' })
   @ApiBody({

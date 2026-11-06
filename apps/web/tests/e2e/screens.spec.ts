@@ -106,6 +106,51 @@ test('quên mật khẩu bằng liên kết: email (Mailpit) → đặt mật kh
   await expect(page.getByText('không đúng hoặc đã hết hạn')).toBeVisible({ timeout: 30_000 });
 });
 
+test('xác thực email: đăng ký ⇒ email (Mailpit) ⇒ mở liên kết ⇒ tài khoản được đánh dấu đã xác thực', async ({
+  page,
+  request,
+}) => {
+  test.skip(process.env.E2E_USE_MOCK !== 'false', 'chỉ chạy với API thật');
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const mailpit = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
+  const email = `verify${Date.now()}@example.com`;
+  const reg = await request.post(`${api}/api/auth/register`, {
+    data: { fullName: 'Khách Xác Thực', email, phone: '0912345678', password: 'matkhau-12345' },
+  });
+  expect(reg.status()).toBe(201);
+  const access = (await reg.json()).data.tokens.accessToken as string;
+  const me = async () =>
+    (
+      await (
+        await request.get(`${api}/api/users/me`, { headers: { Authorization: `Bearer ${access}` } })
+      ).json()
+    ).data as { emailVerifiedAt: string | null };
+  expect((await me()).emailVerifiedAt).toBeNull();
+
+  let token = '';
+  await expect
+    .poll(
+      async () => {
+        const found = await request.get(`${mailpit}/api/v1/search`, { params: { query: `to:${email}` } });
+        const list = (await found.json()) as { messages?: Array<{ ID: string }> };
+        if (!list.messages?.length) return '';
+        const msg = await request.get(`${mailpit}/api/v1/message/${list.messages[0].ID}`);
+        const text = ((await msg.json()) as { Text?: string }).Text ?? '';
+        token = /verify-email\?token=([\w.-]+)/.exec(text)?.[1] ?? '';
+        return token;
+      },
+      { timeout: 30_000 },
+    )
+    .toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
+
+  await page.goto(`/verify-email?token=${token}`);
+  await expect(page.getByText('XÁC THỰC THÀNH CÔNG')).toBeVisible({ timeout: 30_000 });
+  expect((await me()).emailVerifiedAt).not.toBeNull();
+
+  await page.goto('/verify-email?token=khong-hop-le');
+  await expect(page.getByText('XÁC THỰC KHÔNG THÀNH CÔNG')).toBeVisible({ timeout: 30_000 });
+});
+
 test('trang 404', async ({ page }) => {
   await page.goto('/khong-co-trang-nay');
   await expect(page.getByText('Ôi! Không tìm thấy trang')).toBeVisible({ timeout: 30_000 });

@@ -19,6 +19,8 @@ const USER_INCLUDE = {
 } satisfies Prisma.UserInclude;
 type UserWithRoles = Prisma.UserGetPayload<{ include: typeof USER_INCLUDE }>;
 
+export const VERIFY_EMAIL_TTL = '24h'; // liên kết xác thực email (JWT mục đích verify_email, DAC_TA D-T… #9)
+export const VERIFY_RESEND_MS = 60_000;
 export const RESET_TTL_MS = 30 * 60_000; // liên kết đặt lại mật khẩu sống 30 phút
 export const RESET_RESEND_MS = 60_000; // tối thiểu 60 giây giữa hai lần gửi
 
@@ -170,6 +172,7 @@ export class AuthService {
       }
       throw e;
     }
+    await this.sendVerificationEmail(created);
     return { user: this.sessionUser(created), tokens: await this.issueTokens(created, meta) };
   }
 
@@ -232,6 +235,69 @@ export class AuthService {
       });
     }
     return null;
+  }
+
+  // ------------------------------------------------------------ xác thực email (UC-AUTH-07, JWT verify_email, không thêm bảng)
+  private readonly lastVerifyMail = new Map<number, number>();
+
+  /** Khóa ký riêng cho token xác thực email để không dùng lẫn với access token */
+  private verifySecret() {
+    return `${this.config.get('JWT_ACCESS_SECRET')}:verify_email`;
+  }
+
+  /** Gửi email chứa liên kết xác thực (hạn 24 giờ). Lỗi gửi thư không làm hỏng luồng gọi nó */
+  async sendVerificationEmail(u: { id: number; email: string; fullName: string }) {
+    const token = await this.jwt.signAsync(
+      { sub: u.id, email: u.email, purpose: 'verify_email' },
+      { secret: this.verifySecret(), expiresIn: VERIFY_EMAIL_TTL },
+    );
+    const link = `${this.config.get('APP_URL').replace(/\/+$/, '')}/verify-email?token=${token}`;
+    if (this.config.get('NODE_ENV') !== 'production')
+      this.log.log(`Liên kết xác thực email cho ${u.email}: ${link}`);
+    try {
+      await this.mail.send({
+        to: u.email,
+        subject: 'Xác thực email – Aurelia Living',
+        text: `Bấm vào liên kết để xác thực email (có hiệu lực 24 giờ): ${link}`,
+        html: `<p>Xin chào ${u.fullName},</p><p>Vui lòng xác thực email để có thể đánh giá sản phẩm.</p><p><a href="${link}" style="background:#8B4A2B;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Xác thực email</a></p><p>Liên kết có hiệu lực trong 24 giờ.</p>`,
+      });
+    } catch (e) {
+      this.log.warn(`Không gửi được email xác thực cho ${u.email}: ${(e as Error).message}`);
+    }
+  }
+
+  async verifyEmail(raw: unknown) {
+    const token = str(asBody(raw).token);
+    const bad = () =>
+      new AppException(ErrorCode.BAD_REQUEST, 'Liên kết xác thực không đúng hoặc đã hết hạn.');
+    let payload: { sub?: number; email?: string; purpose?: string };
+    try {
+      payload = await this.jwt.verifyAsync(token, { secret: this.verifySecret() });
+    } catch {
+      throw bad();
+    }
+    if (payload.purpose !== 'verify_email' || !payload.sub) throw bad();
+    const u = await this.prisma.user.findFirst({ where: { id: payload.sub, deletedAt: null } });
+    // đổi email sau khi gửi liên kết ⇒ liên kết cũ vô hiệu
+    if (!u || u.email.toLowerCase() !== String(payload.email).toLowerCase()) throw bad();
+    if (!u.emailVerifiedAt) {
+      await this.prisma.user.update({ where: { id: u.id }, data: { emailVerifiedAt: new Date() } });
+    }
+    return { verified: true as const };
+  }
+
+  async resendVerification(userId: number) {
+    const u = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
+    if (!u) throw new AppException(ErrorCode.AUTH_UNAUTHENTICATED, 'Bạn chưa đăng nhập.');
+    if (u.emailVerifiedAt) return { sent: false as const, verified: true as const };
+    const last = this.lastVerifyMail.get(u.id);
+    if (last && Date.now() - last < VERIFY_RESEND_MS) {
+      const wait = Math.ceil((VERIFY_RESEND_MS - (Date.now() - last)) / 1000);
+      throw new AppException(ErrorCode.RATE_LIMITED, `Vui lòng đợi ${wait} giây trước khi gửi lại email.`);
+    }
+    this.lastVerifyMail.set(u.id, Date.now());
+    await this.sendVerificationEmail(u);
+    return { sent: true as const, verified: false as const };
   }
 
   // ------------------------------------------------------------ quên / đặt lại mật khẩu (liên kết có token)

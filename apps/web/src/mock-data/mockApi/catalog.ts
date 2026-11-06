@@ -415,8 +415,15 @@ export function spaceFacets(ctx: Ctx): Result {
 export function spaceBySlug(ctx: Ctx): Result {
   const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug && x.status === 'published');
   if (!s) throw notFound('Không gian mẫu');
-  s.viewCount += 1;
   return ok(spaceDetail(ctx.db, s, ctx.user?.id));
+}
+
+/** Ghi lượt xem (BE thật chèn space_views, trigger tăng view_count) */
+export function recordSpaceView(ctx: Ctx): Result {
+  const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug && x.status === 'published');
+  if (!s) throw notFound('Không gian mẫu');
+  s.viewCount += 1;
+  return done();
 }
 
 export function bookmarkSpace(ctx: Ctx): Result {

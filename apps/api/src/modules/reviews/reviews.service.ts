@@ -125,6 +125,17 @@ export class ReviewsService {
     if (str(b.content).length > 1000) errs.add('content', 'Nội dung đánh giá tối đa 1000 ký tự.');
     errs.throwIfAny();
 
+    // DAC_TA §12.1 #4: chỉ tài khoản đã xác thực email mới được đánh giá
+    const me = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { emailVerifiedAt: true },
+    });
+    if (!me?.emailVerifiedAt) {
+      throw new AppException(
+        ErrorCode.EMAIL_NOT_VERIFIED,
+        'Bạn cần xác thực email trước khi đánh giá sản phẩm. Vui lòng kiểm tra hộp thư hoặc gửi lại email xác thực ở trang Tài khoản.',
+      );
+    }
     const bought = await this.prisma.order.findFirst({
       where: {
         id: toId(b.orderId),

@@ -276,9 +276,6 @@ export interface PasswordReset {
   userId: number;
   expiresAt: string;
   usedAt: string | null;
-  otpHash?: string | null;
-  attempts?: number;
-  lastSentAt?: string | null;
   createdAt: string;
 }
 

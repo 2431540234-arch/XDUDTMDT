@@ -1,6 +1,7 @@
 // M11 – Đơn hàng của khách: đặt hàng (transaction + trừ tồn kho), danh sách, chi tiết, hủy đơn.
 // Tồn kho (QUY_UOC_CODE_DB 5.1): tạo đơn ⇒ stock_quantity −= qty + movement "sale" (khóa dòng variant, chống bán vượt);
 // hủy đơn ⇒ cộng lại + movement "return"; đổi trả được duyệt nhận hàng về ⇒ cộng lại tồn.
+// sold_count chỉ tăng khi đơn completed (AdminOrdersService.setStatus), không tăng lúc đặt (QUY_UOC_CODE_DB 5.2).
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
@@ -241,10 +242,6 @@ export class OrdersService {
               performedBy: p.actorId,
             },
           });
-          await tx.product.update({
-            where: { id: l.pr.id },
-            data: { soldCount: { increment: l.w.quantity } },
-          });
         }
         await tx.payment.create({
           data: { orderId: order.id, method: p.paymentMethod, amount: total, status: 'pending' },
@@ -359,10 +356,9 @@ export class OrdersService {
       const items = await tx.orderItem.findMany({ where: { orderId } });
       for (const it of items.sort((a, b) => (a.variantId ?? 0) - (b.variantId ?? 0))) {
         if (it.variantId) {
-          const v = await tx.productVariant.update({
+          await tx.productVariant.update({
             where: { id: it.variantId },
             data: { stockQuantity: { increment: it.quantity } },
-            select: { productId: true },
           });
           await tx.inventoryMovement.create({
             data: {
@@ -373,10 +369,6 @@ export class OrdersService {
               referenceCode: o.order_code,
               performedBy: actorId,
             },
-          });
-          await tx.product.update({
-            where: { id: v.productId },
-            data: { soldCount: { decrement: it.quantity } },
           });
         }
       }

@@ -6,12 +6,14 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qBool, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { serialize } from '../../common/utils/serialize';
+import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews, PRODUCT_INCLUDE } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
 
 export const COMBO_DISCOUNT_PERCENT = 10;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Giá combo: tổng giá hiện tại của các sản phẩm × (100 − %giảm)/100, làm tròn đến nghìn đồng */
 export function calcComboTotal(originalTotal: number, discountPercent: number): number {
@@ -120,9 +122,48 @@ export class SpacesService {
       include: SPACE_INCLUDE,
     });
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
-    await this.prisma.space.update({ where: { id: s.id }, data: { viewCount: { increment: 1 } } });
-    s.viewCount += 1;
+    // view_count do trigger trg_space_views_increase_count tăng khi ghi space_views (recordView), không tăng tay ở đây
     return this.buildDetail(s, userId);
+  }
+
+  /**
+   * Ghi MỘT lượt xem không gian (UC-SPACE-06): chèn space_views; trigger DB tăng spaces.view_count.
+   * Khách đăng nhập ghi theo user_id; khách vãng lai gửi visitorId (UUID do client tạo). Có thể kèm sản phẩm dẫn tới,
+   * số lần bấm hotspot và cờ đã thêm vào giỏ.
+   */
+  async recordView(slug: string, userId: number | null, raw: unknown) {
+    const b = asBody(raw);
+    const errs = new FieldErrors();
+    const visitorId = str(b.visitorId).trim().toLowerCase();
+    if (visitorId && !UUID_RE.test(visitorId)) errs.add('visitorId', 'Mã khách vãng lai không hợp lệ.');
+    if (!userId && !visitorId) errs.add('visitorId', 'Thiếu mã khách vãng lai.');
+    const clicks = b.hotspotClickCount === undefined ? 0 : Number(b.hotspotClickCount);
+    if (!Number.isInteger(clicks) || clicks < 0 || clicks > 1000)
+      errs.add('hotspotClickCount', 'Số lần bấm không hợp lệ.');
+    errs.throwIfAny();
+    const s = await this.prisma.space.findFirst({
+      where: { slug, status: 'published' },
+      select: { id: true },
+    });
+    if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
+    const productId = toId(b.sourceProductId);
+    const source = productId
+      ? await this.prisma.product.findFirst({
+          where: { id: productId, deletedAt: null },
+          select: { id: true },
+        })
+      : null;
+    await this.prisma.spaceView.create({
+      data: {
+        spaceId: s.id,
+        userId,
+        visitorId: userId ? null : visitorId,
+        sourceProductId: source?.id ?? null,
+        hotspotClickCount: clicks,
+        addedToCart: Boolean(b.addedToCart),
+      },
+    });
+    return null;
   }
 
   /** Chi tiết cho admin: mọi trạng thái, không tính lượt xem */
