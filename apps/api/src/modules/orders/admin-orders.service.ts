@@ -3,7 +3,7 @@
 //
 // Máy trạng thái: pending → confirmed → processing → shipping → completed; hủy ở pending|confirmed|processing; hoàn tiền từ
 // completed (hoặc cancelled đã thanh toán). Sai thứ tự ⇒ 409 INVALID_STATE.
-// Tồn kho: sang shipping ⇒ trừ hẳn tồn từ phần giữ chỗ (stock −= qty, reserved −= qty, movement "sale"); hủy ⇒ trả giữ chỗ.
+// Tồn kho: đã trừ lúc khách đặt hàng (movement "sale"); sang shipping không đổi tồn; hủy ⇒ cộng lại (movement "return").
 // COD sang completed ⇒ tự đánh dấu đã thanh toán.
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma, ShipmentCarrier } from '@prisma/client';
@@ -190,28 +190,10 @@ export class AdminOrdersService {
       if (!canTransition(from, to)) {
         throw new AppException(ErrorCode.INVALID_STATE, `Không thể chuyển đơn từ "${from}" sang "${to}".`);
       }
-      const items = await tx.orderItem.findMany({ where: { orderId: cur.id } });
       const now = new Date();
 
       if (to === 'shipping') {
-        // trừ hẳn tồn kho từ phần giữ chỗ (khóa theo thứ tự id)
-        for (const it of [...items].sort((a, c) => (a.variantId ?? 0) - (c.variantId ?? 0))) {
-          if (!it.variantId) continue;
-          await tx.productVariant.update({
-            where: { id: it.variantId },
-            data: { stockQuantity: { decrement: it.quantity }, reservedQuantity: { decrement: it.quantity } },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              variantId: it.variantId,
-              type: 'sale',
-              quantityChange: -it.quantity,
-              reason: 'Bán hàng',
-              referenceCode: cur.orderCode,
-              performedBy: adminId,
-            },
-          });
-        }
+        // tồn kho đã trừ từ lúc đặt hàng nên sang "Đang giao" chỉ tạo/cập nhật vận đơn
         const sh = await tx.shipment.findFirst({ where: { orderId: cur.id } });
         const tracking = `GHN${Math.floor(100_000_000 + Math.random() * 899_999_999)}`;
         if (sh) {

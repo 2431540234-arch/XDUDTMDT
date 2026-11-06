@@ -602,7 +602,6 @@ model ProductVariant {
   weightGram             Int?                    @map("weight_gram")
   costPrice              Decimal                 @default(0) @map("cost_price") @db.Decimal(15, 2)
   minStock               Int                     @default(5) @map("min_stock")
-  reservedQuantity       Int                     @default(0) @map("reserved_quantity")
   lengthCm               Decimal?                @map("length_cm") @db.Decimal(7, 1)
   widthCm                Decimal?                @map("width_cm") @db.Decimal(7, 1)
   heightCm               Decimal?                @map("height_cm") @db.Decimal(7, 1)

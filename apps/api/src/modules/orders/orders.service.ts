@@ -1,6 +1,6 @@
-// M11 – Đơn hàng của khách: đặt hàng (transaction + giữ chỗ tồn kho), danh sách, chi tiết, hủy đơn.
-// Tồn kho: tạo đơn ⇒ reserved_quantity += qty (khóa dòng variant, chống bán vượt); trừ hẳn khi chuyển "Đang giao";
-// hủy đơn ⇒ trả phần giữ chỗ; đổi trả đã nhận hàng về ⇒ cộng lại tồn.
+// M11 – Đơn hàng của khách: đặt hàng (transaction + trừ tồn kho), danh sách, chi tiết, hủy đơn.
+// Tồn kho (QUY_UOC_CODE_DB 5.1): tạo đơn ⇒ stock_quantity −= qty + movement "sale" (khóa dòng variant, chống bán vượt);
+// hủy đơn ⇒ cộng lại + movement "return"; đổi trả được duyệt nhận hàng về ⇒ cộng lại tồn.
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
@@ -33,7 +33,6 @@ interface LockedVariant {
   price: Prisma.Decimal;
   sale_price: Prisma.Decimal | null;
   stock_quantity: number;
-  reserved_quantity: number;
   cost_price: Prisma.Decimal;
   is_active: boolean;
 }
@@ -127,7 +126,7 @@ export class OrdersService {
         const ids = [...new Set(wanted.map((w) => w.variantId))].sort((a, b) => a - b);
         // khóa theo thứ tự id để hai đơn đồng thời không deadlock và không bán vượt tồn
         const locked = await tx.$queryRaw<LockedVariant[]>`
-          SELECT id, product_id, sku, price, sale_price, stock_quantity, reserved_quantity, cost_price, is_active
+          SELECT id, product_id, sku, price, sale_price, stock_quantity, cost_price, is_active
           FROM product_variants WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR UPDATE`;
         const byId = new Map(locked.map((v) => [v.id, v]));
         const products = await tx.product.findMany({
@@ -142,7 +141,7 @@ export class OrdersService {
           if (!v || !v.is_active || !pr || pr.status !== 'published' || pr.deletedAt) {
             throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Sản phẩm không còn được bán.');
           }
-          const available = v.stock_quantity - v.reserved_quantity;
+          const available = v.stock_quantity;
           if (available < w.quantity) {
             throw new AppException(
               ErrorCode.OUT_OF_STOCK,
@@ -227,9 +226,20 @@ export class OrdersService {
               costPrice: l.v.cost_price,
             },
           });
+          // trừ tồn ngay khi đặt (hàng đã khóa dòng FOR UPDATE ở trên; CHECK stock_quantity >= 0 là chốt chặn cuối)
           await tx.productVariant.update({
             where: { id: l.v.id },
-            data: { reservedQuantity: { increment: l.w.quantity } },
+            data: { stockQuantity: { decrement: l.w.quantity } },
+          });
+          await tx.inventoryMovement.create({
+            data: {
+              variantId: l.v.id,
+              type: 'sale',
+              quantityChange: -l.w.quantity,
+              reason: 'Bán hàng',
+              referenceCode: orderCode,
+              performedBy: p.actorId,
+            },
           });
           await tx.product.update({
             where: { id: l.pr.id },
@@ -332,7 +342,7 @@ export class OrdersService {
   }
 
   /**
-   * Hủy đơn: khách hủy được ở pending|confirmed; admin thêm processing. Trả lại phần giữ chỗ và lượt dùng coupon.
+   * Hủy đơn: khách hủy được ở pending|confirmed; admin thêm processing. Cộng lại tồn kho (movement "return") và lượt dùng coupon.
    */
   async cancelCore(orderId: number, actorId: number | null, reason: string, byAdmin: boolean) {
     await this.prisma.$transaction(async (tx) => {
@@ -351,8 +361,18 @@ export class OrdersService {
         if (it.variantId) {
           const v = await tx.productVariant.update({
             where: { id: it.variantId },
-            data: { reservedQuantity: { decrement: it.quantity } },
+            data: { stockQuantity: { increment: it.quantity } },
             select: { productId: true },
+          });
+          await tx.inventoryMovement.create({
+            data: {
+              variantId: it.variantId,
+              type: 'return',
+              quantityChange: it.quantity,
+              reason: 'Hủy đơn hàng',
+              referenceCode: o.order_code,
+              performedBy: actorId,
+            },
           });
           await tx.product.update({
             where: { id: v.productId },

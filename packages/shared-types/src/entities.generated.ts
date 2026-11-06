@@ -343,7 +343,6 @@ export interface ProductVariant {
   weightGram: number | null;
   costPrice?: number;
   minStock?: number;
-  reservedQuantity?: number;
   lengthCm?: number | null;
   widthCm?: number | null;
   heightCm?: number | null;

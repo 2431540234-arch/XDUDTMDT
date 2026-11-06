@@ -59,7 +59,6 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       where: {
         isActive: true,
         stockQuantity: { gte: minStock },
-        reservedQuantity: 0,
         product: { status: 'published', deletedAt: null },
       },
       orderBy: { id: 'desc' },
@@ -821,7 +820,7 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       const all = await prisma.productVariant.findMany({ where: { productId: prods[2] } });
       await prisma.productVariant.updateMany({
         where: { id: { in: all.map((a) => a.id) } },
-        data: { stockQuantity: 0, reservedQuantity: 0 },
+        data: { stockQuantity: 0 },
       }); // hết hàng mọi biến thể món thứ 3
       await api('delete', '/cart', cust);
       const r = await api('post', `/spaces/${slug}/add-to-cart`, cust);

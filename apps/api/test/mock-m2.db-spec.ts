@@ -109,7 +109,6 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
         where: {
           isActive: true,
           stockQuantity: { gte: 12 },
-          reservedQuantity: 0,
           product: { status: 'published', deletedAt: null },
         },
         orderBy: { id: 'asc' },
@@ -119,7 +118,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       await api('delete', '/cart', cust);
     });
 
-    it('tạo đơn COD ⇒ giữ chỗ (reserved += qty), tồn vật lý chưa đổi', async () => {
+    it('tạo đơn COD ⇒ trừ tồn ngay (stock −= qty) và ghi movement "sale"', async () => {
       const before = await snap();
       expect((await api('post', '/cart/items', cust, { variantId, quantity: 2 })).status).toBe(201);
       const r = await api('post', '/orders', cust, { addressId, paymentMethod: 'cod' });
@@ -128,8 +127,11 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(r.body.data.status).toBe('pending');
       orderId = r.body.data.id;
       const after = await snap();
-      expect(after.reservedQuantity).toBe(before.reservedQuantity + 2);
-      expect(after.stockQuantity).toBe(before.stockQuantity);
+      expect(after.stockQuantity).toBe(before.stockQuantity - 2);
+      const mv = await prisma.inventoryMovement.findFirst({
+        where: { variantId, type: 'sale', referenceCode: r.body.data.orderCode },
+      });
+      expect(mv?.quantityChange).toBe(-2);
     });
 
     it('chặn chuyển sai thứ tự ⇒ 409', async () => {
@@ -152,21 +154,19 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       ).toBe('processing');
       const after = await snap();
       expect(after.stockQuantity).toBe(before.stockQuantity);
-      expect(after.reservedQuantity).toBe(before.reservedQuantity);
     });
 
-    it('sang shipping ⇒ trừ kho thật từ phần giữ chỗ + ghi movement "sale" + tạo vận đơn', async () => {
+    it('sang shipping ⇒ tồn không đổi (đã trừ lúc đặt), không thêm movement, tạo vận đơn', async () => {
       const before = await snap();
       const r = await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'shipping' });
       expect(r.status).toBe(200);
       expect(r.body.data.shipment.status).toBe('in_transit');
-      const after = await snap();
-      expect(after.stockQuantity).toBe(before.stockQuantity - 2);
-      expect(after.reservedQuantity).toBe(before.reservedQuantity - 2);
-      const mv = await prisma.inventoryMovement.findFirst({
-        where: { variantId, type: 'sale', referenceCode: r.body.data.orderCode },
-      });
-      expect(mv?.quantityChange).toBe(-2);
+      expect((await snap()).stockQuantity).toBe(before.stockQuantity);
+      expect(
+        await prisma.inventoryMovement.count({
+          where: { variantId, type: 'sale', referenceCode: r.body.data.orderCode },
+        }),
+      ).toBe(1);
     });
 
     it('khách không hủy được đơn đang giao; admin cũng không', async () => {
@@ -193,20 +193,24 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       ).toBe(409);
     });
 
-    it('khách hủy đơn pending ⇒ trả lại phần giữ chỗ', async () => {
+    it('khách hủy đơn pending ⇒ cộng lại tồn và ghi movement "return"', async () => {
       const before = await snap();
       await api('post', '/cart/items', cust, { variantId, quantity: 3 });
       const o = await api('post', '/orders', cust, { addressId, paymentMethod: 'cod' });
-      expect((await snap()).reservedQuantity).toBe(before.reservedQuantity + 3);
+      expect((await snap()).stockQuantity).toBe(before.stockQuantity - 3);
       const c = await api('post', `/orders/${o.body.data.id}/cancel`, cust, { reason: 'đổi ý' });
       expect(c.status).toBe(200);
       expect(c.body.data.status).toBe('cancelled');
       const after = await snap();
-      expect(after.reservedQuantity).toBe(before.reservedQuantity);
       expect(after.stockQuantity).toBe(before.stockQuantity);
+      expect(
+        await prisma.inventoryMovement.count({
+          where: { variantId, type: 'return', referenceCode: c.body.data.orderCode },
+        }),
+      ).toBe(1);
     });
 
-    it('admin hủy đơn đang processing ⇒ trả giữ chỗ; khách chỉ hủy được pending/confirmed', async () => {
+    it('admin hủy đơn đang processing ⇒ cộng lại tồn; khách chỉ hủy được pending/confirmed', async () => {
       const before = await snap();
       await api('post', '/cart/items', cust, { variantId, quantity: 1 });
       const o = await api('post', '/orders', cust, { addressId, paymentMethod: 'cod' });
@@ -216,14 +220,14 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(
         (await api('post', `/admin/orders/${o.body.data.id}/cancel`, admin, { reason: 'hết hàng' })).status,
       ).toBe(200);
-      expect((await snap()).reservedQuantity).toBe(before.reservedQuantity);
+      expect((await snap()).stockQuantity).toBe(before.stockQuantity);
     });
 
     it('đơn vượt tồn khả dụng ⇒ 409 OUT_OF_STOCK', async () => {
       const v = await snap();
       const r = await api('post', '/cart/items', cust, {
         variantId,
-        quantity: v.stockQuantity - v.reservedQuantity + 1,
+        quantity: v.stockQuantity + 1,
       });
       expect(r.status).toBe(409);
       expect(r.body.error.code).toBe('OUT_OF_STOCK');
@@ -243,7 +247,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       });
       await prisma.productVariant.update({
         where: { id: v.id },
-        data: { stockQuantity: v.reservedQuantity + 1 },
+        data: { stockQuantity: 1 },
       }); // còn đúng 1
       const users = await prisma.user.findMany({ where: { id: { in: [3, 4] }, status: 'active' } });
       const tokens = await Promise.all(users.map((u) => userToken(u.id)));
@@ -262,8 +266,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       const fail = results.find((r) => r.status === 409)!;
       expect(fail.body.error.code).toBe('OUT_OF_STOCK');
       const after = await prisma.productVariant.findUniqueOrThrow({ where: { id: v.id } });
-      expect(after.reservedQuantity).toBe(v.reservedQuantity + 1);
-      expect(after.stockQuantity - after.reservedQuantity).toBe(0);
+      expect(after.stockQuantity).toBe(0);
     });
 
     it('nhiều đơn đồng thời ⇒ mã đơn không trùng', async () => {
@@ -398,10 +401,9 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(bad.status).toBe(415);
     });
 
-    it('sửa: tồn nhập vào là "có thể bán" (giữ nguyên phần đang giữ chỗ); biến thể bỏ đi bị ngừng bán', async () => {
+    it('sửa: tồn nhập trực tiếp vào stock_quantity và ghi movement adjustment; biến thể bỏ đi bị ngừng bán', async () => {
       const cur = (await api('get', `/admin/products/${pid}`, admin)).body.data;
       const keep = cur.variants[0];
-      await prisma.productVariant.update({ where: { id: keep.id }, data: { reservedQuantity: 3 } });
       const r = await api('patch', `/admin/products/${pid}`, admin, {
         ...body,
         name: 'Ghế e2e (sửa)',
@@ -423,7 +425,12 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       });
       expect(r.status).toBe(200);
       const v = await prisma.productVariant.findUniqueOrThrow({ where: { id: keep.id } });
-      expect(v.stockQuantity).toBe(23); // 20 có thể bán + 3 đang giữ
+      expect(v.stockQuantity).toBe(20);
+      expect(
+        await prisma.inventoryMovement.count({
+          where: { variantId: keep.id, type: 'adjustment', referenceCode: 'E2E-001-K' },
+        }),
+      ).toBe(1);
       const other = await prisma.productVariant.findFirstOrThrow({ where: { sku: 'E2E-001-D' } });
       expect(other.isActive).toBe(false);
       expect(r.body.data.images).toHaveLength(1); // gửi lại URL ⇒ không tạo ảnh mới

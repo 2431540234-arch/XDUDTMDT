@@ -62,9 +62,9 @@ export class CatalogViews {
     return parts.length ? parts.join(' / ') : 'Tiêu chuẩn';
   }
 
-  /** Tồn có thể bán = tồn vật lý − đang giữ chỗ */
-  available(v: { stockQuantity: number; reservedQuantity: number }): number {
-    return Math.max(0, v.stockQuantity - v.reservedQuantity);
+  /** Tồn có thể bán = stock_quantity (đã trừ ngay khi đặt hàng) */
+  available(v: { stockQuantity: number }): number {
+    return Math.max(0, v.stockQuantity);
   }
 
   effectivePrice(v: { price: Prisma.Decimal | number; salePrice: Prisma.Decimal | number | null }): number {
@@ -134,7 +134,7 @@ export class CatalogViews {
       void _a;
       return {
         ...serialize(base),
-        // FE hiểu stockQuantity là số có thể bán (đã trừ hàng đang giữ cho đơn chưa giao)
+        // FE hiểu stockQuantity là số có thể bán (đã trừ ngay khi khách đặt hàng)
         stockQuantity: this.available(v),
         color,
         size: this.attr(v, 'size')?.value ?? null,

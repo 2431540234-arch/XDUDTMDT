@@ -311,15 +311,6 @@ async function main() {
       sizeOfVariant.set(vav.variantId, db.attributeValues.find((x) => x.id === vav.attributeValueId)!.value);
     }
   }
-  // số lượng đang giữ chỗ = đơn chưa giao (pending|confirmed|processing)
-  const reserved = new Map<number, number>();
-  const orderStatus = new Map(db.orders.map((o) => [o.id, o.status]));
-  for (const it of db.orderItems) {
-    if (!it.variantId) continue;
-    if (['pending', 'confirmed', 'processing'].includes(orderStatus.get(it.orderId) ?? '')) {
-      reserved.set(it.variantId, (reserved.get(it.variantId) ?? 0) + it.quantity);
-    }
-  }
 
   // ---- URL phát sinh: banner, bài viết, ảnh đánh giá, ảnh đổi trả, frame 360
   const bannerRows: Prisma.BannerCreateManyInput[] = [];
@@ -442,11 +433,9 @@ async function main() {
         const k = e?.sizeDimMult?.[size] ?? 1;
         const hk = ['Cao 1m2', 'Cao 1m5'].includes(size) ? k : 1; // chỉ biến thể "Cao" đổi chiều cao
         const price = v.salePrice ?? v.price;
-        const held = reserved.get(v.id) ?? 0;
         return {
           ...v,
-          stockQuantity: v.stockQuantity + held,
-          reservedQuantity: held,
+          stockQuantity: v.stockQuantity, // tồn đã trừ theo đơn (mock: tồn có thể bán)
           costPrice: Math.round(price * (e?.costRatio ?? 0.62)),
           minStock: e?.minStock ?? 5,
           lengthCm: l ? Math.round((l * k) / 10) : null,

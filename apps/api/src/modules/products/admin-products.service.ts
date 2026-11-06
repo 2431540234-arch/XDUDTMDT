@@ -1,6 +1,6 @@
 // UC-ADM-09 – Quản trị sản phẩm: danh sách, chi tiết, thêm/sửa đủ 6 tab (cơ bản, hình ảnh, biến thể màu × kích thước, mô hình 3D,
 // thuộc tính/thông số, SEO), xóa (đã có trong đơn ⇒ chuyển sang "ngừng bán"), ảnh 360° theo màu.
-// Tồn kho: admin nhập/đọc "tồn có thể bán"; tồn vật lý = có thể bán + đang giữ chỗ (reserved_quantity).
+// Tồn kho: stock_quantity (đã trừ khi khách đặt hàng); admin sửa tồn ⇒ ghi inventory_movements (adjustment).
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
@@ -146,7 +146,7 @@ export class AdminProductsService {
     return { attributeId: attr.id, id: v.id };
   }
 
-  private async saveVariants(tx: Tx, productId: number, b: Record<string, unknown>) {
+  private async saveVariants(tx: Tx, adminId: number, productId: number, b: Record<string, unknown>) {
     const material = b.material ? str(b.material) : null;
     let inputs: VariantInput[];
     if (Array.isArray(b.variants) && b.variants.length) {
@@ -217,16 +217,28 @@ export class AdminProductsService {
       if (own) {
         v = await tx.productVariant.update({
           where: { id: own.id },
-          // nhập "tồn có thể bán" ⇒ tồn vật lý = nhập + đang giữ chỗ
+          // stock_quantity nhập trực tiếp; chênh lệch ghi inventory_movements (adjustment) bên dưới
           data: {
             sku: vi.sku,
             price: vi.price,
             salePrice: vi.salePrice ?? null,
-            stockQuantity: vi.stockQuantity + own.reservedQuantity,
+            stockQuantity: vi.stockQuantity,
             isActive: true,
             ...dims,
           },
         });
+        if (vi.stockQuantity !== own.stockQuantity) {
+          await tx.inventoryMovement.create({
+            data: {
+              variantId: own.id,
+              type: 'adjustment',
+              quantityChange: vi.stockQuantity - own.stockQuantity,
+              reason: 'Điều chỉnh tồn khi sửa sản phẩm',
+              referenceCode: vi.sku,
+              performedBy: adminId,
+            },
+          });
+        }
       } else {
         v = await tx.productVariant.create({
           data: {
@@ -319,7 +331,7 @@ export class AdminProductsService {
         ...(Array.isArray(b.features) ? { features: (b.features as unknown[]).map(str) } : {}),
       },
     });
-    await this.saveVariants(tx, id, b);
+    await this.saveVariants(tx, adminId, id, b);
     if (Array.isArray(b.images))
       await this.saveImages(tx, id, adminId, slug, b.images as Array<{ url: string; isPrimary?: boolean }>);
     if (Array.isArray(b.specs)) {

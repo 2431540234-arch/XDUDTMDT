@@ -13,7 +13,7 @@ export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 
   @Post()
-  @ApiOperation({ summary: 'Đặt hàng từ giỏ (giữ chỗ tồn kho trong transaction)' })
+  @ApiOperation({ summary: 'Đặt hàng từ giỏ (trừ tồn kho trong transaction)' })
   @ApiBody({
     schema: { example: { addressId: 1, paymentMethod: 'cod', note: 'Giao giờ hành chính', itemIds: [12] } },
   })

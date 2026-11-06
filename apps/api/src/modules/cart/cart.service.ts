@@ -96,7 +96,7 @@ export class CartService {
           unitPrice: unit,
           originalPrice: Number(v.price),
           lineTotal: unit * it.quantity,
-          stockQuantity: Math.max(0, v.stockQuantity - v.reservedQuantity),
+          stockQuantity: Math.max(0, v.stockQuantity),
         },
         categoryId: p.categoryId,
       };
@@ -169,7 +169,7 @@ export class CartService {
     const qty = Math.floor(Number(b.quantity ?? 1));
     if (!(qty >= 1)) new FieldErrors().add('quantity', 'Số lượng phải từ 1 trở lên.').throwIfAny();
     const cart = await this.ensure(userId);
-    const available = v.stockQuantity - v.reservedQuantity;
+    const available = v.stockQuantity;
     await this.prisma.$transaction(async (tx) => {
       const existing = await tx.cartItem.findUnique({
         where: { cartId_variantId: { cartId: cart.id, variantId: v.id } },
@@ -196,7 +196,7 @@ export class CartService {
     const it = await this.ownItem(userId, id);
     const qty = Math.floor(Number(asBody(raw).quantity));
     if (!(qty >= 1)) new FieldErrors().add('quantity', 'Số lượng phải từ 1 trở lên.').throwIfAny();
-    const available = it.variant.stockQuantity - it.variant.reservedQuantity;
+    const available = it.variant.stockQuantity;
     if (qty > available) throw this.stockError(available, it.variantId, true);
     await this.prisma.cartItem.update({ where: { id }, data: { quantity: qty } });
     return this.view(userId);
