@@ -20,6 +20,8 @@ export default defineConfig({
     command: `npx next dev -p ${PORT}`,
     // Mặc định chạy giao diện với dữ liệu giả (không cần backend)
     env: {
+      // Next dev tự vá package-lock.json bằng npm (lỗi 'reading os' trong workspaces) – tắt bước này cho test
+      NEXT_IGNORE_INCORRECT_LOCKFILE: '1',
       NEXT_PUBLIC_USE_MOCK: USE_MOCK,
       ...(process.env.E2E_API_URL ? { NEXT_PUBLIC_API_URL: process.env.E2E_API_URL } : {}),
       ...(process.env.E2E_DIST_DIR ? { NEXT_DIST_DIR: process.env.E2E_DIST_DIR } : {}),

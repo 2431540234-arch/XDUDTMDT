@@ -15,10 +15,10 @@ export const authApi = {
   register: (body: { fullName: string; email: string; phone: string; password: string }) =>
     http.post<AuthResult>('/auth/register', body),
   logout: () => http.post<null>('/auth/logout'),
-  /** BE thật gửi link/token; wireframe 7.3–7.4 dùng OTP 6 số → mock luôn là 123456 */
-  forgotPassword: (email: string) => http.post<{ sent: true }>('/auth/forgot-password', { email }),
-  resetPassword: (body: { email: string; otp: string; password: string }) =>
-    http.post<null>('/auth/reset-password', body),
+  /** BE gửi email chứa liên kết /reset-password?token=…; mock trả thêm devResetLink để thử không cần email */
+  forgotPassword: (email: string) =>
+    http.post<{ sent: true; devResetLink?: string }>('/auth/forgot-password', { email }),
+  resetPassword: (body: { token: string; password: string }) => http.post<null>('/auth/reset-password', body),
   googleLogin: () => http.post<AuthResult>('/auth/google'), // TODO: chưa có trong BE – giả lập
 };
 

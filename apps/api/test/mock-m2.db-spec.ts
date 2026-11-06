@@ -8,6 +8,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { MAIL_SERVICE, type MailMessage } from '../src/mail/mail.service';
 
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -18,6 +19,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
   const prisma = new PrismaClient();
   let admin = '';
   let cust = '';
+  const outbox: MailMessage[] = []; // thư đã "gửi" (MAIL_SERVICE thay bằng bản ghi nhớ, không cần Mailpit)
 
   const api = (
     method: 'get' | 'post' | 'patch' | 'put' | 'delete',
@@ -48,7 +50,14 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
     if (Number(users) < 30)
       throw new Error('aurelia_test chưa seed: chạy node scripts/db-reset.mjs aurelia_test');
 
-    const mod = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const mod = await Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(MAIL_SERVICE)
+      .useValue({
+        send: async (m: MailMessage) => {
+          outbox.push(m);
+        },
+      })
+      .compile();
     app = mod.createNestApplication();
     setupApp(app);
     await app.init();
@@ -774,6 +783,101 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
   });
 
   // ------------------------------------------------------------ đánh giá có kiểm duyệt
+  // ------------------------------------------------------------ quên / đặt lại mật khẩu bằng liên kết (D-T29)
+  describe('quên mật khẩu bằng liên kết có token', () => {
+    const email = `reset-${Date.now()}@example.com`;
+    const tokenOf = (m: MailMessage) => /token=([0-9a-f]{64})/.exec(m.text ?? '')?.[1] ?? '';
+    let firstToken = '';
+    let refresh = '';
+
+    it('email không tồn tại ⇒ vẫn trả sent:true nhưng KHÔNG gửi thư (không lộ tài khoản)', async () => {
+      const before = outbox.length;
+      const r = await api('post', '/auth/forgot-password', undefined, {
+        email: 'khong-co-nguoi-nay@example.com',
+      });
+      expect(r.status).toBe(200);
+      expect(r.body.data).toEqual({ sent: true });
+      expect(outbox.length).toBe(before);
+      expect((await api('post', '/auth/forgot-password', undefined, { email: 'sai' })).status).toBe(400);
+    });
+
+    it('gửi liên kết có token 256 bit (DB chỉ lưu bản băm); gửi lại trong 60 giây ⇒ 429', async () => {
+      const reg = await api('post', '/auth/register', undefined, {
+        fullName: 'Khách Reset',
+        email,
+        phone: '0987654321',
+        password: 'matkhau-cu-1',
+      });
+      expect(reg.status).toBe(201);
+      refresh = reg.body.data.tokens.refreshToken;
+      const before = outbox.length;
+      expect((await api('post', '/auth/forgot-password', undefined, { email })).status).toBe(200);
+      expect(outbox.length).toBe(before + 1);
+      const mail = outbox[outbox.length - 1];
+      expect(mail.to).toBe(email);
+      firstToken = tokenOf(mail);
+      expect(firstToken).toMatch(/^[0-9a-f]{64}$/);
+      expect(mail.html).toContain('/reset-password?token=' + firstToken);
+      const rows = await prisma.passwordReset.findMany({ where: { user: { email } } });
+      expect(rows.some((x) => x.tokenHash === firstToken)).toBe(false);
+      const again = await api('post', '/auth/forgot-password', undefined, { email });
+      expect(again.status).toBe(429);
+      expect(again.body.error.code).toBe('RATE_LIMITED');
+    });
+
+    it('token sai/ngắn ⇒ 400; mật khẩu mới < 8 ký tự ⇒ 400', async () => {
+      const bad = await api('post', '/auth/reset-password', undefined, {
+        token: 'f'.repeat(64),
+        password: 'matkhau-moi-2',
+      });
+      expect(bad.status).toBe(400);
+      expect(bad.body.error.message).toMatch(/không đúng hoặc đã hết hạn/);
+      const short = await api('post', '/auth/reset-password', undefined, {
+        token: 'abc',
+        password: 'matkhau-moi-2',
+      });
+      expect(short.status).toBe(400);
+      const weak = await api('post', '/auth/reset-password', undefined, {
+        token: firstToken,
+        password: '123',
+      });
+      expect(weak.status).toBe(400);
+    });
+
+    it('token hết hạn ⇒ 400; gửi lại sau 60 giây thì token cũ bị vô hiệu, token mới dùng được một lần', async () => {
+      await prisma.passwordReset.updateMany({
+        where: { user: { email } },
+        data: { expiresAt: new Date(Date.now() - 1000), createdAt: new Date(Date.now() - 120_000) },
+      });
+      const expired = await api('post', '/auth/reset-password', undefined, {
+        token: firstToken,
+        password: 'matkhau-moi-2',
+      });
+      expect(expired.status).toBe(400);
+      expect((await api('post', '/auth/forgot-password', undefined, { email })).status).toBe(200);
+      const t2 = tokenOf(outbox[outbox.length - 1]);
+      expect(t2).not.toBe(firstToken);
+      const ok = await api('post', '/auth/reset-password', undefined, {
+        token: t2,
+        password: 'matkhau-moi-2',
+      });
+      expect(ok.status).toBe(200);
+      // mật khẩu mới đăng nhập được, mật khẩu cũ thì không; phiên cũ bị thu hồi; dùng lại token ⇒ 400
+      expect((await api('post', '/auth/login', undefined, { email, password: 'matkhau-moi-2' })).status).toBe(
+        200,
+      );
+      expect((await api('post', '/auth/login', undefined, { email, password: 'matkhau-cu-1' })).status).toBe(
+        401,
+      );
+      expect((await api('post', '/auth/refresh', undefined, { refreshToken: refresh })).status).toBe(401);
+      const reuse = await api('post', '/auth/reset-password', undefined, {
+        token: t2,
+        password: 'matkhau-khac-3',
+      });
+      expect(reuse.status).toBe(400);
+    });
+  });
+
   describe('đánh giá (có kiểm duyệt)', () => {
     it('đánh giá mới ở trạng thái pending: không hiện công khai, không đổi điểm; khách vẫn thấy ở "Đánh giá của tôi"', async () => {
       const item = await prisma.orderItem.findFirstOrThrow({

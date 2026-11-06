@@ -141,7 +141,8 @@ function seed() {
     expenses: clone(expenses),
     contactMessages: clone(contactMessages),
     /** Mã OTP đặt lại mật khẩu theo email (mock: luôn 123456) */
-    otps: {} as Record<string, { code: string; expiresAt: string }>,
+    // token đặt lại mật khẩu (mock thay cho email): token -> email + hạn
+    resetTokens: {} as Record<string, { email: string; expiresAt: string }>,
   };
   recomputeAggregates(db);
   return db;

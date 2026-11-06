@@ -108,7 +108,6 @@ async function main() {
     THROTTLE_DEFAULT_LIMIT: '100000',
     THROTTLE_AUTH_LIMIT: '100000',
     MAIL_TRANSPORT: 'direct',
-    OTP_FIXED_CODE: '123456',
     PAYMENT_SANDBOX_FAKE: 'true',
   };
 

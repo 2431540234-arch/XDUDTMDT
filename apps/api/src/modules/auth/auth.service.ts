@@ -1,5 +1,5 @@
-// M02 – Xác thực: đăng ký, đăng nhập (khách / admin), refresh token xoay vòng, đăng xuất, quên & đặt lại mật khẩu bằng OTP.
-import { createHash, randomBytes, randomInt } from 'node:crypto';
+// M02 – Xác thực: đăng ký, đăng nhập (khách / admin), refresh token xoay vòng, đăng xuất, quên & đặt lại mật khẩu bằng liên kết có token (gửi qua email).
+import { createHash, randomBytes } from 'node:crypto';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
@@ -19,9 +19,8 @@ const USER_INCLUDE = {
 } satisfies Prisma.UserInclude;
 type UserWithRoles = Prisma.UserGetPayload<{ include: typeof USER_INCLUDE }>;
 
-export const OTP_TTL_MS = 5 * 60_000;
-export const OTP_RESEND_MS = 60_000;
-export const OTP_MAX_ATTEMPTS = 5;
+export const RESET_TTL_MS = 30 * 60_000; // liên kết đặt lại mật khẩu sống 30 phút
+export const RESET_RESEND_MS = 60_000; // tối thiểu 60 giây giữa hai lần gửi
 
 // Băm giả để thời gian so sánh mật khẩu như nhau dù email không tồn tại
 const DUMMY_HASH = hashSync('khong-ton-tai', BCRYPT_COST);
@@ -235,11 +234,7 @@ export class AuthService {
     return null;
   }
 
-  // ------------------------------------------------------------ quên / đặt lại mật khẩu (OTP)
-  private newOtp(): string {
-    return this.config.get('OTP_FIXED_CODE') ?? String(randomInt(0, 1_000_000)).padStart(6, '0');
-  }
-
+  // ------------------------------------------------------------ quên / đặt lại mật khẩu (liên kết có token)
   async forgotPassword(raw: unknown) {
     const email = str(asBody(raw).email).trim().toLowerCase();
     if (!EMAIL_RE.test(email)) new FieldErrors().add('email', 'Email không hợp lệ.').throwIfAny();
@@ -251,67 +246,54 @@ export class AuthService {
       where: { userId: u.id },
       orderBy: { createdAt: 'desc' },
     });
-    const sentAt = last?.lastSentAt ?? last?.createdAt;
-    if (sentAt && Date.now() - sentAt.getTime() < OTP_RESEND_MS) {
-      const wait = Math.ceil((OTP_RESEND_MS - (Date.now() - sentAt.getTime())) / 1000);
-      throw new AppException(ErrorCode.RATE_LIMITED, `Vui lòng đợi ${wait} giây trước khi gửi lại mã.`);
+    if (last && Date.now() - last.createdAt.getTime() < RESET_RESEND_MS) {
+      const wait = Math.ceil((RESET_RESEND_MS - (Date.now() - last.createdAt.getTime())) / 1000);
+      throw new AppException(ErrorCode.RATE_LIMITED, `Vui lòng đợi ${wait} giây trước khi gửi lại email.`);
     }
-    const otp = this.newOtp();
+    // token ngẫu nhiên 256 bit; DB chỉ lưu bản băm, token gốc chỉ nằm trong liên kết gửi qua email
+    const token = randomBytes(32).toString('hex');
     await this.prisma.$transaction([
       this.prisma.passwordReset.updateMany({
         where: { userId: u.id, usedAt: null },
         data: { usedAt: new Date() },
       }),
       this.prisma.passwordReset.create({
-        data: {
-          userId: u.id,
-          tokenHash: sha256(randomBytes(32).toString('hex')),
-          otpHash: sha256(`${u.id}:${otp}`),
-          expiresAt: new Date(Date.now() + OTP_TTL_MS),
-          lastSentAt: new Date(),
-        },
+        data: { userId: u.id, tokenHash: sha256(token), expiresAt: new Date(Date.now() + RESET_TTL_MS) },
       }),
     ]);
-    // dev: in OTP ra log (và Mailpit) để thử nghiệm; production chỉ gửi mail
+    const link = `${this.config.get('APP_URL').replace(/\/+$/, '')}/reset-password?token=${token}`;
+    // dev: in liên kết ra log (và xem email ở Mailpit); production chỉ gửi mail
     if (this.config.get('NODE_ENV') !== 'production')
-      this.log.log(`OTP đặt lại mật khẩu cho ${email}: ${otp}`);
+      this.log.log(`Liên kết đặt lại mật khẩu cho ${email}: ${link}`);
     await this.mail.send({
       to: email,
-      subject: 'Mã xác nhận đặt lại mật khẩu – Aurelia Living',
-      text: `Mã OTP của bạn là ${otp}. Mã có hiệu lực trong 5 phút.`,
-      html: `<p>Xin chào ${u.fullName},</p><p>Mã OTP đặt lại mật khẩu của bạn là <b style="font-size:20px">${otp}</b>.</p><p>Mã có hiệu lực trong 5 phút. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>`,
+      subject: 'Đặt lại mật khẩu – Aurelia Living',
+      text: `Bấm vào liên kết để đặt lại mật khẩu (có hiệu lực 30 phút): ${link}`,
+      html: `<p>Xin chào ${u.fullName},</p><p>Bấm vào nút bên dưới để đặt lại mật khẩu của bạn. Liên kết có hiệu lực trong 30 phút và chỉ dùng được một lần.</p><p><a href="${link}" style="background:#8B4A2B;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none">Đặt lại mật khẩu</a></p><p>Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>`,
     });
     return { sent: true as const };
   }
 
   async resetPassword(raw: unknown) {
-    const { email, otp, password } = asBody(raw);
+    const { token, password } = asBody(raw);
     const errs = new FieldErrors();
     if (str(password).length < 8) errs.add('password', 'Mật khẩu tối thiểu 8 ký tự.');
-    if (!/^\d{6}$/.test(str(otp))) errs.add('otp', 'Vui lòng nhập đủ 6 số của mã OTP.');
+    if (!/^[0-9a-f]{64}$/.test(str(token))) errs.add('token', 'Liên kết không hợp lệ.');
     errs.throwIfAny();
 
-    const bad = () => new AppException(ErrorCode.BAD_REQUEST, 'Mã OTP không đúng hoặc đã hết hạn.');
-    const u = await this.findByEmail(str(email));
-    if (!u) throw bad();
-    const rec = await this.prisma.passwordReset.findFirst({
-      where: { userId: u.id, usedAt: null },
-      orderBy: { createdAt: 'desc' },
-    });
-    if (!rec || rec.expiresAt < new Date() || rec.attempts >= OTP_MAX_ATTEMPTS) throw bad();
-    if (rec.otpHash !== sha256(`${u.id}:${str(otp)}`)) {
-      await this.prisma.passwordReset.update({ where: { id: rec.id }, data: { attempts: { increment: 1 } } });
-      throw bad();
+    const rec = await this.prisma.passwordReset.findUnique({ where: { tokenHash: sha256(str(token)) } });
+    if (!rec || rec.usedAt || rec.expiresAt < new Date()) {
+      throw new AppException(ErrorCode.BAD_REQUEST, 'Liên kết đặt lại mật khẩu không đúng hoặc đã hết hạn.');
     }
     await this.prisma.$transaction([
       this.prisma.user.update({
-        where: { id: u.id },
+        where: { id: rec.userId },
         data: { passwordHash: await hash(str(password), BCRYPT_COST) },
       }),
       this.prisma.passwordReset.update({ where: { id: rec.id }, data: { usedAt: new Date() } }),
       // đặt lại mật khẩu ⇒ thu hồi mọi phiên cũ
       this.prisma.userSession.updateMany({
-        where: { userId: u.id, revokedAt: null },
+        where: { userId: rec.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       }),
     ]);

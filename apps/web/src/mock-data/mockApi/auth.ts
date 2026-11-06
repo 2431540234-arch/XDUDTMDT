@@ -14,7 +14,6 @@ import {
 } from './http';
 import { addressView, mediaPath, userView } from './views';
 
-export const OTP_CODE = '123456';
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRe = /^0\d{9}$/;
 
@@ -108,24 +107,25 @@ export function forgotPassword(ctx: Ctx): Result {
     .trim()
     .toLowerCase();
   if (!emailRe.test(email)) throw validation({ email: 'Email không hợp lệ.' });
-  // Không tiết lộ email có tồn tại hay không; mock luôn tạo OTP 123456
-  ctx.db.otps[email] = { code: OTP_CODE, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() };
-  return ok({ sent: true });
+  // Không tiết lộ email có tồn tại hay không. Mock không gửi email thật nên trả kèm liên kết để thử (chỉ có ở mock).
+  const token = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  ctx.db.resetTokens[token] = { email, expiresAt: new Date(Date.now() + 30 * 60_000).toISOString() };
+  return ok({ sent: true, devResetLink: `/reset-password?token=${token}` });
 }
 
 export function resetPassword(ctx: Ctx): Result {
-  const { email = '', otp = '', password = '' } = ctx.body ?? {};
+  const { token = '', password = '' } = ctx.body ?? {};
   const errs: Record<string, string> = {};
   if (String(password).length < 8) errs.password = 'Mật khẩu tối thiểu 8 ký tự.';
-  if (!/^\d{6}$/.test(String(otp))) errs.otp = 'Vui lòng nhập đủ 6 số của mã OTP.';
+  if (!/^[0-9a-f]{64}$/.test(String(token))) errs.token = 'Liên kết không hợp lệ.';
   if (Object.keys(errs).length) throw validation(errs);
-  const rec = ctx.db.otps[String(email).toLowerCase()];
-  if (!rec || rec.code !== String(otp) || new Date(rec.expiresAt) < new Date())
-    throw new ApiFail('BAD_REQUEST', 'Mã OTP không đúng hoặc đã hết hạn.');
-  const u = ctx.db.users.find((x) => x.email.toLowerCase() === String(email).toLowerCase());
+  const rec = ctx.db.resetTokens[String(token)];
+  if (!rec || new Date(rec.expiresAt) < new Date())
+    throw new ApiFail('BAD_REQUEST', 'Liên kết đặt lại mật khẩu không đúng hoặc đã hết hạn.');
+  const u = ctx.db.users.find((x) => x.email.toLowerCase() === rec.email);
   if (!u) throw notFound('Tài khoản');
   ctx.db.credentials[u.id] = password;
-  delete ctx.db.otps[String(email).toLowerCase()];
+  delete ctx.db.resetTokens[String(token)];
   return done();
 }
 

@@ -20,4 +20,3 @@ process.env.THROTTLE_AUTH_LIMIT = '100000';
 process.env.CACHE_KEY_PREFIX = 'cache-e2e-db:';
 process.env.MAIL_TRANSPORT = 'direct';
 process.env.PAYMENT_SANDBOX_FAKE = 'true';
-delete process.env.OTP_FIXED_CODE;
