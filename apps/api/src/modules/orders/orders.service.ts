@@ -230,6 +230,10 @@ export class OrdersService {
             where: { id: l.v.id },
             data: { reservedQuantity: { increment: l.w.quantity } },
           });
+          await tx.product.update({
+            where: { id: l.pr.id },
+            data: { soldCount: { increment: l.w.quantity } },
+          });
         }
         await tx.payment.create({
           data: { orderId: order.id, method: p.paymentMethod, amount: total, status: 'pending' },
@@ -344,9 +348,14 @@ export class OrdersService {
       const items = await tx.orderItem.findMany({ where: { orderId } });
       for (const it of items.sort((a, b) => (a.variantId ?? 0) - (b.variantId ?? 0))) {
         if (it.variantId) {
-          await tx.productVariant.update({
+          const v = await tx.productVariant.update({
             where: { id: it.variantId },
             data: { reservedQuantity: { decrement: it.quantity } },
+            select: { productId: true },
+          });
+          await tx.product.update({
+            where: { id: v.productId },
+            data: { soldCount: { decrement: it.quantity } },
           });
         }
       }

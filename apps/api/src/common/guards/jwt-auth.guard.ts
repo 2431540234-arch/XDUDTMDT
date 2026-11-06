@@ -5,6 +5,7 @@ import { JwtService, TokenExpiredError } from '@nestjs/jwt';
 import { ErrorCode, type RoleCode } from '@aurelia-living/shared-types';
 import type { Request } from 'express';
 import { AppConfig } from '../../config/app-config.service';
+import { PrismaService } from '../../prisma/prisma.service';
 import { IS_PUBLIC_KEY, type RequestUser } from '../decorators/auth.decorators';
 import { AppException } from '../exceptions/app.exception';
 
@@ -19,6 +20,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
     private readonly config: AppConfig,
+    private readonly prisma: PrismaService,
   ) {}
 
   async canActivate(ctx: ExecutionContext): Promise<boolean> {
@@ -53,12 +55,23 @@ export class JwtAuthGuard implements CanActivate {
         secret: this.config.get('JWT_ACCESS_SECRET'),
       });
       req.user = { id: payload.sub, roles: payload.roles ?? [] };
-      return true;
     } catch (e) {
       if (e instanceof TokenExpiredError) {
         throw new AppException(ErrorCode.AUTH_TOKEN_EXPIRED, 'Phiên đăng nhập đã hết hạn.');
       }
       throw new AppException(ErrorCode.AUTH_TOKEN_INVALID, 'Phiên đăng nhập không hợp lệ.');
     }
+
+    // Khóa tài khoản có hiệu lực NGAY (kể cả với access token còn hạn): kiểm tra trạng thái mỗi request
+    const u = await this.prisma.user.findUnique({
+      where: { id: req.user!.id },
+      select: { status: true, deletedAt: true },
+    });
+    if (!u || u.deletedAt)
+      throw new AppException(ErrorCode.AUTH_TOKEN_INVALID, 'Phiên đăng nhập không hợp lệ.');
+    if (u.status !== 'active') {
+      throw new AppException(ErrorCode.AUTH_ACCOUNT_LOCKED, 'Tài khoản của bạn đang bị khóa.');
+    }
+    return true;
   }
 }

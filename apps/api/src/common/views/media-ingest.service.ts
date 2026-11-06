@@ -42,6 +42,12 @@ export class MediaIngestService {
     input: string,
     opts: { userId: number | null; folder: string; maxMB?: number; alt?: string | null },
   ): Promise<number> {
+    // URL công khai của chính kho lưu trữ (FE gửi lại URL nhận từ API) ⇒ tái sử dụng bản ghi media, không tạo mới
+    const base = this.storage.getUrl('');
+    if (input.startsWith(base)) {
+      const known = await this.prisma.media.findUnique({ where: { filePath: input.slice(base.length) } });
+      if (known) return known.id;
+    }
     const m = /^data:([\w/+.-]+);base64,(.+)$/s.exec(input);
     if (!m) {
       if (/^(https?:\/\/|\/)/.test(input)) {

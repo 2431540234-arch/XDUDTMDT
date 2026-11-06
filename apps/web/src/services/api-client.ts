@@ -59,6 +59,25 @@ export function buildQueryString(query?: Query): string {
   return s ? `?${s}` : '';
 }
 
+/**
+ * Chờ nạp xong phiên đăng nhập từ localStorage (xem Providers) trước khi gửi request: khi tải lại trang, các truy vấn
+ * chạy ngay lúc mount có thể đến trước bước nạp ⇒ gửi không token ⇒ API thật trả 401 (mock không lộ vì nạp động chậm hơn).
+ */
+function sessionReady(): Promise<void> {
+  if (typeof window === 'undefined' || useAuthStore.getState().hydrated) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, 3000);
+    const unsub = useAuthStore.subscribe((st) => {
+      if (st.hydrated) done();
+    });
+    function done() {
+      clearTimeout(timer);
+      unsub();
+      resolve();
+    }
+  });
+}
+
 async function rawRequest(
   method: string,
   path: string,
@@ -91,6 +110,7 @@ export async function request<T>(
   path: string,
   opts: RequestOptions = {},
 ): Promise<{ data: T; meta?: PaginatedMeta }> {
+  await sessionReady();
   const sentToken = useAuthStore.getState().accessToken;
   const { status, body } = await rawRequest(method, path, opts);
   if (!body.success) {

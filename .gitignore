@@ -92,3 +92,8 @@ google-services.json
 *.dump
 *.sql.gz
 backup/
+
+# Thư mục build riêng cho e2e/kiểm tra (NEXT_DIST_DIR)
+.next-*/
+apps/api/.tmp-uploads-db/
+apps/api/uploads/

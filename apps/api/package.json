@@ -10,13 +10,14 @@
     "lint": "eslint \"{src,test}/**/*.ts\"",
     "test": "jest --config ./jest.config.js",
     "test:e2e": "jest --config ./test/jest-e2e.config.js --runInBand --forceExit",
+    "test:e2e:db": "jest --config ./test/jest-db.config.js --runInBand --forceExit",
     "db:seed": "dotenv -e ../../.env -- prisma db seed",
     "prisma:generate": "dotenv -e ../../.env -- prisma generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:status": "dotenv -e ../../.env -- prisma migrate status",
     "db:deploy": "dotenv -e ../../.env -- prisma migrate deploy",
     "db:studio": "dotenv -e ../../.env -- prisma studio",
-    "db:reset": "dotenv -e ../../.env -- prisma migrate reset --force",
+    "db:reset": "echo \"Đã vô hiệu hóa: dùng node scripts/db-reset.mjs aurelia_demo|aurelia_test (không bao giờ reset aurelia_dev)\" && exit 1",
     "db:migrate:dev": "dotenv -e ../../.env -- prisma migrate dev"
   },
   "dependencies": {

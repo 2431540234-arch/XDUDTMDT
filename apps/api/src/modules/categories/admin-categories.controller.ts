@@ -1,12 +1,33 @@
-// M06 – Danh mục, thương hiệu, thuộc tính, trang tĩnh. Danh mục sản phẩm
-// Controller – UC-ADM-05
-// Bảng: categories
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators/auth.decorators';
+// UC-ADM-05 – Quản trị danh mục: /admin/categories (chỉ role admin). Bảng: categories
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
+import { AdminCategoriesService } from './admin-categories.service';
 
 @ApiTags('Admin – categories')
+@ApiBearerAuth()
 @Roles('admin')
 @Controller('admin/categories')
-export class AdminCategoriesController {}
+export class AdminCategoriesController {
+  constructor(private readonly categories: AdminCategoriesService) {}
+
+  @Get()
+  tree() {
+    return this.categories.tree();
+  }
+
+  @Post()
+  create(@CurrentUser('id') adminId: number, @Body() body: unknown) {
+    return this.categories.create(adminId, body);
+  }
+
+  @Patch(':id')
+  update(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    return this.categories.update(adminId, id, body);
+  }
+
+  @Delete(':id')
+  remove(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.categories.remove(adminId, id);
+  }
+}

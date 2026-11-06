@@ -1,12 +1,23 @@
-// M14 – Thông báo và thống kê quản trị. Thống kê tổng quan, AR và phễu không gian mẫu
-// Controller – UC-ADM-28, 29
-// Bảng: orders, ar_sessions, space_views (tổng hợp)
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+// UC-ADM – Thống kê admin: GET /admin/stats/overview (finance ở mốc 4)
+import { Controller, Get, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/auth.decorators';
+import type { RawQuery } from '../../common/utils/list-query';
+import { AdminStatsService } from './admin-stats.service';
 
 @ApiTags('Admin – stats')
+@ApiBearerAuth()
 @Roles('admin')
 @Controller('admin/stats')
-export class AdminStatsController {}
+export class AdminStatsController {
+  constructor(private readonly stats: AdminStatsService) {}
+
+  @Get('overview')
+  @ApiOperation({
+    summary:
+      'Dashboard: KPI + so với kỳ trước, doanh thu theo ngày, trạng thái đơn, bán chạy, hoạt động (from, to = YYYY-MM-DD)',
+  })
+  overview(@Query() q: RawQuery) {
+    return this.stats.overview(q);
+  }
+}

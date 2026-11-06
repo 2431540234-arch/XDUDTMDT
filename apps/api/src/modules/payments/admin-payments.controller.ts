@@ -1,12 +1,18 @@
-// M10 – Thanh toán và vận chuyển. Thanh toán (VNPay sandbox), IPN, xác nhận chuyển khoản, hoàn tiền thủ công
-// Controller – UC-ADM-23, 24
-// Bảng: payments
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { Roles } from '../../common/decorators/auth.decorators';
+// UC-ADM-23, 24 – Xác nhận thanh toán thủ công (chuyển khoản): PATCH /admin/payments/:id/confirm. Bảng: payments
+import { Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
+import { AdminOrdersService } from '../orders/admin-orders.service';
 
 @ApiTags('Admin – payments')
+@ApiBearerAuth()
 @Roles('admin')
 @Controller('admin/payments')
-export class AdminPaymentsController {}
+export class AdminPaymentsController {
+  constructor(private readonly orders: AdminOrdersService) {}
+
+  @Patch(':id/confirm')
+  confirm(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.orders.confirmPayment(adminId, id);
+  }
+}

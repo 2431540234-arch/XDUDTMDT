@@ -3,12 +3,16 @@
 // Bảng: orders, ar_sessions, space_views (tổng hợp)
 // TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
 import { Module } from '@nestjs/common';
+import { OrdersModule } from '../orders/orders.module';
+import { AdminMiscController } from './admin-misc.controller';
+import { AdminMiscService } from './admin-misc.service';
 import { AdminStatsController } from './admin-stats.controller';
 import { AdminStatsService } from './admin-stats.service';
 
 @Module({
-  controllers: [AdminStatsController],
-  providers: [AdminStatsService],
+  imports: [OrdersModule],
+  controllers: [AdminStatsController, AdminMiscController],
+  providers: [AdminStatsService, AdminMiscService],
   exports: [AdminStatsService],
 })
 export class AdminStatsModule {}

@@ -5,11 +5,14 @@
 import { Module } from '@nestjs/common';
 import { CategoriesController } from './categories.controller';
 import { AdminCategoriesController } from './admin-categories.controller';
+import { ProductsModule } from '../products/products.module';
+import { AdminCategoriesService } from './admin-categories.service';
 import { CategoriesService } from './categories.service';
 
 @Module({
+  imports: [ProductsModule],
   controllers: [CategoriesController, AdminCategoriesController],
-  providers: [CategoriesService],
-  exports: [CategoriesService],
+  providers: [CategoriesService, AdminCategoriesService],
+  exports: [CategoriesService, AdminCategoriesService],
 })
 export class CategoriesModule {}

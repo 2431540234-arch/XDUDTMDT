@@ -18,6 +18,20 @@ export interface CalcLine {
 
 export type CouponKind = 'percent' | 'fixed' | 'freeship';
 
+/** Số tiền giảm: percent = min(⌊base×%⌋, giảm tối đa); fixed = min(giá trị, base); freeship = đúng phí vận chuyển (≤ giảm tối đa) */
+export function calcDiscount(
+  kind: CouponKind,
+  value: number,
+  maxDiscount: number | null,
+  base: number,
+  shippingFee: number,
+): number {
+  const cap = maxDiscount === null ? Infinity : maxDiscount;
+  if (kind === 'percent') return Math.min(Math.floor((base * value) / 100), cap);
+  if (kind === 'fixed') return Math.min(value, base);
+  return Math.min(shippingFee, cap);
+}
+
 const money = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 const invalid = (msg: string) => new AppException(ErrorCode.COUPON_INVALID, msg);
 
@@ -57,27 +71,38 @@ export class CouponsService {
     if (subtotal < minOrder) throw invalid(`Đơn hàng cần tối thiểu ${money(minOrder)}đ để dùng mã này.`);
 
     let base = subtotal;
-    const catIds = c.scopes.filter((s) => s.targetType === 'category').map((s) => s.targetId);
-    if (catIds.length) {
-      const cats = await db.category.findMany({ select: { id: true, parentId: true } });
+    if (c.scopes.length) {
+      const catIds = c.scopes.filter((x) => x.targetType === 'category').map((x) => x.targetId);
+      const productIds = new Set(c.scopes.filter((x) => x.targetType === 'product').map((x) => x.targetId));
+      const spaceIds = c.scopes.filter((x) => x.targetType === 'space').map((x) => x.targetId);
+      if (spaceIds.length) {
+        // sản phẩm xuất hiện trong không gian mẫu (qua hotspot loại sản phẩm)
+        const hs = await db.spaceHotspot.findMany({
+          where: { type: 'product', productId: { not: null }, panorama: { spaceId: { in: spaceIds } } },
+          select: { productId: true },
+        });
+        for (const h of hs) if (h.productId) productIds.add(h.productId);
+      }
+      const cats = catIds.length ? await db.category.findMany({ select: { id: true, parentId: true } }) : [];
       const parentOf = new Map(cats.map((x) => [x.id, x.parentId]));
       const scoped = lines.filter(
         (l) =>
-          l.categoryId !== null &&
-          (catIds.includes(l.categoryId) || catIds.includes(parentOf.get(l.categoryId) ?? -1)),
+          productIds.has(l.productId) ||
+          (l.categoryId !== null &&
+            (catIds.includes(l.categoryId) || catIds.includes(parentOf.get(l.categoryId) ?? -1))),
       );
       if (!scoped.length) throw invalid('Mã giảm giá không áp dụng cho sản phẩm trong giỏ hàng.');
-      base = scoped.reduce((s, l) => s + l.lineTotal, 0);
+      base = scoped.reduce((sum, l) => sum + l.lineTotal, 0);
     }
     const kind = c.type as CouponKind;
     const value = Number(c.value);
-    const maxDiscount = c.maxDiscount === null ? Infinity : Number(c.maxDiscount);
-    const discount =
-      kind === 'percent'
-        ? Math.min(Math.floor((base * value) / 100), maxDiscount)
-        : kind === 'fixed'
-          ? Math.min(value, base)
-          : Math.min(shippingFee, maxDiscount);
+    const discount = calcDiscount(
+      kind,
+      value,
+      c.maxDiscount === null ? null : Number(c.maxDiscount),
+      base,
+      shippingFee,
+    );
     return { coupon: c, kind, discount };
   }
 

@@ -14,6 +14,18 @@ export const DEFAULT_SHIP_FEE = 30_000;
 
 type Db = Prisma.TransactionClient | PrismaService;
 
+/** Phí ship: vùng khớp tỉnh của địa chỉ (fee, freeFrom); không khớp ⇒ phí mặc định; đạt ngưỡng miễn phí ⇒ 0 */
+export function shippingFeeFor(
+  zones: Array<{ name: string; fee: number; freeFrom: number }>,
+  province: string | null | undefined,
+  subtotal: number,
+): number {
+  const zone = zones.find((z) => z.name === (province ?? ''));
+  const fee = zone?.fee ?? DEFAULT_SHIP_FEE;
+  const freeFrom = zone?.freeFrom ?? FREE_SHIP_FROM;
+  return subtotal >= freeFrom ? 0 : fee;
+}
+
 const CART_INCLUDE = {
   coupon: true,
   cartItems: {
@@ -47,10 +59,7 @@ export class CartService {
     ]);
     const zones =
       (setting?.value as Array<{ name: string; fee: number; freeFrom: number }> | undefined) ?? [];
-    const zone = zones.find((z) => z.name === (addr?.province ?? ''));
-    const fee = zone?.fee ?? DEFAULT_SHIP_FEE;
-    const freeFrom = zone?.freeFrom ?? FREE_SHIP_FROM;
-    return subtotal >= freeFrom ? 0 : fee;
+    return shippingFeeFor(zones, addr?.province, subtotal);
   }
 
   private async ensure(userId: number, db: Db = this.prisma) {

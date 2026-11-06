@@ -1,6 +1,7 @@
 // M13 – Đánh giá sản phẩm. Quy tắc: chỉ đánh giá sản phẩm thuộc đơn "Đã giao" của chính khách; mỗi (khách, sản phẩm, đơn)
-// một đánh giá. Theo yêu cầu dự án: KHÔNG có bước duyệt – đánh giá mới hiển thị ngay (status = approved), admin chỉ ẩn/hiện
-// (rejected = Ẩn). Điểm trung bình/số lượt do trigger refresh_product_rating của DB cập nhật (chỉ tính approved).
+// một đánh giá. Có kiểm duyệt (theo FE/mock): đánh giá mới và đánh giá vừa sửa ở trạng thái pending; admin duyệt (approved),
+// ẩn (rejected – nhãn "Ẩn") hoặc hiện lại. Danh sách công khai và điểm trung bình/số lượt chỉ tính approved
+// (trigger refresh_product_rating của DB). Khách luôn thấy đánh giá của mình ở "Đánh giá của tôi" kèm trạng thái.
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
@@ -130,7 +131,7 @@ export class ReviewsService {
         orderId: bought.id,
         rating,
         content,
-        status: 'approved', // hiển thị ngay (không có bước duyệt)
+        status: 'pending', // chờ admin duyệt
         tags: Array.isArray(b.tags) ? (b.tags as unknown[]).map(str) : [],
         isAnonymous: Boolean(b.anonymous),
         images: { create: mediaIds.map((mediaId, i) => ({ mediaId, sortOrder: i })) },
@@ -182,6 +183,7 @@ export class ReviewsService {
         ...(b.rating !== undefined ? { rating: Number(b.rating) } : {}),
         ...(b.content !== undefined ? { content: str(b.content).trim() } : {}),
         ...(Array.isArray(b.tags) ? { tags: (b.tags as unknown[]).map(str) } : {}),
+        status: 'pending', // sửa xong phải được duyệt lại
       },
       include: REVIEW_INCLUDE,
     });

@@ -179,7 +179,7 @@ Mọi migration có `CHECK` (giá ≥ 0, tồn ≥ 0, quantity > 0, rating 1–5
 - `payments.gateway_response` lưu raw callback.
 
 ### 4.6 Đánh giá
-Chỉ sản phẩm thuộc đơn `completed` của chính khách; một đánh giá/(khách, sản phẩm, đơn); đánh giá mới `pending`, admin duyệt `approved` (D-N06); `ratingAvg`/`ratingCount` tính lại trong transaction, chỉ từ `approved`.
+Chỉ sản phẩm thuộc đơn `completed` của chính khách; một đánh giá/(khách, sản phẩm, đơn); đánh giá mới và đánh giá vừa sửa ở `pending`; admin duyệt `approved`, ẩn `rejected`, hiện lại `approved` (duyệt ⇒ thông báo cho khách); `ratingAvg`/`ratingCount` do trigger DB `refresh_product_rating` tính từ `approved`. Khách xem đánh giá của mình ở `/reviews/me` với mọi trạng thái.
 
 ### 4.7 Đổi trả
 Trong **7 ngày** kể từ `shipments.deliveredAt`; số lượng ≤ số đã mua trừ đã yêu cầu. Luồng `pending → picking → inspecting → refunded|exchanged`, `rejected` từ `pending|picking|inspecting`. `refunded` ⇒ hoàn tồn + phiếu chi `refund` + đơn `refunded` (khi hoàn toàn bộ).
@@ -239,7 +239,13 @@ Script `prisma/seed/from-mock.ts` đọc `apps/web/src/mock-data/tables/*` (chú
 | 5 | **Cổng thanh toán**: D-N20 chỉ COD + VNPAY (+ chuyển khoản D-N23) ⇔ prompt thêm MoMo/ZaloPay stub | Làm interface + stub như prompt; FE/Settings chỉ bật COD, chuyển khoản, VNPAY. |
 | 6 | **Xác thực email để đánh giá** (D-N04) ⇔ FE/mock không bắt buộc | Không bắt buộc (khớp FE); ghi vào tài liệu. |
 | 7 | **Gộp giỏ khách vãng lai**: D-N19 "không làm" ⇔ prompt "nếu FE có" | FE không có giỏ khách ⇒ không làm. |
-| 8 | **Đánh giá mới**: D-N06 `pending` ⇔ FE hiển thị | `pending`, admin duyệt (khớp mock). |
+| 8 | **Đánh giá mới**: D-N06 `pending` ⇔ FE hiển thị | **Có kiểm duyệt** (quyết định 2026-11-06, khớp FE/mock): mới và sửa ⇒ `pending`; công khai/điểm trung bình chỉ tính `approved`; khách thấy đánh giá của mình kèm trạng thái; admin duyệt/ẩn (`rejected` = "Ẩn")/hiện lại, duyệt ⇒ thông báo cho khách. |
 | 9 | **Quên mật khẩu**: mock OTP cố định `123456` ⇔ prompt OTP ngẫu nhiên | OTP ngẫu nhiên; `OTP_FIXED_CODE` chỉ ở dev/test cho Playwright. |
 | 10 | **Access token**: FE không refresh ⇔ prompt "refresh xoay vòng" | Cung cấp `/auth/refresh`; access token 12 giờ ở dev để FE không bị 401 giữa phiên. |
 | 11 | **Role trong DB**: bảng `roles` (admin/user) + `permissions` ⇔ "chỉ 2 vai trò, không ma trận quyền" | Dùng `roles`/`user_roles`; bỏ qua `permissions`. |
+
+## 10. Cập nhật sau Mốc 2 (2026-11-06)
+- **Cổng/DB**: API dev cổng **4000** trên `aurelia_demo`; e2e trên `aurelia_test` (cổng 4002 khi chạy Playwright); `aurelia_dev` giữ nguyên dữ liệu gốc, chỉ áp migration (không seed). Tạo lại DB demo/test: `node scripts/db-reset.mjs aurelia_demo|aurelia_test` (từ chối mọi tên khác).
+- **Migration thực tế (6, chỉ thêm)**: `add_backend_extras` (gộp M1–M9 của mục 3.3), `coupon_freeship_value`, `add_360_default_color`, `add_coupon_applies_label`. Có sẵn từ `0_init`: `unaccent`, `pg_trgm`, `immutable_unaccent()`, trigger lịch sử trạng thái đơn (`app.current_user_id`, `app.status_note`) và trigger tính rating.
+- **Đăng nhập bị khóa**: `JwtAuthGuard` kiểm tra `users.status` ở mỗi request ⇒ khóa có hiệu lực ngay với token còn hạn.
+- **Kiểm thử**: unit (logic thuần + `CouponsService` với DB giả), e2e supertest `test/mock-m2.db-spec.ts` (`npm run test:e2e:db`, DB `aurelia_test`, tự dừng nếu sai DB).

@@ -453,6 +453,17 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | POST | `/admin/media`, `/admin/media/presign`, `/admin/media/confirm` | Upload ảnh/GLB/USDZ/frame 360 (đã có khung trong BE). FE hiện gửi ảnh dạng data-URL/đường dẫn trong body (`images[]`, `frames[]`, `imageUrl`) nên BE phải **chấp nhận cả URL lẫn data-URL base64** và tự lưu vào `StorageService` |
 | GET | `/admin/brands` | Danh sách thương hiệu cho form sản phẩm (FE ghi chú `có /admin/brands`) |
 
+## 5b. Ghi chú triển khai BE (bổ sung/khác mock) – cập nhật Mốc 2
+
+- **Đánh giá có kiểm duyệt**: `POST /products/:slug/reviews` và `PATCH /reviews/:id` ⇒ `status = pending`; danh sách công khai và điểm trung bình chỉ tính `approved`; `GET /reviews/me` trả mọi trạng thái. `PATCH /admin/reviews/:id/status` nhận `pending|approved|rejected` ("Ẩn" = `rejected`); duyệt ⇒ thông báo cho khách (Mốc 3).
+- `GET /admin/orders/:code/invoice` (thêm): `{ store, order, printedAt }` để in hóa đơn. Các route `/admin/orders/:id/*` nhận id số **hoặc** mã đơn.
+- `GET /admin/coupons`: `meta` ngoài phân trang còn có `all, active, upcoming, ended` (số lượng từng tab). Body tạo/sửa nhận thêm `productIds`, `spaceIds` (ngoài `categoryIds`) theo `appliesTo`; response có `categoryIds/productIds/spaceIds`.
+- `POST|PATCH /admin/products`: mỗi biến thể có thể kèm `costPrice, minStock, lengthCm, widthCm, heightCm`; `stockQuantity` = tồn **có thể bán**. Ảnh là `{ url, isPrimary }` với `url` là data-URL hoặc URL đã nhận từ API (BE tái sử dụng bản ghi media).
+- Khóa tài khoản: mọi request của người bị khóa (kể cả token còn hạn) ⇒ `403 AUTH_ACCOUNT_LOCKED`.
+- `POST /admin/users`: mật khẩu tạm ngẫu nhiên gửi qua email (mock đặt `12345678`).
+- `POST /admin/settings/reset-mock`: chỉ có ở mock, BE không cài.
+- Cổng API mặc định **4000** (`NEXT_PUBLIC_API_URL=http://localhost:4000`).
+
 ## 6. Ghi chú đối chiếu FE ⇄ shared-types
 
 - `packages/shared-types` đã có `ApiResult`, `PaginatedMeta`, `ErrorCode`, `AuthTokens`, `AuthUser`, các entity sinh từ Prisma. **Các `*View` (Phụ lục A) hiện nằm ở `apps/web/src/types/api.ts`** ⇒ đề xuất chuyển sang `packages/shared-types/src/views.ts` để BE và FE dùng chung; `types/api.ts` chỉ `export *` lại (thay đổi chỉ ở lớp kiểu, không đổi giao diện).

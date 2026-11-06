@@ -3,10 +3,15 @@
 // Bảng: users, user_roles
 // TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
 import { Module } from '@nestjs/common';
+import { OrdersModule } from '../orders/orders.module';
+import { ReviewsModule } from '../reviews/reviews.module';
+import { UsersModule } from '../users/users.module';
+import { WishlistModule } from '../wishlist/wishlist.module';
 import { AdminUsersController } from './admin-users.controller';
 import { AdminUsersService } from './admin-users.service';
 
 @Module({
+  imports: [UsersModule, OrdersModule, ReviewsModule, WishlistModule],
   controllers: [AdminUsersController],
   providers: [AdminUsersService],
   exports: [AdminUsersService],

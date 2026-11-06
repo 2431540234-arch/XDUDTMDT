@@ -12,7 +12,7 @@
 | 4 | Trích xuất API contract → `docs/API_CONTRACT.md` | ✅ |
 | 5 | Thiết kế → `docs/BACKEND_DESIGN.md` | ✅ |
 | 6 | ⛔ Điểm dừng – người dùng đã "Đồng ý" (2026-11-06) | ✅ |
-| 7–9 | Nền tảng, migration/seed, module theo 4 mốc | 🟡 Mốc 1 ✅ · Mốc 2–4 chưa làm |
+| 7–9 | Nền tảng, migration/seed, module theo 4 mốc | 🟡 Mốc 1 ✅ · Mốc 2 ✅ · Mốc 3–4 chưa làm |
 | 10–12 | Test, nối FE, bàn giao | 🟡 đang làm dần theo từng mốc |
 
 ## Giai đoạn 1 – Tài liệu đã đọc & quy tắc nghiệp vụ tìm được
@@ -100,9 +100,80 @@ Unit test sẵn có: 29/29 ✅. `tsc`, `eslint` sạch.
 docker exec xdudtmdt-postgres-1 psql -U aurelia -d postgres -c "CREATE DATABASE aurelia_demo"
 DATABASE_URL="postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public" npm run db:deploy -w @aurelia-living/api
 DATABASE_URL=... STORAGE_DRIVER=local STORAGE_PUBLIC_URL=http://localhost:4001/uploads npm run db:seed -w @aurelia-living/api
-# API (cổng 4001 vì 4000 đang bị container api cũ chiếm)
+# API (cổng 4000 sau khi dừng container api cũ – xem Mốc 2)
 DATABASE_URL=... PORT=4001 STORAGE_DRIVER=local STORAGE_PUBLIC_URL=http://localhost:4001/uploads OTP_FIXED_CODE=123456 JWT_ACCESS_EXPIRES_IN=12h CORS_ORIGINS=http://localhost:3000,http://localhost:3100 npm run start:dev -w @aurelia-living/api
 # FE với API thật
 NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_URL=http://localhost:4001 npm run dev -w @aurelia-living/web
 ```
 Tài khoản: `admin@aurelia.vn / admin123`, `khachhang@aurelia.vn / 123456`.
+
+
+---
+
+## Mốc 2 – Admin vận hành (2026-11-06) ✅
+
+### 1. Xử lý dữ liệu theo quyết định của bạn
+| Việc | Kết quả |
+|---|---|
+| Dump `aurelia_dev` (trạng thái trộn) | `aurelia_dev_mixed_20261106.dump` (464.639 byte) ở thư mục gốc repo – **không commit** (`*.dump` đã nằm trong `.gitignore`) |
+| Khôi phục `aurelia_dev` từ `aurelia_dev_before_be.dump` | `pg_restore` thành công. **Lệch so với yêu cầu:** thay vì `pg_restore --clean --if-exists` vào chính DB, tôi `DROP DATABASE … WITH (FORCE)` + `CREATE DATABASE` rồi `pg_restore` (không `--clean`), vì các bảng/khóa ngoại do migration mới thêm sẽ chặn lệnh `DROP TABLE` của `--clean`. Kết quả tương đương: DB về đúng trạng thái trong bản sao lưu. Lần đầu lệnh restore lỗi vì Git Bash đổi đường dẫn `/tmp/…` (DB tạm trống vài giây), tôi đã restore lại bằng `sh -c`. |
+| Số dòng thật (SELECT count(*)) sau restore | users **3**, categories **4**, products **2**, product_variants 4, orders **1**, brands 1, media 10, coupons 1, spaces 1, attributes 2, attribute_values 4, reviews 1, notifications 1, addresses 2. ⚠ Con số "4 users" tôi báo trước đó **sai**: thực tế bản gốc có **3 users** (số 4 gồm một dòng mock tôi chèn nhầm cùng ngày). Danh mục/sản phẩm/đơn khớp (4/2/1). |
+| Áp migration lên `aurelia_dev` | `prisma migrate deploy`: 4 migration mới (`add_backend_extras`, `coupon_freeship_value`, `add_360_default_color`, `add_coupon_applies_label`), **không seed mock**. Số dòng sau migrate không đổi (3 users, 4 categories, 2 products, 1 order). |
+| `aurelia_demo` | DB chính để phát triển/demo (API chạy trên đây). |
+| `aurelia_test` | Chỉ cho e2e/Playwright. |
+| Script reset | `node scripts/db-reset.mjs aurelia_demo\|aurelia_test` – **chỉ chấp nhận hai tên này** (thử `aurelia_dev` ⇒ "Từ chối"); in tên DB + `SELECT count(*)` trước/sau. Script npm `db:reset` (cũ: `prisma migrate reset --force`) đã bị vô hiệu hóa. |
+
+### 2. Cổng API = **4000**
+Container `xdudtmdt-api-1` (image `xdudtmdt-api`, build từ `infra/docker/Dockerfile.api`, `docker-compose.yml` service `api`, bản khung cũ chạy trên `aurelia_dev`) đang chiếm 4000 ⇒ đã `docker stop` (không xóa). API mới chạy ở **4000** trên `aurelia_demo`; API phục vụ Playwright/e2e chạy riêng ở 4002 trên `aurelia_test`. `.env.example`/FE đã dùng 4000 sẵn nên **không phải đổi**; muốn bật lại container cũ: `docker start xdudtmdt-api-1` (sẽ tranh cổng 4000).
+
+### 3. Bài học (ghi nhớ bắt buộc)
+> **Không bao giờ dựa vào `pg_stat_user_tables` (`n_live_tup`) để kết luận bảng trống** – thống kê có thể cũ/sai (đã báo nhầm "0 dòng" ở Giai đoạn 2 trong khi DB có dữ liệu mẫu cũ).
+> Trước **mọi** thao tác ghi/seed/reset: in tên DB đang kết nối (`select current_database()`) và đếm dòng bằng `SELECT count(*)`. `scripts/db-reset.mjs` và seed mock đã làm sẵn việc này; e2e DB (`test/mock-m2.db-spec.ts`) tự dừng nếu không phải `aurelia_test`.
+
+### 4. Quyết định thay đổi: đánh giá **có kiểm duyệt** (theo FE/mock)
+- Đánh giá mới và đánh giá vừa sửa ⇒ `pending`. Danh sách công khai, điểm trung bình và số lượt chỉ tính `approved` (trigger `refresh_product_rating`).
+- Khách luôn thấy đánh giá của mình ở `GET /reviews/me` kèm trạng thái.
+- Duyệt/ẩn/hiện + thông báo cho khách khi duyệt: **Mốc 3** (`/admin/reviews`). Enum DB `review_status` = `pending|approved|rejected`; FE gọi `rejected` là "Ẩn" (không đổi enum để khỏi sửa schema). `BACKEND_DESIGN.md` mục 4.6 + 9 và `API_CONTRACT.md` đã cập nhật.
+
+### 5. Endpoint Mốc 2 và trạng thái kiểm thử
+Ký hiệu: **U** = unit (`npm test`), **E** = e2e supertest trên `aurelia_test` (`npm run test:e2e:db`, 47 test), **P** = Playwright với API thật (`tests/e2e/admin-m2.spec.ts`).
+| Module | Endpoint | Test |
+|---|---|---|
+| Dashboard | `GET /admin/stats/overview` (KPI, % kỳ trước, doanh thu theo ngày/tháng, tỉ lệ trạng thái, đơn gần đây, bán chạy, hoạt động) · `GET /admin/notifications` · `GET /admin/search` | E · P |
+| Sản phẩm | `GET /admin/products` (q không dấu, category, status, sort, trang) · `GET\|PATCH\|DELETE /admin/products/:id` · `POST /admin/products` (6 tab: cơ bản, ảnh nhiều + ảnh đại diện, biến thể màu×size có SKU unique/giá/giá gốc/giá vốn/tồn/tồn tối thiểu/kích thước, thông số, SEO) · `GET\|PUT /admin/products/:id/360` (frame ≤ 2MB, giữ thứ tự, bật cần ≥ 2 ảnh) | E · P (tab 360°) |
+| Danh mục | `GET\|POST /admin/categories` · `PATCH\|DELETE /admin/categories/:id` (cây 2 cấp, slug unique tự sinh, chặn xóa còn sản phẩm/danh mục con ⇒ 409 `RESOURCE_IN_USE`) | E · P |
+| Đơn hàng | `GET /admin/orders` (tab trạng thái, lọc ngày/thanh toán, tìm không dấu) · `GET /admin/orders/counts` · `GET /admin/orders/:code` · `GET /admin/orders/:code/invoice` · `POST /admin/orders` · `PATCH /admin/orders/:id/status` · `POST /admin/orders/:id/cancel` · `POST /admin/orders/:id/refund` · `PATCH /admin/orders/:id/shipment` · `PATCH /admin/orders/:id/note` · `PATCH /admin/payments/:id/confirm` | U (máy trạng thái, phí ship) · E (giữ/trừ/trả tồn, 409, đồng thời) · P |
+| Khách hàng | `GET\|POST /admin/users` · `GET\|PATCH /admin/users/:id` · `PATCH /admin/users/:id/status` · `GET /admin/users/:id/orders\|reviews\|wishlist` | E · P |
+| Khuyến mãi | `GET\|POST /admin/coupons` (tab, kind, q; `meta` có số lượng từng tab) · `GET\|PATCH\|DELETE /admin/coupons/:id` | U (đủ điều kiện coupon, trạng thái theo thời gian) · E · P (trang) |
+Mọi route `/admin/*` có `@Roles('admin')` (khách ⇒ 403, không token ⇒ 401), mọi thao tác ghi đều ghi `activity_logs`.
+
+### 6. Quy tắc đã cài (kiểm chứng bằng test)
+- **Máy trạng thái**: `pending→confirmed→processing→shipping→completed`; hủy ở `pending|confirmed|processing` (khách chỉ `pending|confirmed`); sai thứ tự ⇒ 409 `INVALID_STATE`. *(FE/DB dùng `completed` cho "Đã giao" – bạn viết `delivered`.)*
+- **Tồn kho**: tạo đơn ⇒ `reserved += qty` (khóa dòng `FOR UPDATE` theo id); sang `shipping` ⇒ `stock −= qty`, `reserved −= qty`, movement `sale`; hủy ⇒ trả giữ chỗ. Hai khách giành sản phẩm cuối ⇒ đúng 1 đơn thành công; 6 đơn đồng thời ⇒ mã đơn không trùng.
+- COD sang `completed` ⇒ tự `paid`; xác nhận thanh toán (chuyển khoản) ⇒ `paid` và `pending→confirmed`; mỗi lần đổi trạng thái có lịch sử (trigger DB, kèm người thực hiện + ghi chú) và **thông báo cho khách**.
+- Hoàn tiền: đơn đã giao/đã hủy đã thanh toán ⇒ `refunded` + phiếu chi `refund`.
+- Khóa tài khoản: thu hồi mọi refresh token; `JwtAuthGuard` kiểm tra trạng thái mỗi request nên **token còn hạn cũng bị chặn ngay** (403 `AUTH_ACCOUNT_LOCKED`, "Tài khoản của bạn đang bị khóa."); đăng nhập bị chặn với thông báo tiếng Việt.
+- Xóa sản phẩm: đã có trong đơn ⇒ chuyển `archived` (ngừng bán); chưa có ⇒ xóa mềm.
+- Tồn kho admin nhập/đọc là **"có thể bán"** (tồn vật lý = nhập + đang giữ chỗ).
+- Khuyến mãi: mã unique không phân biệt hoa thường, phạm vi tất cả/danh mục/sản phẩm/không gian, trạng thái tính theo thời gian, không giảm `usageLimit` dưới số lượt đã dùng, mã đã dùng chỉ bị ngừng kích hoạt khi xóa.
+
+### 7. Kết quả kiểm thử
+| Loại | Kết quả |
+|---|---|
+| Unit (`npm test -w @aurelia-living/api`) | 29 cũ + 29 mới (coupon mọi điều kiện, `calcDiscount`, trạng thái khuyến mãi theo thời gian, máy trạng thái đơn, phí ship) |
+| E2E supertest `aurelia_test` (`test/mock-m2.db-spec.ts`) | **47/47** ✅ (phân quyền 403/401/404, tồn kho giữ/trừ/trả, 409, đồng thời, dashboard, sản phẩm + 360°, danh mục, khuyến mãi, khách hàng + khóa, đơn admin, đánh giá có kiểm duyệt) |
+| Playwright + API thật (`aurelia_test`) | admin Mốc 2: **3/3** ✅ · khách hàng + trang chủ + 360°: **14/14** ✅ (home 2, storefront, 404, luồng khách, phân quyền, 360° ×8) – *Ở báo cáo Mốc 1 tôi ghi "15 test", số đúng là 14.* |
+| `tsc` API + web, `eslint` (0 lỗi), `nest build`, `next build` | ✅ |
+Lưu ý khi chạy với API thật: dữ liệu thay đổi giữa các test nên **chạy từng file với DB vừa reset** (`node scripts/db-reset.mjs aurelia_test`), theo thứ tự `home+screens` rồi `product360` rồi `admin-m2`.
+
+### 8. Thay đổi ở lớp cấu hình FE (có lý do)
+- `apps/web/src/services/api-client.ts`: chờ nạp phiên đăng nhập (`hydrated`) trước khi gửi request. Khi tải lại trang admin, truy vấn chuông thông báo chạy trước bước nạp token ⇒ API thật trả 401 (mock không lộ). Không đổi giao diện.
+- `playwright.config.ts` (`E2E_USE_MOCK`, `E2E_API_URL`, `E2E_DIST_DIR`, `E2E_PORT`), `next.config.js` (`NEXT_DIST_DIR`), `tests/e2e/admin-m2.spec.ts` mới.
+
+### 9. Còn lệch với FE / việc tồn đọng
+1. Nhãn "Chờ duyệt" của đánh giá giữ nguyên (đúng quyết định mới); admin duyệt/ẩn ở Mốc 3.
+2. `POST /admin/settings/reset-mock` chỉ có ở mock; BE chưa cài (trả 404). FE trang Cài đặt có nút này – cần ẩn khi `USE_MOCK=false` (sửa FE, chờ bạn).
+3. `GET /admin/orders/:code/invoice` là endpoint thêm (FE hiện in từ chi tiết đơn).
+4. Tạo khách hàng từ admin: mock đặt mật khẩu `12345678`; BE sinh mật khẩu tạm ngẫu nhiên và gửi email (dev: in log + Mailpit).
+5. Cổng thanh toán online vẫn là giả lập; VNPAY sandbox thật ở Mốc 4.
+6. Chưa làm: Mốc 3 (đánh giá, hỏi đáp, đổi trả phía admin, thông báo admin, nội dung, không gian mẫu admin, mô hình 3D), Mốc 4 (kho, thu chi + báo cáo, cài đặt, VNPAY). Các trang admin tương ứng sẽ lỗi 404 với API thật cho đến khi làm xong.
