@@ -641,6 +641,7 @@ export interface ReturnRequestItem {
   requestId: number;
   orderItemId: number;
   quantity: number;
+  exchangeVariantId: number | null;
 }
 
 export interface ReturnRequestImage {

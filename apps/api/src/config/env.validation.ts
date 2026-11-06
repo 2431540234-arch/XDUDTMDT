@@ -101,6 +101,14 @@ export function ttlSeconds(spec: string): number {
 export const PROD_MAX_ACCESS_TTL_SECONDS = 15 * 60;
 
 const envSchemaChecked = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && env.PAYMENT_SANDBOX_FAKE) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['PAYMENT_SANDBOX_FAKE'],
+      message:
+        'KHÔNG được bật ở NODE_ENV=production (khách có thể tự đánh dấu đã thanh toán). Đặt PAYMENT_SANDBOX_FAKE=false.',
+    });
+  }
   if (env.NODE_ENV === 'production' && ttlSeconds(env.JWT_ACCESS_EXPIRES_IN) > PROD_MAX_ACCESS_TTL_SECONDS) {
     ctx.addIssue({
       code: 'custom',

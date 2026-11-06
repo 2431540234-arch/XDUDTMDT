@@ -969,6 +969,41 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
     });
   });
 
+  // ------------------------------------------------------------ thanh toán giả lập: khách không tự chọn kết quả
+  describe('thanh toán online (giả lập)', () => {
+    it('body outcome bị bỏ qua: gửi outcome=success cho đơn có [fail] vẫn thất bại; đơn thường thành công ⇒ confirmed/paid', async () => {
+      const v = await prisma.productVariant.findFirstOrThrow({
+        where: {
+          isActive: true,
+          stockQuantity: { gte: 12 },
+          product: { status: 'published', deletedAt: null },
+        },
+        orderBy: { id: 'asc' },
+      });
+      const addr = (await prisma.address.findFirstOrThrow({ where: { userId: 2, isDefault: true } })).id;
+      const place = async (note: string) => {
+        await api('delete', '/cart', cust);
+        await api('post', '/cart/items', cust, { variantId: v.id, quantity: 1 });
+        const r = await api('post', '/orders', cust, { addressId: addr, paymentMethod: 'vnpay', note });
+        expect(r.status).toBe(201);
+        return r.body.data.id as number;
+      };
+      const failing = await place('thử nghiệm [fail]');
+      const f1 = await api('post', `/payments/${failing}/checkout`, cust, { outcome: 'success' });
+      expect(f1.status).toBe(200);
+      expect(f1.body.data.redirectUrl).toContain('/checkout/failed');
+      expect((await prisma.order.findUniqueOrThrow({ where: { id: failing } })).paymentStatus).toBe('failed');
+
+      const good = await place('');
+      const g1 = await api('post', `/payments/${good}/checkout`, cust, { outcome: 'failed' });
+      expect(g1.body.data.redirectUrl).toContain('/checkout/success');
+      const row = await prisma.order.findUniqueOrThrow({ where: { id: good } });
+      expect(row.paymentStatus).toBe('paid');
+      expect(row.status).toBe('confirmed');
+      expect((await api('post', `/payments/${good}/checkout`, cust, {})).status).toBe(409); // đã thanh toán
+    });
+  });
+
   describe('đánh giá (có kiểm duyệt)', () => {
     it('đánh giá mới ở trạng thái pending: không hiện công khai, không đổi điểm; khách vẫn thấy ở "Đánh giá của tôi"', async () => {
       const item = await prisma.orderItem.findFirstOrThrow({

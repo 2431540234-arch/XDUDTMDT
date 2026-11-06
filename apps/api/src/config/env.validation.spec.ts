@@ -21,10 +21,22 @@ describe('validateEnv', () => {
   it('access token: mặc định 15m; production không cho dài hơn 15 phút, dev thì được', () => {
     expect(validateEnv({ ...base, ...minio }).JWT_ACCESS_EXPIRES_IN).toBe('15m');
     expect(() =>
-      validateEnv({ ...base, ...minio, NODE_ENV: 'production', JWT_ACCESS_EXPIRES_IN: '12h' }),
+      validateEnv({
+        ...base,
+        ...minio,
+        NODE_ENV: 'production',
+        PAYMENT_SANDBOX_FAKE: 'false',
+        JWT_ACCESS_EXPIRES_IN: '12h',
+      }),
     ).toThrow(/JWT_ACCESS_EXPIRES_IN.*tối đa 15m/s);
     expect(
-      validateEnv({ ...base, ...minio, NODE_ENV: 'production', JWT_ACCESS_EXPIRES_IN: '10m' }).NODE_ENV,
+      validateEnv({
+        ...base,
+        ...minio,
+        NODE_ENV: 'production',
+        PAYMENT_SANDBOX_FAKE: 'false',
+        JWT_ACCESS_EXPIRES_IN: '10m',
+      }).NODE_ENV,
     ).toBe('production');
     expect(
       validateEnv({ ...base, ...minio, NODE_ENV: 'development', JWT_ACCESS_EXPIRES_IN: '12h' })
@@ -36,6 +48,18 @@ describe('validateEnv', () => {
       900,
       Infinity,
     ]);
+  });
+
+  it('PAYMENT_SANDBOX_FAKE: dev được bật; NODE_ENV=production mà bật thì app không khởi động', () => {
+    expect(validateEnv({ ...base, ...minio, PAYMENT_SANDBOX_FAKE: 'true' }).PAYMENT_SANDBOX_FAKE).toBe(true);
+    expect(() =>
+      validateEnv({ ...base, ...minio, NODE_ENV: 'production', PAYMENT_SANDBOX_FAKE: 'true' }),
+    ).toThrow(/PAYMENT_SANDBOX_FAKE.*production/s);
+    expect(() => validateEnv({ ...base, ...minio, NODE_ENV: 'production' })).toThrow(/PAYMENT_SANDBOX_FAKE/);
+    expect(
+      validateEnv({ ...base, ...minio, NODE_ENV: 'production', PAYMENT_SANDBOX_FAKE: 'false' })
+        .PAYMENT_SANDBOX_FAKE,
+    ).toBe(false);
   });
 
   it('driver minio thiếu S3_ENDPOINT/khóa truy cập -> báo lỗi rõ ràng', () => {

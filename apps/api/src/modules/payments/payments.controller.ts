@@ -13,12 +13,8 @@ export class PaymentsController {
   @Post(':orderId/checkout')
   @HttpCode(200)
   @ApiOperation({ summary: 'Bắt đầu thanh toán: trả redirectUrl (trang kết quả hoặc URL cổng thanh toán)' })
-  checkout(
-    @CurrentUser('id') uid: number,
-    @Param('orderId', ParseIntPipe) orderId: number,
-    @Body() body: unknown,
-  ) {
-    return this.payments.checkout(uid, orderId, body);
+  checkout(@CurrentUser('id') uid: number, @Param('orderId', ParseIntPipe) orderId: number) {
+    return this.payments.checkout(uid, orderId);
   }
 
   @Post(':orderId/retry')

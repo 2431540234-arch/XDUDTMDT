@@ -10,6 +10,11 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from '../orders/orders.service';
 
+/** Giả lập thanh toán chỉ khi bật cờ VÀ không phải production */
+export function sandboxAllowed(flag: boolean, nodeEnv: string): boolean {
+  return flag === true && nodeEnv !== 'production';
+}
+
 const ONLINE: PaymentMethod[] = ['vnpay', 'momo', 'zalopay', 'card'];
 
 @Injectable()
@@ -89,21 +94,24 @@ export class PaymentsService {
     });
   }
 
+  /** Thanh toán giả lập chỉ chạy khi PAYMENT_SANDBOX_FAKE=true VÀ NODE_ENV khác production (khóa chặn cả ở env.validation) */
   private requireSandbox() {
-    if (!this.config.get('PAYMENT_SANDBOX_FAKE')) {
+    if (!sandboxAllowed(this.config.get('PAYMENT_SANDBOX_FAKE'), this.config.get('NODE_ENV'))) {
       throw new AppException(ErrorCode.SERVICE_UNAVAILABLE, 'Cổng thanh toán chưa được cấu hình.');
     }
   }
 
-  async checkout(userId: number, orderId: number, raw: unknown) {
+  async checkout(userId: number, orderId: number) {
     const o = await this.own(userId, orderId);
     if (o.paymentStatus === 'paid')
       throw new AppException(ErrorCode.INVALID_STATE, 'Đơn hàng đã được thanh toán.');
     if (!ONLINE.includes(o.paymentMethod)) return { redirectUrl: `/checkout/success?order=${o.orderCode}` };
     this.requireSandbox();
-    const outcome = str(asBody(raw).outcome) || (/\[fail\]/i.test(o.note ?? '') ? 'failed' : 'success');
-    await this.settle(o.id, outcome === 'success');
-    return { redirectUrl: `/checkout/${outcome === 'success' ? 'success' : 'failed'}?order=${o.orderCode}` };
+    // Kết quả do hệ thống giả lập quyết định, KHÔNG nhận từ body của khách (trước đây khách tự gửi outcome=success).
+    // Dùng thử luồng thất bại: ghi chú đơn chứa "[fail]".
+    const ok = !/\[fail\]/i.test(o.note ?? '');
+    await this.settle(o.id, ok);
+    return { redirectUrl: `/checkout/${ok ? 'success' : 'failed'}?order=${o.orderCode}` };
   }
 
   async retry(userId: number, orderId: number, raw: unknown) {

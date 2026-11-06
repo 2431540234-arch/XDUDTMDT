@@ -21,6 +21,11 @@ export const RETURN_INCLUDE = {
   items: {
     orderBy: { id: 'asc' },
     include: {
+      exchangeVariant: {
+        include: {
+          variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+        },
+      },
       orderItem: {
         include: {
           variant: {
@@ -46,6 +51,30 @@ export function isWithinReturnWindow(
   days = RETURN_WINDOW_DAYS,
 ): boolean {
   return Boolean(deliveredAt) && deliveredAt!.getTime() + days * 86_400_000 >= now.getTime();
+}
+
+/**
+ * Số tiền hoàn cho các dòng trả = số tiền khách THỰC TRẢ cho các dòng đó: giá dòng × (tạm tính − giảm giá hàng) / tạm tính,
+ * tức chia giảm giá (coupon) theo tỉ lệ giá trị; KHÔNG hoàn phí vận chuyển. Làm tròn đến đồng.
+ * goodsDiscount = giảm giá áp lên tiền hàng (mã freeship giảm vào phí ship nên truyền 0).
+ */
+export function refundShare(
+  lines: Array<{ unitPrice: number; quantity: number }>,
+  subtotal: number,
+  goodsDiscount: number,
+): number {
+  const gross = lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0);
+  if (subtotal <= 0 || gross <= 0) return 0;
+  const paidRatio = Math.max(0, subtotal - goodsDiscount) / subtotal;
+  return Math.round(gross * paidRatio);
+}
+
+/** Giảm giá áp lên tiền hàng của đơn: mã freeship giảm phí ship nên không làm giảm số tiền hoàn của hàng */
+export function goodsDiscountOf(order: {
+  discountAmount: unknown;
+  coupon?: { type: string } | null;
+}): number {
+  return order.coupon?.type === 'freeship' ? 0 : Number(order.discountAmount);
 }
 
 /** Số lượng còn được yêu cầu = số đã mua − số đã nằm trong các yêu cầu khác (không bị từ chối) */
@@ -83,6 +112,9 @@ export class ReturnsService {
           variantLabel: it.orderItem.variantLabel ?? (v ? this.views.variantLabel(v) : '—'),
           quantity: it.quantity,
           unitPrice: Number(it.orderItem.unitPrice),
+          // đổi hàng: biến thể giao đổi (null = cùng biến thể với dòng gốc)
+          exchangeVariantId: it.exchangeVariantId,
+          exchangeVariantLabel: it.exchangeVariant ? this.views.variantLabel(it.exchangeVariant) : null,
         };
       }),
       type: r.type,
@@ -116,7 +148,7 @@ export class ReturnsService {
     const b = asBody(raw);
     const o = await this.prisma.order.findFirst({
       where: { id: toId(b.orderId), userId },
-      include: { orderItems: true, shipments: true },
+      include: { orderItems: true, shipments: true, coupon: { select: { type: true } } },
     });
     if (!o) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Đơn hàng không tồn tại.');
 
@@ -158,9 +190,36 @@ export class ReturnsService {
           items: [`"${it.productName}": số lượng đổi trả tối đa là ${left}.`],
         });
       }
-      return { it, qty };
+      // đổi hàng: biến thể giao đổi phải cùng sản phẩm và còn bán; không gửi = cùng biến thể với dòng gốc
+      let exchangeVariantId: number | null = null;
+      const wantVariant = toId(x.exchangeVariantId);
+      if (str(b.type) === 'exchange' && wantVariant && wantVariant !== it.variantId) {
+        exchangeVariantId = wantVariant;
+      }
+      return { it, qty, exchangeVariantId };
     });
-    const refundAmount = lines.reduce((s, l) => s + Number(l.it.unitPrice) * l.qty, 0);
+    for (const l of lines) {
+      if (!l.exchangeVariantId) continue;
+      const orig = await this.prisma.productVariant.findUnique({
+        where: { id: l.it.variantId ?? 0 },
+        select: { productId: true },
+      });
+      const target = await this.prisma.productVariant.findFirst({
+        where: { id: l.exchangeVariantId, isActive: true, productId: orig?.productId ?? -1 },
+        select: { id: true },
+      });
+      if (!target) {
+        throw new AppException(ErrorCode.VALIDATION_FAILED, 'Dữ liệu không hợp lệ.', {
+          items: [`"${l.it.productName}": biến thể muốn đổi không thuộc sản phẩm hoặc đã ngừng bán.`],
+        });
+      }
+    }
+    // số tiền hoàn = tiền khách thực trả cho các dòng (chia coupon theo tỉ lệ), không gồm phí vận chuyển
+    const refundAmount = refundShare(
+      lines.map((l) => ({ unitPrice: Number(l.it.unitPrice), quantity: l.qty })),
+      Number(o.subtotal),
+      goodsDiscountOf(o),
+    );
 
     const mediaIds: number[] = [];
     for (const u of images.slice(0, 6))
@@ -177,7 +236,13 @@ export class ReturnsService {
           reason: str(b.reason) as never,
           description: str(b.description).trim(),
           refundAmount,
-          items: { create: lines.map((l) => ({ orderItemId: l.it.id, quantity: l.qty })) },
+          items: {
+            create: lines.map((l) => ({
+              orderItemId: l.it.id,
+              quantity: l.qty,
+              exchangeVariantId: l.exchangeVariantId,
+            })),
+          },
           images: { create: mediaIds.map((mediaId) => ({ mediaId })) },
         },
         include: RETURN_INCLUDE,

@@ -480,7 +480,7 @@ export function checkoutPayment(ctx: Ctx): Result {
   if (o.paymentStatus === 'paid') throw new ApiFail('INVALID_STATE', 'Đơn hàng đã được thanh toán.');
   const online = (['vnpay', 'momo', 'zalopay', 'card'] as PaymentMethod[]).includes(o.paymentMethod);
   if (!online) return ok({ redirectUrl: `/checkout/success?order=${o.orderCode}` });
-  const outcome = ctx.body?.outcome ?? (/\[fail\]/i.test(o.note ?? '') ? 'failed' : 'success');
+  const outcome = /\[fail\]/i.test(o.note ?? '') ? 'failed' : 'success'; // như BE thật: không nhận outcome từ body
   settle(ctx.db, o.id, outcome === 'success');
   return ok({
     redirectUrl: `/checkout/${outcome === 'success' ? 'success' : 'failed'}?order=${o.orderCode}`,

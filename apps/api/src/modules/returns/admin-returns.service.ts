@@ -14,7 +14,7 @@ import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from '../orders/orders.service';
-import { RETURN_INCLUDE, ReturnsService } from './returns.service';
+import { RETURN_INCLUDE, ReturnsService, goodsDiscountOf } from './returns.service';
 
 /** Các bước chuyển hợp lệ của yêu cầu đổi trả */
 export const RETURN_FLOW: Partial<Record<ReturnStatus, ReturnStatus[]>> = {
@@ -81,7 +81,10 @@ export class AdminReturnsService {
       if (!locked) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Yêu cầu đổi trả không tồn tại.');
       const r = await tx.returnRequest.findUniqueOrThrow({
         where: { id },
-        include: { items: { include: { orderItem: true } }, order: true },
+        include: {
+          items: { include: { orderItem: true } },
+          order: { include: { coupon: { select: { type: true } } } },
+        },
       });
       if (!canReturnTransition(locked.status, to)) {
         throw new AppException(ErrorCode.INVALID_STATE, 'Không thể chuyển yêu cầu sang trạng thái này.');
@@ -102,10 +105,19 @@ export class AdminReturnsService {
       });
 
       if (to === 'refunded' || to === 'exchanged') {
-        // hàng về kho: cộng lại tồn đúng biến thể (khóa theo thứ tự id)
+        // Khóa các biến thể liên quan theo thứ tự id (cả biến thể cũ và biến thể giao đổi) rồi cập nhật tồn
+        const ids = new Set<number>();
+        for (const it of r.items) {
+          if (it.orderItem.variantId) ids.add(it.orderItem.variantId);
+          if (it.exchangeVariantId) ids.add(it.exchangeVariantId);
+        }
+        if (ids.size) {
+          await tx.$queryRaw`SELECT id FROM product_variants WHERE id IN (${Prisma.join([...ids].sort((x, y) => x - y))}) ORDER BY id FOR UPDATE`;
+        }
         const items = [...r.items].sort(
-          (a, c) => (a.orderItem.variantId ?? 0) - (c.orderItem.variantId ?? 0),
+          (x, y) => (x.orderItem.variantId ?? 0) - (y.orderItem.variantId ?? 0),
         );
+        // 1) hàng về kho: cộng lại đúng biến thể đã bán (movement "return")
         for (const it of items) {
           const vid = it.orderItem.variantId;
           if (!vid) continue;
@@ -124,6 +136,38 @@ export class AdminReturnsService {
             },
           });
         }
+        // 2) đổi hàng: trừ tồn món mới (mặc định cùng biến thể với dòng gốc), ghi movement "sale"; thiếu hàng ⇒ 409
+        if (to === 'exchanged') {
+          for (const it of items) {
+            const newVid = it.exchangeVariantId ?? it.orderItem.variantId;
+            if (!newVid) continue;
+            const cur = await tx.productVariant.findUniqueOrThrow({
+              where: { id: newVid },
+              select: { stockQuantity: true, sku: true },
+            });
+            if (cur.stockQuantity < it.quantity) {
+              throw new AppException(
+                ErrorCode.OUT_OF_STOCK,
+                `Không đủ hàng để giao đổi "${it.orderItem.productName}" (còn ${cur.stockQuantity}, cần ${it.quantity}).`,
+                { variantId: newVid, available: cur.stockQuantity },
+              );
+            }
+            await tx.productVariant.update({
+              where: { id: newVid },
+              data: { stockQuantity: { decrement: it.quantity } },
+            });
+            await tx.inventoryMovement.create({
+              data: {
+                variantId: newVid,
+                type: 'sale',
+                quantityChange: -it.quantity,
+                reason: `Giao hàng đổi ${r.code}`,
+                referenceCode: r.code,
+                performedBy: adminId,
+              },
+            });
+          }
+        }
       }
       if (to === 'refunded') {
         await tx.expense.create({
@@ -136,14 +180,22 @@ export class AdminReturnsService {
             orderId: r.orderId,
           },
         });
-        // đã hoàn đủ tiền hàng của đơn ⇒ đơn + thanh toán sang "refunded"; hoàn một phần ⇒ giữ trạng thái đơn
+        // đã hoàn đủ phần tiền hàng khách trả (hoặc đã trả hết mọi dòng) ⇒ đơn + thanh toán sang "refunded"; hoàn một phần ⇒ giữ trạng thái đơn
         const agg = await tx.returnRequest.aggregate({
           _sum: { refundAmount: true },
           where: { orderId: r.orderId, status: 'refunded' },
         });
         const refunded = Number(agg._sum.refundAmount ?? 0);
-        const goods = Number(r.order.subtotal) - Number(r.order.discountAmount);
-        if (refunded >= goods && r.order.status === 'completed') {
+        const goodsPaid = Number(r.order.subtotal) - goodsDiscountOf(r.order);
+        const orderItems = await tx.orderItem.findMany({ where: { orderId: r.orderId } });
+        const returnedQty = await tx.returnRequestItem.groupBy({
+          by: ['orderItemId'],
+          where: { request: { orderId: r.orderId, status: 'refunded' } },
+          _sum: { quantity: true },
+        });
+        const qtyOf = new Map(returnedQty.map((x) => [x.orderItemId, x._sum.quantity ?? 0]));
+        const allReturned = orderItems.every((x) => (qtyOf.get(x.id) ?? 0) >= x.quantity);
+        if ((allReturned || refunded >= goodsPaid) && r.order.status === 'completed') {
           await this.orders.setActor(tx, adminId, `Hoàn tiền đổi trả ${r.code}`);
           await tx.order.update({
             where: { id: r.orderId },

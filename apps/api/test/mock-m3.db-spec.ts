@@ -482,7 +482,7 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       ).toBe(3);
     });
 
-    it('loại "đổi sản phẩm": hoàn tiền không hợp lệ; đổi hàng cộng tồn nhưng KHÔNG tạo phiếu chi', async () => {
+    it('loại "đổi sản phẩm": hoàn tiền không hợp lệ; đổi hàng cùng biến thể: cộng tồn món cũ, trừ tồn món mới (hiệu 0), KHÔNG tạo phiếu chi', async () => {
       const ex = (await api('get', `/admin/returns?type=exchange&q=${order.orderCode}`, admin)).body.data[0];
       expect((await api('patch', `/admin/returns/${ex.id}`, admin, { status: 'picking' })).status).toBe(200);
       expect((await api('patch', `/admin/returns/${ex.id}`, admin, { status: 'inspecting' })).status).toBe(
@@ -494,7 +494,18 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       expect(
         (await api('patch', `/admin/returns/${ex.id}`, admin, { status: 'exchanged' })).body.data.status,
       ).toBe('exchanged');
-      expect(await stock()).toBe(before + 1);
+      expect(await stock()).toBe(before); // +1 hàng trả về, −1 hàng giao đổi
+      expect(
+        (
+          await prisma.inventoryMovement.findMany({
+            where: { variantId: v.id, referenceCode: ex.code },
+            orderBy: { id: 'asc' },
+          })
+        ).map((m) => [m.type, m.quantityChange]),
+      ).toEqual([
+        ['return', 1],
+        ['sale', -1],
+      ]);
       expect(await prisma.expense.count({ where: { category: 'refund' } })).toBe(expensesBefore);
     });
 
@@ -528,6 +539,145 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
   });
 
   // ------------------------------------------------------------ thông báo
+  // ------------------------------------------------------------ tiền hoàn theo số tiền thực trả; đổi hàng cộng/trừ tồn hai biến thể
+  describe('hoàn tiền theo tiền thực trả (coupon, phí ship) và đổi hàng', () => {
+    const reqBody = (itemId: number, qty: number, type: string, extra: object = {}) => ({
+      type,
+      reason: 'defect',
+      description: 'Sản phẩm bị trầy xước khi nhận hàng',
+      images: [PNG],
+      items: [{ orderItemId: itemId, quantity: qty, ...extra }],
+    });
+    const walk = async (id: number, last: string) => {
+      for (const st of ['picking', 'inspecting', last]) {
+        const r = await api('patch', `/admin/returns/${id}`, admin, { status: st, adminNote: 'ok' });
+        if (r.status !== 200) return r;
+      }
+      return api('get', '/admin/returns?pageSize=100', admin);
+    };
+    const stockOf = async (id: number) =>
+      (await prisma.productVariant.findUniqueOrThrow({ where: { id } })).stockQuantity;
+
+    it('đơn có coupon 10% và phí ship 150.000: tiền hoàn = giá món × 0,9, KHÔNG gồm phí ship; trả hết ⇒ đơn refunded', async () => {
+      const v = await stockVariant(15);
+      const o = await completedOrder(cust, 2, v.id, 2);
+      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
+      const subtotal = Number(row.subtotal);
+      const discount = Math.round(subtotal * 0.1);
+      const ship = 150_000;
+      await prisma.order.update({
+        where: { id: o.id },
+        data: { discountAmount: discount, shippingFee: ship, total: subtotal - discount + ship },
+      });
+      const unit = subtotal / 2;
+      const expected = Math.round((unit * (subtotal - discount)) / subtotal);
+
+      const a = await api('post', '/returns', cust, {
+        ...reqBody(o.items[0].id, 1, 'refund'),
+        orderId: o.id,
+      });
+      expect(a.status).toBe(201);
+      expect(a.body.data.refundAmount).toBe(expected);
+      expect(a.body.data.refundAmount).toBeLessThan(unit); // đã trừ phần coupon
+      const expenseBefore = await prisma.expense.count({ where: { orderId: o.id, category: 'refund' } });
+      expect((await walk(a.body.data.id, 'refunded')).status).toBe(200);
+      const exp = await prisma.expense.findFirstOrThrow({ where: { orderId: o.id, category: 'refund' } });
+      expect(Number(exp.amount)).toBe(expected);
+      expect(await prisma.expense.count({ where: { orderId: o.id, category: 'refund' } })).toBe(
+        expenseBefore + 1,
+      );
+      // mới trả 1/2 số lượng ⇒ đơn vẫn completed
+      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).status).toBe('completed');
+
+      const b = await api('post', '/returns', cust, {
+        ...reqBody(o.items[0].id, 1, 'refund'),
+        orderId: o.id,
+      });
+      expect(b.status).toBe(201);
+      expect((await walk(b.body.data.id, 'refunded')).status).toBe(200);
+      const after = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
+      expect(after.status).toBe('refunded'); // đã trả hết các dòng
+      const total = await prisma.expense.aggregate({
+        _sum: { amount: true },
+        where: { orderId: o.id, category: 'refund' },
+      });
+      expect(Number(total._sum.amount)).toBeLessThanOrEqual(subtotal - discount + 1);
+      expect(Number(total._sum.amount)).toBeLessThan(Number(after.total)); // không hoàn phí ship
+    });
+
+    it('đổi hàng cùng biến thể: cộng tồn món cũ và trừ tồn món mới (hiệu số 0), ghi cả hai movement', async () => {
+      const v = await stockVariant(15);
+      const o = await completedOrder(cust, 2, v.id, 2);
+      const s0 = await stockOf(v.id);
+      const r = await api('post', '/returns', cust, {
+        ...reqBody(o.items[0].id, 1, 'exchange'),
+        orderId: o.id,
+      });
+      expect(r.status).toBe(201);
+      expect(r.body.data.items[0].exchangeVariantId).toBeNull();
+      expect((await walk(r.body.data.id, 'exchanged')).status).toBe(200);
+      expect(await stockOf(v.id)).toBe(s0);
+      const mv = await prisma.inventoryMovement.findMany({
+        where: { variantId: v.id, referenceCode: r.body.data.code },
+        orderBy: { id: 'asc' },
+      });
+      expect(mv.map((m) => [m.type, m.quantityChange])).toEqual([
+        ['return', 1],
+        ['sale', -1],
+      ]);
+      expect(await prisma.expense.count({ where: { orderId: o.id, category: 'refund' } })).toBe(0); // đổi hàng không chi tiền
+    });
+
+    it('đổi sang biến thể khác cùng sản phẩm: cũ +1, mới −1, ghi vào yêu cầu; thiếu hàng ⇒ 409 và không đổi gì', async () => {
+      const pair = await prisma.$queryRaw<Array<{ a: number; b: number }>>`
+        SELECT a.id AS a, b.id AS b
+        FROM product_variants a
+        JOIN product_variants b ON b.product_id = a.product_id AND b.id <> a.id
+        JOIN products p ON p.id = a.product_id AND p.status = 'published' AND p.deleted_at IS NULL
+        WHERE a.is_active AND b.is_active AND a.stock_quantity >= 15 AND b.stock_quantity >= 5
+        ORDER BY a.id DESC LIMIT 1`;
+      expect(pair).toHaveLength(1);
+      const { a, b } = pair[0];
+      const o = await completedOrder(cust, 2, a, 2);
+      const sa = await stockOf(a);
+      const sb = await stockOf(b);
+
+      // biến thể của sản phẩm khác ⇒ 400
+      const other = await prisma.productVariant.findFirstOrThrow({
+        where: { productId: { not: o.items[0].productId } },
+      });
+      const bad = await api('post', '/returns', cust, {
+        ...reqBody(o.items[0].id, 1, 'exchange', { exchangeVariantId: other.id }),
+        orderId: o.id,
+      });
+      expect(bad.status).toBe(400);
+
+      const r = await api('post', '/returns', cust, {
+        ...reqBody(o.items[0].id, 1, 'exchange', { exchangeVariantId: b }),
+        orderId: o.id,
+      });
+      expect(r.status).toBe(201);
+      expect(r.body.data.items[0].exchangeVariantId).toBe(b);
+
+      // hết hàng món mới ⇒ 409, giao dịch hoàn tác (trạng thái và tồn không đổi)
+      await prisma.productVariant.update({ where: { id: b }, data: { stockQuantity: 0 } });
+      const id = r.body.data.id;
+      await api('patch', `/admin/returns/${id}`, admin, { status: 'picking' });
+      await api('patch', `/admin/returns/${id}`, admin, { status: 'inspecting' });
+      const fail = await api('patch', `/admin/returns/${id}`, admin, { status: 'exchanged' });
+      expect(fail.status).toBe(409);
+      expect(fail.body.error.code).toBe('OUT_OF_STOCK');
+      expect((await prisma.returnRequest.findUniqueOrThrow({ where: { id } })).status).toBe('inspecting');
+      expect(await stockOf(a)).toBe(sa);
+      expect(await stockOf(b)).toBe(0);
+
+      await prisma.productVariant.update({ where: { id: b }, data: { stockQuantity: sb } });
+      expect((await api('patch', `/admin/returns/${id}`, admin, { status: 'exchanged' })).status).toBe(200);
+      expect(await stockOf(a)).toBe(sa + 1);
+      expect(await stockOf(b)).toBe(sb - 1);
+    });
+  });
+
   describe('thông báo', () => {
     it('danh sách theo tab, số chưa đọc, đánh dấu từng cái / tất cả; chỉ của chính mình', async () => {
       const all = await api('get', '/notifications?pageSize=100', cust);

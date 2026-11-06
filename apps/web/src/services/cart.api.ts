@@ -29,9 +29,8 @@ export const orderApi = {
   detail: (code: string) => http.get<OrderView>(`/orders/${code}`),
   cancel: (id: number, reason?: string) => http.post<OrderView>(`/orders/${id}/cancel`, { reason }),
   counts: () => http.get<Record<string, number>>('/orders/counts'), // TODO: chưa có trong BE
-  /** Giả lập cổng thanh toán: trả về URL điều hướng (thành công hoặc thất bại) */
-  checkout: (orderId: number, outcome: 'success' | 'failed' = 'success') =>
-    http.post<{ redirectUrl: string }>(`/payments/${orderId}/checkout`, { outcome }),
+  /** Bắt đầu thanh toán: trả URL điều hướng. Kết quả do hệ thống quyết định (khách không gửi được outcome) */
+  checkout: (orderId: number) => http.post<{ redirectUrl: string }>(`/payments/${orderId}/checkout`),
   retryPayment: (orderId: number, method?: PaymentMethod) =>
     http.post<{ redirectUrl: string }>(`/payments/${orderId}/retry`, { method }),
 };
