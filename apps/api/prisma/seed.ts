@@ -38,7 +38,7 @@ const SETTINGS: [string, unknown, string][] = [
   ['maintenance_mode', false, 'Chế độ bảo trì'],
 ];
 
-async function seedCore() {
+async function seedCore(createAdmin = true) {
   const adminRole = await prisma.role.upsert({
     where: { code: 'admin' },
     update: {},
@@ -81,7 +81,7 @@ async function seedCore() {
   // trg_users_assign_default_role không gán thêm vai trò "user".
   // email không có @unique (partial unique index trong DB) nên dùng findFirst.
   const existing = await prisma.user.findFirst({ where: { email: ADMIN_EMAIL, deletedAt: null } });
-  if (!existing) {
+  if (createAdmin && !existing) {
     const passwordHash = await hash(ADMIN_PASSWORD, 10);
     await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
@@ -745,8 +745,14 @@ async function main() {
   if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
     throw new Error('Môi trường production bắt buộc đặt SEED_ADMIN_PASSWORD.');
   }
-  await seedCore();
-  if (process.env.SEED_SAMPLE !== 'false') {
+  // Mặc định seed từ mock-data của FE (SEED_SOURCE=mock) để giao diện giống hệt khi chạy mock;
+  // SEED_SOURCE=legacy giữ bộ dữ liệu mẫu cũ; SEED_SAMPLE=false chỉ seed phần bắt buộc.
+  const useMock = process.env.SEED_SAMPLE !== 'false' && (process.env.SEED_SOURCE ?? 'mock') === 'mock';
+  await seedCore(!useMock); // seed mock có tài khoản admin riêng (admin@aurelia.vn / admin123)
+  if (useMock) {
+    const { seedFromMock } = await import('./seed-mock');
+    await seedFromMock();
+  } else if (process.env.SEED_SAMPLE !== 'false') {
     await seedSample();
     await syncSampleObjects();
   }

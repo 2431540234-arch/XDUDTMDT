@@ -74,3 +74,22 @@ export async function ensureSampleObject(key: string, mimeType: string): Promise
   }
   return body.length;
 }
+
+/** Ghi một tệp (nội dung đã có) lên kho nếu chưa tồn tại. Trả về dung lượng. Dùng bởi seed từ mock-data. */
+export async function storeObject(key: string, body: Buffer, mimeType: string): Promise<number> {
+  if (await exists(key)) return body.length;
+  if (storageDriver === 'local') {
+    await mkdir(dirname(localPath(key)), { recursive: true });
+    await writeFile(localPath(key), body);
+  } else {
+    await client().send(
+      new PutObjectCommand({
+        Bucket: env.S3_BUCKET_PUBLIC ?? 'aurelia-public',
+        Key: key,
+        Body: body,
+        ContentType: mimeType,
+      }),
+    );
+  }
+  return body.length;
+}
