@@ -20,7 +20,7 @@ async function bootstrap() {
   }
   const port = app.get(AppConfig).get('PORT');
   await app.listen(port);
-  Logger.log(`API chạy tại http://localhost:${port} (Swagger: /api/docs)`, 'Bootstrap');
+  Logger.log(`API chạy tại http://localhost:${port} (Swagger: /docs)`, 'Bootstrap');
 }
 
 bootstrap().catch((err: Error) => {

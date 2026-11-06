@@ -598,9 +598,9 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       expect((await api('delete', `/admin/banners/${b.body.data.id}`, admin)).status).toBe(200);
     });
 
-    it('bài viết: slug unique, lọc XSS, nháp không công khai, xuất bản + lượt xem', async () => {
-      const xss =
-        '<h2>Tiêu đề</h2><p onclick="steal()">Nội dung</p><script>alert(1)</script><img src=x onerror=alert(1)><a href="javascript:alert(1)">x</a>';
+    it('bài viết: Markdown lưu nguyên văn (bỏ ký tự điều khiển), slug unique, nháp không công khai, xuất bản + lượt xem', async () => {
+      // Markdown + mã độc dạng chữ: BE lưu nguyên văn (kèm ký tự điều khiển \u0000 bị bỏ); FE tắt HTML thô khi hiển thị
+      const xss = '## Tiêu đề\u0000\n\nNội dung <script>alert(1)</script> [x](javascript:alert(1))';
       const p1 = await api('post', '/admin/posts', admin, {
         title: 'Bài viết thử nghiệm e2e',
         category: 'Cảm hứng',
@@ -609,8 +609,9 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       });
       expect(p1.status).toBe(201);
       expect(p1.body.data.slug).toBe('bai-viet-thu-nghiem-e2e');
-      expect(p1.body.data.content).not.toMatch(/script|onclick|onerror|javascript:/i);
-      expect(p1.body.data.content).toContain('<h2>Tiêu đề</h2>');
+      expect(p1.body.data.content).toBe(
+        '## Tiêu đề\n\nNội dung <script>alert(1)</script> [x](javascript:alert(1))',
+      );
       const p2 = await api('post', '/admin/posts', admin, {
         title: 'Bài viết thử nghiệm e2e',
         status: 'draft',
@@ -636,12 +637,12 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
     it('trang tĩnh & FAQ: CRUD cho admin, API công khai cho FE', async () => {
       const pg = await api('post', '/admin/pages', admin, {
         title: 'Trang e2e',
-        content: '<p>Xin chào</p><script>x</script>',
+        content: '## Xin chào\n\n- Mục một\u0000',
         status: 'published',
         type: 'policy',
       });
       expect(pg.status).toBe(201);
-      expect(pg.body.data.content).not.toContain('script');
+      expect(pg.body.data.content).toBe('## Xin chào\n\n- Mục một');
       expect((await api('get', `/pages/${pg.body.data.slug}`)).body.data.title).toBe('Trang e2e');
       expect(
         (await api('get', '/pages?type=policy')).body.data.map((x: { slug: string }) => x.slug),

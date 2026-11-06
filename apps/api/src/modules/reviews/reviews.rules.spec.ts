@@ -1,5 +1,5 @@
-// Unit test: quy tắc đánh giá (điều kiện được đánh giá, tính lại điểm trung bình) và lọc HTML chống XSS.
-import { sanitizeRichText } from '../pages/admin-content.service';
+// Unit test: quy tắc đánh giá (điều kiện được đánh giá, tính lại điểm trung bình) và chuẩn hóa nội dung Markdown.
+import { MAX_MARKDOWN_LENGTH, normalizeMarkdown } from '../pages/admin-content.service';
 import { averageRating, MAX_REVIEW_IMAGES, reviewEligibility } from './reviews.service';
 
 describe('điều kiện được đánh giá', () => {
@@ -48,25 +48,21 @@ describe('averageRating (chỉ tính approved)', () => {
   });
 });
 
-describe('sanitizeRichText (chống XSS)', () => {
-  it('bỏ script, sự kiện on*, javascript: và iframe', () => {
-    const out = sanitizeRichText(
-      '<p onclick="x()">Chào</p><script>alert(1)</script><a href="javascript:alert(1)">bấm</a><iframe src="//evil"></iframe><img src=x onerror=alert(1)>',
-    );
-    expect(out).not.toMatch(/script|onclick|onerror|javascript:|iframe/i);
-    expect(out).toContain('<p>Chào</p>');
+describe('normalizeMarkdown (nội dung Markdown lưu nguyên văn; chống XSS do FE khi hiển thị)', () => {
+  it('giữ nguyên cú pháp Markdown, liên kết và tiếng Việt', () => {
+    const md =
+      '## Tiêu đề\n\n- Gạch đầu dòng **đậm**\n- Xem [chính sách](https://aurelia.vn/doi-tra)\n\n_Ghi chú_';
+    expect(normalizeMarkdown(md)).toBe(md);
   });
-  it('giữ định dạng cơ bản, liên kết https và ảnh https', () => {
-    const out = sanitizeRichText(
-      '<h2>Tiêu đề</h2><p><strong>đậm</strong> <a href="https://aurelia.vn">link</a></p><img src="https://x.vn/a.png" alt="a">',
-    );
-    expect(out).toContain('<h2>Tiêu đề</h2>');
-    expect(out).toContain('<strong>đậm</strong>');
-    expect(out).toContain('href="https://aurelia.vn"');
-    expect(out).toContain('src="https://x.vn/a.png"');
+  it('mã độc dạng văn bản được lưu như văn bản (không chạy được vì FE tắt HTML thô, chặn javascript:)', () => {
+    const evil = '<script>alert(1)</script> [x](javascript:alert(1)) <img src=x onerror=alert(1)>';
+    expect(normalizeMarkdown(evil)).toBe(evil);
   });
-  it('ảnh data: và liên kết vbscript bị loại', () => {
-    expect(sanitizeRichText('<img src="data:text/html;base64,AAAA">')).not.toContain('data:');
-    expect(sanitizeRichText('<a href="vbscript:x">a</a>')).not.toContain('vbscript');
+  it('bỏ ký tự điều khiển (NUL, ESC, DEL), giữ xuống dòng/tab, chuẩn hóa CRLF', () => {
+    expect(normalizeMarkdown('a\u0000b\u001b[31mc\u007fd\r\ne\tf')).toBe('ab[31mcd\ne\tf');
+  });
+  it('cắt khoảng trắng hai đầu và giới hạn độ dài', () => {
+    expect(normalizeMarkdown('  xin chào  \n')).toBe('xin chào');
+    expect(normalizeMarkdown('x'.repeat(MAX_MARKDOWN_LENGTH + 50))).toHaveLength(MAX_MARKDOWN_LENGTH);
   });
 });

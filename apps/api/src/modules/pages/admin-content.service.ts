@@ -1,8 +1,7 @@
 // UC-ADM – Quản trị nội dung: banner (CRUD, upload ảnh, vị trí, thời gian, kéo thả sắp xếp), bài viết (rich text đã lọc
-// XSS, slug unique, nháp/xuất bản), trang tĩnh & chính sách, FAQ theo chủ đề, tin nhắn liên hệ (đánh dấu đã xử lý).
+// Markdown lưu nguyên văn, slug unique, nháp/xuất bản), trang tĩnh & chính sách, FAQ theo chủ đề, tin nhắn liên hệ (đánh dấu đã xử lý).
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import sanitizeHtml from 'sanitize-html';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -26,52 +25,21 @@ const CORE_PAGES = [
   'chinh-sach-van-chuyen',
 ];
 
-/** Lọc HTML rich text: giữ thẻ định dạng cơ bản, bỏ script/style/sự kiện on*, chỉ cho http(s)/mailto/đường dẫn tương đối */
-export function sanitizeRichText(html: string): string {
-  return sanitizeHtml(html, {
-    allowedTags: [
-      'h1',
-      'h2',
-      'h3',
-      'h4',
-      'p',
-      'br',
-      'hr',
-      'b',
-      'strong',
-      'i',
-      'em',
-      'u',
-      's',
-      'blockquote',
-      'ul',
-      'ol',
-      'li',
-      'a',
-      'img',
-      'figure',
-      'figcaption',
-      'table',
-      'thead',
-      'tbody',
-      'tr',
-      'th',
-      'td',
-      'span',
-      'div',
-      'code',
-      'pre',
-    ],
-    allowedAttributes: {
-      a: ['href', 'title', 'target', 'rel'],
-      img: ['src', 'alt', 'title', 'width', 'height'],
-      '*': ['class'],
-    },
-    allowedSchemes: ['http', 'https', 'mailto'],
-    allowedSchemesByTag: { img: ['http', 'https'] },
-    allowProtocolRelative: false,
-    transformTags: { a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }) },
-  });
+/** Giới hạn độ dài nội dung Markdown của bài viết/trang tĩnh */
+export const MAX_MARKDOWN_LENGTH = 100_000;
+
+/**
+ * Nội dung trang tĩnh/bài viết là Markdown (CONG_NGHE.md mục 4). Lưu nguyên văn, chỉ bỏ ký tự điều khiển
+ * (giữ xuống dòng và tab) và cắt khoảng trắng hai đầu. KHÔNG xử lý HTML ở đây: chống XSS do FE bảo đảm khi hiển thị
+ * (react-markdown, tắt HTML thô, chặn liên kết javascript:) — xem apps/web/src/components/ui/RichText.tsx.
+ */
+export function normalizeMarkdown(text: string): string {
+  let out = '';
+  for (const ch of text.replace(/\r\n?/g, '\n')) {
+    const c = ch.charCodeAt(0);
+    if (c === 0x0a || c === 0x09 || (c >= 0x20 && c !== 0x7f)) out += ch;
+  }
+  return out.trim().slice(0, MAX_MARKDOWN_LENGTH);
 }
 
 @Injectable()
@@ -213,7 +181,7 @@ export class AdminContentService {
       slug,
       category: str(b.category) || cur?.category || 'Cảm hứng',
       coverMediaId: coverMediaId!,
-      content: b.content !== undefined ? sanitizeRichText(str(b.content)) : (cur?.content ?? ''),
+      content: b.content !== undefined ? normalizeMarkdown(str(b.content)) : (cur?.content ?? ''),
       authorName: cur?.authorName ?? admin?.fullName ?? 'Aurelia Living',
       status,
       publishedAt: status === 'published' ? (cur?.publishedAt ?? new Date()) : (cur?.publishedAt ?? null),
@@ -264,7 +232,7 @@ export class AdminContentService {
       'draft' | 'published' | 'archived';
     const data = {
       ...(b.title !== undefined ? { title: str(b.title).trim() } : {}),
-      ...(b.content !== undefined ? { content: sanitizeRichText(str(b.content)) } : {}),
+      ...(b.content !== undefined ? { content: normalizeMarkdown(str(b.content)) } : {}),
       status,
       publishedAt: status === 'published' ? (cur?.publishedAt ?? new Date()) : (cur?.publishedAt ?? null),
     };

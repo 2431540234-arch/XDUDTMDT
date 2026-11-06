@@ -1,6 +1,6 @@
 // Service gọi API liên quan đến xác thực (đăng nhập, đăng ký, quên/đặt lại/đổi mật khẩu)
 import type { AuthTokens } from '@aurelia-living/shared-types';
-import type { SessionUser } from '@/store/authStore';
+import { useAuthStore, type SessionUser } from '@/store/authStore';
 import type { AddressView, UserView } from '@/types/api';
 import { http } from './api-client';
 
@@ -14,7 +14,7 @@ export const authApi = {
     http.post<AuthResult>('/auth/login', body),
   register: (body: { fullName: string; email: string; phone: string; password: string }) =>
     http.post<AuthResult>('/auth/register', body),
-  logout: () => http.post<null>('/auth/logout'),
+  logout: () => http.post<null>('/auth/logout', { refreshToken: useAuthStore.getState().refreshToken }),
   /** BE gửi email chứa liên kết /reset-password?token=…; mock trả thêm devResetLink để thử không cần email */
   forgotPassword: (email: string) =>
     http.post<{ sent: true; devResetLink?: string }>('/auth/forgot-password', { email }),

@@ -89,7 +89,26 @@ export function resolveForcePathStyle(env: Pick<Env, 'STORAGE_DRIVER' | 'S3_FORC
   return env.S3_FORCE_PATH_STYLE ?? env.STORAGE_DRIVER === 'minio';
 }
 
+/** "15m", "12h", "900" (giây)… -> số giây; không đọc được thì trả Infinity (bị coi là quá dài) */
+export function ttlSeconds(spec: string): number {
+  const m = /^(\d+)\s*(ms|s|m|h|d)?$/.exec(spec.trim());
+  if (!m) return Infinity;
+  const unit = { ms: 0.001, s: 1, m: 60, h: 3600, d: 86_400 }[m[2] ?? 's']!;
+  return Number(m[1]) * unit;
+}
+
+/** Production: access token tối đa 15 phút (FE tự làm mới bằng refresh token); dev/test được dài hơn */
+export const PROD_MAX_ACCESS_TTL_SECONDS = 15 * 60;
+
 const envSchemaChecked = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && ttlSeconds(env.JWT_ACCESS_EXPIRES_IN) > PROD_MAX_ACCESS_TTL_SECONDS) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_ACCESS_EXPIRES_IN'],
+      message:
+        'ở NODE_ENV=production tối đa 15m (FE tự làm mới bằng refresh token); giá trị dài chỉ dùng cho dev',
+    });
+  }
   if (env.STORAGE_DRIVER !== 'minio') return;
   for (const key of MINIO_REQUIRED) {
     if (!env[key]) {

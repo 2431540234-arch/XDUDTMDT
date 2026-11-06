@@ -39,17 +39,17 @@
     "mobile:build": "node scripts/mobile-build.mjs"
   },
   "devDependencies": {
-    "turbo": "^2.0.0",
-    "typescript": "~5.7.2",
-    "eslint": "^8.57.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "eslint-config-prettier": "^9.1.0",
-    "prettier": "^3.3.0",
-    "husky": "^9.1.0",
-    "lint-staged": "^15.2.0",
-    "@commitlint/cli": "^19.5.0",
-    "@commitlint/config-conventional": "^19.5.0"
+    "turbo": "2.10.13",
+    "typescript": "5.7.2",
+    "eslint": "8.57.1",
+    "@typescript-eslint/parser": "7.18.0",
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "eslint-config-prettier": "9.1.2",
+    "prettier": "3.9.9",
+    "husky": "9.1.7",
+    "lint-staged": "15.5.2",
+    "@commitlint/cli": "19.8.1",
+    "@commitlint/config-conventional": "19.8.1"
   },
   "packageManager": "npm@11.19.0",
   "allowScripts": {

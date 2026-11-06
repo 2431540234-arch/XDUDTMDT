@@ -3,7 +3,7 @@
 // trình duyệt (apps/web/src/mock-data/mockApi); ngược lại gọi fetch tới `${NEXT_PUBLIC_API_URL}/api`.
 // Giao diện không phải đổi gì khi bật/tắt mock.
 import type { ApiResult, ErrorCode, PaginatedMeta } from '@aurelia-living/shared-types';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, type SessionUser } from '@/store/authStore';
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
@@ -104,18 +104,62 @@ async function rawRequest(
   return { status: res.status, body: (await res.json()) as ApiResult<unknown> };
 }
 
-/** Gọi API, trả về { data, meta }. Ném ApiClientError nếu response không thành công. */
+/**
+ * Làm mới phiên: POST /auth/refresh với refresh token đang lưu (xoay vòng: token cũ bị thu hồi).
+ * Nhiều request cùng gặp 401 chỉ gọi refresh MỘT lần (dùng chung một Promise). Trả true nếu đã có cặp token mới.
+ */
+let refreshing: Promise<boolean> | null = null;
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const { refreshToken } = useAuthStore.getState();
+    if (!refreshToken) return false;
+    try {
+      const { body } = await rawRequest('POST', '/auth/refresh', { body: { refreshToken } });
+      if (!body.success) return false;
+      const d = body.data as {
+        user?: SessionUser;
+        tokens: { accessToken: string; refreshToken: string };
+      };
+      const st = useAuthStore.getState();
+      const user = d.user ?? st.user;
+      if (!user) return false;
+      st.setSession(user, d.tokens.accessToken, d.tokens.refreshToken);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+/** Đường dẫn xác thực không tự refresh (đăng nhập sai mật khẩu cũng trả 401 nhưng không phải hết hạn phiên) */
+const NO_REFRESH = /^\/auth\//;
+
+/** Gọi API, trả về { data, meta }. Ném ApiClientError nếu response không thành công. 401 ⇒ tự refresh rồi gửi lại 1 lần. */
 export async function request<T>(
   method: string,
   path: string,
   opts: RequestOptions = {},
 ): Promise<{ data: T; meta?: PaginatedMeta }> {
   await sessionReady();
-  const sentToken = useAuthStore.getState().accessToken;
-  const { status, body } = await rawRequest(method, path, opts);
+  let sentToken = useAuthStore.getState().accessToken;
+  let { status, body } = await rawRequest(method, path, opts);
+  if (
+    !body.success &&
+    status === 401 &&
+    typeof window !== 'undefined' &&
+    sentToken &&
+    !NO_REFRESH.test(path) &&
+    (await refreshSession())
+  ) {
+    sentToken = useAuthStore.getState().accessToken;
+    ({ status, body } = await rawRequest(method, path, opts));
+  }
   if (!body.success) {
-    // Token đã gửi bị từ chối (hết hạn/không hợp lệ) → đăng xuất cục bộ. Không xóa nếu yêu cầu được gửi
-    // khi chưa có token (phiên đăng nhập đang được nạp từ localStorage).
+    // Token đã gửi bị từ chối (hết hạn/không hợp lệ và không làm mới được) → đăng xuất cục bộ. Không xóa nếu yêu cầu
+    // được gửi khi chưa có token (phiên đăng nhập đang được nạp từ localStorage).
     if (
       status === 401 &&
       typeof window !== 'undefined' &&

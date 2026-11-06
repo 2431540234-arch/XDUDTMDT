@@ -1,4 +1,4 @@
-import { resolveForcePathStyle, validateEnv } from './env.validation';
+import { resolveForcePathStyle, ttlSeconds, validateEnv } from './env.validation';
 
 const base = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
@@ -16,6 +16,26 @@ describe('validateEnv', () => {
     expect(env.THROTTLE_AUTH_LIMIT).toBe(10);
     expect(env.THROTTLE_DEFAULT_LIMIT).toBe(120);
     expect(env.MODEL_SERVE_MAX_MB).toBe(5);
+  });
+
+  it('access token: mặc định 15m; production không cho dài hơn 15 phút, dev thì được', () => {
+    expect(validateEnv({ ...base, ...minio }).JWT_ACCESS_EXPIRES_IN).toBe('15m');
+    expect(() =>
+      validateEnv({ ...base, ...minio, NODE_ENV: 'production', JWT_ACCESS_EXPIRES_IN: '12h' }),
+    ).toThrow(/JWT_ACCESS_EXPIRES_IN.*tối đa 15m/s);
+    expect(
+      validateEnv({ ...base, ...minio, NODE_ENV: 'production', JWT_ACCESS_EXPIRES_IN: '10m' }).NODE_ENV,
+    ).toBe('production');
+    expect(
+      validateEnv({ ...base, ...minio, NODE_ENV: 'development', JWT_ACCESS_EXPIRES_IN: '12h' })
+        .JWT_ACCESS_EXPIRES_IN,
+    ).toBe('12h');
+    expect([ttlSeconds('15m'), ttlSeconds('12h'), ttlSeconds('900'), ttlSeconds('abc')]).toEqual([
+      900,
+      43200,
+      900,
+      Infinity,
+    ]);
   });
 
   it('driver minio thiếu S3_ENDPOINT/khóa truy cập -> báo lỗi rõ ràng', () => {

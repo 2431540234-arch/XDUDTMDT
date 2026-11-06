@@ -17,6 +17,7 @@ const routes: Route[] = [
   ['POST', '/auth/login', 'public', auth.login],
   ['POST', '/auth/register', 'public', auth.register],
   ['POST', '/auth/logout', 'public', () => ({ data: null })],
+  ['POST', '/auth/refresh', 'public', auth.refresh],
   ['POST', '/auth/forgot-password', 'public', auth.forgotPassword],
   ['POST', '/auth/reset-password', 'public', auth.resetPassword],
   ['POST', '/auth/google', 'public', auth.googleLogin],

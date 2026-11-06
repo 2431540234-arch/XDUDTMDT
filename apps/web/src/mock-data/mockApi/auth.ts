@@ -102,6 +102,14 @@ export function register(ctx: Ctx): Result {
   return created({ user: sessionUser(ctx, u), tokens: tokensFor(u) });
 }
 
+export function refresh(ctx: Ctx): Result {
+  const rt = String(ctx.body?.refreshToken ?? '');
+  const id = Number(/^mock-refresh\.(\d+)\./.exec(rt)?.[1]);
+  const u = ctx.db.users.find((x) => x.id === id);
+  if (!u) throw new ApiFail('AUTH_TOKEN_INVALID', 'Phiên đăng nhập không hợp lệ.');
+  return ok({ user: sessionUser(ctx, u), tokens: tokensFor(u) });
+}
+
 export function forgotPassword(ctx: Ctx): Result {
   const email = String(ctx.body?.email ?? '')
     .trim()

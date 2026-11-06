@@ -37,6 +37,6 @@ export function setupApp(app: INestApplication) {
         .addBearerAuth()
         .build(),
     );
-    SwaggerModule.setup('api/docs', app, doc);
+    SwaggerModule.setup('docs', app, doc);
   }
 }
