@@ -31,7 +31,12 @@ for (const m of text.matchAll(/^enum (\w+) \{\n([\s\S]*?)^\}/gm)) {
   const values = m[2]
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith('@@') && !l.startsWith('//'));
+    .filter((l) => l && !l.startsWith('@@') && !l.startsWith('//'))
+    .map((l) => {
+      // `ident @map("giá-trị-DB")` -> khóa là ident, giá trị là chuỗi trong DB
+      const mm = l.match(/^(\w+)\s+@map\("([^"]+)"\)/);
+      return mm ? { key: mm[1], value: mm[2] } : { key: l, value: l };
+    });
   enums.push({ name: m[1], values });
 }
 const enumNames = new Set(enums.map((e) => e.name));
@@ -72,7 +77,7 @@ const enumsOut =
   enums
     .map(
       (e) =>
-        `export const ${e.name} = {\n${e.values.map((v) => `  ${v}: '${v}',`).join('\n')}\n} as const;\n` +
+        `export const ${e.name} = {\n${e.values.map((v) => `  ${v.key}: '${v.value}',`).join('\n')}\n} as const;\n` +
         `export type ${e.name} = (typeof ${e.name})[keyof typeof ${e.name}];\n`,
     )
     .join('\n');

@@ -17,6 +17,7 @@ export type ContentStatus = (typeof ContentStatus)[keyof typeof ContentStatus];
 export const CouponType = {
   percent: 'percent',
   fixed: 'fixed',
+  freeship: 'freeship',
 } as const;
 export type CouponType = (typeof CouponType)[keyof typeof CouponType];
 
@@ -142,3 +143,68 @@ export const UserStatus = {
   banned: 'banned',
 } as const;
 export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
+
+export const QuestionStatus = {
+  unanswered: 'unanswered',
+  answered: 'answered',
+  hidden: 'hidden',
+} as const;
+export type QuestionStatus = (typeof QuestionStatus)[keyof typeof QuestionStatus];
+
+export const ReturnType = {
+  refund: 'refund',
+  exchange: 'exchange',
+} as const;
+export type ReturnType = (typeof ReturnType)[keyof typeof ReturnType];
+
+export const ReturnReason = {
+  defect: 'defect',
+  wrong_item: 'wrong_item',
+  not_as_described: 'not_as_described',
+  missing_accessory: 'missing_accessory',
+  change_mind: 'change_mind',
+} as const;
+export type ReturnReason = (typeof ReturnReason)[keyof typeof ReturnReason];
+
+export const ReturnStatus = {
+  pending: 'pending',
+  picking: 'picking',
+  inspecting: 'inspecting',
+  refunded: 'refunded',
+  exchanged: 'exchanged',
+  rejected: 'rejected',
+} as const;
+export type ReturnStatus = (typeof ReturnStatus)[keyof typeof ReturnStatus];
+
+export const StockReceiptType = {
+  in: 'in',
+  out: 'out',
+} as const;
+export type StockReceiptType = (typeof StockReceiptType)[keyof typeof StockReceiptType];
+
+export const StockReceiptStatus = {
+  draft: 'draft',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+export type StockReceiptStatus = (typeof StockReceiptStatus)[keyof typeof StockReceiptStatus];
+
+export const ExpenseCategory = {
+  cogs: 'cogs',
+  shipping: 'shipping',
+  marketing: 'marketing',
+  payment_fee: 'payment_fee',
+  refund: 'refund',
+  other: 'other',
+} as const;
+export type ExpenseCategory = (typeof ExpenseCategory)[keyof typeof ExpenseCategory];
+
+export const BannerPosition = {
+  hero_1: 'hero-1',
+  hero_2: 'hero-2',
+  hero_3: 'hero-3',
+  home_left: 'home-left',
+  home_right: 'home-right',
+  home_3d: 'home-3d',
+} as const;
+export type BannerPosition = (typeof BannerPosition)[keyof typeof BannerPosition];
