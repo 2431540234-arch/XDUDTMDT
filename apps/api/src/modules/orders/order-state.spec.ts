@@ -63,6 +63,14 @@ describe('phí vận chuyển', () => {
   it('tỉnh không có trong cấu hình ⇒ phí và ngưỡng mặc định', () => {
     expect(shippingFeeFor(zones, 'Cà Mau', 1_000_000)).toBe(DEFAULT_SHIP_FEE);
     expect(shippingFeeFor(zones, 'Cà Mau', FREE_SHIP_FROM)).toBe(0);
+    // mặc định lấy từ Cài đặt (default_shipping_fee, free_shipping_threshold) khi tỉnh không thuộc vùng nào
+    const defs = { fee: 175_000, freeFrom: 3_000_000 };
+    expect(shippingFeeFor(zones, 'Cà Mau', 2_999_999, defs)).toBe(175_000);
+    expect(shippingFeeFor(zones, 'Cà Mau', 3_000_000, defs)).toBe(0);
+    // vùng có sẵn không bị mặc định ảnh hưởng; vùng thiếu freeFrom thì dùng ngưỡng mặc định
+    expect(shippingFeeFor(zones, 'Hà Nội', 1_000_000, defs)).toBe(40_000);
+    expect(shippingFeeFor([{ name: 'X', fee: 10_000 }], 'X', 3_000_000, defs)).toBe(0);
+    expect(shippingFeeFor([{ name: 'X', fee: 10_000 }], 'X', 2_000_000, defs)).toBe(10_000);
     expect(shippingFeeFor([], undefined, 100)).toBe(DEFAULT_SHIP_FEE);
   });
   it('tổng = tạm tính − giảm giá + phí ship', () => {

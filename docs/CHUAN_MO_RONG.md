@@ -72,6 +72,7 @@ Ràng buộc/index mở rộng đi theo các bảng trên (`ck_*`, `uq_*`, `idx_
   - Chi phí vận hành (`income.opex`) = phiếu chi trừ `cogs` và `refund`; hoàn tiền (`refund`) lấy từ phiếu chi tự sinh khi duyệt đổi trả.
   - Doanh thu thuần = (tạm tính + phí ship) − giảm giá − hoàn tiền; Lợi nhuận trước thuế = doanh thu thuần − giá vốn − chi phí vận hành = Thu − Tổng chi.
   - Ví dụ: nhập 10 × 1.200.000 ⇒ giá vốn +12.000.000, lợi nhuận −12.000.000 (không phải −24.000.000); giao một đơn tổng 5.000.000 ⇒ lợi nhuận +5.000.000. Hệ quả: hàng đã nhập nhưng chưa bán vẫn tính vào chi phí kỳ nhập (cách tính theo tiền chi, không theo giá vốn hàng đã bán).
+- **Phí vận chuyển (UC-ORD-01):** tìm vùng trong `settings.shippingZones` có `name` trùng `province` của địa chỉ giao. Có vùng ⇒ phí = `fee` của vùng, miễn phí khi tạm tính ≥ `freeFrom` của vùng (vùng thiếu `freeFrom` dùng ngưỡng mặc định). **Tỉnh không thuộc vùng nào ⇒ phí = `settings.default_shipping_fee`, miễn phí khi tạm tính ≥ `settings.free_shipping_threshold`.** Tạm tính = tổng tiền hàng trước giảm giá. Thiếu khóa cài đặt ⇒ dùng hằng số dự phòng trong code (30.000đ / 10.000.000đ).
 - **Doanh thu báo cáo (mặc định đã chốt, chuẩn/đặc tả không quy định):** đơn giao thành công (`completed`) tính theo ngày giao (lần đầu sang `completed`), phần đã hoàn tiền trừ qua phiếu chi `refund`; phí vận chuyển và phí cổng thanh toán KHÔNG tự sinh phiếu chi (admin nhập tay).
 - **Số lượng ENUM theo từng tài liệu chuẩn khác nhau** (xem Phần 4) – tin vào DB thực.
 

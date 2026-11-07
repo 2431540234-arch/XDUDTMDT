@@ -14,15 +14,20 @@ export const DEFAULT_SHIP_FEE = 30_000;
 
 type Db = Prisma.TransactionClient | PrismaService;
 
-/** Phí ship: vùng khớp tỉnh của địa chỉ (fee, freeFrom); không khớp ⇒ phí mặc định; đạt ngưỡng miễn phí ⇒ 0 */
+/**
+ * Phí ship (UC-ORD-01): vùng trong settings.shippingZones khớp tỉnh của địa chỉ ⇒ dùng fee/freeFrom của vùng;
+ * tỉnh không thuộc vùng nào ⇒ dùng settings.default_shipping_fee và settings.free_shipping_threshold (`defaults`);
+ * tạm tính đạt ngưỡng miễn phí ⇒ 0.
+ */
 export function shippingFeeFor(
-  zones: Array<{ name: string; fee: number; freeFrom: number }>,
+  zones: Array<{ name: string; fee: number; freeFrom?: number }>,
   province: string | null | undefined,
   subtotal: number,
+  defaults: { fee: number; freeFrom: number } = { fee: DEFAULT_SHIP_FEE, freeFrom: FREE_SHIP_FROM },
 ): number {
   const zone = zones.find((z) => z.name === (province ?? ''));
-  const fee = zone?.fee ?? DEFAULT_SHIP_FEE;
-  const freeFrom = zone?.freeFrom ?? FREE_SHIP_FROM;
+  const fee = zone?.fee ?? defaults.fee;
+  const freeFrom = zone?.freeFrom ?? defaults.freeFrom;
   return subtotal >= freeFrom ? 0 : fee;
 }
 
@@ -51,15 +56,23 @@ export class CartService {
 
   /** Phí vận chuyển theo khu vực (settings.shippingZones khớp tỉnh của địa chỉ); đạt ngưỡng miễn phí ⇒ 0 */
   async shippingFee(userId: number, subtotal: number, addressId?: number | null, db: Db = this.prisma) {
-    const [setting, addr] = await Promise.all([
+    const [setting, defs, addr] = await Promise.all([
       db.setting.findUnique({ where: { key: 'shippingZones' } }),
+      db.setting.findMany({ where: { key: { in: ['default_shipping_fee', 'free_shipping_threshold'] } } }),
       addressId
         ? db.address.findFirst({ where: { id: addressId, userId } })
         : db.address.findFirst({ where: { userId, isDefault: true } }),
     ]);
     const zones =
-      (setting?.value as Array<{ name: string; fee: number; freeFrom: number }> | undefined) ?? [];
-    return shippingFeeFor(zones, addr?.province, subtotal);
+      (setting?.value as Array<{ name: string; fee: number; freeFrom?: number }> | undefined) ?? [];
+    const num = (key: string, d: number) => {
+      const v = Number(defs.find((x) => x.key === key)?.value);
+      return Number.isFinite(v) && v >= 0 ? v : d;
+    };
+    return shippingFeeFor(zones, addr?.province, subtotal, {
+      fee: num('default_shipping_fee', DEFAULT_SHIP_FEE),
+      freeFrom: num('free_shipping_threshold', FREE_SHIP_FROM),
+    });
   }
 
   private async ensure(userId: number, db: Db = this.prisma) {

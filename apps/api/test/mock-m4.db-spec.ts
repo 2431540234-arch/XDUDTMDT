@@ -783,6 +783,70 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
     });
   });
 
+  // ------------------------------------------------------------------------------------------ phí ship theo vùng và mặc định (UC-ORD-01)
+  describe('phí vận chuyển', () => {
+    it('tỉnh thuộc vùng ⇒ phí/ngưỡng của vùng; tỉnh ngoài mọi vùng ⇒ default_shipping_fee và free_shipping_threshold trong Cài đặt', async () => {
+      const put = (key: string, value: unknown) => api('put', `/admin/settings/${key}`, admin, { value });
+      const oldFee = (await prisma.setting.findUniqueOrThrow({ where: { key: 'default_shipping_fee' } }))
+        .value;
+      const oldFree = (await prisma.setting.findUniqueOrThrow({ where: { key: 'free_shipping_threshold' } }))
+        .value;
+      const zones = (await prisma.setting.findUniqueOrThrow({ where: { key: 'shippingZones' } }))
+        .value as Array<{
+        name: string;
+        fee: number;
+        freeFrom: number;
+      }>;
+      const inZone = zones[0];
+      const mk = async (province: string) =>
+        (
+          await api('post', '/addresses', cust, {
+            recipientName: 'Người nhận',
+            phone: '0912345678',
+            province,
+            district: 'Quận 1',
+            ward: 'Phường 1',
+            addressLine: '1 Đường A',
+            label: 'Thử phí ship',
+          })
+        ).body.data.id as number;
+      try {
+        const out = await mk('Cà Mau'); // không thuộc vùng nào
+        const inside = await mk(inZone.name);
+        expect((await put('default_shipping_fee', 175_000)).status).toBe(200);
+        expect((await put('free_shipping_threshold', 3_000_000)).status).toBe(200);
+        const v = await prisma.productVariant.findFirstOrThrow({
+          where: {
+            isActive: true,
+            stockQuantity: { gte: 5 },
+            product: { status: 'published', deletedAt: null },
+          },
+        });
+        const fee = async (addressId: number, qty: number) => {
+          await api('delete', '/cart', cust);
+          await api('post', '/cart/items', cust, { variantId: v.id, quantity: qty });
+          const c = (await api('get', `/cart?addressId=${addressId}`, cust)).body.data;
+          return { shipping: c.shippingFee as number, subtotal: c.subtotal as number };
+        };
+        const a1 = await fee(out, 1);
+        // ngoài vùng: phí mặc định 175.000 nếu tạm tính < ngưỡng 3.000.000, ngược lại 0
+        expect(a1.shipping).toBe(a1.subtotal >= 3_000_000 ? 0 : 175_000);
+        // ép tạm tính vượt ngưỡng bằng cách mua nhiều đến khi ≥ 3.000.000 (cùng biến thể)
+        const unit = a1.subtotal;
+        const need = Math.max(1, Math.ceil(3_000_000 / unit));
+        if (need <= 5) expect((await fee(out, need)).shipping).toBe(0);
+        // trong vùng: dùng fee/freeFrom của vùng, KHÔNG bị default_shipping_fee ảnh hưởng
+        const b1 = await fee(inside, 1);
+        expect(b1.shipping).toBe(b1.subtotal >= inZone.freeFrom ? 0 : inZone.fee);
+      } finally {
+        await put('default_shipping_fee', oldFee);
+        await put('free_shipping_threshold', oldFree);
+        await prisma.address.deleteMany({ where: { userId: 2, label: 'Thử phí ship' } });
+        await api('delete', '/cart', cust);
+      }
+    });
+  });
+
   // ------------------------------------------------------------------------------------------ VNPAY (khóa giả)
   describe('VNPAY sandbox – khóa giả (UC-PAY-01/02/03)', () => {
     const placeOrder = async (method = 'vnpay', token = cust, userId = 2) => {
