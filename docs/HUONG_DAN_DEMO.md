@@ -10,27 +10,9 @@ Yêu cầu: Node ≥ 22, Docker Desktop, đã chạy `npm install` ở thư mụ
 |---|---|---|
 | 1. Hạ tầng | `npm run docker:up` | Postgres (cổng host **55432**), Redis (**6380**), Mailpit (UI **http://localhost:8025**). Không tạo lại container đang chạy |
 | 2. (Chỉ khi cần dữ liệu sạch) | `node scripts/db-reset.mjs aurelia_demo` | Xóa và nạp lại **chỉ** `aurelia_demo` từ dữ liệu mẫu. Lệnh từ chối mọi DB khác |
-| 3. API (cổng **4000**) | xem khối lệnh bên dưới | Swagger: http://localhost:4000/docs |
-| 4. Web (cổng **3000**) | xem khối lệnh bên dưới | Trang khách: http://localhost:3000, admin: http://localhost:3000/admin/login |
+| 3. API + Web | `npm run demo` | API cổng **4000** (Swagger http://localhost:4000/docs) và web cổng **3000** (admin: http://localhost:3000/admin/login). Chỉ API: `npm run demo:api`. Dừng: Ctrl+C |
 
-API (PowerShell):
-```powershell
-$env:DATABASE_URL = "postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public"
-$env:STORAGE_DRIVER = "local"; $env:STORAGE_PUBLIC_URL = "http://localhost:4000/uploads"
-$env:PAYMENT_SANDBOX_FAKE = "true"      # BẮT BUỘC để thanh toán online chạy giả lập (không có thì báo lỗi 503)
-npm run start:dev -w @aurelia-living/api
-```
-API (bash):
-```bash
-DATABASE_URL="postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public" \
-STORAGE_DRIVER=local STORAGE_PUBLIC_URL=http://localhost:4000/uploads PAYMENT_SANDBOX_FAKE=true \
-npm run start:dev -w @aurelia-living/api
-```
-Web (PowerShell; bash dùng `NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_URL=http://localhost:4000 npm run dev -w @aurelia-living/web`):
-```powershell
-$env:NEXT_PUBLIC_USE_MOCK = "false"; $env:NEXT_PUBLIC_API_URL = "http://localhost:4000"
-npm run dev -w @aurelia-living/web
-```
+`npm run demo` tự đặt `DATABASE_URL` = `aurelia_demo`, `STORAGE_DRIVER=local`, `STORAGE_PUBLIC_URL`, `PAYMENT_SANDBOX_FAKE=true` và `NEXT_PUBLIC_USE_MOCK=false` chỉ cho hai tiến trình này; **không sửa `.env`** (khóa JWT… vẫn lấy từ `.env`) và không bao giờ dùng `aurelia_dev`.
 
 Kiểm tra nhanh: mở http://localhost:3000 thấy trang chủ có banner và sản phẩm; http://localhost:4000/docs mở được Swagger.
 
@@ -87,8 +69,8 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 
 | Hiện tượng | Cách xử lý |
 |---|---|
-| Thanh toán online báo "Cổng thanh toán chưa được cấu hình" | API chưa chạy với `PAYMENT_SANDBOX_FAKE=true` |
-| Ảnh sản phẩm/không gian bị vỡ | Thiếu `apps/api/uploads` hoặc API không chạy với `STORAGE_DRIVER=local`; chạy lại bước 2 |
+| Thanh toán online báo "Cổng thanh toán chưa được cấu hình" | API không chạy bằng `npm run demo` (thiếu `PAYMENT_SANDBOX_FAKE=true`) |
+| Ảnh sản phẩm/không gian bị vỡ | Thiếu `apps/api/uploads` hoặc API không chạy bằng `npm run demo` (`STORAGE_DRIVER=local`); chạy lại bước 2 |
 | Web báo lỗi mạng | API chưa chạy ở cổng 4000 hoặc `NEXT_PUBLIC_API_URL` sai |
 | Đăng nhập báo hết phiên | Phiên tự làm mới; nếu vẫn lỗi, đăng nhập lại |
 | Dữ liệu demo đã bị sửa nhiều | Dừng API, chạy `node scripts/db-reset.mjs aurelia_demo`, chạy lại API |

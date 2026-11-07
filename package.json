@@ -28,6 +28,8 @@
     "format:check": "prettier --check .",
     "test:e2e": "turbo run test:e2e --concurrency=1",
     "prepare": "husky || true",
+    "demo": "node scripts/demo.mjs",
+    "demo:api": "node scripts/demo.mjs --api-only",
     "docker:up": "docker compose up -d --no-recreate",
     "docker:down": "docker compose down",
     "infra:up": "docker compose up -d --no-recreate postgres redis minio minio-init mailpit",
