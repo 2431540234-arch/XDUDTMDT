@@ -11,5 +11,8 @@ module.exports = {
   },
   testEnvironment: 'node',
   setupFiles: ['<rootDir>/test/setup-env-db.ts'],
+  // khóa chặn chạy hai bộ test cùng lúc trên aurelia_test (xem scripts/test-lock.cjs)
+  globalSetup: '<rootDir>/test/lock-setup.cjs',
+  globalTeardown: '<rootDir>/test/lock-teardown.cjs',
   testTimeout: 120000,
 };

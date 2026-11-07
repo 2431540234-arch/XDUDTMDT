@@ -6,6 +6,7 @@
 // Chỉ đụng aurelia_test; không bao giờ đụng aurelia_dev/aurelia_demo.
 // Tùy chọn: E2E_ONLY=admin-m3 (chạy một nhóm theo tên), E2E_API_PORT, E2E_WEB_PORT, SKIP_BUILD=1
 import { spawn, spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -84,6 +85,8 @@ process.on('SIGINT', () => {
 process.on('exit', cleanup);
 
 async function main() {
+  // không cho chạy chồng với bộ test khác trên aurelia_test (supertest hoặc một lần e2e:real khác)
+  createRequire(import.meta.url)('./test-lock.cjs').acquire('Playwright (npm run test:e2e:real)');
   log(`dừng tiến trình test còn sót (cổng ${API_PORT}, ${WEB_PORT})`);
   killPort(API_PORT);
   killPort(WEB_PORT);
