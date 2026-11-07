@@ -1246,7 +1246,6 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       const over = await up(big(100 * 1024 * 1024 + 1));
       expect(over.status).toBe(400);
       expect(over.body.error.details.file[0]).toContain('100MB');
-      await api('delete', `/admin/models/${ok.body.data.id}`, admin);
     });
 
     it('danh sách lọc theo sản phẩm/định dạng; xóa tệp cuối ⇒ sản phẩm không còn mô hình', async () => {
