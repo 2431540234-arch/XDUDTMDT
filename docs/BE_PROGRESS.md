@@ -314,3 +314,17 @@ MinIO/presign, cache Redis, xử lý nền 3D (LOD), `PermissionsGuard`, `Activi
 **Phần B (use case còn thiếu):** thương hiệu (`029fd94`), thuộc tính (`6756995`), media + job image-processing đã kiểm (`38fe10d`), vận chuyển + đổi chiều trạng thái theo D-N14 (`ce95abe` + commit FE). Mọi thao tác ghi ghi `activity_logs` cùng transaction. Không có migration.
 
 **Ghi chú:** (1) UC-ADM-04 theo đặc tả: tệp bị tham chiếu bắt buộc ⇒ 409, tham chiếu tùy chọn (logo, ảnh danh mục…) được gỡ liên kết thay vì chặn; (2) thuộc tính hệ thống không đổi mã/không xóa; (3) vận đơn failed/returned là điểm mở O-03; (4) lỗi chập chờn "Hỏi đáp 404" xuất hiện lại một lần khi chạy supertest ngay sau chỉnh sửa, không tái hiện sau đó (3 lần chạy liền đều xanh).
+
+---
+
+## Lỗi chập chờn "Hỏi đáp 404" – nguyên nhân gốc (2026-11-07) ✅
+
+**Nguyên nhân:** phụ thuộc thứ tự chạy file test. Test m2 "xóa: đã có trong đơn ⇒ ngừng bán" chọn sản phẩm bằng `findFirstOrThrow` KHÔNG có `orderBy` (Postgres trả theo thứ tự vật lý nên có lúc là sản phẩm id 2 `sofa-luxury`) rồi chuyển nó sang `archived`. Test m3 "hỏi đáp" dùng đúng `sofa-luxury` ⇒ `GET/POST /products/sofa-luxury/questions` trả 404 nếu m2 chạy TRƯỚC m3. Jest mặc định chạy file **vừa fail ở lần trước lên đầu**, nên thứ tự đổi sau mỗi lần có lỗi (chạy chồng hai bộ test, sửa test dở dang…) ⇒ lỗi xuất hiện rồi biến mất khi chạy lại. Đây không phải lỗi sản phẩm, cũng không phải do build/cổng/health.
+
+**Tái hiện chắc chắn:** reset `aurelia_test`, chạy m2 rồi m3 trên cùng DB ⇒ 3 test "hỏi đáp" fail với `Expected 201, Received 404`; sau m2 truy vấn thấy `2 | sofa-luxury | archived`.
+
+**Giả thuyết đã loại trừ:** (1) dist cũ/chưa build xong và chờ `/health`: supertest khởi tạo app NestJS trong chính tiến trình Jest (ts-jest biên dịch từ `src`), không có dist, cổng hay `/health`; (2) cổng bị chiếm/hai API cùng chạy: không mở cổng; (3) chạy song song: đã có khóa theo PID, và lỗi tái hiện được khi chạy tuần tự; (4) route phụ thuộc thứ tự đăng ký/thời gian: `ProductsService.bySlug` truy vấn DB trực tiếp (không dùng chỉ mục RAM 15 giây), route đăng ký cố định.
+
+**Cách sửa:** (a) `test/sequencer.cjs` + `testSequencer` trong `jest-db.config.js`: thứ tự file cố định theo tên; (b) test m2 chọn sản phẩm có `orderBy: { id: 'desc' }` (cố định, không đụng sản phẩm test khác dùng).
+
+**Kết quả:** kịch bản cũ (m2 rồi m3 trên cùng DB) xanh (58 + 56); chạy supertest 10 lần liên tiếp đều 176/176, trong đó 3 lần chạy ngay sau khi sửa một file trong `apps/api/src` (thêm dòng vào `slug.ts` rồi hoàn lại). Cập nhật: các ghi chú trước đây ("không tái hiện") nay đã có nguyên nhân.

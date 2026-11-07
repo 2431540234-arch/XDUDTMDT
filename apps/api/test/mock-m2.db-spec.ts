@@ -516,8 +516,11 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect((await api('delete', `/admin/products/${pid}`, admin)).status).toBe(200);
       expect((await api('get', `/products/${slug}`)).status).toBe(404);
       expect((await api('get', `/admin/products/${pid}`, admin)).status).toBe(404);
+      // chọn CỐ ĐỊNH (id lớn nhất đã có trong đơn): findFirst không có orderBy trả hàng theo thứ tự vật lý nên có lúc chọn trúng
+      // sản phẩm mà test khác dùng (sofa-luxury) và làm các test sau 404
       const inOrder = await prisma.product.findFirstOrThrow({
         where: { deletedAt: null, productVariants: { some: { orderItems: { some: {} } } } },
+        orderBy: { id: 'desc' },
       });
       expect((await api('delete', `/admin/products/${inOrder.id}`, admin)).status).toBe(200);
       const after = await prisma.product.findUniqueOrThrow({ where: { id: inOrder.id } });

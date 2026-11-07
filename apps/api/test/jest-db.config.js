@@ -15,4 +15,6 @@ module.exports = {
   globalSetup: '<rootDir>/test/lock-setup.cjs',
   globalTeardown: '<rootDir>/test/lock-teardown.cjs',
   testTimeout: 120000,
+  // thứ tự file cố định (xem test/sequencer.cjs)
+  testSequencer: '<rootDir>/test/sequencer.cjs',
 };
