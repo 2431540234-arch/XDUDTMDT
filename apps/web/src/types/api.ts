@@ -405,7 +405,8 @@ export interface StockReceipt {
   id: number;
   code: string; // "PN0012" | "PX0012"
   type: 'in' | 'out';
-  supplierId: number | null;
+  /** chỉ còn trong dữ liệu mock gốc; API thật không trả (nhà cung cấp là chữ trong phiếu) */
+  supplierId?: number | null;
   supplierName: string | null;
   orderCode: string | null;
   itemCount: number;
@@ -423,10 +424,23 @@ export interface InventoryRow {
   categoryName: string;
   costPrice: number; // TODO: chưa có trong DB
   stockQuantity: number;
-  reservedQty: number; // TODO: chưa có trong DB (suy từ đơn chưa giao)
   available: number;
   minStock: number; // TODO: chưa có trong DB
   state: 'in_stock' | 'low' | 'out';
+}
+
+/** Một dòng lịch sử biến động tồn kho (GET /admin/inventory/movements) */
+export interface StockMovement {
+  id: number;
+  variantId: number;
+  sku: string;
+  productName: string;
+  type: 'import' | 'sale' | 'return' | 'adjustment';
+  quantityChange: number;
+  reason: string | null;
+  referenceCode: string | null;
+  performedByName: string;
+  createdAt: string;
 }
 
 export interface Expense {

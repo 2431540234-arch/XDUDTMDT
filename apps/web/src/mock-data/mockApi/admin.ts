@@ -2003,19 +2003,12 @@ export function resetMock(): Result {
 
 // ===================== Kho hàng =====================
 export function inventoryRows(db: Db): InventoryRow[] {
-  const reserved = new Map<number, number>();
-  for (const it of db.orderItems) {
-    const o = db.orders.find((x) => x.id === it.orderId);
-    if (o && ['pending', 'confirmed', 'processing'].includes(o.status) && it.variantId)
-      reserved.set(it.variantId, (reserved.get(it.variantId) ?? 0) + it.quantity);
-  }
   return db.productVariants
     .filter((v) => v.isActive)
     .map((v) => {
       const p = db.products.find((x) => x.id === v.productId)!;
       const ex = db.productExtras.find((e) => e.productId === p.id);
       const cat = db.categories.find((c) => c.id === p.categoryId);
-      const held = reserved.get(v.id) ?? 0;
       const minStock = ex?.minStock ?? 5;
       const available = v.stockQuantity;
       return {
@@ -2026,8 +2019,7 @@ export function inventoryRows(db: Db): InventoryRow[] {
         sku: v.sku,
         categoryName: cat?.name ?? '—',
         costPrice: Math.round(effectivePrice(v) * (ex?.costRatio ?? 0.62)),
-        stockQuantity: v.stockQuantity + held,
-        reservedQty: held,
+        stockQuantity: v.stockQuantity,
         available,
         minStock,
         state:
@@ -2077,8 +2069,48 @@ export function inventorySummary(ctx: Ctx): Result {
 }
 
 export const receipts = (ctx: Ctx): Result =>
-  ok([...ctx.db.stockReceipts].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-export const suppliers = (ctx: Ctx): Result => ok(ctx.db.suppliers);
+  ok(
+    [...ctx.db.stockReceipts]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((r) => {
+        const { _items: _i, ...view } = r as typeof r & { _items?: unknown };
+        return view;
+      }),
+  );
+
+type ReceiptLine = { variantId: number; quantity: number; costPrice: number };
+type MockReceipt = Db['stockReceipts'][number] & { _items?: ReceiptLine[] };
+
+/** Áp phiếu vào tồn kho (xác nhận): movement mang mã phiếu; phiếu nhập sinh phiếu chi giá vốn; phiếu xuất thiếu hàng ⇒ 409 */
+function applyReceipt(db: Db, row: MockReceipt, items: ReceiptLine[], at: string) {
+  for (const it of items) {
+    const v = db.productVariants.find((x) => x.id === it.variantId);
+    if (!v) throw notFound('Biến thể');
+    if (row.type === 'out' && v.stockQuantity < it.quantity)
+      throw new ApiFail('OUT_OF_STOCK', `Không đủ tồn kho cho ${v.sku}.`, {
+        variantId: v.id,
+        available: v.stockQuantity,
+      });
+  }
+  let total = 0;
+  for (const it of items) {
+    const v = db.productVariants.find((x) => x.id === it.variantId)!;
+    v.stockQuantity += row.type === 'in' ? it.quantity : -it.quantity;
+    total += it.quantity * it.costPrice;
+    db.inventoryMovements.push({
+      id: nextId(db.inventoryMovements),
+      variantId: v.id,
+      type: row.type === 'in' ? 'import' : 'adjustment',
+      quantityChange: row.type === 'in' ? it.quantity : -it.quantity,
+      reason: row.type === 'in' ? `Nhập kho theo phiếu ${row.code}` : `Xuất kho theo phiếu ${row.code}`,
+      referenceCode: row.code,
+      performedBy: ADMIN_ID,
+      createdAt: at,
+    });
+  }
+  row.status = 'completed';
+  if (row.type === 'in') addExpense(db, 'cogs', total, `Giá vốn phiếu nhập ${row.code}`);
+}
 
 export function createReceipt(ctx: Ctx): Result {
   const db = ctx.db;
@@ -2086,50 +2118,76 @@ export function createReceipt(ctx: Ctx): Result {
   if (!['in', 'out'].includes(b.type)) throw validation({ type: 'Loại phiếu không hợp lệ.' });
   if (!Array.isArray(b.items) || !b.items.length)
     throw validation({ items: 'Vui lòng thêm ít nhất một sản phẩm.' });
-  if (b.type === 'in' && !b.supplierId) throw validation({ supplierId: 'Vui lòng chọn nhà cung cấp.' });
-  const at = nowIso();
-  let total = 0;
+  const supplierName = String(b.supplierName ?? '').trim();
+  if (b.type === 'in' && !supplierName) throw validation({ supplierName: 'Vui lòng nhập nhà cung cấp.' });
+  const items: ReceiptLine[] = [];
   for (const it of b.items as Array<{ variantId: number; quantity: number; costPrice: number }>) {
-    const v = db.productVariants.find((x) => x.id === Number(it.variantId));
-    if (!v) throw notFound('Biến thể');
+    if (!db.productVariants.find((x) => x.id === Number(it.variantId))) throw notFound('Biến thể');
     const qty = Math.floor(Number(it.quantity));
     if (!(qty >= 1)) throw validation({ items: 'Số lượng phải từ 1 trở lên.' });
-    if (b.type === 'out' && v.stockQuantity < qty)
-      throw new ApiFail('OUT_OF_STOCK', `Không đủ tồn kho cho ${v.sku}.`, {
-        variantId: v.id,
-        available: v.stockQuantity,
-      });
-    v.stockQuantity += b.type === 'in' ? qty : -qty;
-    total += qty * (Number(it.costPrice) || 0);
-    const code = `${b.type === 'in' ? 'PN' : 'PX'}${String(nextId(db.stockReceipts)).padStart(4, '0')}`;
-    db.inventoryMovements.push({
-      id: nextId(db.inventoryMovements),
-      variantId: v.id,
-      type: b.type === 'in' ? 'import' : 'adjustment',
-      quantityChange: b.type === 'in' ? qty : -qty,
-      reason: b.type === 'in' ? 'Nhập kho' : 'Xuất kho',
-      referenceCode: code,
-      performedBy: ADMIN_ID,
-      createdAt: at,
-    });
+    items.push({ variantId: Number(it.variantId), quantity: qty, costPrice: Number(it.costPrice) || 0 });
   }
+  const at = nowIso();
   const id = nextId(db.stockReceipts);
-  const sup = db.suppliers.find((s) => s.id === Number(b.supplierId));
-  const row = {
+  const row: MockReceipt = {
     id,
     code: `${b.type === 'in' ? 'PN' : 'PX'}${String(id).padStart(4, '0')}`,
     type: b.type as 'in' | 'out',
-    supplierId: sup?.id ?? null,
-    supplierName: sup?.name ?? null,
+    supplierId: null,
+    supplierName: b.type === 'in' ? supplierName : null,
     orderCode: null,
-    itemCount: b.items.length,
-    total,
-    status: 'completed' as const,
+    itemCount: items.length,
+    total: items.reduce((s, i) => s + i.quantity * i.costPrice, 0),
+    status: 'draft',
     createdAt: at,
   };
+  if (b.status === 'draft') row._items = items;
+  else applyReceipt(db, row, items, at);
   db.stockReceipts.push(row);
-  if (b.type === 'in') addExpense(db, 'cogs', total, `Giá vốn phiếu nhập ${row.code}`); // phiếu nhập hoàn tất → phiếu chi giá vốn
-  return created(row);
+  const { _items: _i, ...view } = row;
+  return created(view);
+}
+
+function receiptAction(ctx: Ctx, kind: 'confirm' | 'cancel'): Result {
+  const row = ctx.db.stockReceipts.find((r) => r.id === Number(ctx.params.id)) as MockReceipt | undefined;
+  if (!row) throw notFound('Phiếu kho');
+  if (row.status !== 'draft')
+    throw new ApiFail(
+      'INVALID_STATE',
+      kind === 'confirm' ? 'Chỉ phiếu nháp mới xác nhận được.' : 'Chỉ phiếu nháp mới hủy được.',
+    );
+  if (kind === 'confirm') applyReceipt(ctx.db, row, row._items ?? [], nowIso());
+  else row.status = 'cancelled';
+  const { _items: _i, ...view } = row;
+  return ok(view);
+}
+export const confirmReceipt = (ctx: Ctx): Result => receiptAction(ctx, 'confirm');
+export const cancelReceipt = (ctx: Ctx): Result => receiptAction(ctx, 'cancel');
+
+export function stockMovements(ctx: Ctx): Result {
+  const db = ctx.db;
+  const type = qStr(ctx.query, 'type');
+  const variantId = qNum(ctx.query, 'variantId', 0);
+  const list = db.inventoryMovements
+    .filter((m) => (!type || m.type === type) && (!variantId || m.variantId === variantId))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
+    .map((m) => {
+      const v = db.productVariants.find((x) => x.id === m.variantId);
+      const p = db.products.find((x) => x.id === v?.productId);
+      return {
+        id: m.id,
+        variantId: m.variantId,
+        sku: v?.sku ?? '—',
+        productName: p?.name ?? '—',
+        type: m.type,
+        quantityChange: m.quantityChange,
+        reason: m.reason ?? null,
+        referenceCode: m.referenceCode ?? null,
+        performedByName: 'Nguyễn Văn A',
+        createdAt: m.createdAt,
+      };
+    });
+  return paginate(list, ctx.query, 10);
 }
 
 // ===================== Thông báo & tìm kiếm của admin =====================

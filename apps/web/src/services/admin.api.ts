@@ -21,14 +21,14 @@ import type {
   SpaceListItem,
   StockReceipt,
   StoreSettings,
-  Supplier,
+  StockMovement,
   UserView,
 } from '@/types/api';
 import { http, type Query } from './api-client';
 
 export const adminApi = {
   stats: (q: { from?: string; to?: string }) => http.get<DashboardStats>('/admin/stats/overview', q),
-  finance: (q: { from?: string; to?: string }) => http.get<FinanceReport>('/admin/stats/finance', q), // TODO: chưa có trong BE
+  finance: (q: { from?: string; to?: string }) => http.get<FinanceReport>('/admin/stats/finance', q),
 
   products: {
     list: (q: Query) => http.list<ProductListItem>('/admin/products', q),
@@ -159,21 +159,24 @@ export const adminApi = {
     resetMock: () => http.post<null>('/admin/settings/reset-mock'), // chỉ có ở mock
   },
   inventory: {
-    rows: (q: Query) => http.list<InventoryRow>('/admin/inventory', q), // TODO: chưa có trong BE
+    rows: (q: Query) => http.list<InventoryRow>('/admin/inventory', q),
     summary: () =>
       http.get<{ totalStock: number; stockValue: number; lowCount: number; outCount: number }>(
         '/admin/inventory/summary',
       ),
     receipts: () => http.get<StockReceipt[]>('/admin/inventory/receipts'),
-    suppliers: () => http.get<Supplier[]>('/admin/inventory/suppliers'),
     createReceipt: (body: {
       type: 'in' | 'out';
-      supplierId?: number | null;
+      supplierName?: string;
+      status?: 'draft' | 'completed';
       items: Array<{ variantId: number; quantity: number; costPrice: number }>;
     }) => http.post<StockReceipt>('/admin/inventory/receipts', body),
+    confirmReceipt: (id: number) => http.post<StockReceipt>(`/admin/inventory/receipts/${id}/confirm`),
+    cancelReceipt: (id: number) => http.post<StockReceipt>(`/admin/inventory/receipts/${id}/cancel`),
+    movements: (q: Query) => http.list<StockMovement>('/admin/inventory/movements', q),
   },
   expenses: {
-    create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body), // TODO: chưa có trong BE
+    create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body),
   },
   notifications: () =>
     http.get<Array<{ id: number; text: string; createdAt: string; link: string }>>('/admin/notifications'),

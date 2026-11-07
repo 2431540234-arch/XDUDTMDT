@@ -8,7 +8,7 @@ import FilterBar, { PageHeader } from '@/components/admin/FilterBar';
 import KpiCard from '@/components/admin/KpiCard';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
-import { Select } from '@/components/ui/Input';
+import Input from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useCategories } from '@/hooks/useProducts';
@@ -18,12 +18,18 @@ import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { errorMessage } from '@/lib/validators';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
-import type { InventoryRow, StockReceipt } from '@/types/api';
+import type { InventoryRow, StockMovement, StockReceipt } from '@/types/api';
 
 const STATE = {
   in_stock: { label: 'Còn hàng', tone: 'green' },
   low: { label: 'Sắp hết', tone: 'yellow' },
   out: { label: 'Hết hàng', tone: 'red' },
+} as const;
+const MOVEMENT_TYPE = {
+  import: { label: 'Nhập kho', tone: 'green' },
+  sale: { label: 'Bán hàng', tone: 'blue' },
+  return: { label: 'Hàng trả', tone: 'orange' },
+  adjustment: { label: 'Điều chỉnh', tone: 'yellow' },
 } as const;
 const RECEIPT_STATUS = {
   completed: { label: 'Hoàn tất', tone: 'green' },
@@ -33,26 +39,22 @@ const RECEIPT_STATUS = {
 
 function ReceiptModal({ type, onClose }: { type: 'in' | 'out' | null; onClose: () => void }) {
   const qc = useQueryClient();
-  const [supplierId, setSupplierId] = useState('');
+  const [supplierName, setSupplierName] = useState('');
   const [lines, setLines] = useState<Array<{ variantId: string; quantity: string; costPrice: string }>>([
     { variantId: '', quantity: '10', costPrice: '' },
   ]);
   const [errs, setErrs] = useState<Record<string, string>>({});
-  const suppliers = useQuery({
-    queryKey: ['admin', 'suppliers'],
-    queryFn: adminApi.inventory.suppliers,
-    enabled: type === 'in',
-  });
   const rows = useQuery({
     queryKey: ['admin', 'inventory', 'pick'],
     queryFn: () => adminApi.inventory.rows({ pageSize: 100, sort: 'productName:asc' }),
     enabled: Boolean(type),
   });
   const create = useMutation({
-    mutationFn: () =>
+    mutationFn: (status: 'draft' | 'completed') =>
       adminApi.inventory.createReceipt({
         type: type!,
-        supplierId: supplierId ? Number(supplierId) : null,
+        status,
+        supplierName: type === 'in' ? supplierName.trim() : undefined,
         items: lines
           .filter((l) => l.variantId)
           .map((l) => ({
@@ -62,21 +64,22 @@ function ReceiptModal({ type, onClose }: { type: 'in' | 'out' | null; onClose: (
           })),
       }),
     onSuccess: (r) => {
-      toast.success(`Đã tạo phiếu ${r.code}.`);
+      toast.success(r.status === 'draft' ? `Đã lưu nháp phiếu ${r.code}.` : `Đã tạo phiếu ${r.code}.`);
       qc.invalidateQueries({ queryKey: ['admin', 'inventory'] });
       qc.invalidateQueries({ queryKey: ['admin', 'finance'] });
       setLines([{ variantId: '', quantity: '10', costPrice: '' }]);
+      setSupplierName('');
       onClose();
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
-  const submit = () => {
+  const submit = (status: 'draft' | 'completed') => {
     const x: Record<string, string> = {};
-    if (type === 'in' && !supplierId) x.supplierId = 'Vui lòng chọn nhà cung cấp.';
+    if (type === 'in' && !supplierName.trim()) x.supplierName = 'Vui lòng nhập nhà cung cấp.';
     if (!lines.some((l) => l.variantId)) x.items = 'Vui lòng chọn ít nhất một sản phẩm.';
     if (lines.some((l) => l.variantId && !(Number(l.quantity) >= 1))) x.items = 'Số lượng phải từ 1 trở lên.';
     setErrs(x);
-    if (!Object.keys(x).length) create.mutate();
+    if (!Object.keys(x).length) create.mutate(status);
   };
   return (
     <Modal
@@ -89,7 +92,10 @@ function ReceiptModal({ type, onClose }: { type: 'in' | 'out' | null; onClose: (
           <Button variant="ghost" onClick={onClose}>
             Hủy
           </Button>
-          <Button loading={create.isPending} onClick={submit}>
+          <Button variant="outline" disabled={create.isPending} onClick={() => submit('draft')}>
+            Lưu nháp
+          </Button>
+          <Button loading={create.isPending} onClick={() => submit('completed')}>
             Hoàn tất phiếu
           </Button>
         </>
@@ -97,14 +103,13 @@ function ReceiptModal({ type, onClose }: { type: 'in' | 'out' | null; onClose: (
     >
       <div className="space-y-4">
         {type === 'in' && (
-          <Select
+          <Input
             label="Nhà cung cấp"
             required
-            placeholder="Chọn nhà cung cấp"
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-            error={errs.supplierId}
-            options={(suppliers.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+            placeholder="Nhập tên nhà cung cấp"
+            value={supplierName}
+            onChange={(e) => setSupplierName(e.target.value)}
+            error={errs.supplierName}
           />
         )}
         <div>
@@ -190,8 +195,8 @@ function ReceiptModal({ type, onClose }: { type: 'in' | 'out' | null; onClose: (
         </div>
         <p className="text-xs text-muted">
           {type === 'in'
-            ? 'Phiếu nhập hoàn tất sẽ tăng tồn kho và tạo phiếu chi giá vốn.'
-            : 'Phiếu xuất hoàn tất sẽ giảm tồn kho.'}
+            ? 'Phiếu nhập hoàn tất sẽ tăng tồn kho và tạo phiếu chi giá vốn. Phiếu nháp chưa đổi tồn kho, xác nhận sau trong danh sách phiếu.'
+            : 'Phiếu xuất hoàn tất sẽ giảm tồn kho. Phiếu nháp chưa đổi tồn kho, xác nhận sau trong danh sách phiếu.'}
         </p>
       </div>
     </Modal>
@@ -224,6 +229,22 @@ export default function AdminInventoryPage() {
     queryFn: adminApi.inventory.receipts,
   });
   const s = summary.data;
+  const qc = useQueryClient();
+  const [movPage, setMovPage] = useState(1);
+  const movements = useQuery({
+    queryKey: ['admin', 'inventory', 'movements', movPage],
+    queryFn: () => adminApi.inventory.movements({ page: movPage, pageSize: 10 }),
+  });
+  const act = useMutation({
+    mutationFn: ({ id, kind }: { id: number; kind: 'confirm' | 'cancel' }) =>
+      kind === 'confirm' ? adminApi.inventory.confirmReceipt(id) : adminApi.inventory.cancelReceipt(id),
+    onSuccess: (r) => {
+      toast.success(r.status === 'completed' ? `Đã xác nhận phiếu ${r.code}.` : `Đã hủy phiếu ${r.code}.`);
+      qc.invalidateQueries({ queryKey: ['admin', 'inventory'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'finance'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
 
   const columns: Column<InventoryRow>[] = [
     {
@@ -242,20 +263,18 @@ export default function AdminInventoryPage() {
     { key: 'sku', header: 'SKU', render: (r) => <code className="text-xs">{r.sku}</code> },
     { key: 'cost', header: 'Giá vốn', sortKey: 'costPrice', render: (r) => formatCurrency(r.costPrice) },
     { key: 'stock', header: 'Tồn kho', sortKey: 'stockQuantity', render: (r) => r.stockQuantity },
-    { key: 'held', header: 'Đang giữ', render: (r) => r.reservedQty },
     { key: 'avail', header: 'Có thể bán', sortKey: 'available', render: (r) => <b>{r.available}</b> },
     { key: 'min', header: 'Mức tối thiểu', render: (r) => r.minStock },
     { key: 'state', header: 'Trạng thái', render: (r) => <StatusBadge info={STATE[r.state]} /> },
   ];
   const exportCsv = () =>
     downloadCsv('ton-kho.csv', [
-      ['Sản phẩm', 'SKU', 'Giá vốn', 'Tồn kho', 'Đang giữ', 'Có thể bán', 'Mức tối thiểu'],
+      ['Sản phẩm', 'SKU', 'Giá vốn', 'Tồn kho', 'Có thể bán', 'Mức tối thiểu'],
       ...(list.data?.items ?? []).map((r) => [
         r.productName,
         r.sku,
         r.costPrice,
         r.stockQuantity,
-        r.reservedQty,
         r.available,
         r.minStock,
       ]),
@@ -349,6 +368,7 @@ export default function AdminInventoryPage() {
                 <th>Tổng giá trị</th>
                 <th>Ngày</th>
                 <th>Trạng thái</th>
+                <th className="text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -368,11 +388,98 @@ export default function AdminInventoryPage() {
                   <td>
                     <StatusBadge info={RECEIPT_STATUS[r.status]} />
                   </td>
+                  <td className="text-right">
+                    {r.status === 'draft' && (
+                      <span className="inline-flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={act.isPending}
+                          aria-label={`Xác nhận phiếu ${r.code}`}
+                          onClick={() => act.mutate({ id: r.id, kind: 'confirm' })}
+                        >
+                          Xác nhận
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={act.isPending}
+                          aria-label={`Hủy phiếu ${r.code}`}
+                          onClick={() => act.mutate({ id: r.id, kind: 'cancel' })}
+                        >
+                          Hủy
+                        </Button>
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      </section>
+      <section className="card p-5">
+        <h2 className="mb-3 font-bold">Lịch sử biến động tồn kho</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead className="text-left text-xs uppercase text-muted">
+              <tr>
+                <th className="py-2">Thời gian</th>
+                <th>Sản phẩm</th>
+                <th>Loại</th>
+                <th className="text-right">Thay đổi</th>
+                <th>Chứng từ</th>
+                <th>Lý do</th>
+                <th>Người thực hiện</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {(movements.data?.items as StockMovement[] | undefined)?.map((m) => (
+                <tr key={m.id}>
+                  <td className="py-2.5">{formatDate(m.createdAt)}</td>
+                  <td>
+                    {m.productName} <code className="text-xs text-muted">{m.sku}</code>
+                  </td>
+                  <td>
+                    <StatusBadge info={MOVEMENT_TYPE[m.type]} />
+                  </td>
+                  <td
+                    className={`text-right font-semibold ${m.quantityChange < 0 ? 'text-danger' : 'text-emerald-600'}`}
+                  >
+                    {m.quantityChange > 0 ? `+${m.quantityChange}` : m.quantityChange}
+                  </td>
+                  <td>{m.referenceCode ?? '—'}</td>
+                  <td>{m.reason ?? '—'}</td>
+                  <td>{m.performedByName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {movements.data && movements.data.meta.totalPages > 1 && (
+          <div className="mt-3 flex items-center justify-end gap-2 text-sm">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={movPage <= 1}
+              aria-label="Trang trước (lịch sử biến động)"
+              onClick={() => setMovPage((p) => p - 1)}
+            >
+              Trước
+            </Button>
+            <span>
+              {movPage}/{movements.data.meta.totalPages}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={movPage >= movements.data.meta.totalPages}
+              aria-label="Trang sau (lịch sử biến động)"
+              onClick={() => setMovPage((p) => p + 1)}
+            >
+              Sau
+            </Button>
+          </div>
+        )}
       </section>
       <ReceiptModal type={receipt} onClose={() => setReceipt(null)} />
     </div>

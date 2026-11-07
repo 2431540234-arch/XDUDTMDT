@@ -23,6 +23,11 @@ export class FieldErrors {
     return this;
   }
 
+  /** Đã có lỗi chưa (để bỏ qua bước tốn kém như lưu ảnh khi dữ liệu còn sai) */
+  any(): boolean {
+    return Object.keys(this.errs).length > 0;
+  }
+
   throwIfAny(): void {
     if (Object.keys(this.errs).length) throw validationError(this.errs);
   }
