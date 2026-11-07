@@ -979,6 +979,35 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       expect((await api('post', `/payments/${o.id}/retry`, cust)).status).toBe(409);
     });
 
+    it('thanh toán đến sau khi đơn đã hủy: đơn vẫn cancelled, Payment = success, paymentStatus = paid, admin nhận thông báo cần hoàn tiền; IPN lặp ⇒ 02', async () => {
+      const o = await placeOrder();
+      const pay = await latestPayment(o.id);
+      expect((await api('post', `/orders/${o.id}/cancel`, cust, { reason: 'Đổi ý' })).status).toBe(200);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status).toBe('failed'); // đóng lúc hủy
+      const histBefore = await prisma.orderStatusHistory.count({ where: { orderId: o.id } });
+
+      const r = await ipn(callback(o, pay.id));
+      expect(r.body.RspCode).toBe('00');
+      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
+      expect([row.status, row.paymentStatus]).toEqual(['cancelled', 'paid']);
+      const p = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
+      expect(p.status).toBe('success');
+      expect(p.transactionCode).toBe(String(14_000_000 + pay.id));
+      expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id } })).toBe(histBefore); // không đổi trạng thái đơn
+      const adminNote = await prisma.notification.findFirst({
+        where: { userId: 1, title: `Đơn ${o.orderCode} đã hủy nhưng khách đã thanh toán, cần hoàn tiền` },
+      });
+      expect(adminNote).not.toBeNull();
+      expect((adminNote!.data as { link: string }).link).toBe(`/admin/orders/${o.orderCode}`);
+      // khách không bị báo "đơn được xác nhận"
+      expect((await ipn(callback(o, pay.id))).body.RspCode).toBe('02');
+      expect(
+        await prisma.notification.count({
+          where: { userId: 1, title: { contains: `Đơn ${o.orderCode} đã hủy nhưng` } },
+        }),
+      ).toBe(1);
+    });
+
     it('thanh toán lại đổi phương thức sang COD: không qua cổng, cập nhật phương thức; phương thức lạ ⇒ 400', async () => {
       const o = await placeOrder();
       expect((await api('post', `/payments/${o.id}/retry`, cust, { method: 'bitcoin' })).status).toBe(400);

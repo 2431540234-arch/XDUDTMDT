@@ -63,7 +63,10 @@ export class PaymentsService {
         ? await tx.payment.findFirst({ where: { id: paymentId, orderId } })
         : await tx.payment.findFirst({ where: { orderId }, orderBy: { id: 'desc' } });
       if (!pay) return 'missing';
-      if (paymentId && pay.status !== 'pending') return 'already'; // IPN gọi lại / giao dịch cũ đã đóng
+      // Đơn đã hủy: giao dịch pending đã bị đóng (failed) lúc hủy, nhưng tiền khách vẫn có thể về muộn ⇒ vẫn ghi nhận success
+      // (UC-PAY-02) để admin hoàn tiền được (UC-ADM-23).
+      const lateAfterCancel = success && o.status === 'cancelled' && pay.status === 'failed';
+      if (paymentId && pay.status !== 'pending' && !lateAfterCancel) return 'already'; // IPN gọi lại / giao dịch cũ đã đóng
       if (success) {
         const txn =
           gateway?.txn ??
@@ -86,6 +89,23 @@ export class PaymentsService {
           where: { id: orderId },
           data: { paymentStatus: 'paid', ...(o.status === 'pending' ? { status: 'confirmed' } : {}) },
         });
+        if (o.status === 'cancelled') {
+          // trạng thái đơn giữ nguyên cancelled; chỉ báo admin cần hoàn tiền
+          const admins = await tx.user.findMany({
+            where: { deletedAt: null, userRoles: { some: { role: { code: 'admin' } } } },
+            select: { id: true },
+          });
+          for (const a of admins) {
+            await this.notifications.notify(
+              tx,
+              a.id,
+              `Đơn ${o.order_code} đã hủy nhưng khách đã thanh toán, cần hoàn tiền`,
+              'order',
+              `Đơn ${o.order_code} đã bị hủy trước khi cổng thanh toán báo thành công. Cần hoàn tiền cho khách.`,
+              `/admin/orders/${o.order_code}`,
+            );
+          }
+        }
         await this.notifications.notify(
           tx,
           o.user_id,
