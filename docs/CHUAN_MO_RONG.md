@@ -140,6 +140,14 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 
 ---
 
+## Phần 4b. Những câu trong tài liệu chuẩn đã bị thay thế bởi quyết định mới
+
+Theo **D-D07** (`DECISIONS.md`, 2026-11-07) tài liệu chuẩn thắng code. Các câu sau (trong tài liệu chuẩn, KHÔNG sửa trực tiếp) nói Prisma/code là nguồn chuẩn nên **không còn hiệu lực**:
+- `DATABASE_SCHEMA.md` dòng 7 (Prisma là nguồn chuẩn của CSDL);
+- `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md` mục 1.2 (nguồn chuẩn là code/Prisma, mâu thuẫn thì tin code);
+- phần tương ứng của D-D02 và D-T46 trong `DECISIONS.md` (nay được thay thế một phần bởi D-D07).
+Khi code lệch chuẩn thì sửa code; phần code được giữ ngoài chuẩn thì ghi trong chính tài liệu này.
+
 ## Phần 5. Quy trình giữ tài liệu này đúng
 
 - Sau mỗi migration thêm bảng/cột ngoài chuẩn: cập nhật Phần 1 (bảng/cột, vì sao giữ).
