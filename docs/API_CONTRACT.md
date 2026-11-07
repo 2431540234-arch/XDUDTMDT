@@ -429,6 +429,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 |---|---|---|---|---|---|---|
 | GET | `/admin/settings` | admin | `admin.get` |  |  |  |
 | PUT | `/admin/settings/store` | admin | `admin.save` |  | Partial<StoreSettings> |  |
+| PUT | `/admin/settings/:key` | admin |  |  | { value } | `VALIDATION_FAILED` |
 | POST | `/admin/settings/reset-mock` | admin | `admin.resetMock` |  |  |  |
 
 ### 4. `admin/inventory`
@@ -438,13 +439,20 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/inventory` | admin | `admin.rows` | `categoryId`, `q`, `sort`, `state` |  |  |
 | GET | `/admin/inventory/summary` | admin | `admin.` |  |  |  |
 | GET | `/admin/inventory/receipts` | admin | `admin.receipts` |  |  |  |
-| POST | `/admin/inventory/receipts` | admin | `admin.createReceipt` |  | { type:"in"\|"out", supplierId?, items:[{variantId, quantity, costPrice}] } | `OUT_OF_STOCK` |
+| POST | `/admin/inventory/receipts` | admin | `admin.createReceipt` |  | { type:"in"\|"out", supplierName?, status?:"draft"\|"completed", items:[{variantId, quantity, costPrice}] } | `OUT_OF_STOCK` |
+| GET | `/admin/inventory/receipts/:id` | admin |  |  |  | `RESOURCE_NOT_FOUND` |
+| POST | `/admin/inventory/receipts/:id/confirm` | admin |  |  |  | `INVALID_STATE`, `OUT_OF_STOCK` |
+| POST | `/admin/inventory/receipts/:id/cancel` | admin |  |  |  | `INVALID_STATE` |
+| GET | `/admin/inventory/movements` | admin |  | `variantId`, `type`, `from`, `to`, `page` |  |  |
+| POST | `/admin/inventory/movements` | admin |  |  | { variantId, type:"import"\|"adjustment"\|"return", quantityChange, reason?, referenceCode? } | `OUT_OF_STOCK` |
 
 ### 4. `admin/expenses`
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
+| GET | `/admin/expenses` | admin |  | `category`, `from`, `to`, `page` |  |  |
 | POST | `/admin/expenses` | admin | `admin.create` |  | { category, amount, note, date } |  |
+| DELETE | `/admin/expenses/:id` | admin |  |  |  | `INVALID_STATE` |
 
 ## 5. Endpoint Backend cần có thêm (không nằm trong mock)
 
@@ -1040,3 +1048,27 @@ export interface Product360AdminData {
   variantColors: ColorOption[];
 }
 ```
+
+
+---
+
+## Mốc 4 – Kho, Thu chi, Cài đặt, VNPAY (BE thật)
+
+### Kho (UC-ADM-12, phương án b′)
+- `GET /admin/inventory` → `InventoryRow[]` (phân trang): `stockQuantity` = `product_variants.stock_quantity` (đã trừ ngay khi đặt hàng nên **không còn** `reservedQty`), `available` = `stockQuantity`, `state` = `out` (≤ 0) | `low` (≤ `minStock`) | `in_stock`. Lọc `q` (tên/SKU không dấu), `state`, `categoryId` (gồm danh mục con); sắp xếp `productName|stockQuantity|available|costPrice`.
+- **Phiếu** (`stock_receipts`): `status` `draft` → `completed` (xác nhận) hoặc `cancelled` (chỉ từ nháp). `POST /admin/inventory/receipts` mặc định `completed` (ghi tồn ngay); `status:"draft"` chỉ lưu chứng từ. Phiếu `in` bắt buộc `supplierName` (chữ, không có bảng nhà cung cấp). Hoàn tất ⇒ mỗi dòng ghi một `inventory_movements` (`import` cho phiếu nhập, `adjustment` âm cho phiếu xuất) có `reference_code` = mã phiếu; phiếu nhập cập nhật `cost_price` biến thể và sinh phiếu chi `cogs` (`expenses.receipt_id`). Phiếu xuất thiếu hàng ⇒ `409 OUT_OF_STOCK`, hoàn tác cả phiếu. Xác nhận/hủy phiếu không ở trạng thái nháp ⇒ `409 INVALID_STATE`.
+- `POST /admin/inventory/movements` (UC-ADM-12): `import`/`return` số lượng dương, `adjustment` ±; `sale` do hệ thống tạo (400); `quantityChange = 0` ⇒ 400; tồn âm ⇒ `409`. `GET /admin/inventory/movements` → `{ id, variantId, sku, productName, type, quantityChange, reason, referenceCode, performedByName, createdAt }`.
+
+### Thu chi và báo cáo
+- `GET /admin/stats/finance?from&to` → `FinanceReport`. Quy ước: **doanh thu = tổng `orders.total` của đơn giao thành công (`completed`) theo NGÀY GIAO** (lần đầu sang `completed`, giờ Việt Nam); đơn hủy/chưa giao không tính; đơn sau đó hoàn tiền vẫn là doanh thu ngày giao và phần đã hoàn nằm ở phiếu chi `refund` (tự sinh khi duyệt hoàn tiền) nên `profit = totalIncome − totalExpense`. Phí vận chuyển và phí cổng thanh toán **không** tự sinh phiếu chi (admin nhập tay); phiếu nhập kho hoàn tất sinh phiếu chi `cogs`.
+- `POST /admin/expenses { category, amount > 0, note, date }`: `category` ∈ `cogs|shipping|marketing|payment_fee|other` (`refund` do hệ thống sinh ⇒ 400); `date` nhận `YYYY-MM-DD` hoặc ISO. `DELETE` chỉ với phiếu nhập tay (phiếu gắn đơn/phiếu kho ⇒ `409`).
+
+### Cài đặt (UC-ADM-03)
+- `GET /admin/settings` → `{ store, payments, shippingZones, general }`; `general` gồm `site_name, contact_email, contact_phone, currency, default_shipping_fee, free_shipping_threshold, ar_enabled, maintenance_mode`.
+- `PUT /admin/settings/store` (trang Cài đặt) chỉ ghi phần được gửi; lỗi theo tên ô (`name`, `email`, `hotline`, `payments.<i>.method`, `shippingZones.<i>.fee`…). `PUT /admin/settings/:key { value }`: khóa ngoài danh sách ⇒ 400, sai kiểu ⇒ 400. Mỗi lần sửa ghi `activity_logs` (`setting.update`, trước/sau). Cài đặt công khai vẫn là `GET /settings/public`.
+
+### VNPAY sandbox (UC-PAY-01/02/03)
+- Có `VNPAY_TMN_CODE` + `VNPAY_HASH_SECRET`: `POST /payments/:orderId/checkout` trả `{ redirectUrl, paymentUrl, expiresAt }` – URL cổng có chữ ký HMAC-SHA512 (số tiền = `Order.total × 100` lấy từ CSDL, `vnp_TxnRef = <orderCode>-P<paymentId>`, hạn 15 phút). Chưa có khóa: giả lập như cũ (`PAYMENT_SANDBOX_FAKE=true`, không production), nếu không ⇒ `503`.
+- `GET /payments/vnpay/return` (công khai): kiểm tra chữ ký, ghi nhận kết quả (idempotent) rồi `302` tới `APP_URL/checkout/success|failed?order=<code>`; sai chữ ký/số tiền ⇒ `/checkout/failed`, không ghi nhận.
+- `GET /payments/vnpay/ipn` (công khai, server-to-server): trả JSON **không bọc** `{ RspCode, Message }`: `00` thành công, `01` không thấy đơn, `02` đã xử lý, `04` sai số tiền, `97` sai chữ ký, `99` lỗi khác.
+- `POST /payments/:orderId/retry { method? }` (UC-PAY-03): giao dịch pending cũ ⇒ `failed`, tạo giao dịch pending mới; đơn đã `paid`/đã hủy ⇒ `409`; phương thức lạ ⇒ `400`.

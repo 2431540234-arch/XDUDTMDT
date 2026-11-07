@@ -86,8 +86,10 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
 | `PAYMENT_SANDBOX_FAKE` | Tùy chọn | `false` | Payments | `true` = thanh toán online giả lập (chỉ dev/test; khách không chọn được kết quả, ghi chú đơn chứa `[fail]` ép thất bại). **`NODE_ENV=production` + `true` ⇒ API không khởi động.** Tắt ⇒ `POST /payments/:id/checkout` trả 503 cho tới khi có VNPAY |
-| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Tùy chọn | trống | Payments (Mốc 4) | Từ tài khoản sandbox VNPay; chưa có thì dùng khóa giả để thử chữ ký |
-| `VNPAY_URL`, `VNPAY_RETURN_URL`, `VNPAY_IPN_URL` | Tùy chọn | trống | M10 | URL hợp lệ nếu đặt; IPN cần địa chỉ công khai (tunnel) |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Tùy chọn | trống | Payments | Từ tài khoản sandbox VNPay. **Có cả hai** ⇒ `POST /payments/:id/checkout` (VNPAY/thẻ) tạo URL cổng có chữ ký HMAC-SHA512; thiếu ⇒ giả lập. Test dùng khóa giả |
+| `VNPAY_URL` | Tùy chọn | `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html` | Payments | Địa chỉ cổng thanh toán |
+| `VNPAY_RETURN_URL` | Tùy chọn | `http://localhost:<PORT>/api/payments/vnpay/return` | Payments | Return URL (`GET /payments/vnpay/return`): khách từ cổng quay về, API ghi nhận kết quả rồi chuyển tới `APP_URL/checkout/success|failed`. Phải là địa chỉ công khai của API khi chạy thật |
+| `VNPAY_IPN_URL` | Tùy chọn | trống | Payments | Chỉ để ghi nhớ: IPN (`GET /payments/vnpay/ipn`) được khai báo trên trang quản trị VNPAY, cần địa chỉ công khai (tunnel) |
 
 ## 8. Seed
 

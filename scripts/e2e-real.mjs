@@ -23,7 +23,6 @@ const GROUPS = [
   {
     name: 'khach-hang',
     files: ['tests/e2e/home.spec.ts', 'tests/e2e/screens.spec.ts'],
-    grepInvert: 'admin: đăng nhập và duyệt mọi màn hình',
   },
   {
     name: 'xem-360',
@@ -31,6 +30,7 @@ const GROUPS = [
   },
   { name: 'admin-m2', files: ['tests/e2e/admin-m2.spec.ts'] },
   { name: 'admin-m3', files: ['tests/e2e/admin-m3.spec.ts'] },
+  { name: 'admin-m4', files: ['tests/e2e/admin-m4.spec.ts'] },
 ];
 
 const log = (m) => console.log(`\n[e2e-real] ${m}`);
