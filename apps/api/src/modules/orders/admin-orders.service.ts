@@ -4,9 +4,9 @@
 // Máy trạng thái: pending → confirmed → processing → shipping → completed; hủy ở pending|confirmed|processing; hoàn tiền từ
 // completed (hoặc cancelled đã thanh toán). Sai thứ tự ⇒ 409 INVALID_STATE.
 // Tồn kho: đã trừ lúc khách đặt hàng (movement "sale"); sang shipping không đổi tồn; hủy ⇒ cộng lại (movement "return").
-// COD sang completed ⇒ tự đánh dấu đã thanh toán.
+// completed KHÔNG đặt tay: do vận đơn delivered (ShipmentsService → OrdersService.completeOrder); sang shipping cần có vận đơn.
 import { Injectable } from '@nestjs/common';
-import { OrderStatus, Prisma, ShipmentCarrier } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -37,7 +37,6 @@ const STATUS_LABEL: Record<string, string> = {
   shipping: 'đang được giao',
   completed: 'đã giao thành công',
 };
-const CARRIERS: ShipmentCarrier[] = ['ghn', 'ghtk', 'viettel_post', 'other'];
 const SORTS: Record<string, keyof Prisma.OrderOrderByWithRelationInput> = {
   createdAt: 'createdAt',
   total: 'total',
@@ -182,6 +181,10 @@ export class AdminOrdersService {
     const to = str(b.status) as OrderStatus;
     const cur = await this.find(key);
     if (to === 'cancelled') return this.cancel(adminId, key, { reason: b.note });
+    // UC-ADM-21 (D-N14): admin KHÔNG đặt đơn completed trực tiếp; đơn tự hoàn tất khi vận đơn được đánh dấu đã giao
+    if (to === 'completed') {
+      throw new AppException(ErrorCode.INVALID_STATE, 'Hoàn tất khi vận đơn được đánh dấu đã giao.');
+    }
     await this.prisma.$transaction(async (tx) => {
       const [locked] = await tx.$queryRaw<
         Array<{ status: OrderStatus }>
@@ -190,55 +193,17 @@ export class AdminOrdersService {
       if (!canTransition(from, to)) {
         throw new AppException(ErrorCode.INVALID_STATE, `Không thể chuyển đơn từ "${from}" sang "${to}".`);
       }
-      const now = new Date();
-
       if (to === 'shipping') {
-        // tồn kho đã trừ từ lúc đặt hàng nên sang "Đang giao" chỉ tạo/cập nhật vận đơn
-        const sh = await tx.shipment.findFirst({ where: { orderId: cur.id } });
-        const tracking = `GHN${Math.floor(100_000_000 + Math.random() * 899_999_999)}`;
-        if (sh) {
-          await tx.shipment.update({
-            where: { id: sh.id },
-            data: { status: 'in_transit', shippedAt: now, trackingCode: sh.trackingCode ?? tracking },
-          });
-        } else {
-          await tx.shipment.create({
-            data: {
-              orderId: cur.id,
-              carrier: 'ghn',
-              trackingCode: tracking,
-              status: 'in_transit',
-              fee: cur.shippingFee,
-              shippedAt: now,
-            },
-          });
-        }
-      }
-
-      if (to === 'completed') {
-        // sold_count tăng khi đơn hoàn tất (QUY_UOC_CODE_DB 5.2), cùng transaction với việc đổi trạng thái
-        const sold = await tx.orderItem.findMany({
-          where: { orderId: cur.id, variantId: { not: null } },
-          include: { variant: { select: { productId: true } } },
+        // UC-ADM-25: phải có vận đơn đang hoạt động trước khi giao (không tự tạo vận đơn nữa)
+        const active = await tx.shipment.count({
+          where: { orderId: cur.id, status: { notIn: ['failed', 'returned'] } },
         });
-        for (const it of sold) {
-          if (!it.variant) continue;
-          await tx.product.update({
-            where: { id: it.variant.productId },
-            data: { soldCount: { increment: it.quantity } },
-          });
-        }
-        await tx.shipment.updateMany({
-          where: { orderId: cur.id },
-          data: { status: 'delivered', deliveredAt: now },
-        });
-        // COD: thu tiền khi giao ⇒ tự đánh dấu đã thanh toán
-        if (cur.paymentMethod === 'cod' && cur.paymentStatus !== 'paid') {
-          await tx.payment.updateMany({
-            where: { orderId: cur.id, status: { not: 'success' } },
-            data: { status: 'success', paidAt: now },
-          });
-          await tx.order.update({ where: { id: cur.id }, data: { paymentStatus: 'paid' } });
+        if (!active) {
+          throw new AppException(
+            ErrorCode.BAD_REQUEST,
+            'Cần tạo vận đơn trước khi chuyển đơn sang "Đang giao".',
+            { shipment: ['Chưa có vận đơn.'] },
+          );
         }
       }
 
@@ -322,32 +287,6 @@ export class AdminOrdersService {
         },
         tx,
       );
-    });
-    return this.viewById(o.id);
-  }
-
-  async updateShipment(adminId: number, key: string, raw: unknown) {
-    const o = await this.find(key);
-    const b = asBody(raw);
-    if (b.carrier && !CARRIERS.includes(str(b.carrier) as ShipmentCarrier)) {
-      new FieldErrors().add('carrier', 'Đơn vị vận chuyển không hợp lệ.').throwIfAny();
-    }
-    const data = {
-      ...(b.carrier ? { carrier: str(b.carrier) as ShipmentCarrier } : {}),
-      ...(b.trackingCode !== undefined ? { trackingCode: str(b.trackingCode).trim() || null } : {}),
-    };
-    const sh = o.shipments[0];
-    if (sh) await this.prisma.shipment.update({ where: { id: sh.id }, data });
-    else
-      await this.prisma.shipment.create({
-        data: { orderId: o.id, fee: o.shippingFee, carrier: 'ghn', status: 'pending', ...data },
-      });
-    await this.activity.log({
-      actorId: adminId,
-      action: 'order.update_shipment',
-      targetType: 'order',
-      targetId: o.id,
-      changes: { orderCode: o.orderCode },
     });
     return this.viewById(o.id);
   }

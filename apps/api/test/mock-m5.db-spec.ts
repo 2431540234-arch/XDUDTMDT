@@ -414,16 +414,14 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
       ).not.toBeNull();
 
       const big = Buffer.concat([PNG_BYTES, Buffer.alloc(5 * MB)]);
-      expect((await upload(big, 'image/png')).status).toBe(413);
+      expect((await upload(big, 'image/png', {}, admin, 'qua-lon-e2e.png')).status).toBe(413);
       expect((await upload(Buffer.from('%PDF-1.4'), 'application/pdf')).status).toBe(415);
       expect((await upload(Buffer.from('<html>giả png</html>'), 'image/png')).status).toBe(415); // chữ ký sai
       expect((await upload(PNG_BYTES, 'image/jpeg')).status).toBe(415); // PNG khai báo là JPEG
       expect((await upload(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]), 'image/jpeg')).status).toBe(201);
       expect((await http.post('/api/admin/media').set('Authorization', `Bearer ${admin}`)).status).toBe(400);
       // chỉ tệp hợp lệ mới tạo bản ghi
-      expect(
-        await prisma.media.count({ where: { fileName: { in: ['anh.png'] }, fileSize: { gt: 5 * MB } } }),
-      ).toBe(0);
+      expect(await prisma.media.count({ where: { fileName: 'qua-lon-e2e.png' } })).toBe(0);
     });
 
     it('danh sách: phân trang, tìm theo tên/alt không dấu, lọc chưa dùng, có số nơi đang dùng', async () => {
@@ -510,6 +508,233 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
       const optional = await api('delete', `/admin/media/${cat.imageMediaId}`, admin);
       expect(optional.status).toBe(200);
       expect((await prisma.category.findUniqueOrThrow({ where: { id: cat.id } })).imageMediaId).toBeNull();
+    });
+  });
+
+  // ------------------------------------------------------------------------------------------ UC-ADM-25 vận chuyển
+  describe('vận chuyển (UC-ADM-25, D-N14)', () => {
+    const placeOrder = async (paymentMethod = 'cod', qty = 1) => {
+      const v = await prisma.productVariant.findFirstOrThrow({
+        where: {
+          isActive: true,
+          stockQuantity: { gte: 12 },
+          product: { status: 'published', deletedAt: null },
+        },
+        orderBy: { id: 'asc' },
+      });
+      const addr = await prisma.address.findFirstOrThrow({ where: { userId: 2, isDefault: true } });
+      await api('delete', '/cart', cust);
+      await api('post', '/cart/items', cust, { variantId: v.id, quantity: qty });
+      const o = (await api('post', '/orders', cust, { addressId: addr.id, paymentMethod })).body.data;
+      return { ...o, productId: v.productId } as {
+        id: number;
+        orderCode: string;
+        productId: number;
+        shippingFee: number;
+      };
+    };
+    const to = (id: number, status: string) => api('patch', `/admin/orders/${id}/status`, admin, { status });
+    const toProcessing = async (o: { id: number }) => {
+      for (const s of ['confirmed', 'processing']) expect((await to(o.id, s)).status).toBe(200);
+    };
+    const mkShipment = (
+      orderId: number,
+      body: object = { carrier: 'ghn', trackingCode: `TRK${Date.now()}${orderId}` },
+    ) => api('post', `/admin/orders/${orderId}/shipments`, admin, body);
+    const setShip = (id: number, body: object) => api('patch', `/admin/shipments/${id}`, admin, body);
+
+    it('phân quyền: khách ⇒ 403, chưa đăng nhập ⇒ 401', async () => {
+      for (const [m, p] of [
+        ['post', '/admin/orders/1/shipments'],
+        ['patch', '/admin/shipments/1'],
+      ] as const) {
+        expect((await api(m, p, cust, {})).status).toBe(403);
+        expect((await api(m, p, undefined, {})).status).toBe(401);
+      }
+    });
+
+    it('tạo vận đơn: chỉ từ processing; kiểm tra carrier/mã/phí; phí mặc định = phí ship đơn; một vận đơn hoạt động; nhật ký', async () => {
+      const o = await placeOrder();
+      expect((await mkShipment(o.id)).status).toBe(409); // pending
+      await toProcessing(o);
+      const bad = await mkShipment(o.id, { carrier: 'dhl', trackingCode: 'x'.repeat(101), fee: -1 });
+      expect(bad.status).toBe(400);
+      expect(Object.keys(bad.body.error.details).sort()).toEqual(['carrier', 'fee', 'trackingCode']);
+      expect((await mkShipment(o.id, {})).status).toBe(400); // thiếu carrier
+      const ok = await mkShipment(o.id, { carrier: 'viettel_post', trackingCode: 'VTP-001' });
+      expect(ok.status).toBe(201);
+      expect(ok.body.data.shipment).toMatchObject({
+        carrier: 'viettel_post',
+        trackingCode: 'VTP-001',
+        status: 'pending',
+        orderId: o.id,
+      });
+      expect(Number(ok.body.data.shipment.fee)).toBe(Number(o.shippingFee));
+      expect(ok.body.data.order.shipments).toHaveLength(1);
+      expect(
+        await prisma.activityLog.findFirst({
+          where: { action: 'shipment.create', targetId: ok.body.data.shipment.id },
+        }),
+      ).not.toBeNull();
+      expect((await mkShipment(o.id)).status).toBe(409); // đã có vận đơn hoạt động
+      expect((await api('post', '/admin/orders/999999/shipments', admin, { carrier: 'ghn' })).status).toBe(
+        404,
+      );
+      // phí tùy chọn + theo mã đơn
+      const o2 = await placeOrder();
+      await toProcessing(o2);
+      const withFee = await api('post', `/admin/orders/${o2.orderCode}/shipments`, admin, {
+        carrier: 'ghn',
+        fee: 45000,
+      });
+      expect(withFee.status).toBe(201);
+      expect(Number(withFee.body.data.shipment.fee)).toBe(45000);
+    });
+
+    it('trạng thái vận đơn: đi đúng thứ tự (bỏ bước ⇒ 409), đặt shippedAt/deliveredAt, sửa mã/đơn vị khi chưa kết thúc, cảnh báo trùng mã khác đơn vị', async () => {
+      const o = await placeOrder();
+      await toProcessing(o);
+      const sh = (await mkShipment(o.id, { carrier: 'ghn', trackingCode: 'DUP-1' })).body.data.shipment;
+      expect((await setShip(sh.id, { status: 'delivered' })).status).toBe(409); // pending ⇒ delivered
+      expect((await setShip(sh.id, { status: 'in_transit' })).status).toBe(409); // bỏ picked_up
+      expect((await setShip(sh.id, { status: 'bay-bay' })).status).toBe(400);
+      expect((await setShip(sh.id, { fee: -5 })).status).toBe(400);
+      const edit = await setShip(sh.id, { carrier: 'ghtk', trackingCode: 'DUP-1', fee: 30000 });
+      expect(edit.status).toBe(200);
+      expect(edit.body.data.shipment).toMatchObject({ carrier: 'ghtk', trackingCode: 'DUP-1' });
+      expect(edit.body.data.warnings).toEqual([]);
+      const picked = await setShip(sh.id, { status: 'picked_up' });
+      expect(picked.body.data.shipment.shippedAt).toBeTruthy();
+      expect(picked.body.data.shipment.deliveredAt).toBeNull();
+      expect((await setShip(sh.id, { status: 'in_transit' })).status).toBe(200);
+
+      // cảnh báo (không chặn): mã đã dùng ở vận đơn của đơn vị vận chuyển khác
+      const o2 = await placeOrder();
+      await toProcessing(o2);
+      const dup = await mkShipment(o2.id, { carrier: 'ghn', trackingCode: 'DUP-1' });
+      expect(dup.status).toBe(201);
+      expect(dup.body.data.warnings).toHaveLength(1);
+      expect(
+        await prisma.activityLog.findFirst({ where: { action: 'shipment.update_status', targetId: sh.id } }),
+      ).not.toBeNull();
+      expect((await setShip(999999, { status: 'picked_up' })).status).toBe(404);
+    });
+
+    it('delivered khi đơn CHƯA ở "Đang giao" ⇒ 409 và hoàn tác cả vận đơn', async () => {
+      const o = await placeOrder();
+      await toProcessing(o);
+      const sh = (await mkShipment(o.id)).body.data.shipment;
+      await setShip(sh.id, { status: 'picked_up' });
+      const r = await setShip(sh.id, { status: 'delivered' });
+      expect(r.status).toBe(409);
+      expect(r.body.error.message).toContain('Đang giao');
+      const row = await prisma.shipment.findUniqueOrThrow({ where: { id: sh.id } });
+      expect([row.status, row.deliveredAt]).toEqual(['picked_up', null]);
+      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).status).toBe('processing');
+    });
+
+    it('delivered (COD): trong cùng transaction đơn completed, sold_count tăng, Payment success + paid, ghi chú "Giao hàng thành công", thông báo', async () => {
+      const o = await placeOrder('cod', 2);
+      await toProcessing(o);
+      const sh = (await mkShipment(o.id)).body.data.shipment;
+      expect((await to(o.id, 'shipping')).status).toBe(200);
+      const sold0 = (await prisma.product.findUniqueOrThrow({ where: { id: o.productId } })).soldCount;
+      await setShip(sh.id, { status: 'picked_up' });
+      await setShip(sh.id, { status: 'in_transit' });
+      const r = await setShip(sh.id, { status: 'delivered' });
+      expect(r.status).toBe(200);
+      expect(r.body.data.order).toMatchObject({ status: 'completed', paymentStatus: 'paid' });
+      expect(r.body.data.order.payment.status).toBe('success');
+      expect((await prisma.product.findUniqueOrThrow({ where: { id: o.productId } })).soldCount).toBe(
+        sold0 + 2,
+      );
+      const hist = await prisma.orderStatusHistory.findFirstOrThrow({
+        where: { orderId: o.id, toStatus: 'completed' },
+      });
+      expect([hist.fromStatus, hist.note, hist.changedBy]).toEqual(['shipping', 'Giao hàng thành công', 1]);
+      expect(
+        await prisma.notification.count({
+          where: { userId: 2, title: `Đơn ${o.orderCode} đã giao thành công` },
+        }),
+      ).toBe(1);
+      // vận đơn đã kết thúc ⇒ không sửa được nữa
+      expect((await setShip(sh.id, { status: 'failed' })).status).toBe(409);
+      expect((await setShip(sh.id, { trackingCode: 'x' })).status).toBe(409);
+    });
+
+    it('delivered (đã thanh toán trước, không COD): chỉ đổi trạng thái đơn và sold_count, Payment giữ nguyên', async () => {
+      const o = await placeOrder('bank_transfer');
+      const pay = await prisma.payment.findFirstOrThrow({ where: { orderId: o.id } });
+      expect((await api('patch', `/admin/payments/${pay.id}/confirm`, admin)).status).toBe(200);
+      const before = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
+      expect((await to(o.id, 'processing')).status).toBe(200); // thanh toán xác nhận đã đưa đơn sang confirmed
+      const sh = (await mkShipment(o.id)).body.data.shipment;
+      await to(o.id, 'shipping');
+      for (const s of ['picked_up', 'in_transit', 'delivered']) await setShip(sh.id, { status: s });
+      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
+      expect([row.status, row.paymentStatus]).toEqual(['completed', 'paid']);
+      const after = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
+      expect([after.status, after.paidAt?.toISOString()]).toEqual([
+        before.status,
+        before.paidAt?.toISOString(),
+      ]);
+    });
+
+    it('failed / returned: đơn giữ nguyên "Đang giao", vận đơn kết thúc; sau đó tạo được vận đơn mới và giao thành công (điểm mở O-03)', async () => {
+      for (const bad of ['failed', 'returned']) {
+        const o = await placeOrder();
+        await toProcessing(o);
+        const sh = (await mkShipment(o.id)).body.data.shipment;
+        await to(o.id, 'shipping');
+        await setShip(sh.id, { status: 'picked_up' });
+        const f = await setShip(sh.id, { status: bad });
+        expect(f.status).toBe(200);
+        expect(f.body.data.shipment.status).toBe(bad);
+        expect(f.body.data.order.status).toBe('shipping');
+        expect((await mkShipment(o.id)).status).toBe(201); // vận đơn mới sau thất bại
+        expect((await mkShipment(o.id)).status).toBe(409); // chỉ một vận đơn hoạt động
+        const fresh = (
+          await prisma.shipment.findMany({ where: { orderId: o.id }, orderBy: { id: 'desc' } })
+        )[0];
+        for (const s of ['picked_up', 'in_transit', 'delivered'])
+          expect((await setShip(fresh.id, { status: s })).status).toBe(200);
+        expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).status).toBe('completed');
+      }
+    });
+
+    it('hai yêu cầu delivered đồng thời: đúng một lần hoàn tất (sold_count tăng một lần)', async () => {
+      const o = await placeOrder('cod', 3);
+      await toProcessing(o);
+      const sh = (await mkShipment(o.id)).body.data.shipment;
+      await to(o.id, 'shipping');
+      await setShip(sh.id, { status: 'picked_up' });
+      const sold0 = (await prisma.product.findUniqueOrThrow({ where: { id: o.productId } })).soldCount;
+      const [a, b] = await Promise.all([
+        setShip(sh.id, { status: 'delivered' }),
+        setShip(sh.id, { status: 'delivered' }),
+      ]);
+      expect([a.status, b.status].sort()).toEqual([200, 409]);
+      expect((await prisma.product.findUniqueOrThrow({ where: { id: o.productId } })).soldCount).toBe(
+        sold0 + 3,
+      );
+      expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id, toStatus: 'completed' } })).toBe(
+        1,
+      );
+    });
+
+    it('UC-ADM-21: completed trực tiếp ⇒ 409 kèm thông báo; shipping khi chưa có vận đơn ⇒ 400; chỉ vận đơn failed/returned thì vẫn 400', async () => {
+      const o = await placeOrder();
+      await toProcessing(o);
+      const direct = await to(o.id, 'completed');
+      expect(direct.status).toBe(409);
+      expect(direct.body.error.message).toBe('Hoàn tất khi vận đơn được đánh dấu đã giao.');
+      const noShip = await to(o.id, 'shipping');
+      expect(noShip.status).toBe(400);
+      expect(await prisma.shipment.count({ where: { orderId: o.id } })).toBe(0);
+      const sh = (await mkShipment(o.id)).body.data.shipment;
+      await setShip(sh.id, { status: 'picked_up' });
+      await setShip(sh.id, { status: 'failed' });
+      expect((await to(o.id, 'shipping')).status).toBe(400); // không còn vận đơn hoạt động
     });
   });
 });

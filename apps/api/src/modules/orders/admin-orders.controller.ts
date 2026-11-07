@@ -62,11 +62,6 @@ export class AdminOrdersController {
     return this.orders.refund(adminId, id);
   }
 
-  @Patch(':id/shipment')
-  shipment(@CurrentUser('id') adminId: number, @Param('id') id: string, @Body() body: unknown) {
-    return this.orders.updateShipment(adminId, id, body);
-  }
-
   @Patch(':id/note')
   note(@CurrentUser('id') adminId: number, @Param('id') id: string, @Body() body: unknown) {
     return this.orders.saveNote(adminId, id, body);

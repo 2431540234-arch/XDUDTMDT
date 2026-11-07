@@ -50,6 +50,56 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  /**
+   * Hoàn tất đơn (UC-ADM-25): shipping → completed, tăng sold_count theo từng dòng, COD ⇒ Payment success + paymentStatus paid,
+   * thông báo khách. CHẠY TRONG transaction của người gọi (cùng lúc đánh dấu vận đơn delivered). Trigger DB ghi
+   * order_status_history (changed_by = admin, note "Giao hàng thành công"). Đơn không ở shipping ⇒ 409.
+   */
+  async completeOrder(tx: Prisma.TransactionClient, adminId: number, orderId: number, at: Date = new Date()) {
+    const [locked] = await tx.$queryRaw<
+      Array<{ status: OrderStatus }>
+    >`SELECT status FROM orders WHERE id = ${orderId} FOR UPDATE`;
+    if (!locked) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Đơn hàng không tồn tại.');
+    if (locked.status !== 'shipping') {
+      throw new AppException(
+        ErrorCode.INVALID_STATE,
+        'Chỉ đánh dấu đã giao khi đơn đang ở trạng thái "Đang giao". Hãy chuyển đơn sang "Đang giao" trước.',
+      );
+    }
+    const o = await tx.order.findUniqueOrThrow({ where: { id: orderId } });
+    const sold = await tx.orderItem.findMany({
+      where: { orderId, variantId: { not: null } },
+      include: { variant: { select: { productId: true } } },
+    });
+    for (const it of sold) {
+      if (!it.variant) continue;
+      await tx.product.update({
+        where: { id: it.variant.productId },
+        data: { soldCount: { increment: it.quantity } },
+      });
+    }
+    // COD: thu tiền khi giao ⇒ ghi nhận đã thanh toán; đơn đã thanh toán trước (không COD) giữ nguyên Payment
+    let paymentStatus = o.paymentStatus;
+    if (o.paymentMethod === 'cod' && o.paymentStatus !== 'paid') {
+      await tx.payment.updateMany({
+        where: { orderId, status: { not: 'success' } },
+        data: { status: 'success', paidAt: at },
+      });
+      paymentStatus = 'paid';
+    }
+    await this.setActor(tx, adminId, 'Giao hàng thành công');
+    await tx.order.update({ where: { id: orderId }, data: { status: 'completed', paymentStatus } });
+    await this.notifications.notify(
+      tx,
+      o.userId,
+      `Đơn ${o.orderCode} đã giao thành công`,
+      'order',
+      `Đơn hàng ${o.orderCode} đã được giao thành công. Cảm ơn bạn đã mua sắm!`,
+      `/account/orders/${o.orderCode}`,
+    );
+    return o;
+  }
+
   /** Ghi người thực hiện + ghi chú cho trigger trg_orders_log_status (order_status_history) trong transaction hiện tại */
   async setActor(tx: Prisma.TransactionClient, actorId: number | null, note: string | null) {
     await tx.$executeRaw`SELECT set_config('app.current_user_id', ${actorId === null ? '' : String(actorId)}, true),

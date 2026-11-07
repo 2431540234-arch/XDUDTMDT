@@ -120,6 +120,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
         })
       ).soldCount;
 
+    let shipmentId = 0;
     it('chuẩn bị: chọn biến thể còn nhiều hàng', async () => {
       const v = await prisma.productVariant.findFirstOrThrow({
         where: {
@@ -174,11 +175,27 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(after.stockQuantity).toBe(before.stockQuantity);
     });
 
-    it('sang shipping ⇒ tồn không đổi (đã trừ lúc đặt), không thêm movement, tạo vận đơn', async () => {
+    it('sang shipping: bắt buộc đã có vận đơn (chưa có ⇒ 400, không tự tạo); có rồi ⇒ tồn không đổi, không thêm movement', async () => {
       const before = await snap();
+      const none = await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'shipping' });
+      expect(none.status).toBe(400);
+      expect(none.body.error.message).toContain('Cần tạo vận đơn');
+      expect(await prisma.shipment.count({ where: { orderId } })).toBe(0); // không tự tạo vận đơn
+      const sh = await api('post', `/admin/orders/${orderId}/shipments`, admin, {
+        carrier: 'ghtk',
+        trackingCode: 'GHTK-E2E-1',
+        fee: 25000,
+      });
+      expect(sh.status).toBe(201);
+      expect(sh.body.data.shipment).toMatchObject({
+        carrier: 'ghtk',
+        status: 'pending',
+        trackingCode: 'GHTK-E2E-1',
+      });
+      shipmentId = sh.body.data.shipment.id;
       const r = await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'shipping' });
       expect(r.status).toBe(200);
-      expect(r.body.data.shipment.status).toBe('in_transit');
+      expect(r.body.data.shipment.status).toBe('pending');
       expect((await snap()).stockQuantity).toBe(before.stockQuantity);
       expect(
         await prisma.inventoryMovement.count({
@@ -192,22 +209,38 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect((await api('post', `/admin/orders/${orderId}/cancel`, admin, { reason: 'x' })).status).toBe(409);
     });
 
-    it('sang completed ⇒ sold_count tăng; COD tự đánh dấu đã thanh toán, ghi lịch sử và thông báo cho khách', async () => {
+    it('admin KHÔNG đặt đơn completed trực tiếp (409); đơn tự hoàn tất khi vận đơn delivered: sold_count, COD đã thanh toán, lịch sử, thông báo', async () => {
+      const direct = await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'completed' });
+      expect(direct.status).toBe(409);
+      expect(direct.body.error.message).toBe('Hoàn tất khi vận đơn được đánh dấu đã giao.');
+      expect((await prisma.order.findUniqueOrThrow({ where: { id: orderId } })).status).toBe('shipping');
+
       const notiBefore = await prisma.notification.count({ where: { userId: 2 } });
       const soldBefore = await sold();
-      const r = await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'completed' });
+      for (const s of ['picked_up', 'in_transit']) {
+        expect((await api('patch', `/admin/shipments/${shipmentId}`, admin, { status: s })).status).toBe(200);
+      }
+      const r = await api('patch', `/admin/shipments/${shipmentId}`, admin, { status: 'delivered' });
       expect(r.status).toBe(200);
+      expect(r.body.data.shipment.status).toBe('delivered');
+      expect(r.body.data.shipment.deliveredAt).toBeTruthy();
+      expect(r.body.data.shipment.shippedAt).toBeTruthy();
+      expect(r.body.data.order.status).toBe('completed');
       expect(await sold()).toBe(soldBefore + 2);
-      expect(r.body.data.paymentStatus).toBe('paid');
-      expect(r.body.data.payment.status).toBe('success');
-      expect(r.body.data.history.map((h: { toStatus: string }) => h.toStatus)).toEqual([
+      expect(r.body.data.order.paymentStatus).toBe('paid');
+      expect(r.body.data.order.payment.status).toBe('success');
+      expect(r.body.data.order.history.map((h: { toStatus: string }) => h.toStatus)).toEqual([
         'pending',
         'confirmed',
         'processing',
         'shipping',
         'completed',
       ]);
-      expect(await prisma.notification.count({ where: { userId: 2 } })).toBe(notiBefore + 1);
+      const last = r.body.data.order.history[4];
+      expect(last.note).toBe('Giao hàng thành công');
+      expect(last.actorName).toBe('Admin');
+      // thông báo: "đã bàn giao" (picked_up) + "đã giao thành công" (delivered)
+      expect(await prisma.notification.count({ where: { userId: 2 } })).toBe(notiBefore + 2);
       expect(
         (await api('patch', `/admin/orders/${orderId}/status`, admin, { status: 'shipping' })).status,
       ).toBe(409);
@@ -765,17 +798,20 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       await api('post', '/cart/items', cust, { variantId: v.id, quantity: 1 });
       const o = (await api('post', '/orders', cust, { addressId: addr.id, paymentMethod: 'bank_transfer' }))
         .body.data;
-      expect(
-        (
-          await api('patch', `/admin/orders/${o.id}/shipment`, admin, {
-            carrier: 'ghtk',
-            trackingCode: 'E2E123',
-          })
-        ).body.data.shipment.trackingCode,
-      ).toBe('E2E123');
-      expect((await api('patch', `/admin/orders/${o.id}/shipment`, admin, { carrier: 'xyz' })).status).toBe(
+      // vận đơn (UC-ADM-25): chỉ tạo khi đơn đã processing; đơn pending ⇒ 409
+      const early = await api('post', `/admin/orders/${o.id}/shipments`, admin, { carrier: 'ghtk' });
+      expect(early.status).toBe(409);
+      for (const st of ['confirmed', 'processing'])
+        expect((await api('patch', `/admin/orders/${o.id}/status`, admin, { status: st })).status).toBe(200);
+      expect((await api('post', `/admin/orders/${o.id}/shipments`, admin, { carrier: 'xyz' })).status).toBe(
         400,
       );
+      const sh = await api('post', `/admin/orders/${o.id}/shipments`, admin, {
+        carrier: 'ghtk',
+        trackingCode: 'E2E123',
+      });
+      expect(sh.status).toBe(201);
+      expect(sh.body.data.shipment.trackingCode).toBe('E2E123');
       expect(
         (await api('patch', `/admin/orders/${o.id}/note`, admin, { note: 'gọi trước' })).body.data
           .internalNote,
@@ -785,7 +821,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(inv.body.data.store.name).toBeTruthy();
       const paid = await api('patch', `/admin/payments/${o.payment.id}/confirm`, admin);
       expect(paid.body.data.paymentStatus).toBe('paid');
-      expect(paid.body.data.status).toBe('confirmed'); // thanh toán xác nhận ⇒ pending → confirmed
+      expect(paid.body.data.status).toBe('processing'); // đơn đã processing thì giữ nguyên (chỉ pending → confirmed)
       expect((await api('patch', `/admin/payments/${o.payment.id}/confirm`, admin)).status).toBe(409);
       // hoàn tiền đơn đã hủy đã thanh toán ⇒ phiếu chi + trạng thái refunded
       await api('post', `/admin/orders/${o.id}/cancel`, admin, { reason: 'test' });

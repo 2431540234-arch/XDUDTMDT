@@ -571,9 +571,19 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       await api('delete', '/cart', cust);
       expect((await api('post', '/cart/items', cust, { variantId: v.id, quantity: 1 })).status).toBe(201);
       const o = (await api('post', '/orders', cust, { addressId: addr.id, paymentMethod: 'cod' })).body.data;
-      const steps = stop === 'cancelled' ? [] : ['confirmed', 'processing', 'shipping', 'completed'];
-      for (const s of steps)
-        expect((await api('patch', `/admin/orders/${o.id}/status`, admin, { status: s })).status).toBe(200);
+      if (stop !== 'cancelled') {
+        for (const s of ['confirmed', 'processing'])
+          expect((await api('patch', `/admin/orders/${o.id}/status`, admin, { status: s })).status).toBe(200);
+        const sh = await api('post', `/admin/orders/${o.id}/shipments`, admin, { carrier: 'ghn' });
+        expect(sh.status).toBe(201);
+        expect(
+          (await api('patch', `/admin/orders/${o.id}/status`, admin, { status: 'shipping' })).status,
+        ).toBe(200);
+        for (const s of ['picked_up', 'in_transit', 'delivered'])
+          expect(
+            (await api('patch', `/admin/shipments/${sh.body.data.shipment.id}`, admin, { status: s })).status,
+          ).toBe(200);
+      }
       if (stop === 'cancelled')
         expect((await api('post', `/orders/${o.id}/cancel`, cust, { reason: 'Đổi ý' })).status).toBe(200);
       return o as { id: number; orderCode: string; total: number };

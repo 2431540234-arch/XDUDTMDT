@@ -94,7 +94,7 @@ export class OrderViewsService {
         reviewed: Boolean(p && reviewed.has(`${o.id}:${p.id}`)),
       };
     });
-    const shipment = o.shipments[0] ?? null;
+    const shipment = o.shipments[o.shipments.length - 1] ?? null; // vận đơn hiện tại = mới nhất
     const delivered = shipment?.deliveredAt ?? null;
     const { orderItems: _oi, orderStatusHistory, payments, shipments: _s, coupon, ...base } = o;
     void _oi;
@@ -114,6 +114,7 @@ export class OrderViewsService {
       }),
       payment: payments[0] ? serialize(payments[0]) : null,
       shipment: shipment ? serialize(shipment) : null,
+      shipments: o.shipments.map((x) => serialize(x)),
       couponCode: coupon?.code ?? null,
       customer: customer
         ? {

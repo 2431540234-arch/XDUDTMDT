@@ -45,8 +45,22 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
     await api('delete', '/cart', token);
     expect((await api('post', '/cart/items', token, { variantId, quantity: qty })).status).toBe(201);
     const o = (await api('post', '/orders', token, { addressId: addr.id, paymentMethod: 'cod' })).body.data;
-    for (const s of ['confirmed', 'processing', 'shipping', 'completed']) {
+    for (const s of ['confirmed', 'processing']) {
       expect((await api('patch', `/admin/orders/${o.id}/status`, admin, { status: s })).status).toBe(200);
+    }
+    // UC-ADM-25: tạo vận đơn → Đang giao → vận đơn lấy hàng, vận chuyển, đã giao (đơn tự hoàn tất)
+    const sh = await api('post', `/admin/orders/${o.id}/shipments`, admin, {
+      carrier: 'ghn',
+      trackingCode: `T${o.id}`,
+    });
+    expect(sh.status).toBe(201);
+    expect((await api('patch', `/admin/orders/${o.id}/status`, admin, { status: 'shipping' })).status).toBe(
+      200,
+    );
+    for (const s of ['picked_up', 'in_transit', 'delivered']) {
+      expect(
+        (await api('patch', `/admin/shipments/${sh.body.data.shipment.id}`, admin, { status: s })).status,
+      ).toBe(200);
     }
     return o as {
       id: number;
