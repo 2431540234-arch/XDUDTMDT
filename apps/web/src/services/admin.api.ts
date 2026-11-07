@@ -21,6 +21,8 @@ import type {
   SpaceListItem,
   StockReceipt,
   StoreSettings,
+  AttributeAdmin,
+  AttributeValueAdmin,
   BrandAdmin,
   StockMovement,
   UserView,
@@ -178,6 +180,19 @@ export const adminApi = {
   },
   expenses: {
     create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body),
+  },
+  attributes: {
+    list: () => http.get<AttributeAdmin[]>('/admin/attributes'),
+    create: (body: { code: string; name: string }) => http.post<AttributeAdmin>('/admin/attributes', body),
+    update: (id: number, body: { code?: string; name?: string }) =>
+      http.patch<AttributeAdmin>(`/admin/attributes/${id}`, body),
+    remove: (id: number) => http.delete<{ id: number }>(`/admin/attributes/${id}`),
+    addValue: (id: number, body: { value: string; colorHex?: string }) =>
+      http.post<AttributeValueAdmin>(`/admin/attributes/${id}/values`, body),
+    updateValue: (id: number, valueId: number, body: { value?: string; colorHex?: string }) =>
+      http.patch<AttributeValueAdmin>(`/admin/attributes/${id}/values/${valueId}`, body),
+    removeValue: (id: number, valueId: number) =>
+      http.delete<{ id: number }>(`/admin/attributes/${id}/values/${valueId}`),
   },
   brands: {
     list: (q: Query) => http.get<BrandAdmin[]>('/admin/brands', q),

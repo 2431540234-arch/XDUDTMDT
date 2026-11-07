@@ -2001,6 +2001,122 @@ export function resetMock(): Result {
   return done();
 }
 
+// ===================== Thuộc tính =====================
+const SYSTEM_ATTR = ['color', 'size', 'material'];
+function attrView(db: Db, a: Db['attributes'][number]) {
+  return {
+    id: a.id,
+    code: a.code,
+    name: a.name,
+    isSystem: SYSTEM_ATTR.includes(a.code),
+    values: db.attributeValues
+      .filter((v) => v.attributeId === a.id)
+      .map((v) => ({
+        id: v.id,
+        attributeId: v.attributeId,
+        value: v.value,
+        colorHex: a.code === 'color' ? (db.colorHexByValueId[v.id] ?? null) : null,
+        usageCount: db.variantAttributeValues.filter((x) => x.attributeValueId === v.id).length,
+        frameCount: 0,
+      })),
+  };
+}
+const conflict = (field: string, msg: string) => new ApiFail('CONFLICT', msg, { [field]: [msg] });
+export const adminAttributes = (ctx: Ctx): Result => ok(ctx.db.attributes.map((a) => attrView(ctx.db, a)));
+export function createAttribute(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  const code = String(b.code ?? '').trim();
+  const name = String(b.name ?? '').trim();
+  const errs: Record<string, string> = {};
+  if (!/^[a-z][a-z0-9_]*$/.test(code)) errs.code = 'Mã chỉ gồm chữ thường không dấu, số và gạch dưới.';
+  if (!name) errs.name = 'Vui lòng nhập tên thuộc tính.';
+  if (Object.keys(errs).length) throw validation(errs);
+  if (ctx.db.attributes.some((a) => a.code === code)) throw conflict('code', 'Mã thuộc tính đã tồn tại.');
+  if (ctx.db.attributes.some((a) => a.name === name)) throw conflict('name', 'Tên thuộc tính đã tồn tại.');
+  const row = { id: nextId(ctx.db.attributes), code, name, createdAt: nowIso(), updatedAt: nowIso() };
+  ctx.db.attributes.push(row);
+  return created(attrView(ctx.db, row));
+}
+export function updateAttribute(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  if (!a) throw notFound('Thuộc tính');
+  const b = ctx.body ?? {};
+  if (b.name !== undefined) {
+    const name = String(b.name).trim();
+    if (!name) throw validation({ name: 'Vui lòng nhập tên thuộc tính.' });
+    if (ctx.db.attributes.some((x) => x.name === name && x.id !== a.id))
+      throw conflict('name', 'Tên thuộc tính đã tồn tại.');
+    a.name = name;
+  }
+  if (b.code !== undefined && b.code !== a.code) {
+    if (SYSTEM_ATTR.includes(a.code))
+      throw validation({ code: 'Mã của thuộc tính hệ thống không đổi được.' });
+    if (ctx.db.attributes.some((x) => x.code === b.code)) throw conflict('code', 'Mã thuộc tính đã tồn tại.');
+    a.code = String(b.code);
+  }
+  return ok(attrView(ctx.db, a));
+}
+export function deleteAttribute(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  if (!a) throw notFound('Thuộc tính');
+  if (SYSTEM_ATTR.includes(a.code))
+    throw new ApiFail('RESOURCE_IN_USE', 'Không xóa được thuộc tính hệ thống.');
+  ctx.db.attributeValues = ctx.db.attributeValues.filter((v) => v.attributeId !== a.id);
+  ctx.db.attributes = ctx.db.attributes.filter((x) => x.id !== a.id);
+  return ok({ id: a.id });
+}
+export function addAttributeValue(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  if (!a) throw notFound('Thuộc tính');
+  const value = String(ctx.body?.value ?? '').trim();
+  if (!value) throw validation({ value: 'Vui lòng nhập giá trị.' });
+  if (ctx.db.attributeValues.some((v) => v.attributeId === a.id && v.value === value))
+    throw conflict('value', 'Giá trị này đã có trong thuộc tính.');
+  const row = {
+    id: nextId(ctx.db.attributeValues),
+    attributeId: a.id,
+    value,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  } as Db['attributeValues'][number];
+  ctx.db.attributeValues.push(row);
+  if (a.code === 'color' && ctx.body?.colorHex)
+    ctx.db.colorHexByValueId[row.id] = String(ctx.body.colorHex).toUpperCase();
+  return created(attrView(ctx.db, a).values.find((v) => v.id === row.id)!);
+}
+export function updateAttributeValue(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const v = ctx.db.attributeValues.find(
+    (x) => x.id === Number(ctx.params.valueId) && x.attributeId === a?.id,
+  );
+  if (!a || !v) throw notFound('Giá trị thuộc tính');
+  if (ctx.body?.value !== undefined) {
+    const value = String(ctx.body.value).trim();
+    if (!value) throw validation({ value: 'Vui lòng nhập giá trị.' });
+    if (ctx.db.attributeValues.some((x) => x.attributeId === a.id && x.value === value && x.id !== v.id))
+      throw conflict('value', 'Giá trị này đã có trong thuộc tính.');
+    v.value = value;
+  }
+  if (a.code === 'color' && ctx.body?.colorHex)
+    ctx.db.colorHexByValueId[v.id] = String(ctx.body.colorHex).toUpperCase();
+  return ok(attrView(ctx.db, a).values.find((x) => x.id === v.id)!);
+}
+export function deleteAttributeValue(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const v = ctx.db.attributeValues.find(
+    (x) => x.id === Number(ctx.params.valueId) && x.attributeId === a?.id,
+  );
+  if (!a || !v) throw notFound('Giá trị thuộc tính');
+  const used = ctx.db.variantAttributeValues.filter((x) => x.attributeValueId === v.id).length;
+  if (used)
+    throw new ApiFail(
+      'RESOURCE_IN_USE',
+      `Giá trị "${v.value}" đang được ${used} biến thể sử dụng, không thể xóa.`,
+    );
+  ctx.db.attributeValues = ctx.db.attributeValues.filter((x) => x.id !== v.id);
+  return ok({ id: v.id });
+}
+
 // ===================== Thương hiệu =====================
 const brandAdminView = (db: Db, b: Db['brands'][number]) => ({
   id: b.id,

@@ -99,3 +99,80 @@ test('thương hiệu: thêm, trùng slug báo lỗi, sửa, tắt ⇒ ô chọn
   await expect(page.getByText('Đã xóa thương hiệu.')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('row', { name: /Thương Hiệu E2E Mới/ })).toHaveCount(0);
 });
+
+test('thuộc tính: thêm thuộc tính/giá trị (trùng báo lỗi), giá trị đang dùng không xóa được, giá trị mới có trong form biến thể', async ({
+  page,
+}) => {
+  await adminLogin(page);
+  await page.goto('/admin/attributes');
+  await expect(page.getByRole('heading', { name: 'Thuộc tính', exact: true })).toBeVisible({
+    timeout: 30_000,
+  });
+  const color = page.getByRole('region', { name: 'Thuộc tính Màu sắc' });
+  await expect(color.getByText('Hệ thống')).toBeVisible();
+  await expect(color.getByRole('button', { name: 'Xóa thuộc tính Màu sắc' })).toHaveCount(0); // thuộc tính hệ thống không xóa
+
+  // thêm thuộc tính: mã sai ⇒ lỗi; trùng ⇒ 409 hiện dưới ô
+  await page.getByRole('button', { name: 'Thêm thuộc tính' }).click();
+  let dlg = page.getByRole('dialog');
+  await dlg.getByLabel(/Mã thuộc tính/).fill('Van Go');
+  await dlg.getByLabel(/Tên thuộc tính/).fill('Vân gỗ e2e');
+  await dlg.getByRole('button', { name: 'Lưu thuộc tính' }).click();
+  await expect(dlg.getByText(/Mã chỉ gồm chữ thường/)).toBeVisible();
+  await dlg.getByLabel(/Mã thuộc tính/).fill('color');
+  await dlg.getByRole('button', { name: 'Lưu thuộc tính' }).click();
+  await expect(dlg.getByText('Mã thuộc tính đã tồn tại.')).toBeVisible({ timeout: 30_000 });
+  await dlg.getByLabel(/Mã thuộc tính/).fill('van_go_e2e');
+  await dlg.getByRole('button', { name: 'Lưu thuộc tính' }).click();
+  await expect(page.getByText('Đã thêm thuộc tính.')).toBeVisible({ timeout: 30_000 });
+  const mine = page.getByRole('region', { name: 'Thuộc tính Vân gỗ e2e' });
+  await expect(mine).toBeVisible();
+
+  // thêm giá trị cho thuộc tính màu (có mã màu) để dùng trong form biến thể
+  await color.getByRole('button', { name: 'Thêm giá trị' }).click();
+  dlg = page.getByRole('dialog');
+  await dlg.getByLabel(/^Giá trị/).fill('Xanh e2e');
+  await dlg.getByRole('button', { name: 'Lưu giá trị' }).click();
+  await expect(page.getByText('Đã thêm giá trị.')).toBeVisible({ timeout: 30_000 });
+  await expect(color.getByRole('row', { name: /Xanh e2e/ })).toBeVisible();
+  // trùng giá trị ⇒ báo lỗi
+  await color.getByRole('button', { name: 'Thêm giá trị' }).click();
+  dlg = page.getByRole('dialog');
+  await dlg.getByLabel(/^Giá trị/).fill('Xanh e2e');
+  await dlg.getByRole('button', { name: 'Lưu giá trị' }).click();
+  await expect(dlg.getByText('Giá trị này đã có trong thuộc tính.')).toBeVisible({ timeout: 30_000 });
+  await dlg.getByRole('button', { name: 'Hủy' }).click();
+
+  // giá trị đang được biến thể dùng: cảnh báo + 409 khi xóa
+  const usedRow = color.getByRole('row').filter({ hasText: 'Kem' }).first();
+  await expect(usedRow).toBeVisible();
+  await usedRow.getByRole('button', { name: /Xóa giá trị/ }).click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText(/đang được \d+ biến thể/);
+  await page.getByRole('dialog').getByRole('button', { name: 'Xóa', exact: true }).click();
+  await expect(page.getByText(/đang được \d+ biến thể sử dụng, không thể xóa/).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(color.getByRole('row', { name: /Kem/ }).first()).toBeVisible();
+
+  // form biến thể của sản phẩm có giá trị mới trong ô chọn màu
+  await page.goto('/admin/products/1');
+  await expect(page.getByText(/Sửa:/).first()).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('tab', { name: 'Biến thể' }).click();
+  await expect(page.getByLabel('Màu').first().locator('option', { hasText: 'Xanh e2e' })).toHaveCount(1, {
+    timeout: 30_000,
+  });
+
+  // dọn: xóa giá trị chưa dùng và thuộc tính tự tạo
+  await page.goto('/admin/attributes');
+  const color2 = page.getByRole('region', { name: 'Thuộc tính Màu sắc' });
+  await color2.getByRole('button', { name: 'Xóa giá trị Xanh e2e' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Xóa', exact: true }).click();
+  await expect(page.getByText('Đã xóa giá trị.')).toBeVisible({ timeout: 30_000 });
+  await page
+    .getByRole('region', { name: 'Thuộc tính Vân gỗ e2e' })
+    .getByRole('button', { name: 'Xóa thuộc tính Vân gỗ e2e' })
+    .click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Xóa', exact: true }).click();
+  await expect(page.getByText('Đã xóa thuộc tính.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('region', { name: 'Thuộc tính Vân gỗ e2e' })).toHaveCount(0);
+});

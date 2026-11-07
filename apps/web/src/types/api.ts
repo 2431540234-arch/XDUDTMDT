@@ -453,6 +453,23 @@ export interface BrandAdmin {
   productCount: number;
 }
 
+/** Thuộc tính và giá trị ở trang quản trị (GET /admin/attributes) */
+export interface AttributeValueAdmin {
+  id: number;
+  attributeId: number;
+  value: string;
+  colorHex: string | null;
+  usageCount: number;
+  frameCount: number;
+}
+export interface AttributeAdmin {
+  id: number;
+  code: string;
+  name: string;
+  isSystem: boolean;
+  values: AttributeValueAdmin[];
+}
+
 export interface Expense {
   // TODO: chưa có trong DB
   id: number;
