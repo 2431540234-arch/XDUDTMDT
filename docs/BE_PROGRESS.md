@@ -269,3 +269,38 @@ Xem `CHUAN_MO_RONG.md` Phần 3 (19 mục), nổi bật:
 4. Tải ảnh qua JSON base64 (body 25 MB): nhiều frame 360°/panorama lớn có thể vượt giới hạn.
 5. `users.loyalty_points`, `carts.coupon_id`, chiều trạng thái vận đơn: chờ xác nhận giữ/bỏ.
 6. Hai lần fail chập chờn chưa tái hiện (supertest "Hỏi đáp" 404; Playwright `khach-hang` lúc máy nặng).
+
+---
+
+## Phần A (hoàn thiện 360°) và Mốc 4 (Kho, Thu chi, Cài đặt, VNPAY) – 2026-11-07 ✅
+
+### Phần A
+| Mục | Kết quả |
+|---|---|
+| Lối vào 360° | Khôi phục nút "360°" ở thư viện ảnh (commit `821d9bc`), có test từ trang chi tiết bấm sang trang 360° |
+| Giá combo | Không áp vào giỏ (đặc tả không có combo): FE chỉ hiển thị tổng giá thật; giữ cột DB, ghi "Để sau" |
+| Slug không gian | Giữ slug khi đổi tên; đổi slug thủ công qua ô slug, kiểm tra trùng/hợp lệ (`4a4aa44`) |
+| Ảnh lớn | Frame 360° và panorama tải từng tệp bằng multipart `POST /admin/media` (`kind`); test 36 frame × ~1,9 MB và 2 panorama × 20 MB |
+| Mô hình 3D | Nâng giới hạn lên 100 MB (multipart `POST /admin/models/upload`), test đúng 100 MB và 100 MB + 1 byte |
+| Giữ nguyên | `users.loyalty_points`, `carts.coupon_id`, chiều vận đơn (làm cùng UC-ADM-25 ở Mốc 5); đã ghi `CHUAN_MO_RONG.md` |
+| Test chập chờn | Supertest 10 lần liên tiếp và nhóm `khach-hang` 10 lần liên tiếp đều xanh; chạy chồng hai bộ test trên một `aurelia_test` tái hiện đúng kiểu lỗi cũ ⇒ thêm khóa chặn chạy song song (`scripts/test-lock.cjs`); mỗi lần supertest tự dọn `.tmp-uploads-db` |
+
+### Mốc 4
+| Phần | Commit | Nội dung |
+|---|---|---|
+| Kho (UC-ADM-12, b′) | `6cc246d` | `GET /admin/inventory` (+summary, movements), `POST /admin/inventory/movements`, phiếu nhập/xuất `draft → completed/cancelled`; xác nhận phiếu ghi `inventory_movements` (mã phiếu là `reference_code`), phiếu nhập cập nhật giá vốn và sinh phiếu chi `cogs`; phiếu xuất thiếu hàng 409 và hoàn tác cả phiếu; đồng thời không làm tồn âm; nhà cung cấp là cột chữ; bỏ cột "Đang giữ" |
+| Thu chi | `70ca063` | `GET /admin/stats/finance`, `/admin/expenses` (GET, POST, DELETE nhập tay). Doanh thu = đơn giao thành công theo ngày giao; hoàn tiền trừ qua phiếu chi `refund`; phí ship và phí cổng thanh toán KHÔNG tự sinh phiếu chi |
+| Cài đặt (UC-ADM-03) | `4942841` | `GET /admin/settings`, `PUT /admin/settings/store`, `PUT /admin/settings/:key` (danh sách khóa cho phép, kiểm tra kiểu, nhật ký trước/sau); công khai vẫn `GET /settings/public` |
+| VNPAY (UC-PAY-01/02/03) | `d741f9e` | URL thanh toán HMAC-SHA512, Return URL, IPN (`00/01/02/04/97/99`, không bọc), thanh toán lại (giao dịch cũ failed, tạo giao dịch mới). Kiểm bằng khóa giả; chưa có khóa thật thì giữ giả lập cho demo |
+| Test + docs | `50dcffd` | Supertest `mock-m4` (31), Playwright nhóm `admin-m4` (4); nhóm `khach-hang` giờ duyệt cả mọi màn hình admin (không còn trang nào 404 với API thật) |
+
+### Kết quả kiểm thử (sau Mốc 4)
+Typecheck + lint sạch; Vitest web 25; Jest unit API 106; supertest 145 (3 file); Playwright API thật: `khach-hang` 9, `xem-360` 24, `admin-m2` 3, `admin-m3` 3, `admin-m4` 4. Không có migration ở Phần A và Mốc 4 (không đổi schema) nên không có đối chiếu `count(*)`; `aurelia_dev` giữ nguyên 3 users, 2 products, 1 order, 15 migration.
+
+### Để sau (giữ nguyên danh sách đã hoãn)
+MinIO/presign, cache Redis, xử lý nền 3D (LOD), `PermissionsGuard`, `ActivityLogInterceptor`, mọi UC "Mốc 5" (AR, đổi chất liệu, placement, phiên, xóa tài khoản, thương hiệu, thuộc tính, media, vận đơn, thông báo thủ công, nhật ký, thống kê AR), Android (Mốc 6). VNPAY với khóa sandbox thật chưa thử qua cổng thật.
+
+### Còn nợ / lưu ý
+- VNPAY thật: cần `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` và địa chỉ công khai cho Return URL/IPN (tunnel khi chạy local).
+- `payments[].enabled` trong cài đặt chưa được dùng để chặn phương thức khi đặt hàng (chỉ lưu và công khai); chưa có yêu cầu trong đặc tả.
+- Giá combo, `loyalty_points`, `carts.coupon_id`, vận đơn: xem `CHUAN_MO_RONG.md` Phần 3.

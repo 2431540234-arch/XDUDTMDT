@@ -128,3 +128,15 @@ Không thêm thư viện mới.
 - **360°:** `components/viewer/SpacePanorama.tsx` có error boundary (ảnh lỗi ⇒ thông báo + "Thử lại", không sập trang); editor 360° sản phẩm giới hạn 2 MB/frame cho khớp máy chủ.
 - **Test mới:** `tests/e2e/spaces360.spec.ts` (khách: xem/xoay, hotspot, thêm cả bộ, lưu, mobile 390px, ảnh lỗi), `tests/e2e/admin360.spec.ts` (admin: tải/sửa/xóa 360° sản phẩm; tạo/sửa/xóa không gian với hotspot).
 - **Còn lại cho FE:** nút vào trang `/products/[slug]/360` đã bị gỡ ở commit `2505d25` (cần quyết định khôi phục); cột "Đang giữ" ở Kho; ~30 chú thích `TODO: chưa có trong BE` cũ; bỏ gọi `GET /admin/inventory/suppliers` và đổi ô chọn nhà cung cấp thành ô nhập chữ khi làm Mốc 4.
+
+---
+
+## Cập nhật Phần A + Mốc 4 (2026-11-07)
+
+- **360°:** nút "360°" trở lại ở thư viện ảnh sản phẩm (badge trên ảnh lớn + ô cạnh ô 3D) khi `has360`, mang theo biến thể (`?color=&size=`); trang không gian chỉ hiển thị tổng giá thật (bỏ giá combo); form không gian có ô slug; frame 360° và panorama tải từng tệp (`services/media.api.ts`), tối đa 2 MB/frame và 20 MB/panorama.
+- **Kho (`/admin/inventory`):** ô nhập nhà cung cấp (chữ) thay cho danh sách, nút "Lưu nháp" và "Hoàn tất phiếu", xác nhận/hủy phiếu nháp ngay trong bảng phiếu, bảng "Lịch sử biến động tồn kho", bỏ cột "Đang giữ", không còn gọi `GET /admin/inventory/suppliers`.
+- **Thu chi (`/admin/reports`):** dùng `GET /admin/stats/finance` và `POST /admin/expenses` thật; danh mục nhập tay không có "Hoàn tiền".
+- **Cài đặt (`/admin/settings`):** dùng API thật; lỗi hiển thị dưới đúng ô (tên, email, hotline).
+- **Thanh toán:** `lib/navigation.ts` (`navigateTo`) dùng `window.location` khi `redirectUrl` là URL cổng (https://…), `router.push` với đường dẫn FE.
+- **Test:** `tests/e2e/admin-m4.spec.ts` (kho, thu chi, cài đặt), `tests/unit/navigation.test.ts`; nhóm `khach-hang` chạy cả test duyệt mọi màn hình admin với API thật.
+- **Còn lại:** ~30 chú thích `TODO: chưa có trong BE` cũ trong services; Mốc 5 (AR, vận đơn…).

@@ -115,6 +115,8 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 14 | Slug không gian | Đã sửa: đổi tên KHÔNG đổi slug; admin muốn đổi thì sửa ô slug (kiểm tra duy nhất) | — |
 | 15 | Lối vào `/products/[slug]/360` | Đã khôi phục nút "360°" ở thư viện ảnh (chỉ hiện khi sản phẩm có 360°) | — |
 | 16 | Tải ảnh lớn | Đã sửa: frame 360° và panorama tải từng tệp bằng multipart | Presigned/MinIO là mục 1 |
+| 17b | Cài đặt: `payments[].enabled` | Chỉ lưu và công khai, chưa dùng để chặn phương thức khi đặt hàng (đặc tả không yêu cầu) | Khi có yêu cầu |
+| 17c | VNPAY khóa thật | Xem mục 7 | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
 | 19 | Test chập chờn | Đã chạy supertest 10 lần liên tiếp (114/114 mỗi lần) và nhóm `khach-hang` 10 lần liên tiếp: xanh cả 20 lần (kết quả chi tiết trong `BE_PROGRESS.md`). Chạy HAI bộ test cùng lúc trên một `aurelia_test` tái hiện đúng kiểu lỗi cũ (404 ở "Hỏi đáp", sai tồn kho…) ⇒ nguyên nhân khả dĩ nhất là chồng chéo hai lần chạy; đã thêm khóa chặn chạy song song | Theo dõi |
