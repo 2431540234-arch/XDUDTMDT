@@ -5,6 +5,8 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { derivedKeys } from '../src/modules/jobs/image-processing/image-processing.service';
+import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.service';
 
 const PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -366,6 +368,148 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
       expect((await api('delete', `/admin/attributes/${color.id}/values/${moss.id}`, admin)).status).toBe(
         409,
       );
+    });
+  });
+
+  // ------------------------------------------------------------------------------------------ UC-ADM-04 media
+  describe('thư viện media (UC-ADM-04)', () => {
+    const PNG_BYTES = Buffer.from(PNG.split(',')[1], 'base64');
+    const MB = 1024 * 1024;
+    const upload = (
+      buf: Buffer,
+      mime: string,
+      extra: Record<string, string> = {},
+      token = admin,
+      name = 'anh.png',
+    ) => {
+      const r = http.post('/api/admin/media').set('Authorization', `Bearer ${token}`);
+      for (const [k, v] of Object.entries(extra)) r.field(k, v);
+      return r.attach('file', buf, { filename: name, contentType: mime });
+    };
+
+    it('phân quyền: khách ⇒ 403, chưa đăng nhập ⇒ 401', async () => {
+      for (const [m, p] of [
+        ['get', '/admin/media'],
+        ['patch', '/admin/media/1'],
+        ['delete', '/admin/media/1'],
+      ] as const) {
+        expect((await api(m, p, cust, {})).status).toBe(403);
+        expect((await api(m, p, undefined, {})).status).toBe(401);
+      }
+      expect((await upload(PNG_BYTES, 'image/png', {}, cust)).status).toBe(403);
+    });
+
+    it('tải lên: ảnh hợp lệ 201 kèm url/mime/size/altText + nhật ký; quá 5 MB ⇒ 413; sai loại ⇒ 415; chữ ký không khớp ⇒ 415; thiếu tệp ⇒ 400', async () => {
+      const ok = await upload(PNG_BYTES, 'image/png', { altText: 'Ảnh thử' }, admin, '../../ảnh thử.png');
+      expect(ok.status).toBe(201);
+      expect(ok.body.data).toMatchObject({
+        fileName: 'ảnh thử.png',
+        mimeType: 'image/png',
+        fileSize: PNG_BYTES.length,
+        altText: 'Ảnh thử',
+      });
+      expect(ok.body.data.url ?? ok.body.data.filePath).toBeTruthy();
+      expect(
+        await prisma.activityLog.findFirst({ where: { action: 'media.upload', targetId: ok.body.data.id } }),
+      ).not.toBeNull();
+
+      const big = Buffer.concat([PNG_BYTES, Buffer.alloc(5 * MB)]);
+      expect((await upload(big, 'image/png')).status).toBe(413);
+      expect((await upload(Buffer.from('%PDF-1.4'), 'application/pdf')).status).toBe(415);
+      expect((await upload(Buffer.from('<html>giả png</html>'), 'image/png')).status).toBe(415); // chữ ký sai
+      expect((await upload(PNG_BYTES, 'image/jpeg')).status).toBe(415); // PNG khai báo là JPEG
+      expect((await upload(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]), 'image/jpeg')).status).toBe(201);
+      expect((await http.post('/api/admin/media').set('Authorization', `Bearer ${admin}`)).status).toBe(400);
+      // chỉ tệp hợp lệ mới tạo bản ghi
+      expect(
+        await prisma.media.count({ where: { fileName: { in: ['anh.png'] }, fileSize: { gt: 5 * MB } } }),
+      ).toBe(0);
+    });
+
+    it('danh sách: phân trang, tìm theo tên/alt không dấu, lọc chưa dùng, có số nơi đang dùng', async () => {
+      const a = await upload(PNG_BYTES, 'image/png', { altText: 'Chiếc sofa xám' }, admin, 'sofa-xam.png');
+      const list = await api('get', '/admin/media?pageSize=5', admin);
+      expect(list.status).toBe(200);
+      expect(list.body.meta).toMatchObject({ page: 1, pageSize: 5 });
+      expect(list.body.data).toHaveLength(5);
+      expect(list.body.data[0].id).toBe(a.body.data.id); // mới nhất trước
+      expect(list.body.data[0]).toMatchObject({
+        usage: { required: 0, optional: 0 },
+        uploadedByName: expect.any(String),
+      });
+      const found = await api('get', '/admin/media?q=sofa%20xam', admin);
+      expect(found.body.data.some((m: { id: number }) => m.id === a.body.data.id)).toBe(true);
+      const unused = await api('get', '/admin/media?usage=unused&pageSize=100', admin);
+      expect(
+        unused.body.data.every(
+          (m: { usage: { required: number; optional: number } }) => m.usage.required + m.usage.optional === 0,
+        ),
+      ).toBe(true);
+      // ảnh sản phẩm đang dùng ⇒ usage.required > 0
+      const pi = await prisma.productImage.findFirstOrThrow();
+      const all = await api('get', '/admin/media?pageSize=500', admin);
+      const mine = all.body.data.find((m: { id: number }) => m.id === pi.mediaId);
+      if (mine) expect(mine.usage.required).toBeGreaterThan(0);
+    });
+
+    it('job image-processing: sau khi tải lên có bản webp + thumbnail trên kho; xóa tệp ⇒ xóa cả bản gốc và bản sinh ra', async () => {
+      const storage = app.get(STORAGE_SERVICE) as StorageService;
+      const m = (await upload(PNG_BYTES, 'image/png', {}, admin, 'job.png')).body.data;
+      const row = await prisma.media.findUniqueOrThrow({ where: { id: m.id } });
+      const { webpKey, thumbKey } = derivedKeys(row.filePath);
+      const waitFor = async (key: string, present: boolean) => {
+        for (let i = 0; i < 40; i++) {
+          if (Boolean(await storage.head(key, 'public')) === present) return true;
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        return false;
+      };
+      expect(await waitFor(webpKey, true)).toBe(true);
+      expect(await waitFor(thumbKey, true)).toBe(true);
+      expect((await api('delete', `/admin/media/${m.id}`, admin)).status).toBe(200);
+      expect(await storage.head(row.filePath, 'public')).toBeNull();
+      expect(await storage.head(webpKey, 'public')).toBeNull();
+      expect(await storage.head(thumbKey, 'public')).toBeNull();
+    });
+
+    it('sửa altText: lưu, xóa trắng ⇒ null, > 255 ký tự ⇒ 400, id lạ ⇒ 404; nhật ký', async () => {
+      const m = (await upload(PNG_BYTES, 'image/png', {}, admin, 'alt.png')).body.data;
+      const r = await api('patch', `/admin/media/${m.id}`, admin, { altText: 'Mô tả mới' });
+      expect(r.status).toBe(200);
+      expect(r.body.data.altText).toBe('Mô tả mới');
+      expect(
+        (await api('patch', `/admin/media/${m.id}`, admin, { altText: '' })).body.data.altText,
+      ).toBeNull();
+      const bad = await api('patch', `/admin/media/${m.id}`, admin, { altText: 'x'.repeat(256) });
+      expect(bad.status).toBe(400);
+      expect(bad.body.error.details).toHaveProperty('altText');
+      expect((await api('patch', '/admin/media/999999', admin, { altText: 'x' })).status).toBe(404);
+      expect(
+        await prisma.activityLog.findFirst({ where: { action: 'media.update', targetId: m.id } }),
+      ).not.toBeNull();
+    });
+
+    it('xóa: tệp chưa dùng ⇒ xóa được + nhật ký; ảnh đang dùng (ảnh sản phẩm) ⇒ 409 và còn nguyên; ảnh đại diện danh mục ⇒ xóa và gỡ liên kết (SET NULL)', async () => {
+      const m = (await upload(PNG_BYTES, 'image/png', {}, admin, 'xoa.png')).body.data;
+      const del = await api('delete', `/admin/media/${m.id}`, admin);
+      expect(del.status).toBe(200);
+      expect(await prisma.media.count({ where: { id: m.id } })).toBe(0);
+      expect(
+        await prisma.activityLog.findFirst({ where: { action: 'media.delete', targetId: m.id } }),
+      ).not.toBeNull();
+      expect((await api('delete', `/admin/media/${m.id}`, admin)).status).toBe(404);
+
+      const pi = await prisma.productImage.findFirstOrThrow();
+      const inUse = await api('delete', `/admin/media/${pi.mediaId}`, admin);
+      expect(inUse.status).toBe(409);
+      expect(inUse.body.error.code).toBe('RESOURCE_IN_USE');
+      expect(await prisma.media.count({ where: { id: pi.mediaId } })).toBe(1);
+      expect(await prisma.productImage.count({ where: { id: pi.id } })).toBe(1);
+
+      const cat = await prisma.category.findFirstOrThrow({ where: { imageMediaId: { not: null } } });
+      const optional = await api('delete', `/admin/media/${cat.imageMediaId}`, admin);
+      expect(optional.status).toBe(200);
+      expect((await prisma.category.findUniqueOrThrow({ where: { id: cat.id } })).imageMediaId).toBeNull();
     });
   });
 });

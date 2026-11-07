@@ -22,12 +22,14 @@ import type {
   StockReceipt,
   StoreSettings,
   AttributeAdmin,
+  MediaAdmin,
   AttributeValueAdmin,
   BrandAdmin,
   StockMovement,
   UserView,
 } from '@/types/api';
-import { http, type Query } from './api-client';
+import { readAsDataUrl } from '@/components/admin/UploadDropzone';
+import { USE_MOCK, http, type Query } from './api-client';
 
 export const adminApi = {
   stats: (q: { from?: string; to?: string }) => http.get<DashboardStats>('/admin/stats/overview', q),
@@ -180,6 +182,26 @@ export const adminApi = {
   },
   expenses: {
     create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body),
+  },
+  media: {
+    list: (q: Query) => http.list<MediaAdmin>('/admin/media', q),
+    /** Máy chủ thật: multipart (một tệp một lần); dữ liệu giả: data-URL */
+    upload: async (file: File) => {
+      if (USE_MOCK) {
+        const fileData = await readAsDataUrl(file);
+        return http.post<MediaAdmin>('/admin/media', {
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          fileData,
+        });
+      }
+      const form = new FormData();
+      form.append('file', file);
+      return http.post<MediaAdmin>('/admin/media', form);
+    },
+    update: (id: number, body: { altText: string }) => http.patch<MediaAdmin>(`/admin/media/${id}`, body),
+    remove: (id: number) => http.delete<{ id: number }>(`/admin/media/${id}`),
   },
   attributes: {
     list: () => http.get<AttributeAdmin[]>('/admin/attributes'),

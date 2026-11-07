@@ -2001,6 +2001,70 @@ export function resetMock(): Result {
   return done();
 }
 
+// ===================== Thư viện media =====================
+function mediaAdminView(db: Db, m: Db['media'][number]) {
+  const required = db.productImages.filter((x) => x.mediaId === m.id).length;
+  const optional =
+    db.categories.filter((c) => c.imageMediaId === m.id).length +
+    db.brands.filter((b) => b.logoMediaId === m.id).length +
+    db.spaces.filter((s) => s.coverMediaId === m.id).length;
+  return {
+    id: m.id,
+    fileName: m.fileName,
+    url: m.filePath,
+    mimeType: m.mimeType,
+    fileSize: m.fileSize,
+    altText: m.altText ?? null,
+    uploadedByName: 'Nguyễn Văn A',
+    createdAt: m.createdAt,
+    usage: { required, optional },
+  };
+}
+export function adminMedia(ctx: Ctx): Result {
+  const q = fold(qStr(ctx.query, 'q'));
+  let rows = [...ctx.db.media]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
+    .filter((m) => !q || fold(`${m.fileName} ${m.altText ?? ''}`).includes(q))
+    .map((m) => mediaAdminView(ctx.db, m));
+  if (qStr(ctx.query, 'usage') === 'unused')
+    rows = rows.filter((m) => m.usage.required + m.usage.optional === 0);
+  return paginate(rows, ctx.query, 24);
+}
+export function createMedia(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(b.mimeType)))
+    throw new ApiFail('UNSUPPORTED_MEDIA_TYPE', 'Chỉ hỗ trợ ảnh JPEG, PNG, WebP.');
+  if (Number(b.fileSize) > 5 * 1024 * 1024) throw new ApiFail('PAYLOAD_TOO_LARGE', 'Ảnh vượt quá 5 MB.');
+  const id = mediaFrom(
+    ctx.db,
+    String(b.fileData),
+    String(b.fileName),
+    String(b.mimeType),
+    Number(b.fileSize),
+  );
+  const m = ctx.db.media.find((x) => x.id === id)!;
+  m.altText = null;
+  return created(mediaAdminView(ctx.db, m));
+}
+export function updateMedia(ctx: Ctx): Result {
+  const m = ctx.db.media.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Tệp');
+  const alt = String(ctx.body?.altText ?? '').trim();
+  if (alt.length > 255) throw validation({ altText: 'Mô tả ảnh tối đa 255 ký tự.' });
+  m.altText = alt || null;
+  return ok(mediaAdminView(ctx.db, m));
+}
+export function deleteMedia(ctx: Ctx): Result {
+  const m = ctx.db.media.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Tệp');
+  if (mediaAdminView(ctx.db, m).usage.required > 0)
+    throw new ApiFail('RESOURCE_IN_USE', 'Tệp đang được sử dụng nên không thể xóa.');
+  ctx.db.media = ctx.db.media.filter((x) => x.id !== m.id);
+  for (const c of ctx.db.categories) if (c.imageMediaId === m.id) c.imageMediaId = null;
+  for (const b of ctx.db.brands) if (b.logoMediaId === m.id) b.logoMediaId = null;
+  return ok({ id: m.id });
+}
+
 // ===================== Thuộc tính =====================
 const SYSTEM_ATTR = ['color', 'size', 'material'];
 function attrView(db: Db, a: Db['attributes'][number]) {

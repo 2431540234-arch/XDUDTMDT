@@ -470,6 +470,20 @@ export interface AttributeAdmin {
   values: AttributeValueAdmin[];
 }
 
+/** Tệp trong thư viện media (GET /admin/media) */
+export interface MediaAdmin {
+  id: number;
+  fileName: string;
+  url: string;
+  mimeType: string;
+  fileSize: number;
+  altText: string | null;
+  uploadedByName: string | null;
+  createdAt: string;
+  /** required: chặn xóa (409); optional: chỉ bị gỡ liên kết khi xóa */
+  usage: { required: number; optional: number };
+}
+
 export interface Expense {
   // TODO: chưa có trong DB
   id: number;

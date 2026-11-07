@@ -176,3 +176,89 @@ test('thuộc tính: thêm thuộc tính/giá trị (trùng báo lỗi), giá tr
   await expect(page.getByText('Đã xóa thuộc tính.')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('region', { name: 'Thuộc tính Vân gỗ e2e' })).toHaveCount(0);
 });
+
+test('media: tải ảnh lên (quá 5 MB bị từ chối), tìm, sửa mô tả, xóa tệp chưa dùng; tệp đang dùng cảnh báo và không xóa được', async ({
+  page,
+}) => {
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+    'base64',
+  );
+  await adminLogin(page);
+  await page.goto('/admin/media');
+  await expect(page.getByRole('heading', { name: 'Thư viện media' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('media-card').first()).toBeVisible({ timeout: 30_000 });
+
+  const input = page.locator('input[type="file"]').first();
+  // quá 5 MB ⇒ báo ngay, không tải lên
+  await input.setInputFiles({
+    name: 'qua-lon.png',
+    mimeType: 'image/png',
+    buffer: Buffer.concat([png, Buffer.alloc(5.5 * 1024 * 1024)]),
+  });
+  await expect(page.getByText(/vượt quá 5MB/)).toBeVisible();
+
+  // tải lên 2 ảnh
+  await input.setInputFiles([
+    { name: 'ban-an-e2e.png', mimeType: 'image/png', buffer: png },
+    { name: 'ghe-e2e.png', mimeType: 'image/png', buffer: png },
+  ]);
+  await expect(page.getByText('Đã tải lên 2 tệp.')).toBeVisible({ timeout: 30_000 });
+  await page.getByLabel('Tìm media').fill('ban an e2e');
+  const card = page.getByTestId('media-card').filter({ hasText: 'ban-an-e2e.png' });
+  await expect(card).toHaveCount(1, { timeout: 30_000 });
+  await expect(card.getByText('Chưa dùng')).toBeVisible();
+
+  // sửa mô tả
+  await card.getByRole('button', { name: /Sửa mô tả/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByLabel(/Mô tả ảnh/)
+    .fill('Bàn ăn gỗ sồi');
+  await page.getByRole('dialog').getByRole('button', { name: 'Lưu mô tả' }).click();
+  await expect(page.getByText('Đã lưu mô tả ảnh.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('media-card').filter({ hasText: 'Bàn ăn gỗ sồi' })).toHaveCount(1);
+
+  // xóa tệp chưa dùng (không có cảnh báo)
+  await page
+    .getByTestId('media-card')
+    .filter({ hasText: 'ban-an-e2e.png' })
+    .getByRole('button', { name: /^Xóa / })
+    .click();
+  await expect(page.getByRole('dialog').getByRole('alert')).toHaveCount(0);
+  await page.getByRole('dialog').getByRole('button', { name: 'Xóa tệp' }).click();
+  await expect(page.getByText('Đã xóa tệp.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('media-card').filter({ hasText: 'ban-an-e2e.png' })).toHaveCount(0);
+
+  // lọc chỉ tệp chưa dùng: còn ghe-e2e.png
+  await page.getByLabel('Tìm media').fill('');
+  await page.getByLabel('Chỉ tệp chưa được sử dụng').check();
+  await expect(page.getByTestId('media-card').filter({ hasText: 'ghe-e2e.png' })).toHaveCount(1, {
+    timeout: 30_000,
+  });
+  await expect(page.getByText('Đang dùng')).toHaveCount(0);
+  await page.getByLabel('Chỉ tệp chưa được sử dụng').uncheck();
+
+  // tệp đang được dùng (ảnh sản phẩm): cảnh báo, xóa ⇒ báo lỗi 409 và tệp còn nguyên
+  const used = page.getByTestId('media-card').filter({ hasText: 'Đang dùng' }).first();
+  await expect(used).toBeVisible({ timeout: 30_000 });
+  const usedName = (await used.locator('p').first().innerText()).trim();
+  await used.getByRole('button', { name: /^Xóa / }).click();
+  const warn = page.getByRole('dialog').getByRole('alert');
+  if (await warn.count()) await expect(warn).toContainText(/đang được sử dụng|ảnh đại diện/);
+  await page.getByRole('dialog').getByRole('button', { name: 'Xóa tệp' }).click();
+  await expect(page.getByText(/đang được sử dụng|Đã xóa tệp/).first()).toBeVisible({ timeout: 30_000 });
+  expect(usedName.length).toBeGreaterThan(0);
+
+  // dọn: xóa ghe-e2e.png
+  await page.getByLabel('Tìm media').fill('ghe e2e');
+  await page
+    .getByTestId('media-card')
+    .filter({ hasText: 'ghe-e2e.png' })
+    .getByRole('button', { name: /^Xóa / })
+    .click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Xóa tệp' }).click();
+  await expect(page.getByTestId('media-card').filter({ hasText: 'ghe-e2e.png' })).toHaveCount(0, {
+    timeout: 30_000,
+  });
+});

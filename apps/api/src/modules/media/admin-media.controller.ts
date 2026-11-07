@@ -2,15 +2,31 @@
 // Controller – UC-ADM-04
 // Bảng: media
 // TRẠNG THÁI: mới có luồng tải bằng presigned URL (presign, confirm); list/sửa/xóa chưa cài đặt.
-import { Body, Controller, HttpCode, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { paginated } from '../../common/interceptors/transform-response.interceptor';
+import type { RawQuery } from '../../common/utils/list-query';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { ConfirmUploadDto, PresignUploadDto } from './dto/media-upload.dto';
 import { MediaService, type UploadedImage } from './media.service';
 
 @ApiTags('Admin – media')
+@ApiBearerAuth()
 @Roles('admin')
 @Controller('admin/media')
 export class AdminMediaController {
@@ -45,5 +61,24 @@ export class AdminMediaController {
   @HttpCode(201)
   confirm(@Body() dto: ConfirmUploadDto, @CurrentUser('id') adminId: number) {
     return this.media.confirm(dto, adminId);
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Thư viện media (phân trang; q, type=image|other, usage=unused)' })
+  async list(@Query() q: RawQuery) {
+    const r = await this.media.list(q);
+    return paginated(r.items, r.page, r.pageSize, r.total);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Sửa mô tả ảnh { altText } (≤ 255 ký tự)' })
+  update(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    return this.media.update(adminId, id, body);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Xóa tệp; đang được sử dụng (khóa ngoại RESTRICT) ⇒ 409' })
+  remove(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.media.remove(adminId, id);
   }
 }
