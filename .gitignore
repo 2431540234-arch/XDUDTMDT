@@ -97,3 +97,6 @@ backup/
 .next-*/
 apps/api/.tmp-uploads-db/
 apps/api/uploads/
+
+# Prompt làm việc cá nhân, không commit
+docs/PROMPT_AGENT_BE.md
