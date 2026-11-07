@@ -756,6 +756,11 @@ async function main() {
     await seedSample();
     await syncSampleObjects();
   }
+  // Mô hình 3D mẫu đi qua luồng xử lý nền (đủ 3 LOD, checksum, ready); SEED_SKIP_MODEL_PROCESSING=true để bỏ qua
+  if (process.env.SEED_SAMPLE !== 'false' && process.env.SEED_SKIP_MODEL_PROCESSING !== 'true') {
+    const { processSeedModels } = await import('./seed-models');
+    await processSeedModels();
+  }
   console.log('Seed hoàn tất.');
 }
 
