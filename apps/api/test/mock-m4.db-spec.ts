@@ -729,6 +729,60 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
     });
   });
 
+  // ------------------------------------------------------------------------------------------ phương thức thanh toán bị tắt
+  describe('payments[].enabled trong Cài đặt', () => {
+    it('phương thức bị tắt ⇒ đặt hàng bị từ chối với lỗi tiếng Việt rõ ràng; thanh toán lại sang phương thức đó cũng bị từ chối; bật lại thì dùng được', async () => {
+      const original = (await api('get', '/admin/settings', admin)).body.data.payments as Array<{
+        method: string;
+        enabled: boolean;
+      }>;
+      const setEnabled = (method: string, enabled: boolean) =>
+        api('put', '/admin/settings/store', admin, {
+          payments: original.map((p) => (p.method === method ? { ...p, enabled } : p)),
+        });
+      const v = (await variantWithStock(12))!;
+      const addr = await prisma.address.findFirstOrThrow({
+        where: { userId: 2 },
+        orderBy: { isDefault: 'desc' },
+      });
+      const place = async (paymentMethod: string) => {
+        await api('delete', '/cart', cust);
+        await api('post', '/cart/items', cust, { variantId: v.id, quantity: 1 });
+        return api('post', '/orders', cust, { addressId: addr.id, paymentMethod });
+      };
+      try {
+        expect((await setEnabled('cod', false)).status).toBe(200);
+        const stock0 = await stockOf(v.id);
+        const orders0 = await prisma.order.count();
+        const bad = await place('cod');
+        expect(bad.status).toBe(400);
+        expect(bad.body.error.message).toBe(
+          'Phương thức "Thanh toán khi nhận hàng (COD)" hiện không khả dụng. Vui lòng chọn phương thức thanh toán khác.',
+        );
+        expect(bad.body.error.details.paymentMethod).toHaveLength(1);
+        expect(await prisma.order.count()).toBe(orders0); // không tạo đơn
+        expect(await stockOf(v.id)).toBe(stock0); // không trừ tồn
+        // phương thức khác vẫn đặt được
+        const ok = await place('bank_transfer');
+        expect(ok.status).toBe(201);
+        // đổi sang phương thức đã tắt khi thanh toán lại ⇒ 400
+        const retry = await api('post', `/payments/${ok.body.data.id}/retry`, cust, { method: 'cod' });
+        expect(retry.status).toBe(400);
+        expect((await prisma.order.findUniqueOrThrow({ where: { id: ok.body.data.id } })).paymentMethod).toBe(
+          'bank_transfer',
+        );
+        // bật lại
+        expect((await setEnabled('cod', true)).status).toBe(200);
+        expect((await place('cod')).status).toBe(201);
+        expect(
+          (await api('post', `/payments/${ok.body.data.id}/retry`, cust, { method: 'cod' })).status,
+        ).toBe(200);
+      } finally {
+        await api('put', '/admin/settings/store', admin, { payments: original });
+      }
+    });
+  });
+
   // ------------------------------------------------------------------------------------------ VNPAY (khóa giả)
   describe('VNPAY sandbox – khóa giả (UC-PAY-01/02/03)', () => {
     const placeOrder = async (method = 'vnpay', token = cust, userId = 2) => {

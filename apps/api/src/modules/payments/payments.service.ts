@@ -5,6 +5,7 @@ import { Injectable } from '@nestjs/common';
 import { PaymentMethod } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
+import { assertPaymentMethodEnabled } from '../../common/utils/payment-methods';
 import { asBody, str } from '../../common/utils/validate';
 import { AppConfig } from '../../config/app-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -186,6 +187,7 @@ export class PaymentsService {
         method: ['Phương thức thanh toán không hợp lệ.'],
       });
     const method = wanted || o.paymentMethod;
+    await assertPaymentMethodEnabled(this.prisma, method); // phương thức đã bị tắt trong Cài đặt ⇒ từ chối
     const fresh = await this.prisma.$transaction(async (tx) => {
       await tx.payment.updateMany({
         where: { orderId: o.id, status: 'pending' },

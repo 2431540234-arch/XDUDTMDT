@@ -211,3 +211,48 @@ test('cài đặt: sửa thông tin cửa hàng (kiểm tra tên/email), lưu, t
   const pub2 = (await (await request.get(`${api}/api/settings/public`)).json()).data;
   expect(pub2.store.name).toBe(originalName);
 });
+
+test('thanh toán: phương thức bị tắt trong Cài đặt không còn ở trang thanh toán; phương thức đang chọn tự đổi; bật lại thì hiện', async ({
+  page,
+  request,
+}) => {
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const login = async (email: string, password: string) =>
+    (await (await request.post(`${api}/api/auth/login`, { data: { email, password } })).json()).data.tokens
+      .accessToken as string;
+  const admin = await login('admin@aurelia.vn', 'admin123');
+  const adminH = { Authorization: `Bearer ${admin}` };
+  const settings = (await (await request.get(`${api}/api/admin/settings`, { headers: adminH })).json()).data;
+  const original = settings.payments as Array<{ method: string; enabled: boolean }>;
+  const setCod = (enabled: boolean) =>
+    request.put(`${api}/api/admin/settings/store`, {
+      headers: adminH,
+      data: { payments: original.map((p) => (p.method === 'cod' ? { ...p, enabled } : p)) },
+    });
+  try {
+    expect((await setCod(false)).ok()).toBe(true);
+    // khách có hàng trong giỏ rồi vào trang thanh toán
+    await page.goto('/login?next=/products/sofa-nordic');
+    await page.locator('input[name="email"]').fill('khachhang@aurelia.vn');
+    await page.locator('input[name="password"]').fill('123456');
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Sofa Nordic' })).toBeVisible({ timeout: 30_000 });
+    await page
+      .getByRole('button', { name: /Thêm vào giỏ hàng/ })
+      .first()
+      .click();
+    await expect(page.getByText(/Đã thêm/)).toBeVisible({ timeout: 30_000 });
+    await page.goto('/checkout');
+    await expect(page.getByText('Thanh toán khi nhận hàng').first())
+      .toBeHidden({ timeout: 30_000 })
+      .catch(() => undefined);
+    await expect(page.getByText('Chuyển khoản ngân hàng').first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Thanh toán khi nhận hàng')).toHaveCount(0);
+    // bật lại ⇒ hiện
+    expect((await setCod(true)).ok()).toBe(true);
+    await page.reload();
+    await expect(page.getByText('Thanh toán khi nhận hàng').first()).toBeVisible({ timeout: 30_000 });
+  } finally {
+    await request.put(`${api}/api/admin/settings/store`, { headers: adminH, data: { payments: original } });
+  }
+});
