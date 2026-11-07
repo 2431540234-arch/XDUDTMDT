@@ -54,7 +54,7 @@ describe('validateModelFile', () => {
       'UNSUPPORTED_MEDIA_TYPE',
     );
   });
-  it('giới hạn 50MB (413) và tệp rỗng (400)', () => {
+  it('giới hạn 100MB (413) và tệp rỗng (400)', () => {
     expect(() => validateModelFile({ fileName: 'a.glb', sizeBytes: MODEL_MAX_BYTES })).not.toThrow();
     fails(
       () => validateModelFile({ fileName: 'a.glb', sizeBytes: MODEL_MAX_BYTES + 1 }),

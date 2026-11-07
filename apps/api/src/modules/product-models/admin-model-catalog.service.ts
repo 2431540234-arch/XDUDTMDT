@@ -184,7 +184,7 @@ export class AdminModelCatalogService {
     }
     const bytes = input.bytes ?? (await this.stockBytes(check.format));
     if (bytes.length > MODEL_MAX_BYTES)
-      throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, 'Tệp phải nhỏ hơn hoặc bằng 50MB.');
+      throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, 'Tệp phải nhỏ hơn hoặc bằng 100MB.');
 
     // tên tệp lưu do server sinh (uuid) ⇒ không thể path traversal
     const key = `models/${product!.id}/${randomUUID()}.${check.ext}`;

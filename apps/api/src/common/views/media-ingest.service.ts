@@ -25,7 +25,7 @@ const IMAGE_SIGNATURES: Array<{ mime: string; ext: string; test: (b: Buffer) => 
   },
 ];
 
-const LIMITS_MB = { image: 5, frame: 2, model: 50 } as const;
+const LIMITS_MB = { image: 5, frame: 2, model: 100 } as const;
 
 @Injectable()
 export class MediaIngestService {

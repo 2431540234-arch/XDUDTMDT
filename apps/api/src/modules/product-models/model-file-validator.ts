@@ -1,10 +1,10 @@
-// Kiểm tra tệp mô hình 3D tải lên: đuôi tệp, định dạng khai báo, dung lượng ≤ 50MB, MIME, chữ ký tệp (magic bytes) và tên
+// Kiểm tra tệp mô hình 3D tải lên: đuôi tệp, định dạng khai báo, dung lượng ≤ 100MB (UC-ADM-13), MIME, chữ ký tệp (magic bytes) và tên
 // tệp an toàn (chống path traversal). Logic thuần để dễ unit test.
 import { basename } from 'node:path';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 
-export const MODEL_MAX_BYTES = 50 * 1024 * 1024;
+export const MODEL_MAX_BYTES = 100 * 1024 * 1024;
 export type ModelFormat = 'glb' | 'usdz';
 
 /** Đuôi tệp hợp lệ → định dạng lưu trong DB (GLTF dạng JSON được lưu chung nhóm "glb") */
@@ -68,7 +68,7 @@ export function validateModelFile(c: ModelFileCheck): {
   }
   if (!(c.sizeBytes > 0)) throw bad(ErrorCode.BAD_REQUEST, 'Tệp rỗng.');
   if (c.sizeBytes > MODEL_MAX_BYTES)
-    throw bad(ErrorCode.PAYLOAD_TOO_LARGE, 'Tệp phải nhỏ hơn hoặc bằng 50MB.');
+    throw bad(ErrorCode.PAYLOAD_TOO_LARGE, 'Tệp phải nhỏ hơn hoặc bằng 100MB.');
   if (c.bytes) {
     const b = c.bytes;
     const ok =

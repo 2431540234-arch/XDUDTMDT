@@ -59,7 +59,10 @@ export class AdminModelsController {
       'Tải lên tệp thật (multipart): file + productId, variantId?, allowAr?, scale?, unit?, placement?',
   })
   @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: MODEL_MAX_BYTES } }),
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MODEL_MAX_BYTES + 1024 * 1024 },
+    }),
   )
   uploadFile(
     @CurrentUser('id') adminId: number,

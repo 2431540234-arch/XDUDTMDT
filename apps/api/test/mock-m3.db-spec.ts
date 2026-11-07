@@ -1183,14 +1183,16 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       expect(pub.body.data.glbUrl).toBe(r.body.data.glbUrl);
     });
 
-    it('từ chối: đuôi lạ, sai chữ ký, vượt 50MB, định dạng không khớp, sản phẩm không tồn tại', async () => {
+    it('từ chối: đuôi lạ, sai chữ ký, vượt 100MB, định dạng không khớp, sản phẩm không tồn tại', async () => {
       const post = (b: object) =>
         api('post', '/admin/models', admin, { productId: pid, sizeMB: 1, format: 'glb', ...b });
       expect((await post({ fileName: 'a.exe', format: 'glb' })).status).toBe(400);
       expect(
         (await post({ fileName: 'fake.glb', fileData: b64(Buffer.from('<html>fake</html>')) })).status,
       ).toBe(400);
-      expect((await post({ fileName: 'big.glb', sizeMB: 60 })).body.error.details.file[0]).toContain('50MB');
+      expect((await post({ fileName: 'big.glb', sizeMB: 110 })).body.error.details.file[0]).toContain(
+        '100MB',
+      );
       expect((await post({ fileName: 'a.glb', format: 'usdz' })).status).toBe(400);
       expect(
         (
@@ -1229,6 +1231,22 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       expect(usdz.status).toBe(201);
       expect(usdz.body.data.usdzUrl).toMatch(/\.usdz$/);
       expect(usdz.body.data.glbUrl).toMatch(/\.glb$/); // cùng mô hình có cả GLB và USDZ
+    });
+
+    it('multipart: GLB đúng 100 MB được nhận (201), 100 MB + 1 byte bị từ chối (400, nêu rõ 100MB)', async () => {
+      const big = (n: number) => Buffer.concat([Buffer.from('glTF'), Buffer.alloc(n - 4, 1)]);
+      const up = (buf: Buffer) =>
+        http
+          .post('/api/admin/models/upload')
+          .set('Authorization', `Bearer ${admin}`)
+          .field('productId', String(pid))
+          .attach('file', buf, { filename: 'lon.glb', contentType: 'model/gltf-binary' });
+      const ok = await up(big(100 * 1024 * 1024));
+      expect(ok.status).toBe(201);
+      const over = await up(big(100 * 1024 * 1024 + 1));
+      expect(over.status).toBe(400);
+      expect(over.body.error.details.file[0]).toContain('100MB');
+      await api('delete', `/admin/models/${ok.body.data.id}`, admin);
     });
 
     it('danh sách lọc theo sản phẩm/định dạng; xóa tệp cuối ⇒ sản phẩm không còn mô hình', async () => {

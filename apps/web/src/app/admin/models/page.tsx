@@ -87,8 +87,8 @@ function UploadModal({
         toast.error(`“${f.name}” không đúng định dạng (GLB, GLTF, USDZ).`);
         continue;
       }
-      if (f.size > 50 * 1024 * 1024) {
-        toast.error(`“${f.name}” vượt quá 50MB.`);
+      if (f.size > 100 * 1024 * 1024) {
+        toast.error(`“${f.name}” vượt quá 100MB.`);
         continue;
       }
       ok.push({
@@ -154,9 +154,9 @@ function UploadModal({
           <UploadDropzone
             label="Tệp mô hình"
             accept=".glb,.gltf,.usdz"
-            maxMB={50}
+            maxMB={100}
             multiple
-            hint="Kéo thả hoặc click để chọn – GLB, GLTF, USDZ (tối đa 50MB)"
+            hint="Kéo thả hoặc click để chọn – GLB, GLTF, USDZ (tối đa 100MB)"
             onFiles={add}
             onError={toast.error}
           />
