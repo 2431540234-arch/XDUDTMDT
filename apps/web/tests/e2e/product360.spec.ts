@@ -12,20 +12,29 @@ async function waitLoaded(page: Page) {
 
 test.describe.configure({ mode: 'serial' });
 
-test('mọi sản phẩm có banner dẫn tới trang 3D; trang 360° nhận biến thể từ URL', async ({ page }) => {
+test('nút "Xem 360°" chỉ hiện ở sản phẩm có 360°, mang theo biến thể; banner 3D vẫn có; trang 360° nhận biến thể từ URL', async ({
+  page,
+}) => {
   for (const [slug, name] of [
     ['ke-tivi-hien-dai', 'Kệ tivi hiện đại'],
     ['sofa-nordic', 'Sofa Nordic'],
   ]) {
     await page.goto(`/products/${slug}`);
     await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('link', { name: 'Xem 360°' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Xem 360°' })).toHaveCount(slug === 'sofa-nordic' ? 1 : 0);
     await expect(page.getByRole('link', { name: /Trải nghiệm 3D ngay/ })).toHaveAttribute(
       'href',
       `/products/${slug}/3d`,
     );
   }
-  await page.goto('/products/sofa-nordic/360?color=kem&size=4-cho');
+  // từ trang chi tiết: chọn Kem + 4 chỗ rồi bấm nút 360° → mở trang 360° đúng biến thể
+  await page.goto('/products/sofa-nordic');
+  await expect(page.getByRole('heading', { name: 'Sofa Nordic' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('link', { name: 'Xem sản phẩm 360 độ' })).toBeVisible();
+  await page.getByRole('button', { name: 'Kem', exact: true }).click();
+  await page.getByRole('button', { name: '4 chỗ' }).click();
+  await page.getByRole('link', { name: 'Xem 360°' }).click();
+  await expect(page).toHaveURL(/\/products\/sofa-nordic\/360\?color=kem&size=4-cho/);
   await waitLoaded(page);
   await expect(page.getByTestId('color-name')).toHaveText('Kem');
 });
