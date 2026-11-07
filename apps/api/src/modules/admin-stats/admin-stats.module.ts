@@ -6,13 +6,15 @@ import { Module } from '@nestjs/common';
 import { OrdersModule } from '../orders/orders.module';
 import { AdminMiscController } from './admin-misc.controller';
 import { AdminMiscService } from './admin-misc.service';
+import { AdminFinanceController } from './admin-finance.controller';
+import { AdminFinanceService } from './admin-finance.service';
 import { AdminStatsController } from './admin-stats.controller';
 import { AdminStatsService } from './admin-stats.service';
 
 @Module({
   imports: [OrdersModule],
-  controllers: [AdminStatsController, AdminMiscController],
-  providers: [AdminStatsService, AdminMiscService],
+  controllers: [AdminStatsController, AdminMiscController, AdminFinanceController],
+  providers: [AdminStatsService, AdminMiscService, AdminFinanceService],
   exports: [AdminStatsService],
 })
 export class AdminStatsModule {}
