@@ -20,9 +20,12 @@ describe('thanh toán giả lập chỉ chạy khi PAYMENT_SANDBOX_FAKE=true VÀ
       orderCode: 'ALV-1',
     };
     const prisma = { order: { findFirst: async () => order } };
-    const config = { get: (k: string) => (k === 'PAYMENT_SANDBOX_FAKE' ? fake : env) };
+    // chưa cấu hình khóa VNPAY (VNPAY_*) ⇒ undefined
+    const config = {
+      get: (k: string) => (k === 'PAYMENT_SANDBOX_FAKE' ? fake : k === 'NODE_ENV' ? env : undefined),
+    };
     const svc = new PaymentsService(prisma as never, {} as never, config as never, {} as never);
-    const settle = jest.spyOn(svc, 'settle').mockResolvedValue(undefined);
+    const settle = jest.spyOn(svc, 'settle').mockResolvedValue('applied');
     return { svc, settle };
   };
 

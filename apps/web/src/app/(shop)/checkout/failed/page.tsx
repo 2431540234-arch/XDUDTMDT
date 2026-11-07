@@ -13,6 +13,7 @@ import { useRequireCustomer } from '@/hooks/useAuth';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
 import { paymentMethodLabel } from '@/lib/status';
+import { navigateTo } from '@/lib/navigation';
 import { errorMessage } from '@/lib/validators';
 import { orderApi } from '@/services/cart.api';
 import { toast } from '@/store/uiStore';
@@ -34,7 +35,7 @@ function Content() {
     mutationFn: (m?: PaymentMethod) => orderApi.retryPayment(q.data!.id, m),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['order', code] });
-      router.push(r.redirectUrl);
+      navigateTo(router, r.redirectUrl);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });

@@ -16,6 +16,7 @@ import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { queryKeys } from '@/hooks/useCart';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format';
 import { orderStatusInfo, paymentMethodLabel, paymentStatusInfo, shipmentStatusInfo } from '@/lib/status';
+import { navigateTo } from '@/lib/navigation';
 import { errorMessage } from '@/lib/validators';
 import { ApiClientError } from '@/services/api-client';
 import { cartApi, orderApi } from '@/services/cart.api';
@@ -57,7 +58,7 @@ export default function OrderDetailPage() {
   });
   const retry = useMutation({
     mutationFn: () => orderApi.retryPayment(q.data!.id),
-    onSuccess: (r) => router.push(r.redirectUrl),
+    onSuccess: (r) => navigateTo(router, r.redirectUrl),
     onError: (e) => toast.error(errorMessage(e)),
   });
 
