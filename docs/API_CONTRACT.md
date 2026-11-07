@@ -1072,3 +1072,26 @@ export interface Product360AdminData {
 - `GET /payments/vnpay/return` (công khai): kiểm tra chữ ký, ghi nhận kết quả (idempotent) rồi `302` tới `APP_URL/checkout/success|failed?order=<code>`; sai chữ ký/số tiền ⇒ `/checkout/failed`, không ghi nhận.
 - `GET /payments/vnpay/ipn` (công khai, server-to-server): trả JSON **không bọc** `{ RspCode, Message }`: `00` thành công, `01` không thấy đơn, `02` đã xử lý, `04` sai số tiền, `97` sai chữ ký, `99` lỗi khác.
 - `POST /payments/:orderId/retry { method? }` (UC-PAY-03): giao dịch pending cũ ⇒ `failed`, tạo giao dịch pending mới; đơn đã `paid`/đã hủy ⇒ `409`; phương thức lạ ⇒ `400`.
+
+---
+
+## Use case web còn thiếu (BE thật)
+
+### Thương hiệu (UC-ADM-06) – `/admin/brands`
+`GET` (q) → `[{ id, name, slug, logoUrl, isActive, productCount }]`; `POST { name ≤ 150, slug?, logoUrl? (data-URL/URL), isActive? }`; `PATCH /:id` (đổi tên không đổi slug); `DELETE /:id` → `{ id, productsDetached }` (sản phẩm chuyển `brandId = NULL`). Slug trùng ⇒ `409 CONFLICT` (details `slug`). Ghi `activity_logs` cùng transaction.
+
+### Thuộc tính (UC-ADM-08) – `/admin/attributes`
+`GET` → `[{ id, code, name, isSystem, values:[{ id, value, colorHex, usageCount, frameCount }] }]`; `POST { code (chữ thường ≤ 50), name ≤ 100 }`; `PATCH /:id`; `DELETE /:id`; `POST /:id/values { value ≤ 150, colorHex? (#RRGGBB, chỉ thuộc tính màu) }`; `PATCH|DELETE /:id/values/:valueId`. Trùng code/name/(attributeId, value) ⇒ `409`. Xóa giá trị đang được biến thể (hoặc ảnh 360°) dùng ⇒ `409 RESOURCE_IN_USE`. Thuộc tính hệ thống (`color`, `size`, `material`) không đổi mã/không xóa.
+
+### Media (UC-ADM-04) – `/admin/media`
+`POST` multipart (trường `file`, `kind` = image|frame|panorama, `altText?`): ảnh ≤ 5 MB (frame 2 MB, panorama 20 MB); quá cỡ `413`, sai loại hoặc chữ ký tệp không khớp `415`. `GET` (phân trang; q không dấu, type, usage=unused) → `{ id, fileName, url, mimeType, fileSize, altText, uploadedByName, usage:{ required, optional } }`; `PATCH /:id { altText ≤ 255 }`; `DELETE /:id` (tham chiếu bắt buộc ⇒ `409`; tham chiếu tùy chọn tự gỡ). Upload ghi nhật ký cùng transaction và đẩy job tạo webp + thumbnail.
+
+### Vận chuyển (UC-ADM-25, D-N14)
+- `POST /admin/orders/:id/shipments { carrier: ghn|ghtk|viettel_post|other, trackingCode?, fee? }` ⇒ `201 { shipment, order, warnings }`. Chỉ khi đơn `processing`/`shipping` và chưa có vận đơn đang hoạt động (≠ failed/returned), sai ⇒ `409`. Mã trùng ở đơn vị khác chỉ cảnh báo (`warnings`).
+- `PATCH /admin/shipments/:id { status?, carrier?, trackingCode?, fee? }`: `pending → picked_up → in_transit → delivered` (hoặc `failed`/`returned` từ picked_up/in_transit); bỏ bước ⇒ `409`; `picked_up` đặt `shippedAt`, `delivered` đặt `deliveredAt`. `delivered` ⇒ cùng transaction `OrdersService.completeOrder`: đơn `shipping → completed`, tăng `sold_count`, COD ⇒ Payment `success` + `paymentStatus = paid`, `status_note = "Giao hàng thành công"`, thông báo khách; đơn không ở `shipping` ⇒ `409` và hoàn tác. `failed`/`returned`: đơn giữ nguyên `shipping` (điểm mở O-03).
+- `PATCH /admin/orders/:id/status`: `completed` ⇒ `409` "Hoàn tất khi vận đơn được đánh dấu đã giao."; `shipping` khi chưa có vận đơn hoạt động ⇒ `400`; không còn tự tạo vận đơn. Chi tiết đơn có thêm `shipments[]` (cũ → mới), `shipment` là vận đơn mới nhất. Route cũ `PATCH /admin/orders/:id/shipment` đã bỏ.
+
+### Khác
+- `POST /spaces/:slug/views` ⇒ `204`; body `{ visitorId (bắt buộc), sourceProductId (id hoặc slug), hotspotClickCount, addedToCart, accessToken? }`, FE gửi bằng `navigator.sendBeacon` khi rời trang.
+- Phí ship: tỉnh ngoài mọi vùng dùng `default_shipping_fee` và `free_shipping_threshold` (xem `CHUAN_MO_RONG.md`).
+- Phương thức thanh toán bị tắt trong Cài đặt ⇒ `400 VALIDATION_FAILED` (details `paymentMethod`) khi đặt hàng hoặc thanh toán lại.

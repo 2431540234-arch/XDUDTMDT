@@ -304,3 +304,13 @@ MinIO/presign, cache Redis, xử lý nền 3D (LOD), `PermissionsGuard`, `Activi
 - VNPAY thật: cần `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` và địa chỉ công khai cho Return URL/IPN (tunnel khi chạy local).
 - `payments[].enabled` trong cài đặt chưa được dùng để chặn phương thức khi đặt hàng (chỉ lưu và công khai); chưa có yêu cầu trong đặc tả.
 - Giá combo, `loyalty_points`, `carts.coupon_id`, vận đơn: xem `CHUAN_MO_RONG.md` Phần 3.
+
+---
+
+## Đợt kiểm tra trước demo (2026-11-07) ✅
+
+**Phần A (sửa nhỏ):** thanh toán đến sau khi đơn hủy vẫn ghi `paid`/`success`, đơn giữ `cancelled`, admin được thông báo cần hoàn tiền (`7a9c268`); `npm run demo` (`9d33bf8`); lượt xem không gian ghi một lần khi rời trang bằng `sendBeacon` (`de0c96c`); phí ship dùng `default_shipping_fee`/`free_shipping_threshold` khi tỉnh ngoài vùng (`4096f68`); thêm trước đó: giá vốn một lần (`693afb3`), phương thức thanh toán bị tắt (`3e4efa1`).
+
+**Phần B (use case còn thiếu):** thương hiệu (`029fd94`), thuộc tính (`6756995`), media + job image-processing đã kiểm (`38fe10d`), vận chuyển + đổi chiều trạng thái theo D-N14 (`ce95abe` + commit FE). Mọi thao tác ghi ghi `activity_logs` cùng transaction. Không có migration.
+
+**Ghi chú:** (1) UC-ADM-04 theo đặc tả: tệp bị tham chiếu bắt buộc ⇒ 409, tham chiếu tùy chọn (logo, ảnh danh mục…) được gỡ liên kết thay vì chặn; (2) thuộc tính hệ thống không đổi mã/không xóa; (3) vận đơn failed/returned là điểm mở O-03; (4) lỗi chập chờn "Hỏi đáp 404" xuất hiện lại một lần khi chạy supertest ngay sau chỉnh sửa, không tái hiện sau đó (3 lần chạy liền đều xanh).

@@ -212,6 +212,8 @@ export interface OrderView extends Order {
   history: OrderHistoryView[];
   payment: Payment | null;
   shipment: Shipment | null;
+  /** mọi vận đơn của đơn (cũ → mới); `shipment` là vận đơn hiện tại (mới nhất) */
+  shipments: Shipment[];
   couponCode: string | null;
   customer: {
     id: number;
@@ -482,6 +484,14 @@ export interface MediaAdmin {
   createdAt: string;
   /** required: chặn xóa (409); optional: chỉ bị gỡ liên kết khi xóa */
   usage: { required: number; optional: number };
+}
+
+/** Kết quả tạo/cập nhật vận đơn (POST /admin/orders/:id/shipments, PATCH /admin/shipments/:id) */
+export interface ShipmentResult {
+  shipment: Shipment;
+  order: OrderView;
+  /** cảnh báo không chặn, ví dụ mã vận đơn trùng đơn vị khác */
+  warnings: string[];
 }
 
 export interface Expense {

@@ -494,13 +494,61 @@ const NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   shipping: ['completed'],
 };
 
+/** Hoàn tất đơn khi vận đơn delivered (UC-ADM-25): sold_count, COD đã thanh toán, lịch sử, thông báo */
+function completeOrderMock(ctx: Ctx, o: Db['orders'][number], at: string) {
+  const db = ctx.db;
+  if (o.status !== 'shipping')
+    throw new ApiFail(
+      'INVALID_STATE',
+      'Chỉ đánh dấu đã giao khi đơn đang ở trạng thái "Đang giao". Hãy chuyển đơn sang "Đang giao" trước.',
+    );
+  for (const it of db.orderItems.filter((x) => x.orderId === o.id && x.variantId)) {
+    const v = db.productVariants.find((x) => x.id === it.variantId);
+    const p = v && db.products.find((x) => x.id === v.productId);
+    if (p) p.soldCount += it.quantity;
+  }
+  const pay = db.payments.find((p) => p.orderId === o.id);
+  if (o.paymentMethod === 'cod' && pay && pay.status !== 'success') {
+    pay.status = 'success';
+    pay.paidAt = at;
+    o.paymentStatus = 'paid';
+  }
+  o.status = 'completed';
+  o.updatedAt = at;
+  db.orderStatusHistory.push({
+    id: nextId(db.orderStatusHistory),
+    orderId: o.id,
+    fromStatus: 'shipping',
+    toStatus: 'completed',
+    changedBy: ADMIN_ID,
+    note: 'Giao hàng thành công',
+    createdAt: at,
+  });
+  notify(
+    db,
+    o.userId,
+    `Đơn ${o.orderCode} đã giao thành công`,
+    'order',
+    `Đơn hàng ${o.orderCode} đã được giao thành công.`,
+    `/account/orders/${o.orderCode}`,
+  );
+}
+
 export function setOrderStatus(ctx: Ctx): Result {
   const db = ctx.db;
   const o = orderFrom(ctx);
   const to = ctx.body?.status as OrderStatus;
   if (to === 'cancelled') return cancelOrder(ctx);
+  if (to === 'completed') throw new ApiFail('INVALID_STATE', 'Hoàn tất khi vận đơn được đánh dấu đã giao.');
   if (!NEXT[o.status]?.includes(to))
     throw new ApiFail('INVALID_STATE', `Không thể chuyển đơn từ "${o.status}" sang "${to}".`);
+  if (
+    to === 'shipping' &&
+    !db.shipments.some((s) => s.orderId === o.id && !['failed', 'returned'].includes(s.status))
+  )
+    throw new ApiFail('BAD_REQUEST', 'Cần tạo vận đơn trước khi chuyển đơn sang "Đang giao".', {
+      shipment: ['Chưa có vận đơn.'],
+    });
   const from = o.status;
   const at = nowIso();
   o.status = to;
@@ -514,33 +562,6 @@ export function setOrderStatus(ctx: Ctx): Result {
     note: ctx.body?.note ?? null,
     createdAt: at,
   });
-  if (to === 'shipping' && !db.shipments.some((s) => s.orderId === o.id)) {
-    db.shipments.push({
-      id: nextId(db.shipments),
-      orderId: o.id,
-      carrier: 'ghn',
-      trackingCode: `GHN${Math.floor(100_000_000 + Math.random() * 899_999_999)}`,
-      status: 'in_transit',
-      fee: o.shippingFee,
-      shippedAt: at,
-      deliveredAt: null,
-      createdAt: at,
-      updatedAt: at,
-    });
-  }
-  if (to === 'completed') {
-    const sh = db.shipments.find((s) => s.orderId === o.id);
-    if (sh) {
-      sh.status = 'delivered';
-      sh.deliveredAt = at;
-    }
-    const pay = db.payments.find((p) => p.orderId === o.id);
-    if (pay && pay.status !== 'success') {
-      pay.status = 'success';
-      pay.paidAt = at;
-      o.paymentStatus = 'paid'; // D-N14: COD tự ghi nhận thanh toán khi giao thành công
-    }
-  }
   const label: Record<string, string> = {
     confirmed: 'đã được xác nhận',
     processing: 'đang được xử lý',
@@ -603,30 +624,77 @@ export function refundOrder(ctx: Ctx): Result {
   return ok(orderView(db, o, { customer: true }));
 }
 
-export function updateShipment(ctx: Ctx): Result {
+const SHIP_NEXT: Record<string, string[]> = {
+  pending: ['picked_up'],
+  picked_up: ['in_transit', 'delivered', 'failed', 'returned'],
+  in_transit: ['delivered', 'failed', 'returned'],
+  delivered: [],
+  failed: [],
+  returned: [],
+};
+const CARRIERS = ['ghn', 'ghtk', 'viettel_post', 'other'];
+
+export function createShipment(ctx: Ctx): Result {
   const db = ctx.db;
   const o = orderFrom(ctx);
   const b = ctx.body ?? {};
-  let sh = db.shipments.find((s) => s.orderId === o.id);
-  if (!sh) {
-    sh = {
-      id: nextId(db.shipments),
-      orderId: o.id,
-      carrier: 'ghn',
-      trackingCode: null,
-      status: 'pending',
-      fee: o.shippingFee,
-      shippedAt: null,
-      deliveredAt: null,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    db.shipments.push(sh);
+  const errs: Record<string, string> = {};
+  if (!CARRIERS.includes(String(b.carrier))) errs.carrier = 'Đơn vị vận chuyển không hợp lệ.';
+  if (String(b.trackingCode ?? '').length > 100) errs.trackingCode = 'Mã vận đơn tối đa 100 ký tự.';
+  if (b.fee !== undefined && b.fee !== '' && !(Number(b.fee) >= 0))
+    errs.fee = 'Phí vận chuyển phải là số không âm.';
+  if (Object.keys(errs).length) throw validation(errs);
+  if (!['processing', 'shipping'].includes(o.status))
+    throw new ApiFail('INVALID_STATE', 'Chỉ tạo vận đơn cho đơn đang "Đang xử lý" hoặc "Đang giao".');
+  if (db.shipments.some((s) => s.orderId === o.id && !['failed', 'returned'].includes(s.status)))
+    throw new ApiFail('INVALID_STATE', 'Đơn hàng đã có vận đơn đang hoạt động.');
+  const at = nowIso();
+  const sh = {
+    id: nextId(db.shipments),
+    orderId: o.id,
+    carrier: b.carrier,
+    trackingCode: String(b.trackingCode ?? '').trim() || null,
+    status: 'pending',
+    fee: b.fee !== undefined && b.fee !== '' ? Number(b.fee) : o.shippingFee,
+    shippedAt: null,
+    deliveredAt: null,
+    createdAt: at,
+    updatedAt: at,
+  } as Db['shipments'][number];
+  db.shipments.push(sh);
+  log(ctx, 'shipment.create', 'shipment', sh.id, { orderCode: o.orderCode });
+  return created({ shipment: sh, order: orderView(db, o, { customer: true }), warnings: [] });
+}
+
+export function updateShipmentStatus(ctx: Ctx): Result {
+  const db = ctx.db;
+  const sh = db.shipments.find((s) => s.id === Number(ctx.params.id));
+  if (!sh) throw notFound('Vận đơn');
+  const o = db.orders.find((x) => x.id === sh.orderId)!;
+  const b = ctx.body ?? {};
+  const to = b.status as string | undefined;
+  if (to !== undefined && !(to in SHIP_NEXT))
+    throw validation({ status: 'Trạng thái vận đơn không hợp lệ.' });
+  if (SHIP_NEXT[sh.status].length === 0)
+    throw new ApiFail('INVALID_STATE', 'Vận đơn đã kết thúc, không thể cập nhật.');
+  if (to && to !== sh.status && !SHIP_NEXT[sh.status].includes(to))
+    throw new ApiFail('INVALID_STATE', `Không thể chuyển vận đơn từ "${sh.status}" sang "${to}".`);
+  const at = nowIso();
+  if (to === 'delivered') completeOrderMock(ctx, o, at); // lỗi ⇒ vận đơn giữ nguyên
+  if (b.carrier && CARRIERS.includes(String(b.carrier))) sh.carrier = b.carrier;
+  if (b.trackingCode !== undefined) sh.trackingCode = String(b.trackingCode).trim() || null;
+  if (b.fee !== undefined && Number(b.fee) >= 0) sh.fee = Number(b.fee);
+  if (to && to !== sh.status) {
+    sh.status = to as typeof sh.status;
+    if (to === 'picked_up') sh.shippedAt = at;
+    if (to === 'delivered') {
+      sh.deliveredAt = at;
+      sh.shippedAt ??= at;
+    }
   }
-  if (b.carrier) sh.carrier = b.carrier;
-  if (b.trackingCode !== undefined) sh.trackingCode = b.trackingCode || null;
-  sh.updatedAt = nowIso();
-  return ok(orderView(db, o, { customer: true }));
+  sh.updatedAt = at;
+  log(ctx, 'shipment.update_status', 'shipment', sh.id, { orderCode: o.orderCode, to });
+  return ok({ shipment: sh, order: orderView(db, o, { customer: true }), warnings: [] });
 }
 
 export function confirmPayment(ctx: Ctx): Result {

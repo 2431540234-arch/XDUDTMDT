@@ -140,3 +140,12 @@ Không thêm thư viện mới.
 - **Thanh toán:** `lib/navigation.ts` (`navigateTo`) dùng `window.location` khi `redirectUrl` là URL cổng (https://…), `router.push` với đường dẫn FE.
 - **Test:** `tests/e2e/admin-m4.spec.ts` (kho, thu chi, cài đặt), `tests/unit/navigation.test.ts`; nhóm `khach-hang` chạy cả test duyệt mọi màn hình admin với API thật.
 - **Còn lại:** ~30 chú thích `TODO: chưa có trong BE` cũ trong services; Mốc 5 (AR, vận đơn…).
+
+---
+
+## Đợt kiểm tra trước demo (2026-11-07)
+
+- Trang mới: `/admin/brands`, `/admin/attributes`, `/admin/media` (có trong sidebar); form sản phẩm lấy thương hiệu từ API quản trị và biến thể chọn màu/kích thước từ danh sách thuộc tính.
+- Chi tiết đơn admin: khối **Vận đơn** (tạo, đổi trạng thái, giao thất bại ⇒ tạo vận đơn mới), bỏ nút hoàn tất thủ công, nút "Chuyển sang Đang giao" khóa khi chưa có vận đơn; mock API theo đúng luồng mới.
+- Trang không gian: lượt xem gửi bằng `sendBeacon` khi rời trang; trang thanh toán ẩn phương thức bị tắt; `npm run demo`.
+- Test Playwright: nhóm `admin-m5` (thương hiệu, thuộc tính, media, vận chuyển).

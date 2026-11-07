@@ -262,3 +262,97 @@ test('media: tải ảnh lên (quá 5 MB bị từ chối), tìm, sửa mô tả
     timeout: 30_000,
   });
 });
+
+test('vận chuyển: xác nhận → xử lý → tạo vận đơn → giao hàng → đánh dấu đã giao; không còn nút hoàn tất thủ công; giao thất bại thì tạo vận đơn mới', async ({
+  page,
+  request,
+}) => {
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const login = async (email: string, password: string) =>
+    (await (await request.post(`${api}/api/auth/login`, { data: { email, password } })).json()).data.tokens
+      .accessToken as string;
+  const place = async () => {
+    const t = await login('khachhang@aurelia.vn', '123456');
+    const h = { Authorization: `Bearer ${t}` };
+    const addr = (await (await request.get(`${api}/api/addresses`, { headers: h })).json()).data[0].id;
+    const list = (await (await request.get(`${api}/api/products?pageSize=1`)).json()).data[0];
+    const detail = (await (await request.get(`${api}/api/products/${list.slug}`)).json()).data;
+    await request.delete(`${api}/api/cart`, { headers: h });
+    await request.post(`${api}/api/cart/items`, {
+      headers: h,
+      data: { variantId: detail.variants[0].id, quantity: 1 },
+    });
+    const o = (
+      await (
+        await request.post(`${api}/api/orders`, {
+          headers: h,
+          data: { addressId: addr, paymentMethod: 'cod' },
+        })
+      ).json()
+    ).data;
+    return o.orderCode as string;
+  };
+  const orderStatus = async (code: string) => {
+    const t = await login('admin@aurelia.vn', 'admin123');
+    return (
+      await (
+        await request.get(`${api}/api/admin/orders/${code}`, { headers: { Authorization: `Bearer ${t}` } })
+      ).json()
+    ).data.status as string;
+  };
+  const code = await place();
+
+  await adminLogin(page);
+  await page.goto(`/admin/orders/${code}`);
+  await expect(page.getByRole('heading', { name: new RegExp(code) }).first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await page.getByRole('button', { name: 'Xác nhận đơn hàng' }).click();
+  await expect(page.getByText('Đã cập nhật trạng thái đơn hàng.')).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: /Chuyển sang .Đang xử lý./ }).click();
+  await expect(page.getByRole('button', { name: /Chuyển sang .Đang giao./ })).toBeVisible({
+    timeout: 30_000,
+  });
+
+  // chưa có vận đơn: không chuyển sang Đang giao được, có hướng dẫn
+  await expect(page.getByRole('button', { name: /Chuyển sang .Đang giao./ })).toBeDisabled();
+  await expect(page.getByText(/Cần tạo vận đơn trước/).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Xác nhận đã giao|Hoàn tất/ })).toHaveCount(0);
+
+  // tạo vận đơn
+  const form = page.getByLabel('Tạo vận đơn');
+  await form.getByLabel('Đơn vị vận chuyển').selectOption('ghtk');
+  await form.getByLabel('Mã vận đơn').fill(`GHTK-${Date.now()}`);
+  await form.getByRole('button', { name: 'Tạo vận đơn' }).click();
+  await expect(page.getByText('Đã tạo vận đơn.')).toBeVisible({ timeout: 30_000 });
+  const row = page.getByTestId('shipment-row').first();
+  await expect(row).toContainText('Chờ lấy hàng');
+  await expect(page.getByLabel('Tạo vận đơn')).toHaveCount(0); // đã có vận đơn hoạt động
+
+  // chưa ở Đang giao: không đánh dấu đã giao được
+  await row.getByRole('button', { name: 'Đã lấy hàng' }).click();
+  await expect(row).toContainText('Đã lấy hàng', { timeout: 30_000 });
+  await expect(row.getByRole('button', { name: 'Đánh dấu đã giao' })).toBeDisabled();
+  await page.getByRole('button', { name: /Chuyển sang .Đang giao./ }).click();
+  await expect(page.getByText('Đã cập nhật trạng thái đơn hàng.').first()).toBeVisible({ timeout: 30_000 });
+  expect(await orderStatus(code)).toBe('shipping');
+
+  // giao thất bại ⇒ đơn giữ nguyên Đang giao, tạo vận đơn mới
+  await row.getByRole('button', { name: 'Giao thất bại' }).click();
+  await expect(row).toContainText('Giao thất bại', { timeout: 30_000 });
+  expect(await orderStatus(code)).toBe('shipping');
+  await page.getByLabel('Tạo vận đơn').getByRole('button', { name: 'Tạo vận đơn' }).click();
+  await expect(page.getByTestId('shipment-row')).toHaveCount(2, { timeout: 30_000 });
+
+  // vận đơn mới: lấy hàng → vận chuyển → đã giao ⇒ đơn tự hoàn tất
+  const cur = page.getByTestId('shipment-row').nth(1);
+  await cur.getByRole('button', { name: 'Đã lấy hàng' }).click();
+  await expect(cur).toContainText('Đã lấy hàng', { timeout: 30_000 });
+  await cur.getByRole('button', { name: 'Đang vận chuyển' }).click();
+  await expect(cur).toContainText('Đang vận chuyển', { timeout: 30_000 });
+  await cur.getByRole('button', { name: 'Đánh dấu đã giao' }).click();
+  await expect(page.getByText('Đã đánh dấu đã giao, đơn hàng đã hoàn tất.')).toBeVisible({ timeout: 30_000 });
+  await expect(cur).toContainText('Đã giao');
+  await expect(page.getByText('Đơn hàng đã tự hoàn tất khi vận đơn được giao.')).toBeVisible();
+  expect(await orderStatus(code)).toBe('completed');
+});

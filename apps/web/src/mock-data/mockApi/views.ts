@@ -301,7 +301,8 @@ export function orderView(db: Db, o: Db['orders'][number], opts: { customer?: bo
         reviewed: Boolean(p && db.reviews.some((r) => r.orderId === o.id && r.productId === p.id)),
       };
     });
-  const shipment = db.shipments.find((s) => s.orderId === o.id) ?? null;
+  const orderShipments = db.shipments.filter((s) => s.orderId === o.id);
+  const shipment = orderShipments[orderShipments.length - 1] ?? null; // vận đơn hiện tại = mới nhất
   const user = db.users.find((u) => u.id === o.userId);
   const uv = user ? userView(db, user) : null;
   const delivered = shipment?.deliveredAt ?? null;
@@ -324,6 +325,7 @@ export function orderView(db: Db, o: Db['orders'][number], opts: { customer?: bo
       })),
     payment: db.payments.find((p) => p.orderId === o.id) ?? null,
     shipment,
+    shipments: orderShipments,
     couponCode: coupon?.code ?? null,
     customer:
       opts.customer && user && uv

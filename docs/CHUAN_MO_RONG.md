@@ -111,17 +111,20 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 3 | Xử lý nền mô hình 3D (`model-processing`: kiểm tra GLB, LOD) | Upload mô hình giữ luồng cũ (multipart, giới hạn đã nâng lên 100 MB theo đặc tả); chưa sinh LOD/đo đa giác | Làm cùng MinIO |
 | 4 | `PermissionsGuard` / vai trò-quyền chi tiết (UC-ADM-02) | Chỉ phân biệt khách/admin | Mốc 5 |
 | 5 | `ActivityLogInterceptor` | Nhật ký ghi trực tiếp trong service (`activity_logs`) | Chuyển sang interceptor |
-| 6 | UC "Mốc 5": AR, đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên, xóa tài khoản, thương hiệu, thuộc tính, media, vận đơn, gửi thông báo thủ công, màn nhật ký, thống kê AR | Chưa làm | Mốc 5 |
+| 6 | UC "Mốc 5" còn lại: AR, đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, thống kê AR | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển đã làm) | Mốc 5 |
 | 7 | VNPAY khóa thật | Đã làm URL/chữ ký/Return URL/IPN/thanh toán lại và kiểm bằng khóa giả; chưa có khóa sandbox thật nên chưa thử qua cổng thật | Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` khi có tài khoản |
 | 8 | Android (`apps/mobile`) | Không đụng tới | Mốc 6 |
 | 9 | `users.loyalty_points` | Giữ nguyên cột, chưa có logic cộng/dùng điểm (ngoài đặc tả) | Quyết định khi có yêu cầu |
 | 10 | `carts.coupon_id` | Giữ nguyên (FE lưu mã trong giỏ; chuẩn D-N16 nói chỉ xem trước) | Quyết định khi có yêu cầu |
-| 11 | Chiều trạng thái vận đơn ↔ đơn hàng | Giữ chiều hiện tại; làm `PATCH shipment` và "vận đơn delivered ⇒ đơn completed" cùng UC-ADM-25 ở Mốc 5 | Mốc 5 |
+| 11 | Chiều trạng thái vận đơn ↔ đơn hàng | Đã làm theo D-N14/UC-ADM-25: vận đơn `delivered` ⇒ đơn `completed` cùng transaction; admin không đặt `completed` trực tiếp; sang `shipping` cần có vận đơn | **O-03 (điểm mở):** vận đơn `failed`/`returned` chỉ ghi trạng thái vận đơn, đơn giữ `shipping` (đặc tả chưa chốt cách xử lý đơn giao thất bại/hoàn hàng) |
 | 12 | Cột "Đang giữ" (`reservedQty`) | Đã bỏ khỏi FE/API (tồn đã trừ ngay khi đặt hàng) | — |
 | 13 | Giá combo của không gian | Đặc tả không có combo ⇒ **không áp vào giỏ**, FE chỉ hiển thị tổng giá thật; giữ cột `spaces.combo_discount_percent` và trường API `comboTotal` | Để sau: nếu đặc tả bổ sung combo thì áp ở giỏ |
 | 14 | Slug không gian | Đã sửa: đổi tên KHÔNG đổi slug; admin muốn đổi thì sửa ô slug (kiểm tra duy nhất) | — |
 | 15 | Lối vào `/products/[slug]/360` | Đã khôi phục nút "360°" ở thư viện ảnh (chỉ hiện khi sản phẩm có 360°) | — |
 | 16 | Tải ảnh lớn | Đã sửa: frame 360° và panorama tải từng tệp bằng multipart | Presigned/MinIO là mục 1 |
+| 20 | Media: panorama và tệp lớn | Chưa dùng MinIO nên **panorama chưa dùng presigned PUT**; mọi ảnh tải qua API (multipart) và lưu bằng driver `local`. Job `image-processing` (BullMQ + sharp) vẫn tạo bản webp và thumbnail cho ảnh tải qua `/admin/media` | Làm cùng MinIO (mục 1) |
+| 21 | Media: xóa tệp | Theo DAC_TA UC-ADM-04: tệp đang dùng ở tham chiếu BẮT BUỘC (ảnh sản phẩm, panorama, mô hình, ảnh đánh giá…) ⇒ 409; tham chiếu TÙY CHỌN (ảnh danh mục, logo thương hiệu, avatar, ảnh bìa) bị gỡ liên kết (SET NULL) chứ không chặn. (Yêu cầu ban đầu ghi "đang dùng thì 409"; đã theo đặc tả và FE cảnh báo trước khi xóa) | — |
+| 22 | Thuộc tính hệ thống | `color`, `size`, `material` do mã nguồn dùng để dựng nhãn biến thể/màu 360° ⇒ không đổi mã, không xóa (ngoài đặc tả) | — |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |

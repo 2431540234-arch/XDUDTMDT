@@ -24,7 +24,21 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
   pending: { to: 'confirmed', label: 'Xác nhận đơn hàng' },
   confirmed: { to: 'processing', label: 'Chuyển sang “Đang xử lý”' },
   processing: { to: 'shipping', label: 'Chuyển sang “Đang giao”' },
-  shipping: { to: 'completed', label: 'Xác nhận đã giao' },
+};
+/** Bước kế tiếp của vận đơn (UC-ADM-25); đánh dấu "Đã giao" sẽ tự hoàn tất đơn */
+const SHIP_ACTIONS: Record<string, Array<{ to: string; label: string; danger?: boolean }>> = {
+  pending: [{ to: 'picked_up', label: 'Đã lấy hàng' }],
+  picked_up: [
+    { to: 'in_transit', label: 'Đang vận chuyển' },
+    { to: 'delivered', label: 'Đánh dấu đã giao' },
+    { to: 'failed', label: 'Giao thất bại', danger: true },
+    { to: 'returned', label: 'Hoàn hàng', danger: true },
+  ],
+  in_transit: [
+    { to: 'delivered', label: 'Đánh dấu đã giao' },
+    { to: 'failed', label: 'Giao thất bại', danger: true },
+    { to: 'returned', label: 'Hoàn hàng', danger: true },
+  ],
 };
 const CARRIERS = [
   { value: 'ghn', label: 'Giao Hàng Nhanh (GHN)' },
@@ -41,6 +55,7 @@ export default function AdminOrderDetailPage() {
   const [note, setNote] = useState('');
   const [carrier, setCarrier] = useState('ghn');
   const [tracking, setTracking] = useState('');
+  const [fee, setFee] = useState('');
   const [cancel, setCancel] = useState(false);
   const [reason, setReason] = useState('');
   const [refund, setRefund] = useState(false);
@@ -48,8 +63,9 @@ export default function AdminOrderDetailPage() {
   useEffect(() => {
     if (!o) return;
     setNote(o.internalNote ?? '');
-    setCarrier(o.shipment?.carrier ?? 'ghn');
-    setTracking(o.shipment?.trackingCode ?? '');
+    setCarrier('ghn');
+    setTracking('');
+    setFee('');
   }, [o?.id, o?.updatedAt]);
 
   const refresh = (data: unknown) => {
@@ -83,12 +99,35 @@ export default function AdminOrderDetailPage() {
     },
     onError,
   });
-  const saveShip = useMutation({
-    mutationFn: () => adminApi.orders.updateShipment(o!.id, { carrier, trackingCode: tracking }),
-    onSuccess: (d) => {
-      refresh(d);
-      toast.success('Đã cập nhật vận chuyển.');
+  const afterShip = (r: { order: unknown; warnings: string[] }, msg: string) => {
+    refresh(r.order);
+    toast.success(msg);
+    r.warnings.forEach((w) => toast.info(w));
+  };
+  const createShip = useMutation({
+    mutationFn: () =>
+      adminApi.orders.createShipment(o!.id, {
+        carrier,
+        trackingCode: tracking.trim() || undefined,
+        fee: fee.trim() ? Number(fee) : undefined,
+      }),
+    onSuccess: (r) => {
+      afterShip(r, 'Đã tạo vận đơn.');
+      setTracking('');
+      setFee('');
     },
+    onError,
+  });
+  const moveShip = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) =>
+      adminApi.orders.updateShipment(id, { status }),
+    onSuccess: (r) =>
+      afterShip(
+        r,
+        r.shipment.status === 'delivered'
+          ? 'Đã đánh dấu đã giao, đơn hàng đã hoàn tất.'
+          : 'Đã cập nhật vận đơn.',
+      ),
     onError,
   });
   const confirmPay = useMutation({
@@ -117,6 +156,8 @@ export default function AdminOrderDetailPage() {
     );
   if (!o) return null;
   const next = NEXT[o.status];
+  const hasActiveShip = o.shipments.some((x) => !['failed', 'returned'].includes(x.status));
+  const canCreateShip = ['processing', 'shipping'].includes(o.status) && !hasActiveShip;
   const times: Partial<Record<OrderStatus, string>> = {};
   o.history.forEach((h) => (times[h.toStatus] = h.createdAt));
   const canCancel = ['pending', 'confirmed', 'processing'].includes(o.status);
@@ -157,7 +198,13 @@ export default function AdminOrderDetailPage() {
               </Button>
             )}
             {next && (
-              <Button size="sm" loading={move.isPending} onClick={() => move.mutate(next.to)}>
+              <Button
+                size="sm"
+                loading={move.isPending}
+                disabled={next.to === 'shipping' && !hasActiveShip}
+                title={next.to === 'shipping' && !hasActiveShip ? 'Cần tạo vận đơn trước' : undefined}
+                onClick={() => move.mutate(next.to)}
+              >
                 {next.label}
               </Button>
             )}
@@ -302,37 +349,107 @@ export default function AdminOrderDetailPage() {
                 {o.shippingAddress}, {o.shippingWard}, {o.shippingDistrict}, {o.shippingProvince}
               </span>
             </p>
-            <Select
-              label="Đơn vị vận chuyển"
-              value={carrier}
-              onChange={(e) => setCarrier(e.target.value)}
-              options={CARRIERS}
-            />
-            <div>
-              <label htmlFor="tracking" className="mb-1.5 block text-sm font-medium">
-                Mã vận đơn
-              </label>
-              <input
-                id="tracking"
-                className="field"
-                value={tracking}
-                onChange={(e) => setTracking(e.target.value)}
-                placeholder="VD: GHN123456789"
-              />
+            <div className="border-t border-line pt-3" data-testid="shipments">
+              <h3 className="mb-2 font-semibold">Vận đơn</h3>
+              {o.shipments.length === 0 && <p className="text-xs text-muted">Chưa có vận đơn.</p>}
+              <ul className="space-y-3">
+                {o.shipments.map((sh) => {
+                  const actions = SHIP_ACTIONS[sh.status] ?? [];
+                  return (
+                    <li key={sh.id} className="rounded-btn border border-line p-3" data-testid="shipment-row">
+                      <p className="flex flex-wrap items-center gap-2">
+                        <b>{CARRIERS.find((c) => c.value === sh.carrier)?.label ?? sh.carrier}</b>
+                        <StatusBadge info={shipmentStatusInfo[sh.status]} />
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        Mã vận đơn: {sh.trackingCode ?? '—'} · Phí: {formatCurrency(Number(sh.fee))}
+                        {sh.shippedAt && <> · Lấy hàng: {formatDateTime(sh.shippedAt)}</>}
+                        {sh.deliveredAt && <> · Đã giao: {formatDateTime(sh.deliveredAt)}</>}
+                      </p>
+                      {actions.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {actions.map((a) => (
+                            <Button
+                              key={a.to}
+                              size="sm"
+                              variant={a.danger ? 'ghost' : a.to === 'delivered' ? 'primary' : 'outline'}
+                              loading={
+                                moveShip.isPending &&
+                                moveShip.variables?.id === sh.id &&
+                                moveShip.variables?.status === a.to
+                              }
+                              disabled={
+                                moveShip.isPending || (a.to === 'delivered' && o.status !== 'shipping')
+                              }
+                              title={
+                                a.to === 'delivered' && o.status !== 'shipping'
+                                  ? 'Chuyển đơn sang "Đang giao" trước khi đánh dấu đã giao'
+                                  : undefined
+                              }
+                              onClick={() => moveShip.mutate({ id: sh.id, status: a.to })}
+                            >
+                              {a.label}
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                      {sh.status === 'delivered' && (
+                        <p className="mt-2 text-xs text-green-700">
+                          Đơn hàng đã tự hoàn tất khi vận đơn được giao.
+                        </p>
+                      )}
+                      {(sh.status === 'failed' || sh.status === 'returned') && (
+                        <p className="mt-2 text-xs text-muted">
+                          Đơn vẫn ở trạng thái hiện tại; có thể tạo vận đơn mới để giao lại.
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              {canCreateShip && (
+                <div className="mt-3 space-y-2 rounded-btn bg-surface-muted/50 p-3" aria-label="Tạo vận đơn">
+                  <Select
+                    label="Đơn vị vận chuyển"
+                    value={carrier}
+                    onChange={(e) => setCarrier(e.target.value)}
+                    options={CARRIERS}
+                  />
+                  <div>
+                    <label htmlFor="tracking" className="mb-1.5 block text-sm font-medium">
+                      Mã vận đơn
+                    </label>
+                    <input
+                      id="tracking"
+                      className="field"
+                      value={tracking}
+                      onChange={(e) => setTracking(e.target.value)}
+                      placeholder="VD: GHN123456789"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="ship-fee" className="mb-1.5 block text-sm font-medium">
+                      Phí vận chuyển (để trống = phí của đơn)
+                    </label>
+                    <input
+                      id="ship-fee"
+                      inputMode="numeric"
+                      className="field"
+                      value={fee}
+                      onChange={(e) => setFee(e.target.value.replace(/\D/g, ''))}
+                    />
+                  </div>
+                  <Button size="sm" loading={createShip.isPending} onClick={() => createShip.mutate()}>
+                    Tạo vận đơn
+                  </Button>
+                </div>
+              )}
+              {o.status === 'processing' && !hasActiveShip && (
+                <p className="mt-2 text-xs text-muted">
+                  Cần tạo vận đơn trước khi chuyển đơn sang “Đang giao”.
+                </p>
+              )}
             </div>
-            {o.shipment && (
-              <p className="text-xs text-muted">
-                Trạng thái vận đơn: <StatusBadge info={shipmentStatusInfo[o.shipment.status]} />
-              </p>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              loading={saveShip.isPending}
-              onClick={() => saveShip.mutate()}
-            >
-              Cập nhật vận chuyển
-            </Button>
           </section>
           <section className="card space-y-2 p-5 text-sm">
             <h2 className="font-bold">Thanh toán</h2>

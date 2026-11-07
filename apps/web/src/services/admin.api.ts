@@ -22,6 +22,7 @@ import type {
   StockReceipt,
   StoreSettings,
   AttributeAdmin,
+  ShipmentResult,
   MediaAdmin,
   AttributeValueAdmin,
   BrandAdmin,
@@ -70,8 +71,12 @@ export const adminApi = {
       http.patch<OrderView>(`/admin/orders/${id}/status`, { status, note }),
     cancel: (id: number, reason: string) => http.post<OrderView>(`/admin/orders/${id}/cancel`, { reason }),
     refund: (id: number) => http.post<OrderView>(`/admin/orders/${id}/refund`),
-    updateShipment: (id: number, body: { carrier: string; trackingCode: string }) =>
-      http.patch<OrderView>(`/admin/orders/${id}/shipment`, body),
+    createShipment: (id: number, body: { carrier: string; trackingCode?: string; fee?: number }) =>
+      http.post<ShipmentResult>(`/admin/orders/${id}/shipments`, body),
+    updateShipment: (
+      id: number,
+      body: { status?: string; carrier?: string; trackingCode?: string; fee?: number },
+    ) => http.patch<ShipmentResult>(`/admin/shipments/${id}`, body),
     confirmPayment: (id: number) => http.patch<OrderView>(`/admin/payments/${id}/confirm`),
     saveNote: (id: number, note: string) => http.patch<OrderView>(`/admin/orders/${id}/note`, { note }), // TODO: chưa có trong BE
   },
