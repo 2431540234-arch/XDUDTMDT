@@ -21,6 +21,7 @@ import type {
   SpaceListItem,
   StockReceipt,
   StoreSettings,
+  BrandAdmin,
   StockMovement,
   UserView,
 } from '@/types/api';
@@ -177,6 +178,13 @@ export const adminApi = {
   },
   expenses: {
     create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body),
+  },
+  brands: {
+    list: (q: Query) => http.get<BrandAdmin[]>('/admin/brands', q),
+    create: (body: Record<string, unknown>) => http.post<BrandAdmin>('/admin/brands', body),
+    update: (id: number, body: Record<string, unknown>) =>
+      http.patch<BrandAdmin>(`/admin/brands/${id}`, body),
+    remove: (id: number) => http.delete<{ id: number; productsDetached: number }>(`/admin/brands/${id}`),
   },
   notifications: () =>
     http.get<Array<{ id: number; text: string; createdAt: string; link: string }>>('/admin/notifications'),

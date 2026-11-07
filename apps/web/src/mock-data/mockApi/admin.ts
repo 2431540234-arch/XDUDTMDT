@@ -2001,6 +2001,73 @@ export function resetMock(): Result {
   return done();
 }
 
+// ===================== Thương hiệu =====================
+const brandAdminView = (db: Db, b: Db['brands'][number]) => ({
+  id: b.id,
+  name: b.name,
+  slug: b.slug,
+  logoUrl: mediaPath(db, b.logoMediaId),
+  isActive: b.isActive,
+  productCount: db.products.filter((p) => p.brandId === b.id && !p.deletedAt).length,
+});
+export function adminBrands(ctx: Ctx): Result {
+  const q = fold(qStr(ctx.query, 'q'));
+  return ok(
+    ctx.db.brands
+      .filter((b) => !q || fold(`${b.name} ${b.slug}`).includes(q))
+      .map((b) => brandAdminView(ctx.db, b)),
+  );
+}
+function brandInput(ctx: Ctx, self?: Db['brands'][number]) {
+  const b = ctx.body ?? {};
+  const name = String(b.name ?? self?.name ?? '').trim();
+  if (!name) throw validation({ name: 'Vui lòng nhập tên thương hiệu.' });
+  const slug = fold(String(b.slug || self?.slug || name))
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (ctx.db.brands.some((x) => x.slug === slug && x.id !== self?.id))
+    throw new ApiFail('CONFLICT', 'Slug đã được dùng cho thương hiệu khác.', {
+      slug: ['Slug đã được dùng cho thương hiệu khác.'],
+    });
+  return { name, slug, b };
+}
+export function createBrand(ctx: Ctx): Result {
+  const { name, slug, b } = brandInput(ctx);
+  const row = {
+    id: nextId(ctx.db.brands),
+    name,
+    slug,
+    logoMediaId: b.logoUrl ? mediaFrom(ctx.db, b.logoUrl, `brand-${slug}.png`) : null,
+    isActive: b.isActive !== false,
+  } as Db['brands'][number];
+  ctx.db.brands.push(row);
+  return created(brandAdminView(ctx.db, row));
+}
+export function updateBrand(ctx: Ctx): Result {
+  const row = ctx.db.brands.find((x) => x.id === Number(ctx.params.id));
+  if (!row) throw notFound('Thương hiệu');
+  const { name, slug, b } = brandInput(ctx, row);
+  row.name = name;
+  row.slug = slug;
+  if (typeof b.isActive === 'boolean') row.isActive = b.isActive;
+  if (b.logoUrl === null) row.logoMediaId = null;
+  else if (b.logoUrl) row.logoMediaId = mediaFrom(ctx.db, b.logoUrl, `brand-${slug}.png`);
+  return ok(brandAdminView(ctx.db, row));
+}
+export function deleteBrand(ctx: Ctx): Result {
+  const i = ctx.db.brands.findIndex((x) => x.id === Number(ctx.params.id));
+  if (i < 0) throw notFound('Thương hiệu');
+  const id = ctx.db.brands[i].id;
+  let n = 0;
+  for (const p of ctx.db.products)
+    if (p.brandId === id) {
+      p.brandId = null;
+      n++;
+    }
+  ctx.db.brands.splice(i, 1);
+  return ok({ id, productsDetached: n });
+}
+
 // ===================== Kho hàng =====================
 export function inventoryRows(db: Db): InventoryRow[] {
   return db.productVariants

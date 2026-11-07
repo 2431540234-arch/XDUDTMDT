@@ -29,6 +29,7 @@ export const adminMenu: Item[] = [
   },
   { href: '/admin/spaces', label: 'Không gian mẫu', icon: 'image' },
   { href: '/admin/categories', label: 'Danh mục', icon: 'folder' },
+  { href: '/admin/brands', label: 'Thương hiệu', icon: 'tag' },
   { href: '/admin/orders', label: 'Đơn hàng', icon: 'receipt' },
   { href: '/admin/returns', label: 'Đổi trả', icon: 'refresh' },
   { href: '/admin/customers', label: 'Khách hàng', icon: 'users' },

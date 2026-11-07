@@ -443,6 +443,16 @@ export interface StockMovement {
   createdAt: string;
 }
 
+/** Thương hiệu ở trang quản trị (GET /admin/brands) */
+export interface BrandAdmin {
+  id: number;
+  name: string;
+  slug: string;
+  logoUrl: string | null;
+  isActive: boolean;
+  productCount: number;
+}
+
 export interface Expense {
   // TODO: chưa có trong DB
   id: number;

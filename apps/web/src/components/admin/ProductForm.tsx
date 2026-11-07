@@ -18,7 +18,6 @@ import { cn } from '@/lib/cn';
 import { discountPercent, formatCurrency, slugify } from '@/lib/format';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
-import { brandApi } from '@/services/product.api';
 import { toast } from '@/store/uiStore';
 
 type Tab = 'basic' | 'images' | 'variants' | 'model' | 'view360' | 'attrs' | 'seo';
@@ -172,7 +171,8 @@ export default function ProductForm({ productId }: { productId?: number }) {
   const [specs, setSpecs] = useState<Array<{ label: string; value: string }>>([]);
   const [features, setFeatures] = useState('');
   const cats = useCategories();
-  const brands = useQuery({ queryKey: ['brands'], queryFn: brandApi.list });
+  // ô chọn thương hiệu lấy từ API quản trị thương hiệu (UC-ADM-06): chỉ thương hiệu đang hoạt động (+ thương hiệu hiện tại của sản phẩm)
+  const brands = useQuery({ queryKey: ['admin', 'brands', 'pick'], queryFn: () => adminApi.brands.list({}) });
   const q = useQuery({
     queryKey: ['admin', 'product', productId],
     queryFn: () => adminApi.products.get(productId!),
@@ -389,7 +389,9 @@ export default function ProductForm({ productId }: { productId?: number }) {
                 placeholder="Chọn thương hiệu"
                 value={v.brandId}
                 onChange={(e) => set('brandId', e.target.value)}
-                options={(brands.data ?? []).map((b) => ({ value: b.id, label: b.name }))}
+                options={(brands.data ?? [])
+                  .filter((b) => b.isActive || String(b.id) === v.brandId)
+                  .map((b) => ({ value: b.id, label: b.isActive ? b.name : `${b.name} (đã tắt)` }))}
               />
               <Input
                 label="Giá bán (đ)"
