@@ -1,3 +1,5 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { deflateSync } from 'node:zlib';
 import { expect, test, type Page } from '@playwright/test';
 
@@ -88,15 +90,10 @@ test('admin: bật 360° cho sản phẩm – tải 4 frame (tự xếp theo tê
   await input.setInputFiles(colors.map(([n, c]) => file(n, png(64, 48, c))));
   await expect(page.getByText(/4 frame · kéo thả để đổi thứ tự/)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Xem trước xoay')).toBeVisible();
-  // thứ tự hiển thị: frame đầu là màu xanh dương (frame-1)
-  const first = await page.getByAltText('Frame 1').evaluate((img: HTMLImageElement) => {
-    const c = document.createElement('canvas');
-    c.width = c.height = 1;
-    const ctx = c.getContext('2d')!;
-    ctx.drawImage(img, 0, 0, 1, 1);
-    return Array.from(ctx.getImageData(0, 0, 1, 1).data.slice(0, 3));
-  });
-  expect(first[2]).toBeGreaterThan(150);
+  // thứ tự hiển thị: frame đầu chính là tệp frame-1.png (so sánh nội dung tệp đã lưu trên máy chủ)
+  const src = (await page.getByAltText('Frame 1').getAttribute('src'))!;
+  const saved = await (await page.request.get(src)).body();
+  expect(saved.equals(png(64, 48, [10, 10, 200]))).toBe(true);
 
   await page.getByRole('button', { name: 'Lưu ảnh 360°' }).click();
   await expect(page.getByText('Đã lưu ảnh 360°.')).toBeVisible({ timeout: 30_000 });
@@ -144,6 +141,41 @@ test('admin: xóa frame của màu + tắt 360° ⇒ khách không còn thấy 3
     timeout: 30_000,
   });
   await expect(page.getByRole('application', { name: 'Xem sản phẩm 360 độ' })).toHaveCount(0);
+});
+
+test('trường hợp lớn nhất: 36 frame × ~1,9 MB (≈68 MB) tải từng tệp, lưu và tải lại đủ 36 frame', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await adminLogin(page);
+  await page.goto(`/admin/products/${PRODUCT_ID}`);
+  await page.getByRole('tab', { name: /360/ }).click();
+  await page.getByRole('switch', { name: /Bật xem 360°/ }).check();
+  await page.getByRole('tab', { name: /Óc chó/ }).click();
+  // Playwright chỉ nhận buffer tổng ≤ 50 MB ⇒ ghi tệp ra thư mục tạm của test rồi truyền đường dẫn
+  const dir = test.info().outputDir;
+  mkdirSync(dir, { recursive: true });
+  const files = Array.from({ length: 36 }, (_, i) => {
+    const p = join(dir, `frame-${String(i + 1).padStart(2, '0')}.png`);
+    writeFileSync(
+      p,
+      Buffer.concat([png(64, 48, [i * 6, 100, 200 - i * 4]), Buffer.alloc(1.9 * 1024 * 1024, i)]),
+    );
+    return p;
+  });
+  await page.locator('input[type="file"]').first().setInputFiles(files);
+  await expect(page.getByText(/36 frame · kéo thả để đổi thứ tự/)).toBeVisible({ timeout: 120_000 });
+  await page.getByRole('button', { name: 'Lưu ảnh 360°' }).click();
+  await expect(page.getByText('Đã lưu ảnh 360°.')).toBeVisible({ timeout: 60_000 });
+  await page.reload();
+  await page.getByRole('tab', { name: /360/ }).click();
+  await page.getByRole('tab', { name: /Óc chó/ }).click();
+  await expect(page.getByText(/36 frame · kéo thả để đổi thứ tự/)).toBeVisible({ timeout: 30_000 });
+  // dọn: xóa frame, tắt 360°
+  await page.getByRole('button', { name: 'Xóa toàn bộ frame của màu này' }).click();
+  await page.getByRole('switch', { name: /Bật xem 360°/ }).uncheck();
+  await page.getByRole('button', { name: 'Lưu ảnh 360°' }).click();
+  await expect(page.getByText('Đã lưu ảnh 360°.')).toBeVisible({ timeout: 30_000 });
 });
 
 // ----------------------------------------------------------------------------- không gian mẫu (5 tab + hotspot)

@@ -93,10 +93,16 @@ async function rawRequest(
     res = await fetch(`${apiClient.baseURL}${path}${buildQueryString(opts.query)}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        // FormData: để trình duyệt tự đặt Content-Type (multipart + boundary)
+        ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body:
+        opts.body === undefined
+          ? undefined
+          : opts.body instanceof FormData
+            ? opts.body
+            : JSON.stringify(opts.body),
     });
   } catch {
     throw new ApiClientError('NETWORK_ERROR', 'Không kết nối được máy chủ. Vui lòng thử lại.', 0);

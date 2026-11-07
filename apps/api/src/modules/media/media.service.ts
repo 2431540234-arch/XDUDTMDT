@@ -17,6 +17,9 @@ const EXT_BY_MIME: Record<string, string> = {
 };
 const KEY_PREFIX = { image: 'images', panorama: 'panoramas' } as const;
 
+/** Ảnh frame xoay 360°: tối đa 2 MB/ảnh (khớp media-ingest) */
+const FRAME_MAX_BYTES = 2 * 1024 * 1024;
+
 export interface UploadedImage {
   originalname: string;
   mimetype: string;
@@ -41,20 +44,30 @@ export class MediaService {
     return Math.floor(mb * 1024 * 1024);
   }
 
-  /** Ảnh thường (<= UPLOAD_MAX_IMAGE_MB): tải qua API (multipart, bộ nhớ) rồi API ghi lên bucket public. */
-  async uploadImage(file: UploadedImage | undefined, uploadedBy: number, altText?: string) {
+  /**
+   * Tải MỘT tệp ảnh qua API (multipart, bộ nhớ) rồi ghi lên bucket public. `kind`:
+   *  - image (mặc định): <= UPLOAD_MAX_IMAGE_MB; - frame (ảnh xoay 360°): <= 2 MB; - panorama: <= UPLOAD_MAX_PANORAMA_MB.
+   * Dùng cho tệp lớn (từng frame/panorama) để không phải nhét base64 vào JSON (giới hạn body 25 MB).
+   */
+  async uploadImage(
+    file: UploadedImage | undefined,
+    uploadedBy: number,
+    altText?: string,
+    kind: 'image' | 'frame' | 'panorama' = 'image',
+  ) {
     if (!file) throw new AppException(ErrorCode.BAD_REQUEST, 'Thiếu tệp ảnh (trường "file").');
     if (!IMAGE_MIME.includes(file.mimetype)) {
       throw new AppException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, 'Chỉ hỗ trợ ảnh JPEG, PNG, WebP.');
     }
-    const max = this.maxBytes('image');
+    const max =
+      kind === 'frame' ? FRAME_MAX_BYTES : this.maxBytes(kind === 'panorama' ? 'panorama' : 'image');
     if (file.size > max) {
       throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, `Ảnh vượt quá ${max / 1024 / 1024} MB.`, {
         maxBytes: max,
       });
     }
     const month = new Date().toISOString().slice(0, 7).replace('-', '/');
-    const key = `${KEY_PREFIX.image}/${month}/${randomUUID()}${EXT_BY_MIME[file.mimetype]}`;
+    const key = `${kind === 'panorama' ? KEY_PREFIX.panorama : KEY_PREFIX.image}/${month}/${randomUUID()}${EXT_BY_MIME[file.mimetype]}`;
     await this.storage.upload({ key, body: file.buffer, contentType: file.mimetype, visibility: 'public' });
     const media = await this.prisma.media.create({
       data: {

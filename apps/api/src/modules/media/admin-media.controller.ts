@@ -16,19 +16,21 @@ import { MediaService, type UploadedImage } from './media.service';
 export class AdminMediaController {
   constructor(private readonly media: MediaService) {}
 
-  /** Ảnh thường (<= 5 MB): multipart, trường "file". API ghi lên MinIO rồi tạo media. */
+  /** Một tệp ảnh: multipart, trường "file" (+ kind = image | frame | panorama). Ảnh 5 MB, frame 360° 2 MB, panorama 20 MB. */
   @Post()
   @HttpCode(201)
-  // Giới hạn cứng 20 MB ở multer chỉ để chặn lạm dụng bộ nhớ; hạn mức 5 MB do MediaService kiểm tra (trả 413 chuẩn)
+  // Giới hạn cứng 25 MB ở multer chỉ để chặn lạm dụng bộ nhớ; hạn mức 5 MB do MediaService kiểm tra (trả 413 chuẩn)
   @UseInterceptors(
-    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }),
+    FileInterceptor('file', { storage: memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } }),
   )
   uploadImage(
     @UploadedFile() file: UploadedImage | undefined,
     @Body('altText') altText: string | undefined,
+    @Body('kind') kind: string | undefined,
     @CurrentUser('id') adminId: number,
   ) {
-    return this.media.uploadImage(file, adminId, altText);
+    const k = kind === 'frame' || kind === 'panorama' ? kind : 'image';
+    return this.media.uploadImage(file, adminId, altText, k);
   }
 
   /** Cấp URL để trình duyệt PUT panorama (<= 20 MB) thẳng lên MinIO. */

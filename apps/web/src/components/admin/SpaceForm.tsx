@@ -8,12 +8,14 @@ import { useEffect, useState } from 'react';
 import FormSection, { FormGrid } from '@/components/admin/FormSection';
 import { PageHeader } from '@/components/admin/FilterBar';
 import UploadDropzone, { readAsDataUrl } from '@/components/admin/UploadDropzone';
+import { uploadMany } from '@/services/media.api';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import Input, { Select, Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
 import { roomTypeLabel } from '@/lib/status';
+import { errorMessage } from '@/lib/validators';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
@@ -275,7 +277,12 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
               hint="Kéo thả hoặc click để tải ảnh 360° – PNG, JPG (tối đa 20MB)"
               onError={toast.error}
               onFiles={async (files) => {
-                const urls = await Promise.all(files.map(readAsDataUrl));
+                let urls: string[];
+                try {
+                  urls = await uploadMany(files, 'panorama', 2);
+                } catch (e) {
+                  return toast.error(errorMessage(e));
+                }
                 setPanos((cur) => [
                   ...cur,
                   ...urls.map((url, i) => ({ url, title: `Góc ${cur.length + i + 1}`, hotspots: [] })),

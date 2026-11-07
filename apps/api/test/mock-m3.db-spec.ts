@@ -1004,6 +1004,81 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       await api('patch', `/admin/spaces/${spaceId}`, admin, { status: 'published' });
     });
 
+    describe('tải ảnh lớn từng tệp (multipart) – trường hợp lớn nhất', () => {
+      const MB = 1024 * 1024;
+      const pngOf = (bytes: number) =>
+        Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), Buffer.alloc(bytes - 4, 7)]);
+      const upload = (kind: string, buf: Buffer, mime = 'image/png', token = admin) =>
+        http
+          .post('/api/admin/media')
+          .set('Authorization', `Bearer ${token}`)
+          .field('kind', kind)
+          .attach('file', buf, { filename: 'anh.png', contentType: mime });
+
+      it('giới hạn theo loại: ảnh 5 MB, frame 360° 2 MB, panorama 20 MB; sai MIME ⇒ 415; khách ⇒ 403', async () => {
+        expect((await upload('frame', pngOf(2 * MB))).status).toBe(201);
+        expect((await upload('frame', pngOf(2 * MB + 1))).status).toBe(413);
+        expect((await upload('image', pngOf(5 * MB))).status).toBe(201);
+        expect((await upload('image', pngOf(5 * MB + 1))).status).toBe(413);
+        expect((await upload('panorama', pngOf(20 * MB))).status).toBe(201);
+        expect((await upload('panorama', pngOf(20 * MB + 1))).status).toBe(413);
+        expect((await upload('frame', pngOf(1000), 'application/pdf')).status).toBe(415);
+        expect((await upload('frame', pngOf(1000), 'image/png', cust)).status).toBe(403);
+      });
+
+      it('36 frame × ~2 MB (≈72 MB, vượt body JSON 25 MB) tải từng tệp rồi lưu cấu hình 360° chỉ bằng URL', async () => {
+        const urls: string[] = [];
+        for (let i = 0; i < 36; i++) {
+          const r = await upload('frame', pngOf(2 * MB - 100 - i));
+          expect(r.status).toBe(201);
+          urls.push(r.body.data.url);
+        }
+        const body = {
+          enabled: true,
+          autoRotate: true,
+          colors: [{ name: 'Óc chó', hex: '#5C4033', frames: urls }],
+        };
+        expect(JSON.stringify(body).length).toBeLessThan(25 * 1024); // chỉ URL, không có base64
+        const r = await api('put', '/admin/products/12/360', admin, body);
+        expect(r.status).toBe(200);
+        const got = await api('get', '/admin/products/12/360', admin);
+        expect(got.body.data.colors.find((c: { name: string }) => c.name === 'Óc chó').frames).toHaveLength(
+          36,
+        );
+        // khách thấy đủ 36 frame
+        const pub = await api('get', '/products/ke-tivi-hien-dai/360');
+        expect(pub.status).toBe(200);
+        expect(pub.body.data.frameCount).toBe(36);
+      });
+
+      it('2 panorama × 20 MB (vượt body JSON nếu dùng base64) tải từng tệp rồi tạo không gian bằng URL', async () => {
+        const urls: string[] = [];
+        for (let i = 0; i < 2; i++) {
+          const r = await upload('panorama', pngOf(20 * MB - i));
+          expect(r.status).toBe(201);
+          urls.push(r.body.data.url);
+        }
+        const r = await api('post', '/admin/spaces', admin, {
+          title: 'Không gian hai panorama lớn',
+          roomType: 'bedroom',
+          description: 'Hai ảnh panorama dung lượng lớn nhất cho phép',
+          status: 'draft',
+          panoramas: [
+            {
+              url: urls[0],
+              title: 'Góc 1',
+              hotspots: [{ type: 'navigation', yaw: 10, pitch: 0, targetIndex: 1 }],
+            },
+            { url: urls[1], title: 'Góc 2', hotspots: [] },
+          ],
+          productIds: [prods[0]],
+        });
+        expect(r.status).toBe(201);
+        expect(r.body.data.panoramas).toHaveLength(2);
+        await api('delete', `/admin/spaces/${r.body.data.id}`, admin);
+      });
+    });
+
     it('slug: đổi tên KHÔNG đổi slug; admin sửa slug trực tiếp (duy nhất, hợp lệ); slug cũ ngừng hoạt động', async () => {
       const keep = await api('patch', `/admin/spaces/${spaceId}`, admin, {
         title: 'Tên hoàn toàn mới cho không gian',
