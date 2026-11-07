@@ -206,4 +206,6 @@ npm run dev -w @aurelia-living/web                          # http://localhost:3
 
 Tài khoản: `admin@aurelia.vn` / `admin123`, `khachhang@aurelia.vn` / `123456`. **Không** chạy seed/reset trên `aurelia_dev`. Chi tiết: `docs/BE_PROGRESS.md`.
 
+**Chạy demo:** xem `docs/HUONG_DAN_DEMO.md` (khởi động, tài khoản, kịch bản từng bước).
+
 **Tài liệu chuẩn** (không tự sửa): `docs/CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`, `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`. Phần dự án giữ/làm thêm ngoài chuẩn và các chỗ lệch tạm thời: **`docs/CHUAN_MO_RONG.md`**.
