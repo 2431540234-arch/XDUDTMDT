@@ -696,6 +696,30 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       expect(r1.income.discountAndRefund).toBeGreaterThanOrEqual(refund);
     });
 
+    it('giá vốn chỉ trừ MỘT lần: phiếu nhập 10 × 1.200.000 = 12.000.000 làm giá vốn +12.000.000; đơn giao thành công không trừ thêm giá vốn', async () => {
+      const r0 = await report();
+      const v = (await variantWithStock(1))!;
+      const rec = await api('post', '/admin/inventory/receipts', admin, {
+        type: 'in',
+        supplierName: 'NCC giá vốn',
+        items: [{ variantId: v.id, quantity: 10, costPrice: 1_200_000 }],
+      });
+      expect(rec.status).toBe(201);
+      const r1 = await report();
+      expect(r1.income.cogs - r0.income.cogs).toBe(12_000_000);
+      expect(r1.totalExpense - r0.totalExpense).toBe(12_000_000);
+      expect(r1.income.opex).toBe(r0.income.opex); // giá vốn không lẫn vào chi phí vận hành
+      expect(r1.income.profitBeforeTax - r0.income.profitBeforeTax).toBe(-12_000_000); // trừ đúng một lần, không phải -24.000.000
+      expect(r1.profit - r0.profit).toBe(-12_000_000);
+
+      // giao một đơn: lợi nhuận chỉ tăng đúng bằng doanh thu đơn (giá vốn đã tính ở phiếu nhập, không tính lại theo giá vốn dòng hàng)
+      const o = await deliveredOrder();
+      const r2 = await report();
+      expect(r2.income.cogs).toBe(r1.income.cogs);
+      expect(r2.profit - r1.profit).toBe(Number(o.total));
+      expect(r2.income.profitBeforeTax - r1.income.profitBeforeTax).toBe(Number(o.total));
+    });
+
     it('phí vận chuyển và phí cổng thanh toán KHÔNG tự sinh phiếu chi', async () => {
       const before = await prisma.expense.count({ where: { category: { in: ['shipping', 'payment_fee'] } } });
       await deliveredOrder();

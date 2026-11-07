@@ -66,6 +66,12 @@ Ràng buộc/index mở rộng đi theo các bảng trên (`ck_*`, `uq_*`, `idx_
 - **Đổi hàng:** cộng tồn biến thể cũ (`return`), trừ tồn biến thể mới (`sale`, mặc định cùng biến thể); thiếu hàng ⇒ `409 OUT_OF_STOCK`, giao dịch hoàn tác.
 - **Hoàn tiền:** `refund_amount` = Σ(đơn giá × số lượng) × (tạm tính − giảm giá hàng hóa) ÷ tạm tính, làm tròn đồng; mã `freeship` không trừ vào tiền hàng; **không hoàn phí vận chuyển**; đơn chuyển `refunded` khi đã trả hết mọi dòng hoặc đã hoàn đủ tiền hàng.
 - **Phiếu kho (đã làm ở Mốc 4):** xác nhận phiếu `in` ⇒ movement `import`, cập nhật `cost_price` biến thể và sinh phiếu chi `cogs`; phiếu `out` ⇒ movement `adjustment` âm (thiếu hàng ⇒ 409, hoàn tác cả phiếu); `draft`/`cancelled` không đổi tồn; mã phiếu = `reference_code` của movement.
+- **Công thức báo cáo thu chi (chuẩn/đặc tả không quy định giá vốn nên chọn một cách, theo tiền chi thực tế):**
+  - Thu = Σ `orders.total` của đơn giao thành công trong kỳ (theo ngày giao).
+  - Giá vốn (`income.cogs`) = Σ phiếu chi `cogs` trong kỳ = giá trị các phiếu nhập kho hoàn tất (số lượng × giá vốn nhập) cộng phiếu `cogs` nhập tay. KHÔNG tính lại theo `order_items.cost_price` của đơn đã bán, nên giá vốn chỉ bị trừ MỘT lần.
+  - Chi phí vận hành (`income.opex`) = phiếu chi trừ `cogs` và `refund`; hoàn tiền (`refund`) lấy từ phiếu chi tự sinh khi duyệt đổi trả.
+  - Doanh thu thuần = (tạm tính + phí ship) − giảm giá − hoàn tiền; Lợi nhuận trước thuế = doanh thu thuần − giá vốn − chi phí vận hành = Thu − Tổng chi.
+  - Ví dụ: nhập 10 × 1.200.000 ⇒ giá vốn +12.000.000, lợi nhuận −12.000.000 (không phải −24.000.000); giao một đơn tổng 5.000.000 ⇒ lợi nhuận +5.000.000. Hệ quả: hàng đã nhập nhưng chưa bán vẫn tính vào chi phí kỳ nhập (cách tính theo tiền chi, không theo giá vốn hàng đã bán).
 - **Doanh thu báo cáo (mặc định đã chốt, chuẩn/đặc tả không quy định):** đơn giao thành công (`completed`) tính theo ngày giao (lần đầu sang `completed`), phần đã hoàn tiền trừ qua phiếu chi `refund`; phí vận chuyển và phí cổng thanh toán KHÔNG tự sinh phiếu chi (admin nhập tay).
 - **Số lượng ENUM theo từng tài liệu chuẩn khác nhau** (xem Phần 4) – tin vào DB thực.
 
