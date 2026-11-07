@@ -124,14 +124,17 @@ test('hotspot: thông tin, sản phẩm (xem/thêm), điều hướng sang góc 
   await expect(thumb('Góc phụ')).toHaveAttribute('aria-current', 'true');
 });
 
-test('thêm cả bộ vào giỏ: số lượng theo ô chọn, bỏ chọn một món, giá combo hiển thị', async ({ page }) => {
+test('thêm cả bộ vào giỏ: số lượng theo ô chọn, bỏ chọn một món, tổng giá thật (không combo)', async ({
+  page,
+}) => {
   await login(page, `/spaces/${SLUG}`);
   await waitViewer(page);
   const header = page.getByRole('heading', { name: /Sản phẩm trong không gian/ });
   await expect(header).toContainText('(5)');
-  await expect(page.getByText(/Giá combo/)).toBeVisible();
+  await expect(page.getByText('Tổng cộng (5 sản phẩm)')).toBeVisible();
+  await expect(page.getByText(/Giá combo/)).toHaveCount(0);
   await page.getByRole('checkbox', { name: 'Chọn Thảm lông tròn' }).uncheck();
-  await expect(page.getByText('Giá gốc (4 sản phẩm)')).toBeVisible();
+  await expect(page.getByText('Tổng cộng (4 sản phẩm)')).toBeVisible();
   const badge = page.getByRole('link', { name: 'Giỏ hàng' });
   const n0 = Number((await badge.innerText()) || 0);
   await page.getByRole('button', { name: /Thêm cả bộ vào giỏ hàng/ }).click();

@@ -213,7 +213,7 @@ test('admin: tạo không gian – thông tin, 2 ảnh 360°, hotspot sản ph�
   await expect(page.getByRole('row', { name: new RegExp(TITLE) })).toBeVisible({ timeout: 30_000 });
 });
 
-test('khách thấy không gian mới: 2 góc, hotspot đúng loại, giá combo, sản phẩm gợi ý', async ({
+test('khách thấy không gian mới: 2 góc, hotspot đúng loại, tổng giá, sản phẩm gợi ý', async ({
   page,
   request,
 }) => {
@@ -229,7 +229,7 @@ test('khách thấy không gian mới: 2 góc, hotspot đúng loại, giá combo
   await expect(page.getByLabel('Ảnh 360 độ')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText(/Đang tải ảnh 360°/)).toBeHidden({ timeout: 30_000 });
   await expect(page.getByRole('heading', { name: /Sản phẩm trong không gian \(2\)/ })).toBeVisible();
-  await expect(page.getByText(/Giá combo/)).toBeVisible();
+  await expect(page.getByText('Tổng cộng (2 sản phẩm)')).toBeVisible();
   await expect(
     page.getByRole('button', { name: 'Góc cửa sổ' }).filter({ has: page.locator('img') }),
   ).toBeVisible();

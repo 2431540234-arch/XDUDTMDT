@@ -1,6 +1,6 @@
 'use client';
 
-// Chi tiết không gian mẫu (WIREFRAME 7.6): viewer 360° + hotspot | sản phẩm trong không gian + giá combo
+// Chi tiết không gian mẫu (WIREFRAME 7.6): viewer 360° + hotspot | sản phẩm trong không gian + tổng giá thật (đặc tả không có giá combo)
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -64,7 +64,6 @@ export default function SpaceDetailPage() {
   const pano = s?.panoramas.find((p) => p.id === panoId) ?? s?.panoramas[0];
   const chosen = useMemo(() => s?.products.filter((p) => checked.includes(p.id)) ?? [], [s, checked]);
   const original = chosen.reduce((sum, p) => sum + (p.salePrice ?? p.price), 0);
-  const combo = Math.round((original * (100 - (s?.comboDiscountPercent ?? 10))) / 100 / 1000) * 1000;
 
   const addAll = useMutation({
     mutationFn: async () => {
@@ -304,20 +303,9 @@ export default function SpaceDetailPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 border-t border-line pt-3 text-sm">
-              <div className="flex justify-between text-muted">
-                <span>Giá gốc ({chosen.length} sản phẩm)</span>
-                <span className="line-through">{formatCurrency(original)}</span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between">
-                <span className="font-semibold">
-                  Giá combo{' '}
-                  <span className="text-xs font-normal text-danger">
-                    (-{s.comboDiscountPercent}% khi mua trọn bộ)
-                  </span>
-                </span>
-                <span className="text-xl font-extrabold text-danger">{formatCurrency(combo)}</span>
-              </div>
+            <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-sm">
+              <span className="font-semibold">Tổng cộng ({chosen.length} sản phẩm)</span>
+              <span className="text-xl font-extrabold text-danger">{formatCurrency(original)}</span>
             </div>
             <Button
               block

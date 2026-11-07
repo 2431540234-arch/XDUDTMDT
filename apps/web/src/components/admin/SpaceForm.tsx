@@ -457,8 +457,8 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
         {tab === 'products' && (
           <div className="space-y-3">
             <p className="text-sm text-muted">
-              Chọn các sản phẩm xuất hiện trong không gian (tính vào giá combo). Mỗi sản phẩm sẽ có điểm tương
-              tác trên ảnh đầu tiên.
+              Chọn các sản phẩm xuất hiện trong không gian Mỗi sản phẩm sẽ có điểm tương tác trên ảnh đầu
+              tiên.
             </p>
             <input
               className="field"
@@ -514,10 +514,7 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
                 { value: 'archived', label: 'Ẩn hiển thị' },
               ]}
             />
-            <p className="text-xs text-muted">
-              Chỉ không gian “Đang hiển thị” mới xuất hiện trên website. Giá combo mặc định giảm thêm 10% khi
-              mua trọn bộ.
-            </p>
+            <p className="text-xs text-muted">Chỉ không gian “Đang hiển thị” mới xuất hiện trên website.</p>
           </div>
         )}
       </FormSection>
