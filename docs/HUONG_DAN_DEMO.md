@@ -55,7 +55,8 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 8. **Không gian mẫu** (`/admin/spaces`): *Thêm không gian mẫu* — 5 tab: thông tin, **ảnh 360°** (tải ảnh tỉ lệ 2:1), **điểm tương tác** (bấm lên ảnh để đặt hotspot: sản phẩm / điều hướng / thông tin), sản phẩm gợi ý, hiển thị → lưu → mở trang khách để xem. Ô **slug** chỉ đổi khi bạn sửa trực tiếp.
 9. **Sản phẩm** (`/admin/products`): sửa sản phẩm → tab **Ảnh 360°** (bật 360°, tải nhiều frame theo màu, đổi thứ tự, xem trước xoay, tối đa 2 MB/ảnh); tab **Biến thể** chọn màu/kích thước từ danh sách thuộc tính; ô **Thương hiệu** lấy từ trang Thương hiệu.
 10. **Danh mục, Thương hiệu, Thuộc tính, Thư viện media**: `/admin/categories`; `/admin/brands` (thêm/sửa/tắt, slug trùng báo lỗi, xóa có cảnh báo số sản phẩm bị gỡ thương hiệu); `/admin/attributes` (Màu sắc/Kích thước/Chất liệu và giá trị; giá trị đang được biến thể dùng không xóa được); `/admin/media` (tải ảnh ≤ 5 MB, sửa mô tả, xóa tệp chưa dùng).
-10b. **Khuyến mãi** (`/admin/promotions`), **Khách hàng** (`/admin/customers`), **Mô hình 3D** (`/admin/models`, giới hạn 100 MB).
+10b. **Khuyến mãi** (`/admin/promotions`), **Khách hàng** (`/admin/customers`).
+10c. **Mô hình 3D – xử lý nền** (`/admin/models`): bấm *Tải lên mô hình*, chọn sản phẩm và một tệp GLB (có thể dùng `apps/api/test/fixtures/sphere.glb`) → *Tải lên*. Tệp được nhận ngay (thông báo "đang được xử lý nền") và dòng mô hình hiện **Đang xử lý nền…**; trang tự cập nhật (không cần tải lại) sang **Sẵn sàng** với 3 dòng LOD *high / medium / low*. Mở `/products/<slug>/3d` để xem: máy tính dùng LOD medium, điện thoại (thu hẹp cửa sổ < 768 px rồi tải lại) dùng LOD low. Thử thêm: tải `apps/api/test/fixtures/broken.glb` → trạng thái **Lỗi** kèm lý do và nút **Xử lý lại**; tải lên mô hình thứ hai cho cùng sản phẩm (tick *Tạo mô hình mới*) rồi bấm **Đặt làm mô hình chính**. Cần Redis (`npm run docker:up`). Giới hạn 100 MB; mỗi LOD phải ≤ 5 MB, vượt thì báo lỗi và gửi thông báo cho admin.
 11. **Cài đặt** (`/admin/settings`): thông tin cửa hàng (tên, email, hotline… kiểm tra dữ liệu), **thanh toán** (bật/tắt phương thức — phương thức tắt bị ẩn ở trang thanh toán và bị từ chối khi đặt), **vận chuyển** (phí theo vùng). Thay đổi có hiệu lực ngay ở phía khách.
 
 ## 5. Chưa làm (nói rõ khi trình bày)
@@ -63,7 +64,7 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 - **Mốc 5 còn lại** (ngoài phạm vi): AR (xem sản phẩm trong phòng thật), đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên đăng nhập, xóa tài khoản, gửi thông báo thủ công, màn nhật ký hoạt động, thống kê AR, phân quyền chi tiết theo vai trò. (Thương hiệu, thuộc tính, media, vận chuyển đã làm.)
 - **Android** (`apps/mobile`): không nằm trong đợt này.
 - **VNPAY thật**: đã làm URL có chữ ký, Return URL, IPN, thanh toán lại và đã kiểm bằng khóa giả; chưa có khóa sandbox nên demo dùng chế độ **giả lập**. MoMo/ZaloPay chỉ giả lập.
-- **MinIO, bộ nhớ đệm Redis, xử lý nền mô hình 3D (tạo LOD)**: hoãn; demo lưu ảnh trên đĩa (`STORAGE_DRIVER=local`).
+- **MinIO, bộ nhớ đệm Redis**: hoãn; demo lưu ảnh trên đĩa (`STORAGE_DRIVER=local`). (Xử lý nền mô hình 3D — tạo LOD — **đã làm**, xem bước 10c; tải lên vẫn qua API, chưa dùng presigned URL.)
 - Giá combo của không gian không áp dụng (đặc tả không có); `loyalty_points`, `carts.coupon_id` giữ nguyên cột nhưng chưa có chức năng điểm tích lũy.
 
 ## 6. Xử lý sự cố nhanh

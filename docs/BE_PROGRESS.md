@@ -328,3 +328,17 @@ MinIO/presign, cache Redis, xử lý nền 3D (LOD), `PermissionsGuard`, `Activi
 **Cách sửa:** (a) `test/sequencer.cjs` + `testSequencer` trong `jest-db.config.js`: thứ tự file cố định theo tên; (b) test m2 chọn sản phẩm có `orderBy: { id: 'desc' }` (cố định, không đụng sản phẩm test khác dùng).
 
 **Kết quả:** kịch bản cũ (m2 rồi m3 trên cùng DB) xanh (58 + 56); chạy supertest 10 lần liên tiếp đều 176/176, trong đó 3 lần chạy ngay sau khi sửa một file trong `apps/api/src` (thêm dòng vào `slug.ts` rồi hoàn lại). Cập nhật: các ghi chú trước đây ("không tái hiện") nay đã có nguyên nhân.
+
+---
+
+## Xử lý nền mô hình 3D (2026-11-07) ✅
+
+Theo UC-ADM-13, D-N07, D-N21, D-N22, D-T21; ghi nhận ở **D-P10** (thay thế một phần D-P09).
+
+- **Luồng:** `POST /admin/models` (JSON `fileData`) và `POST /admin/models/upload` (multipart) kiểm tra tệp, lưu tệp gốc ở bucket private (`models/incoming/p<productId>/<uuid>.<ext>`), đặt `processing`, ghi `activity_logs` `model.upload` (kèm `sourceKey`), đẩy job queue `model-processing` và trả **202** `{ modelId, jobId, status }`. Bỏ cách "tạo bản sao tệp mẫu" và `status = ready` ngay.
+- **Job** (`ModelProcessingService`, nối vào luồng upload sẵn có): kiểm tra GLB, đo đa giác/texture, 3 LOD, SHA-256, `media` + `model_files` (upsert) + `ready` trong một `$transaction`; dọn tệp cũ khi tải lại; USDZ chỉ kiểm tra ZIP + checksum.
+- **Lỗi:** tệp hỏng ⇒ `failed` không retry (`UnrecoverableError`); lỗi tạm thời ⇒ retry 3 lần backoff lũy thừa. LOD vượt `MODEL_SERVE_MAX_MB` (5 MB) ⇒ `failed` + `activity_logs` `model.processing_failed` + thông báo cho admin tải lên, một transaction. Lý do lỗi đọc lại từ `activity_logs` (không thêm cột, **không có migration**).
+- **Endpoint mới:** `POST /admin/models/:id/reprocess` (failed → processing, dùng tệp gốc đã lưu), `PATCH /admin/models/:id/primary` (bỏ cờ cũ rồi đặt cờ mới, cùng transaction), `DELETE /admin/models/model/:modelId` (xóa mô hình chưa có tệp). `createNew` để tạo mô hình thứ hai cho sản phẩm.
+- **Public:** `GET /products/:slug/model` chỉ trả mô hình chính `ready`, `files[]` đủ LOD; `glbUrl` = LOD medium. `has3dModel`/`hasAr` do trigger.
+- **Dữ liệu mẫu:** `prisma/seed-models.ts` (chạy cuối `db:seed`, đồng bộ, không cần Redis) cho mọi mô hình mẫu đi qua đúng luồng trên; `npm run db:process-models -w @aurelia-living/api` chạy lại trên DB demo/test đã có dữ liệu mà không reset. Kết quả: aurelia_test và aurelia_demo đều **52/52 mô hình `ready`, 0 failed, 0 mô hình > 5 MB** (aurelia_demo: `model_files` 70 → 174; mô hình mẫu `failed`/`processing` cũ — mỗi loại 1 — nay `ready`). USDZ mẫu cũ (22 byte, không phải ZIP) được thay bằng ZIP tối thiểu.
+- **Test:** Jest unit `model-processing.service.spec.ts` (GLB hợp lệ, GLB hỏng, USDZ, vượt 5 MB, lỗi tạm thời, `markFailed`, processor retry); supertest `test/models-processing.db-spec.ts` (14 test, **cần Redis**: upload → 202 → ready, job `attempts=3` + backoff lũy thừa, hỏng không retry, vượt ngưỡng ⇒ log + thông báo, reprocess, mô hình chính, ghi đè không nhân đôi, quyền). Fixture `sphere.glb`/`broken.glb` CC0 (D-T27). Test cũ về tải mô hình trong `mock-m3` đã chuyển sang file mới (luồng 202).

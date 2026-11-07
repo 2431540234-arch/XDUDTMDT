@@ -375,7 +375,11 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | GET | `/admin/models` | admin | `admin.list` | `format`, `productId`, `q`, `sort` |  |  |
-| POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, sizeMB, format:"glb"\|"usdz", allowAr, scale } |  |
+| POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, format:"glb"\|"usdz", fileData (data-URL base64, BẮT BUỘC), allowAr, scale, unit?, createNew? } | `202 { modelId, jobId, status:"processing" }` |
+| POST | `/admin/models/upload` | admin | `admin.upload` |  | multipart: `file` + `productId`, `variantId?`, `allowAr?`, `scale?`, `unit?`, `placement?`, `createNew?` | `202 { modelId, jobId, status:"processing" }` |
+| POST | `/admin/models/:id/reprocess` | admin | `admin.reprocess` |  |  | `:id` = id MÔ HÌNH. `202 { modelId, jobId, status:"processing" }`; không phải `failed` ⇒ `409 INVALID_STATE`; mất tệp gốc ⇒ `409`; không có ⇒ `404` |
+| PATCH | `/admin/models/:id/primary` | admin | `admin.setPrimary` |  |  | `:id` = id MÔ HÌNH. `{ modelId, productId, isPrimary:true }`; chỉ khi `ready` (khác ⇒ `409 INVALID_STATE`), không có ⇒ `404` |
+| DELETE | `/admin/models/model/:modelId` | admin | `admin.removeModel` |  |  | Xóa cả mô hình (kể cả chưa có tệp: đang xử lý / lỗi) |
 | DELETE | `/admin/models/:id` | admin | `admin.remove` |  |  |  |
 
 ### 4. `admin/coupons`
@@ -478,7 +482,13 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 - **Đổi trả**: `POST /returns` số lượng vượt `đã mua − đã yêu cầu` ⇒ `400 VALIDATION_FAILED` (`details.items`); quá 7 ngày ⇒ `409 INVALID_STATE`; `PATCH /admin/returns/:id` loại `refund` chỉ sang `refunded`, loại `exchange` chỉ sang `exchanged`; từ chối bắt buộc `adminNote`.
 - **Hỏi đáp**: `PATCH /admin/questions/:id` nhận thêm `{ status: "visible" }` (hiện lại). `POST /products/:slug/questions` giới hạn 5 câu/giờ (`429 RATE_LIMITED`), trùng nội dung 24h ⇒ `409 CONFLICT`.
 - **Đánh giá**: `images` tối đa 5 (`400`), mỗi ảnh ≤ 5MB (`413`), sai chữ ký tệp (`415`).
-- **Mô hình 3D**: `POST /admin/models` nhận thêm `fileData` (data-URL) / `unit`; tệp ≤ 50MB, `.glb|.gltf|.usdz`, kiểm tra chữ ký; không có `fileData` ⇒ BE dùng tệp mẫu cùng định dạng (FE chưa gửi nhị phân).
+- **Mô hình 3D – xử lý nền (UC-ADM-13, D-P10)**: tải lên (JSON `fileData` hoặc multipart) chỉ kiểm tra (đuôi `.glb|.gltf|.usdz`, chữ ký, MIME, ≤ 100MB) và lưu tệp GỐC ở bucket private, rồi đặt `status = processing`, đẩy job `model-processing` và trả **202** `{ modelId, jobId, status }`. **Không còn dùng tệp mẫu** khi thiếu tệp: thiếu `fileData`/`file` ⇒ `400` (`details.file`).
+  - Job: GLB được kiểm tra bằng `@gltf-transform/core`, đo `polygonCount`/`textureResolution`, sinh 3 LOD `high|medium|low` (dedup, prune, simplify, thu nhỏ texture, nén Meshopt), `checksum` SHA-256; ghi `media` + `model_files` của mọi LOD rồi đặt `ready` trong MỘT transaction. USDZ: chỉ kiểm tra chữ ký ZIP + checksum. Tải lại cùng định dạng/LOD ghi đè (upsert), không nhân đôi.
+  - Lỗi: tệp hỏng ⇒ `failed`, KHÔNG retry. Lỗi tạm thời ⇒ retry 3 lần, backoff lũy thừa (2s, 4s, 8s). Mỗi LOD GLB phải ≤ `MODEL_SERVE_MAX_MB` (mặc định 5 MB, D-N21), vượt ⇒ `failed`. Mọi lần `failed` cuối cùng ghi `activity_logs` `model.processing_failed` (`changes.reason`) và tạo thông báo cho admin đã tải lên, cùng transaction với việc đặt `failed` (D-N22). Riêng USDZ lỗi mà mô hình vẫn còn GLB thì giữ `ready` (vẫn ghi log và báo admin).
+  - `GET /admin/models` liệt kê mỗi TỆP một dòng; mô hình chưa có tệp (đang xử lý / lỗi) là một dòng riêng với `fileId = null`, `id = -modelId`. Mỗi dòng có `modelId`, `status`, `isPrimary`, `lod`, `failureReason` (chỉ khi `failed`; lấy từ `activity_logs`, không thêm cột). FE gọi lại danh sách định kỳ khi còn mô hình `processing`.
+  - `createNew=true`: tạo mô hình MỚI cho sản phẩm (mặc định thay tệp của mô hình chính; sản phẩm chưa có mô hình chính thì mô hình mới thành chính). Chỉ một mô hình chính mỗi sản phẩm.
+  - Công khai: `GET /products/:slug/model` chỉ trả mô hình chính ở trạng thái `ready`, kèm `files[]` (mỗi tệp có `format`, `lod`, `url`, `fileSize`, `polygonCount`, `isCompressed`, `checksum`); `glbUrl` mặc định là LOD `medium`. `has3dModel`/`hasAr` do trigger DB cập nhật, service không ghi.
+  - Chưa dùng MinIO nên tải lên vẫn là multipart/JSON qua API (chưa có presigned URL); luồng `POST /admin/models/:id/files/presign` + `confirm` (202) dành cho MinIO vẫn giữ nguyên.
 - **Liên hệ**: `POST /contact` giới hạn 5 lần/phút/IP (`429`).
 - Cổng API mặc định **4000** (`NEXT_PUBLIC_API_URL=http://localhost:4000`).
 

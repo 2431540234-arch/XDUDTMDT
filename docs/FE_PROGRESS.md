@@ -36,7 +36,7 @@
 | 21, 44 | Admin đơn hàng + chi tiết | `/admin/orders[/code]` | ✅ | |
 | 22, 46 | Admin khách hàng + chi tiết | `/admin/customers[/id]` | 🟡 | thiếu tab "Mã giảm giá" ở chi tiết KH |
 | 23 | Admin đánh giá | `/admin/reviews` | 🟡 | không có "+ Thêm đánh giá" (D-N06) |
-| 24, 49 | Admin mô hình 3D + modal | `/admin/models` | ✅ | tiến trình tải giả lập |
+| 24, 49 | Admin mô hình 3D + modal | `/admin/models` | ✅ | tải tệp thật (multipart), trạng thái xử lý nền tự cập nhật, Xử lý lại, Đặt làm mô hình chính |
 | 25, 48 | Admin khuyến mãi + tạo/sửa | `/admin/promotions[/new,/id]` | ✅ | phạm vi theo SP/không gian chỉ ghi nhận |
 | 26 → 54 | Admin báo cáo thu chi | `/admin/reports` | ✅ | thay cho 3.10 |
 | 27 | Chi tiết đơn (khách) | `/account/orders/[code]` | ✅ | |
@@ -149,3 +149,12 @@ Không thêm thư viện mới.
 - Chi tiết đơn admin: khối **Vận đơn** (tạo, đổi trạng thái, giao thất bại ⇒ tạo vận đơn mới), bỏ nút hoàn tất thủ công, nút "Chuyển sang Đang giao" khóa khi chưa có vận đơn; mock API theo đúng luồng mới.
 - Trang không gian: lượt xem gửi bằng `sendBeacon` khi rời trang; trang thanh toán ẩn phương thức bị tắt; `npm run demo`.
 - Test Playwright: nhóm `admin-m5` (thương hiệu, thuộc tính, media, vận chuyển).
+
+---
+
+## Xử lý nền mô hình 3D (2026-11-07) ✅
+
+- **Admin `/admin/models`:** tải lên tệp THẬT (`adminApi.models.upload(file, meta)`: multipart với API thật, JSON metadata với mock), bỏ tiến trình giả; cột trạng thái hiện *Đang xử lý nền…* / *Sẵn sàng* / *Lỗi* kèm lý do; trang tự gọi lại danh sách mỗi 2 giây khi còn mô hình `processing`; nút **Xử lý lại** ở mô hình lỗi, nút **Đặt làm mô hình chính** ở mô hình `ready` chưa phải chính (huy hiệu "Mô hình chính"); ô "Tạo mô hình mới (không thay thế mô hình chính hiện có)"; xóa mô hình chưa có tệp qua `DELETE /admin/models/model/:modelId`. Mỗi tệp là một dòng, ghi rõ LOD.
+- **Khách `/products/[slug]/3d`:** `ProductViewer3D` chọn LOD theo thiết bị (UC-3D-01 bước 4): mặc định `medium`; điện thoại (màn hình hẹp / UA di động) hoặc mạng chậm (`saveData`, 2g/3g, downlink < 1,5) ⇒ `low`; thiếu LOD thì lùi dần. Tải mô hình lỗi ⇒ ảnh poster/ảnh sản phẩm + thông báo "Không tải được mô hình 3D".
+- **Bộ giải nén Meshopt phục vụ tại chỗ** (`public/vendor/meshopt_decoder.js`, MIT): LOD do máy chủ sinh được nén Meshopt mà `<model-viewer>` mặc định tải bộ giải nén từ CDN (không xem được khi mất mạng); xem `public/vendor/README.md`.
+- **Test:** Playwright nhóm `admin-3d` (`tests/e2e/admin-models.spec.ts`, API thật + Redis): tải GLB → xử lý nền → 3 LOD `ready`, khách xem 3D bằng LOD medium; điện thoại dùng LOD low; tệp lỗi hiện ảnh thay thế; GLB hỏng → Lỗi + lý do + Xử lý lại; đặt làm mô hình chính. Mock vẫn chạy (mô hình luôn `ready`).
