@@ -189,16 +189,26 @@ export class AdminSpacesService {
     if (panos) await this.validatePanoramas(panos);
 
     const title = str(merged.title).trim();
-    let slug =
-      cur && !b.slug && toSlug(cur.title) === toSlug(title) ? cur.slug : toSlug(str(b.slug) || title);
-    const base = slug || 'khong-gian';
-    slug = base;
-    for (
-      let n = 2;
-      await this.prisma.space.findFirst({ where: { slug, ...(cur ? { id: { not: cur.id } } : {}) } });
-      n++
-    )
-      slug = `${base}-${n}`;
+    // Slug: đổi tên KHÔNG đổi slug (giữ liên kết/dấu trang). Chỉ đổi khi admin gửi slug mới; slug do admin chọn phải duy nhất.
+    const wanted = str(b.slug).trim();
+    let slug: string;
+    if (wanted) {
+      slug = toSlug(wanted);
+      if (!slug) new FieldErrors().add('slug', 'Slug không hợp lệ.').throwIfAny();
+      const taken = await this.prisma.space.findFirst({
+        where: { slug, ...(cur ? { id: { not: cur.id } } : {}) },
+        select: { id: true },
+      });
+      if (taken) new FieldErrors().add('slug', 'Slug đã được dùng cho không gian khác.').throwIfAny();
+    } else if (cur) {
+      slug = cur.slug;
+    } else {
+      // tạo mới không nhập slug: sinh từ tên, trùng thì thêm hậu tố -2, -3…
+      const base = toSlug(title) || 'khong-gian';
+      slug = base;
+      for (let n = 2; await this.prisma.space.findFirst({ where: { slug }, select: { id: true } }); n++)
+        slug = `${base}-${n}`;
+    }
     const status = (str(merged.status) || 'draft') as 'draft' | 'published' | 'archived';
     const coverMediaId = b.coverUrl
       ? await this.ingest.ingestImage(str(b.coverUrl), { userId: adminId, folder: 'spaces' })

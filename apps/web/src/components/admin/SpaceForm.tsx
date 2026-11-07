@@ -51,6 +51,7 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
   const [tab, setTab] = useState<Tab>('basic');
   const [v, setV] = useState({
     title: '',
+    slug: '',
     roomType: '' as RoomType | '',
     style: '',
     description: '',
@@ -78,6 +79,7 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
     if (!s) return;
     setV({
       title: s.title,
+      slug: s.slug,
       roomType: s.roomType,
       style: s.style ?? '',
       description: s.description ?? '',
@@ -215,6 +217,18 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
                 value={v.title}
                 onChange={(e) => set('title', e.target.value)}
                 error={errs.title}
+                wrapperClassName="sm:col-span-2"
+              />
+              <Input
+                label="Đường dẫn (slug)"
+                value={v.slug}
+                onChange={(e) => set('slug', e.target.value)}
+                error={errs.slug}
+                hint={
+                  editing
+                    ? 'Đổi tên không đổi slug. Sửa ô này nếu muốn đổi đường dẫn.'
+                    : 'Để trống để tự tạo từ tên.'
+                }
                 wrapperClassName="sm:col-span-2"
               />
               <Select

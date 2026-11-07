@@ -1004,6 +1004,36 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       await api('patch', `/admin/spaces/${spaceId}`, admin, { status: 'published' });
     });
 
+    it('slug: đổi tên KHÔNG đổi slug; admin sửa slug trực tiếp (duy nhất, hợp lệ); slug cũ ngừng hoạt động', async () => {
+      const keep = await api('patch', `/admin/spaces/${spaceId}`, admin, {
+        title: 'Tên hoàn toàn mới cho không gian',
+      });
+      expect(keep.status).toBe(200);
+      expect(keep.body.data.title).toBe('Tên hoàn toàn mới cho không gian');
+      expect(keep.body.data.slug).toBe(slug); // giữ nguyên
+      expect((await api('get', `/spaces/${slug}`)).status).toBe(200);
+
+      // slug đã dùng bởi không gian khác ⇒ 400 trường slug
+      const other = (await prisma.space.findFirstOrThrow({ where: { id: { not: spaceId } } })).slug;
+      const dup = await api('patch', `/admin/spaces/${spaceId}`, admin, { slug: other });
+      expect(dup.status).toBe(400);
+      expect(JSON.stringify(dup.body.error)).toContain('slug');
+      // slug không hợp lệ (toàn ký tự đặc biệt)
+      expect((await api('patch', `/admin/spaces/${spaceId}`, admin, { slug: '!!!' })).status).toBe(400);
+      // gửi lại đúng slug hiện tại không bị coi là trùng
+      expect((await api('patch', `/admin/spaces/${spaceId}`, admin, { slug })).status).toBe(200);
+
+      // đổi slug có chủ đích
+      const ch = await api('patch', `/admin/spaces/${spaceId}`, admin, { slug: 'Không Gian E2E Mới' });
+      expect(ch.status).toBe(200);
+      expect(ch.body.data.slug).toBe('khong-gian-e2e-moi');
+      expect((await api('get', `/spaces/${slug}`)).status).toBe(404);
+      expect((await api('get', '/spaces/khong-gian-e2e-moi')).status).toBe(200);
+      // trả lại slug cũ để các test sau dùng tiếp
+      expect((await api('patch', `/admin/spaces/${spaceId}`, admin, { slug })).status).toBe(200);
+      await api('patch', `/admin/spaces/${spaceId}`, admin, { title: 'Không gian E2E' });
+    });
+
     it('"Thêm cả bộ vào giỏ": thêm đúng các biến thể còn hàng, báo rõ món hết hàng', async () => {
       const dv = await prisma.productVariant.findFirstOrThrow({
         where: { productId: prods[2], isActive: true },

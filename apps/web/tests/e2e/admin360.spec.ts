@@ -260,15 +260,9 @@ test('admin: sửa không gian (đổi tên, bỏ một sản phẩm) rồi xóa
   await page.getByRole('checkbox', { name: /Kệ tivi hiện đại/ }).uncheck();
   await page.getByRole('button', { name: 'Lưu không gian' }).click();
   await expect(page.getByText('Đã cập nhật không gian mẫu.')).toBeVisible({ timeout: 30_000 });
-  // đổi tên ⇒ slug đổi theo (liệt kê ở báo cáo: liên kết cũ sẽ 404); tìm lại không gian theo tên mới
-  const list = (await (await request.get(`${api}/api/spaces?pageSize=100`)).json()).data as Array<{
-    slug: string;
-    title: string;
-  }>;
-  const renamed = list.find((x) => x.title === `${TITLE} (đã sửa)`);
-  expect(renamed, 'không gian đã đổi tên phải còn hiển thị').toBeTruthy();
-  slug = renamed!.slug;
+  // đổi tên KHÔNG đổi slug: liên kết cũ vẫn mở được
   const detail = (await (await request.get(`${api}/api/spaces/${slug}`)).json()).data;
+  expect(detail.title).toBe(`${TITLE} (đã sửa)`);
   expect(detail.products).toHaveLength(1);
   // bỏ sản phẩm khỏi bộ ⇒ điểm tương tác của sản phẩm đó cũng biến mất; các điểm còn lại giữ nguyên
   const kinds = detail.panoramas[0].hotspots.map((h: { type: string }) => h.type).sort();
