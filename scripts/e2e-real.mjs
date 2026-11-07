@@ -32,6 +32,8 @@ const GROUPS = [
   { name: 'admin-m3', files: ['tests/e2e/admin-m3.spec.ts'] },
   { name: 'admin-m4', files: ['tests/e2e/admin-m4.spec.ts'] },
   { name: 'admin-m5', files: ['tests/e2e/admin-m5.spec.ts'] },
+  // xử lý nền mô hình 3D (cần Redis)
+  { name: 'admin-3d', files: ['tests/e2e/admin-models.spec.ts'] },
 ];
 
 const log = (m) => console.log(`\n[e2e-real] ${m}`);

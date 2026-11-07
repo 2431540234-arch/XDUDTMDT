@@ -22,6 +22,7 @@ import type {
   StockReceipt,
   StoreSettings,
   AttributeAdmin,
+  ModelProcessingAccepted,
   ShipmentResult,
   MediaAdmin,
   AttributeValueAdmin,
@@ -112,15 +113,45 @@ export const adminApi = {
   },
   models: {
     list: (q: Query) => http.list<Model3DAdminRow>('/admin/models', q),
-    upload: (body: {
-      productId: number;
-      fileName: string;
-      sizeMB: number;
-      format: 'glb' | 'usdz';
-      allowAr: boolean;
-      scale: number;
-    }) => http.post<Model3DAdminRow>('/admin/models', body),
+    /** Máy chủ thật: multipart ⇒ 202 (xử lý nền, trạng thái processing); dữ liệu giả: JSON metadata */
+    upload: async (
+      file: File,
+      meta: {
+        productId: number;
+        format: 'glb' | 'usdz';
+        allowAr: boolean;
+        scale: number;
+        unit: string;
+        createNew?: boolean;
+      },
+    ) => {
+      if (USE_MOCK) {
+        return http.post<unknown>('/admin/models', {
+          productId: meta.productId,
+          fileName: file.name,
+          sizeMB: Math.max(0.1, file.size / 1048576),
+          format: meta.format,
+          allowAr: meta.allowAr,
+          scale: meta.scale,
+        });
+      }
+      const form = new FormData();
+      form.append('file', file);
+      form.append('productId', String(meta.productId));
+      form.append('allowAr', String(meta.allowAr));
+      form.append('scale', String(meta.scale));
+      form.append('unit', meta.unit);
+      if (meta.createNew) form.append('createNew', 'true');
+      return http.post<ModelProcessingAccepted>('/admin/models/upload', form);
+    },
+    /** Xóa một tệp (dòng có fileId) */
     remove: (id: number) => http.delete(`/admin/models/${id}`),
+    /** Xóa cả mô hình chưa có tệp (đang xử lý / lỗi) */
+    removeModel: (modelId: number) => http.delete(`/admin/models/model/${modelId}`),
+    /** failed → processing; :id là id MÔ HÌNH */
+    reprocess: (modelId: number) => http.post<ModelProcessingAccepted>(`/admin/models/${modelId}/reprocess`),
+    setPrimary: (modelId: number) =>
+      http.patch<{ modelId: number; productId: number; isPrimary: true }>(`/admin/models/${modelId}/primary`),
   },
   coupons: {
     list: (q: Query) => http.list<CouponView>('/admin/coupons', q),

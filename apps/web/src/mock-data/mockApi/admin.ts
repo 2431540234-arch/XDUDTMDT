@@ -1463,6 +1463,10 @@ function modelRows(db: Db): Model3DAdminRow[] {
     rows.push({
       ...model3DView(db, m),
       id: f.id, // id dòng = id của tệp
+      modelId: m.id,
+      fileId: f.id,
+      failureReason: null,
+      lod: f.lod,
       productName: p.name,
       productThumbnailUrl: mediaPath(
         db,
@@ -1567,6 +1571,35 @@ export function uploadModel(ctx: Ctx): Result {
   m.allowScaling = !b.allowAr;
   log(ctx, 'model.upload', 'product3dmodel', m.id, { fileName: b.fileName });
   return created(modelRows(db).find((r) => r.id === f.id));
+}
+
+/** Mock: mô hình luôn ready (không có hàng đợi), nên chỉ trả kết quả hợp lệ để giao diện không lỗi */
+export function reprocessModel(ctx: Ctx): Result {
+  const m = ctx.db.product3dModels.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Mô hình');
+  if (m.status !== 'failed')
+    throw new ApiFail('INVALID_STATE', 'Chỉ xử lý lại được mô hình đang ở trạng thái lỗi.');
+  m.status = 'ready';
+  return ok({ modelId: m.id, jobId: 'mock', status: 'processing' });
+}
+
+export function setPrimaryModel(ctx: Ctx): Result {
+  const db = ctx.db;
+  const m = db.product3dModels.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Mô hình');
+  if (m.status !== 'ready')
+    throw new ApiFail('INVALID_STATE', 'Chỉ đặt làm mô hình chính khi mô hình đã xử lý xong (ready).');
+  for (const x of db.product3dModels) if (x.productId === m.productId) x.isPrimary = x.id === m.id;
+  return ok({ modelId: m.id, productId: m.productId, isPrimary: true });
+}
+
+export function deleteModelById(ctx: Ctx): Result {
+  const db = ctx.db;
+  const m = db.product3dModels.find((x) => x.id === Number(ctx.params.modelId));
+  if (!m) throw notFound('Mô hình');
+  db.modelFiles = db.modelFiles.filter((x) => x.modelId !== m.id);
+  db.product3dModels.splice(db.product3dModels.indexOf(m), 1);
+  return done();
 }
 
 export function deleteModel(ctx: Ctx): Result {

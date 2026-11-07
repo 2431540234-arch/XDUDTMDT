@@ -25,15 +25,55 @@ const VIEWS = [
   { key: 'dims', label: 'Kích thước', orbit: '30deg 75deg auto' },
 ] as const;
 
+type Lod = 'high' | 'medium' | 'low';
+
+/** Điện thoại hoặc mạng chậm / bật tiết kiệm dữ liệu ⇒ dùng LOD thấp (UC-3D-01 bước 4); mặc định LOD medium */
+export function preferredLod(): Lod {
+  if (typeof window === 'undefined') return 'medium';
+  const nav = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string; downlink?: number };
+  };
+  const slow =
+    Boolean(nav.connection?.saveData) ||
+    ['slow-2g', '2g', '3g'].includes(nav.connection?.effectiveType ?? '') ||
+    (nav.connection?.downlink !== undefined && nav.connection.downlink < 1.5);
+  const phone =
+    window.matchMedia?.('(max-width: 767px)').matches || /Android|iPhone|iPod/i.test(navigator.userAgent);
+  return slow || phone ? 'low' : 'medium';
+}
+
+/** Chọn tệp GLB theo LOD ưu tiên; thiếu thì lùi dần về LOD gần nhất có sẵn, cuối cùng là glbUrl */
+export function pickGlb(
+  model: Model3DView,
+  want: Lod,
+): { url: string | null; lod: Lod | null; size: number | null } {
+  const order: Lod[] =
+    want === 'low'
+      ? ['low', 'medium', 'high']
+      : want === 'medium'
+        ? ['medium', 'high', 'low']
+        : ['high', 'medium', 'low'];
+  for (const lod of order) {
+    const f = model.files.find((x) => x.format === 'glb' && x.lod === lod);
+    if (f?.url) return { url: f.url, lod, size: f.fileSize };
+  }
+  return { url: model.glbUrl, lod: null, size: null };
+}
+
 export default function ProductViewer3D({
   model,
   alt,
   tint,
+  fallbackImage,
 }: {
   model: Model3DView;
   alt: string;
   tint?: string | null;
+  /** Ảnh thay thế khi không tải được mô hình (mặc định ảnh poster của mô hình) */
+  fallbackImage?: string | null;
 }) {
+  const [want] = useState<Lod>(preferredLod);
+  const glb = pickGlb(model, want);
   const ref = useRef<MV | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -43,7 +83,13 @@ export default function ProductViewer3D({
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    import('@google/model-viewer').then(() => setReady(true)).catch(() => setError(true));
+    import('@google/model-viewer')
+      .then((m) => {
+        // LOD do máy chủ sinh được nén Meshopt: dùng bộ giải nén phục vụ tại chỗ thay vì CDN (xem public/vendor/README.md)
+        m.ModelViewerElement.meshoptDecoderLocation = '/vendor/meshopt_decoder.js';
+        setReady(true);
+      })
+      .catch(() => setError(true));
   }, []);
 
   // đổi màu realtime: nhuộm vật liệu thân chính của mô hình
@@ -103,11 +149,16 @@ export default function ProductViewer3D({
 
   const mm = (n: number) => `${(n / 10).toFixed(0)} cm`;
 
-  if (error || !model.glbUrl) {
+  if (error || !glb.url) {
+    const img = model.posterUrl ?? fallbackImage;
     return (
-      <div className="flex h-full min-h-[420px] flex-col items-center justify-center gap-2 text-muted">
+      <div
+        data-testid="viewer-3d-fallback"
+        className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 p-4 text-center text-muted"
+      >
+        {img && <img src={img} alt={alt} className="max-h-72 rounded-card object-contain" />}
         <Icon name="alert" size={32} />
-        <p>Không tải được mô hình 3D.</p>
+        <p role="alert">Không tải được mô hình 3D. Bạn vẫn có thể xem ảnh sản phẩm.</p>
       </div>
     );
   }
@@ -115,13 +166,15 @@ export default function ProductViewer3D({
   return (
     <div
       ref={wrap}
+      data-testid="viewer-3d"
+      data-lod={glb.lod ?? ''}
       className="relative h-full min-h-[460px] w-full overflow-hidden bg-gradient-to-b from-white to-surface-muted"
     >
       {ready ? (
         <model-viewer
           ref={ref as never}
           class="h-full w-full"
-          src={model.glbUrl}
+          src={glb.url}
           ios-src={model.usdzUrl ?? undefined}
           alt={alt}
           poster={model.posterUrl ?? undefined}
@@ -167,10 +220,8 @@ export default function ProductViewer3D({
           {mm(model.lengthMm)} × {mm(model.widthMm)} × {mm(model.heightMm)}
         </p>
         <p className="mt-1 text-muted">
-          {model.glbUrl.split('?')[0].split('.').pop()?.toUpperCase()} ·{' '}
-          {model.files.find((f) => f.format === 'glb')?.fileSize
-            ? `${(model.files.find((f) => f.format === 'glb')!.fileSize / 1048576).toFixed(1)} MB`
-            : ''}
+          GLB{glb.lod ? ` · LOD ${glb.lod}` : ''}
+          {glb.size ? ` · ${(glb.size / 1048576).toFixed(1)} MB` : ''}
         </p>
       </div>
       {view === 'dims' && (

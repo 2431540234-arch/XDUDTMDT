@@ -145,7 +145,12 @@ export default function Viewer3DPage() {
       </header>
       <div className="grid flex-1 lg:grid-cols-[1fr_380px]">
         <div className="min-h-[460px]">
-          <ProductViewer3D model={p.model} alt={`Mô hình 3D ${p.name}`} tint={hex} />
+          <ProductViewer3D
+            model={p.model}
+            alt={`Mô hình 3D ${p.name}`}
+            tint={hex}
+            fallbackImage={p.images[0]?.url ?? null}
+          />
         </div>
         <aside className="space-y-5 overflow-y-auto border-l border-line bg-white p-6">
           <div>

@@ -110,6 +110,13 @@ export interface ModelFileView extends ModelFile {
   fileSize: number;
 }
 
+/** POST /admin/models, /upload và /:id/reprocess trả 202 */
+export interface ModelProcessingAccepted {
+  modelId: number;
+  jobId: string;
+  status: 'processing';
+}
+
 export interface Model3DView extends Product3DModel {
   files: ModelFileView[];
   glbUrl: string | null;
@@ -309,6 +316,13 @@ export interface DashboardStats {
 }
 
 export interface Model3DAdminRow extends Model3DView {
+  /** id MÔ HÌNH (id dòng `id` = id tệp, hoặc -modelId khi mô hình chưa có tệp) */
+  modelId: number;
+  /** null khi mô hình chưa có tệp (đang xử lý hoặc lỗi) */
+  fileId: number | null;
+  /** lý do lỗi khi status = failed (máy chủ thật) */
+  failureReason: string | null;
+  lod: 'high' | 'medium' | 'low' | null;
   productName: string;
   productThumbnailUrl: string | null;
   format: 'glb' | 'usdz';
