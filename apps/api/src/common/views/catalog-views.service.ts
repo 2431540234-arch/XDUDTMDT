@@ -168,7 +168,10 @@ export class CatalogViews {
     return {
       ...serialize(base),
       files,
-      glbUrl: files.find((f) => f.format === 'glb')?.url ?? null,
+      // glbUrl mặc định = LOD medium (UC-3D-01); danh sách đủ LOD nằm ở files
+      glbUrl:
+        (files.find((f) => f.format === 'glb' && f.lod === 'medium') ?? files.find((f) => f.format === 'glb'))
+          ?.url ?? null,
       usdzUrl: files.find((f) => f.format === 'usdz')?.url ?? null,
       posterUrl: this.url(posterMedia?.filePath),
     };

@@ -1,15 +1,15 @@
-// UC-ADM-13/14 – Quản trị mô hình 3D: danh sách (lọc sản phẩm/định dạng), tải lên GLB/GLTF/USDZ ≤ 50MB, xóa.
-// Mỗi dòng của danh sách là một TỆP (model_files) kèm thông tin mô hình. Trigger DB tự cập nhật has_3d_model/has_ar.
+// UC-ADM-13/14 – Quản trị mô hình 3D: danh sách, tải lên GLB/USDZ, xử lý nền, xử lý lại, mô hình chính, xóa.
+// Tải lên chỉ KIỂM TRA + LƯU TỆP GỐC (bucket private) rồi đặt `processing` và đẩy job `model-processing`; trả 202.
+// Job (ModelProcessingService) mới sinh LOD, tạo media + model_files và đặt `ready` (D-P10). Trigger DB tự cập nhật has_3d_model/has_ar.
 //
-// Hai cách tải lên:
-//  • POST /admin/models (JSON): FE hiện chỉ gửi metadata {productId,fileName,sizeMB,format,allowAr,scale} (chưa gửi nhị phân).
-//    Nếu có `fileData` (data-URL base64) thì BE kiểm tra và lưu đúng tệp đó; nếu không, BE tạo bản sao của một tệp mẫu cùng định dạng
-//    để giao diện vẫn xem được (dữ liệu demo).
-//  • POST /admin/models/upload (multipart, trường `file`): đường tải thật cho FE khi được nối.
+// Hai cách tải lên (đều bắt buộc có nội dung tệp):
+//  • POST /admin/models (JSON): { productId, fileName, format, fileData (data-URL base64), ... }.
+//  • POST /admin/models/upload (multipart, trường `file`): đường tải thật cho FE.
+// Mỗi dòng của danh sách là một TỆP (model_files); mô hình chưa có tệp (đang xử lý / lỗi) hiện thành một dòng riêng (fileId = null).
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { ErrorCode } from '@aurelia-living/shared-types';
+import { ErrorCode, type ModelProcessingAccepted } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qNum, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
@@ -18,22 +18,24 @@ import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../storage/storage.service';
+import { JobsService } from '../jobs/jobs.service';
 import { ProductsService } from '../products/products.service';
 import { MODEL_MAX_BYTES, validateModelFile, type ModelFormat } from './model-file-validator';
 
-const FILE_INCLUDE = {
-  media: true,
-  model: {
-    include: {
-      product: {
-        include: { productImages: { where: { isPrimary: true }, include: { media: true }, take: 1 } },
-      },
-      modelFiles: { include: { media: true } },
-      posterMedia: true,
-    },
+const MODEL_INCLUDE = {
+  product: {
+    include: { productImages: { where: { isPrimary: true }, include: { media: true }, take: 1 } },
   },
-} satisfies Prisma.ModelFileInclude;
-type FileRow = Prisma.ModelFileGetPayload<{ include: typeof FILE_INCLUDE }>;
+  modelFiles: { include: { media: true } },
+  posterMedia: true,
+} satisfies Prisma.Product3DModelInclude;
+type ModelRow = Prisma.Product3DModelGetPayload<{ include: typeof MODEL_INCLUDE }>;
+
+/** Thông tin lần tải lên / lỗi gần nhất của mô hình, đọc từ activity_logs (không thêm cột) */
+interface ModelNotes {
+  upload?: { fileName?: string; format?: ModelFormat; sizeBytes?: number; at: Date };
+  failure?: string;
+}
 
 export interface UploadInput {
   productId: unknown;
@@ -44,12 +46,14 @@ export interface UploadInput {
   scale?: unknown;
   unit?: unknown;
   placement?: unknown;
+  /** true ⇒ tạo mô hình MỚI cho sản phẩm thay vì thay tệp của mô hình chính hiện có */
+  createNew?: unknown;
   /** nội dung tệp (multipart hoặc data-URL đã giải mã) */
   bytes?: Buffer;
   mimeType?: string;
-  /** dung lượng khai báo (MB) khi chưa có nhị phân */
-  sizeMB?: unknown;
 }
+
+const isTrue = (v: unknown) => v === true || v === 'true' || v === '1';
 
 @Injectable()
 export class AdminModelCatalogService {
@@ -58,11 +62,11 @@ export class AdminModelCatalogService {
     private readonly views: CatalogViews,
     private readonly activity: ActivityLogService,
     private readonly products: ProductsService,
+    private readonly jobs: JobsService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
   ) {}
 
-  private row(f: FileRow) {
-    const m = f.model;
+  private row(m: ModelRow, f: ModelRow['modelFiles'][number] | null, notes: ModelNotes) {
     const p = m.product;
     const { modelFiles, posterMedia, product: _p, ...mbase } = m;
     void _p;
@@ -75,37 +79,81 @@ export class AdminModelCatalogService {
       url: this.views.url(x.media.filePath) ?? '',
       fileName: x.media.fileName,
       fileSize: x.media.fileSize,
+      polygonCount: x.polygonCount,
+      textureResolution: x.textureResolution,
+      isCompressed: x.isCompressed,
+      checksum: x.checksum,
     }));
-    const glb = files.find((x) => x.format === 'glb')?.url ?? null;
-    const usdz = files.find((x) => x.format === 'usdz')?.url ?? null;
+    const glb =
+      files.find((x) => x.format === 'glb' && x.lod === 'medium') ?? files.find((x) => x.format === 'glb');
+    const usdz = files.find((x) => x.format === 'usdz');
+    const fileName = f?.media.fileName ?? notes.upload?.fileName ?? '(chưa có tệp)';
+    const bytes = f?.media.fileSize ?? notes.upload?.sizeBytes ?? 0;
     return {
       ...JSON.parse(JSON.stringify(mbase)),
       files,
-      id: f.id, // id dòng = id tệp
-      glbUrl: glb,
-      usdzUrl: usdz,
+      // id dòng = id tệp; mô hình chưa có tệp dùng -modelId (xóa qua DELETE /admin/models/model/:modelId)
+      modelId: m.id,
+      id: f ? f.id : -m.id,
+      fileId: f ? f.id : null,
+      glbUrl: glb?.url ?? null,
+      usdzUrl: usdz?.url ?? null,
       posterUrl: this.views.url(posterMedia?.filePath),
       productName: p.name,
       productThumbnailUrl: this.views.url(p.productImages[0]?.media.filePath),
-      format: f.format,
-      fileName: f.media.fileName,
-      sizeMB: Math.round((f.media.fileSize / 1024 / 1024) * 10) / 10,
-      uploadedAt: f.createdAt.toISOString(),
+      format: f?.format ?? notes.upload?.format ?? 'glb',
+      lod: f?.lod ?? null,
+      fileName,
+      sizeMB: Math.round((bytes / 1024 / 1024) * 10) / 10,
+      uploadedAt: (f?.createdAt ?? notes.upload?.at ?? m.updatedAt).toISOString(),
+      failureReason: m.status === 'failed' ? (notes.failure ?? 'Xử lý mô hình thất bại.') : null,
     };
+  }
+
+  /** Lần tải lên và lý do lỗi gần nhất của các mô hình (một truy vấn) */
+  private async notesFor(models: ModelRow[]): Promise<Map<number, ModelNotes>> {
+    const need = models.filter((m) => m.status !== 'ready' || m.modelFiles.length === 0).map((m) => m.id);
+    const out = new Map<number, ModelNotes>();
+    if (!need.length) return out;
+    const logs = await this.prisma.activityLog.findMany({
+      where: {
+        targetType: 'product3dmodel',
+        targetId: { in: need },
+        action: { in: ['model.upload', 'model.processing_failed'] },
+      },
+      orderBy: { id: 'desc' },
+    });
+    for (const l of logs) {
+      const n = out.get(l.targetId!) ?? {};
+      const c = (l.changes ?? {}) as Record<string, unknown>;
+      if (l.action === 'model.upload' && !n.upload)
+        n.upload = {
+          fileName: c.fileName as string | undefined,
+          format: c.format as ModelFormat | undefined,
+          sizeBytes: c.sizeBytes as number | undefined,
+          at: l.createdAt,
+        };
+      if (l.action === 'model.processing_failed' && n.failure === undefined)
+        n.failure = String(c.reason ?? '');
+      out.set(l.targetId!, n);
+    }
+    return out;
   }
 
   async list(q: RawQuery) {
     const productId = qNum(q, 'productId', 0);
     const format = qStr(q, 'format');
     const search = foldVi(qStr(q, 'q'));
-    const rows = await this.prisma.modelFile.findMany({
-      where: {
-        ...(format ? { format: format as ModelFormat } : {}),
-        ...(productId ? { model: { productId } } : {}),
-      },
-      include: FILE_INCLUDE,
+    const models = await this.prisma.product3DModel.findMany({
+      where: productId ? { productId } : {},
+      include: MODEL_INCLUDE,
     });
-    let list = rows.map((r) => this.row(r));
+    const notes = await this.notesFor(models);
+    let list = models.flatMap((m) => {
+      const n = notes.get(m.id) ?? {};
+      return m.modelFiles.length ? m.modelFiles.map((f) => this.row(m, f, n)) : [this.row(m, null, n)];
+    });
+    if (format) list = list.filter((r) => r.format === format);
     if (search) list = list.filter((r) => foldVi(`${r.fileName} ${r.productName}`).includes(search));
     const [field, dir] = (qStr(q, 'sort') || 'uploadedAt:desc').split(':');
     const mul = dir === 'asc' ? 1 : -1;
@@ -121,29 +169,12 @@ export class AdminModelCatalogService {
     };
   }
 
-  /** Lấy nhị phân của một tệp mẫu cùng định dạng để làm nội dung cho bản ghi chỉ có metadata */
-  private async stockBytes(format: ModelFormat): Promise<Buffer> {
-    const f = await this.prisma.modelFile.findFirst({
-      where: { format },
-      include: { media: true },
-      orderBy: { id: 'asc' },
-    });
-    if (!f)
-      throw new AppException(
-        ErrorCode.BAD_REQUEST,
-        'Chưa có tệp mẫu để tạo mô hình. Hãy tải tệp thật lên (POST /admin/models/upload).',
-      );
-    return this.storage.download(f.media.filePath, 'public');
-  }
-
-  async upload(adminId: number, input: UploadInput) {
+  /** UC-ADM-13: kiểm tra, lưu tệp gốc (private), đặt `processing`, đẩy job. Trả 202 { modelId, jobId, status } */
+  async upload(adminId: number, input: UploadInput): Promise<ModelProcessingAccepted> {
     const errs = new FieldErrors();
     const product = await this.prisma.product.findFirst({
       where: { id: toId(input.productId), deletedAt: null },
-      include: {
-        productImages: { where: { isPrimary: true }, take: 1 },
-        productVariants: { take: 1, orderBy: { id: 'asc' } },
-      },
+      include: { productImages: { where: { isPrimary: true }, take: 1 } },
     });
     if (!product) errs.add('productId', 'Vui lòng chọn sản phẩm liên kết.');
     let variantId: number | null = null;
@@ -161,17 +192,18 @@ export class AdminModelCatalogService {
     if (!['mm', 'cm', 'm'].includes(unit)) errs.add('unit', 'Đơn vị phải là mm, cm hoặc m.');
     const placement = input.placement ? str(input.placement) : 'floor';
     if (!['floor', 'wall', 'table'].includes(placement)) errs.add('placement', 'Vị trí đặt không hợp lệ.');
+    if (!input.bytes?.length) errs.add('file', 'Vui lòng chọn tệp mô hình để tải lên.');
     errs.throwIfAny();
 
-    const declared = input.bytes ? input.bytes.length : Math.round(Number(input.sizeMB) * 1024 * 1024);
+    const bytes = input.bytes!;
     let check;
     try {
       check = validateModelFile({
         fileName: input.fileName,
-        sizeBytes: declared,
+        sizeBytes: bytes.length,
         declaredFormat: input.format,
         mimeType: input.mimeType,
-        bytes: input.bytes,
+        bytes,
       });
     } catch (e) {
       if (e instanceof AppException && e.code !== ErrorCode.PAYLOAD_TOO_LARGE)
@@ -182,89 +214,113 @@ export class AdminModelCatalogService {
         throw new AppException(ErrorCode.VALIDATION_FAILED, 'Dữ liệu không hợp lệ.', { file: [e.message] });
       throw e;
     }
-    const bytes = input.bytes ?? (await this.stockBytes(check.format));
     if (bytes.length > MODEL_MAX_BYTES)
       throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, 'Tệp phải nhỏ hơn hoặc bằng 100MB.');
 
-    // tên tệp lưu do server sinh (uuid) ⇒ không thể path traversal
-    const key = `models/${product!.id}/${randomUUID()}.${check.ext}`;
-    await this.storage.upload({ key, body: bytes, contentType: check.mime, visibility: 'public' });
-    const fileSize = input.bytes ? bytes.length : Math.max(1, Math.round(Number(input.sizeMB) * 1024 * 1024));
+    // Tệp gốc vào bucket PRIVATE (tên do server sinh ⇒ không thể path traversal); job tải về từ đây
+    const sourceKey = `models/incoming/p${product!.id}/${randomUUID()}.${check.ext}`;
+    await this.storage.upload({
+      key: sourceKey,
+      body: bytes,
+      contentType: check.mime,
+      visibility: 'private',
+    });
 
-    const fileId = await this.prisma.$transaction(async (tx) => {
-      const media = await tx.media.create({
-        data: {
-          fileName: check.fileName,
-          filePath: key,
-          mimeType: check.mime,
-          fileSize,
-          uploadedBy: adminId,
-        },
-      });
-      let model = await tx.product3DModel.findFirst({ where: { productId: product!.id, isPrimary: true } });
-      const dims = await tx.productVariant.findFirst({
-        where: { productId: product!.id, lengthCm: { not: null } },
-        orderBy: { id: 'asc' },
-      });
-      if (!model) {
-        model = await tx.product3DModel.create({
-          data: {
-            productId: product!.id,
-            variantId,
-            lengthMm: dims?.lengthCm ? Math.round(Number(dims.lengthCm) * 10) : 1000,
-            widthMm: dims?.widthCm ? Math.round(Number(dims.widthCm) * 10) : 800,
-            heightMm: dims?.heightCm ? Math.round(Number(dims.heightCm) * 10) : 800,
-            placement: placement as never,
-            allowScaling: !input.allowAr,
-            viewerConfig: { autoRotate: true, exposure: 1, scale, unit },
-            posterMediaId: product!.productImages[0]?.mediaId ?? null,
-            status: 'ready',
-            isPrimary: true,
+    let modelId: number;
+    try {
+      modelId = await this.prisma.$transaction(async (tx) => {
+        let model = isTrue(input.createNew)
+          ? null
+          : await tx.product3DModel.findFirst({ where: { productId: product!.id, isPrimary: true } });
+        if (!model) {
+          const hasPrimary = await tx.product3DModel.count({
+            where: { productId: product!.id, isPrimary: true },
+          });
+          const dims = await tx.productVariant.findFirst({
+            where: { productId: product!.id, lengthCm: { not: null } },
+            orderBy: { id: 'asc' },
+          });
+          model = await tx.product3DModel.create({
+            data: {
+              productId: product!.id,
+              variantId,
+              lengthMm: dims?.lengthCm ? Math.round(Number(dims.lengthCm) * 10) : 1000,
+              widthMm: dims?.widthCm ? Math.round(Number(dims.widthCm) * 10) : 800,
+              heightMm: dims?.heightCm ? Math.round(Number(dims.heightCm) * 10) : 800,
+              placement: placement as never,
+              allowScaling: !isTrue(input.allowAr),
+              viewerConfig: { autoRotate: true, exposure: 1, scale, unit },
+              posterMediaId: product!.productImages[0]?.mediaId ?? null,
+              status: 'processing',
+              isPrimary: hasPrimary === 0,
+            },
+          });
+        } else {
+          model = await tx.product3DModel.update({
+            where: { id: model.id },
+            data: {
+              status: 'processing',
+              allowScaling: !isTrue(input.allowAr),
+              placement: placement as never,
+              ...(variantId ? { variantId } : {}),
+              viewerConfig: { ...((model.viewerConfig ?? {}) as object), scale, unit },
+            },
+          });
+        }
+        await this.activity.log(
+          {
+            actorId: adminId,
+            action: 'model.upload',
+            targetType: 'product3dmodel',
+            targetId: model.id,
+            changes: {
+              fileName: check.fileName,
+              format: check.format,
+              lod: 'high',
+              sizeBytes: bytes.length,
+              sourceKey,
+            },
           },
-        });
-      } else {
-        model = await tx.product3DModel.update({
-          where: { id: model.id },
-          data: {
-            allowScaling: !input.allowAr,
-            placement: placement as never,
-            ...(variantId ? { variantId } : {}),
-            viewerConfig: { ...((model.viewerConfig ?? {}) as object), scale, unit },
-          },
-        });
-      }
-      // mỗi (mô hình, định dạng, LOD) chỉ một tệp: tệp mới thay thế tệp cũ cùng định dạng
-      await tx.modelFile.deleteMany({ where: { modelId: model.id, format: check.format, lod: 'high' } });
-      const f = await tx.modelFile.create({
-        data: {
-          modelId: model.id,
-          format: check.format,
-          lod: 'high',
-          mediaId: media.id,
-          polygonCount: check.format === 'glb' ? 42_000 : null,
-          textureResolution: 2048,
-          isCompressed: true,
-        },
+          tx,
+        );
+        return model.id;
       });
-      await this.activity.log(
-        {
-          actorId: adminId,
-          action: 'model.upload',
-          targetType: 'product3dmodel',
-          targetId: model.id,
-          changes: { fileName: check.fileName },
-        },
-        tx,
-      );
-      return f.id;
+    } catch (e) {
+      await this.storage.delete(sourceKey, 'private').catch(() => undefined);
+      throw e;
+    }
+
+    const jobId = await this.enqueue(modelId, {
+      format: check.format,
+      lod: 'high',
+      sourceKey,
+      fileName: check.fileName,
+      uploadedBy: adminId,
     });
     this.products.invalidate();
-    return this.row(
-      await this.prisma.modelFile.findUniqueOrThrow({ where: { id: fileId }, include: FILE_INCLUDE }),
-    );
+    return { modelId, jobId, status: 'processing' };
   }
 
-  /** POST /admin/models (JSON): có thể kèm fileData = data-URL base64 */
+  /** Đẩy job; nếu Redis lỗi thì không để mô hình kẹt `processing` mãi */
+  private async enqueue(
+    modelId: number,
+    job: {
+      format: ModelFormat;
+      lod: 'high' | 'medium' | 'low';
+      sourceKey: string;
+      fileName: string;
+      uploadedBy: number;
+    },
+  ) {
+    try {
+      return await this.jobs.enqueueModel({ modelId, ...job });
+    } catch (e) {
+      await this.prisma.product3DModel.updateMany({ where: { id: modelId }, data: { status: 'failed' } });
+      throw e;
+    }
+  }
+
+  /** POST /admin/models (JSON): bắt buộc kèm fileData = data-URL base64 */
   uploadJson(adminId: number, raw: unknown) {
     const b = asBody(raw);
     let bytes: Buffer | undefined;
@@ -274,6 +330,10 @@ export class AdminModelCatalogService {
       if (!m) new FieldErrors().add('file', 'Nội dung tệp không hợp lệ.').throwIfAny();
       mimeType = m![1] || undefined;
       bytes = Buffer.from(m![2], 'base64');
+    } else if (Number(b.sizeMB) > MODEL_MAX_BYTES / 1024 / 1024) {
+      throw new AppException(ErrorCode.VALIDATION_FAILED, 'Dữ liệu không hợp lệ.', {
+        file: ['Tệp phải nhỏ hơn hoặc bằng 100MB.'],
+      });
     }
     return this.upload(adminId, {
       ...b,
@@ -285,6 +345,96 @@ export class AdminModelCatalogService {
     });
   }
 
+  /** UC-ADM-13: xử lý lại mô hình `failed` từ tệp gốc đã lưu (failed → processing) */
+  async reprocess(adminId: number, modelId: number): Promise<ModelProcessingAccepted> {
+    const model = await this.prisma.product3DModel.findUnique({ where: { id: modelId } });
+    if (!model) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Mô hình không tồn tại.');
+    if (model.status !== 'failed')
+      throw new AppException(ErrorCode.INVALID_STATE, 'Chỉ xử lý lại được mô hình đang ở trạng thái lỗi.');
+
+    // Tệp gốc mới nhất của từng định dạng, lấy từ nhật ký tải lên
+    const logs = await this.prisma.activityLog.findMany({
+      where: { targetType: 'product3dmodel', targetId: modelId, action: 'model.upload' },
+      orderBy: { id: 'desc' },
+    });
+    const sources = new Map<
+      string,
+      { sourceKey: string; fileName: string; lod: 'high' | 'medium' | 'low' }
+    >();
+    for (const l of logs) {
+      const c = (l.changes ?? {}) as {
+        sourceKey?: string;
+        fileName?: string;
+        format?: string;
+        lod?: 'high' | 'medium' | 'low';
+      };
+      if (!c.sourceKey || !c.format || sources.has(c.format)) continue;
+      if (await this.storage.head(c.sourceKey, 'private'))
+        sources.set(c.format, {
+          sourceKey: c.sourceKey,
+          fileName: c.fileName ?? 'model',
+          lod: c.lod ?? 'high',
+        });
+    }
+    if (!sources.size)
+      throw new AppException(
+        ErrorCode.INVALID_STATE,
+        'Không còn tệp gốc để xử lý lại, hãy tải mô hình lên lại.',
+      );
+
+    await this.prisma.$transaction(async (tx) => {
+      const r = await tx.product3DModel.updateMany({
+        where: { id: modelId, status: 'failed' },
+        data: { status: 'processing' },
+      });
+      if (r.count === 0)
+        throw new AppException(ErrorCode.INVALID_STATE, 'Chỉ xử lý lại được mô hình đang ở trạng thái lỗi.');
+      await this.activity.log(
+        { actorId: adminId, action: 'model.reprocess', targetType: 'product3dmodel', targetId: modelId },
+        tx,
+      );
+    });
+    let first = '';
+    for (const [format, s] of sources) {
+      const id = await this.enqueue(modelId, { format: format as ModelFormat, ...s, uploadedBy: adminId });
+      first ||= id;
+    }
+    return { modelId, jobId: first, status: 'processing' };
+  }
+
+  /** UC-ADM-13: đặt mô hình chính của sản phẩm (bỏ cờ cũ rồi đặt cờ mới, cùng transaction) */
+  async setPrimary(adminId: number, modelId: number) {
+    const model = await this.prisma.product3DModel.findUnique({ where: { id: modelId } });
+    if (!model) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Mô hình không tồn tại.');
+    if (model.status !== 'ready')
+      throw new AppException(
+        ErrorCode.INVALID_STATE,
+        'Chỉ đặt làm mô hình chính khi mô hình đã xử lý xong (ready).',
+      );
+    if (!model.isPrimary) {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.product3DModel.updateMany({
+          where: { productId: model.productId, isPrimary: true },
+          data: { isPrimary: false },
+        });
+        await tx.product3DModel.update({ where: { id: modelId }, data: { isPrimary: true } });
+        await this.activity.log(
+          {
+            actorId: adminId,
+            action: 'model.set_primary',
+            targetType: 'product3dmodel',
+            targetId: modelId,
+            changes: { productId: model.productId },
+          },
+          tx,
+        );
+      });
+      this.products.invalidate();
+    }
+    return { modelId, productId: model.productId, isPrimary: true };
+  }
+
+  /** Xóa một tệp; tệp cuối cùng ⇒ xóa luôn mô hình */
   async remove(adminId: number, fileId: number) {
     const f = await this.prisma.modelFile.findUnique({ where: { id: fileId }, include: { media: true } });
     if (!f) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Mô hình không tồn tại.');
@@ -308,15 +458,46 @@ export class AdminModelCatalogService {
         tx,
       );
     });
-    // xóa tệp vật lý + bản ghi media nếu không còn nơi nào dùng
-    const used =
-      (await this.prisma.modelFile.count({ where: { mediaId: f.mediaId } })) +
-      (await this.prisma.product3DModel.count({ where: { posterMediaId: f.mediaId } }));
-    if (!used && f.media.filePath.startsWith('models/')) {
-      await this.storage.delete(f.media.filePath, 'public').catch(() => undefined);
-      await this.prisma.media.delete({ where: { id: f.mediaId } }).catch(() => undefined);
-    }
+    await this.dropMediaIfUnused(f.mediaId, f.media.filePath);
     this.products.invalidate();
     return null;
+  }
+
+  /** Xóa cả mô hình (kể cả mô hình chưa có tệp: đang xử lý hoặc lỗi) */
+  async removeModel(adminId: number, modelId: number) {
+    const model = await this.prisma.product3DModel.findUnique({
+      where: { id: modelId },
+      include: { modelFiles: { include: { media: true } } },
+    });
+    if (!model) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Mô hình không tồn tại.');
+    await this.prisma.$transaction(async (tx) => {
+      await tx.modelFile.deleteMany({ where: { modelId } });
+      await tx.modelMaterialVariant.deleteMany({ where: { modelId } });
+      await tx.product3DModel.delete({ where: { id: modelId } });
+      await this.activity.log(
+        {
+          actorId: adminId,
+          action: 'model.delete',
+          targetType: 'product3dmodel',
+          targetId: modelId,
+          changes: { productId: model.productId },
+        },
+        tx,
+      );
+    });
+    for (const f of model.modelFiles) await this.dropMediaIfUnused(f.mediaId, f.media.filePath);
+    this.products.invalidate();
+    return null;
+  }
+
+  /** Xóa tệp vật lý + bản ghi media nếu không còn nơi nào dùng */
+  private async dropMediaIfUnused(mediaId: number, filePath: string) {
+    const used =
+      (await this.prisma.modelFile.count({ where: { mediaId } })) +
+      (await this.prisma.product3DModel.count({ where: { posterMediaId: mediaId } }));
+    if (!used && filePath.startsWith('models/')) {
+      await this.storage.delete(filePath, 'public').catch(() => undefined);
+      await this.prisma.media.delete({ where: { id: mediaId } }).catch(() => undefined);
+    }
   }
 }

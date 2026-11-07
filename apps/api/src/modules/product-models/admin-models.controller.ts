@@ -1,7 +1,7 @@
 // M12 – Mô hình 3D và AR
 // Controller – UC-ADM-13, 14
 // Bảng: product_3d_models, model_files, model_material_variants
-// TRẠNG THÁI: mới có presign/confirm tệp mô hình; các endpoint còn lại chưa cài đặt.
+// Tải lên (multipart/JSON) ⇒ 202, xử lý nền (model-processing); xử lý lại; mô hình chính; presign/confirm dành cho MinIO.
 import {
   Body,
   Controller,
@@ -10,6 +10,7 @@ import {
   HttpCode,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -44,19 +45,21 @@ export class AdminModelsController {
   }
 
   @Post()
+  @HttpCode(202)
   @ApiOperation({
     summary:
-      'Tải lên (JSON): { productId, fileName, sizeMB, format, allowAr, scale, unit?, fileData? (data-URL) }',
+      'Tải lên (JSON): { productId, fileName, format, fileData (data-URL), allowAr, scale, unit?, createNew? } ⇒ 202 { modelId, jobId, status: processing }',
   })
   upload(@CurrentUser('id') adminId: number, @Body() body: unknown) {
     return this.catalog.uploadJson(adminId, body);
   }
 
   @Post('upload')
+  @HttpCode(202)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
-      'Tải lên tệp thật (multipart): file + productId, variantId?, allowAr?, scale?, unit?, placement?',
+      'Tải lên tệp thật (multipart): file + productId, variantId?, allowAr?, scale?, unit?, placement?, createNew? ⇒ 202, xử lý nền',
   })
   @UseInterceptors(
     FileInterceptor('file', {
@@ -79,9 +82,30 @@ export class AdminModelsController {
     });
   }
 
+  @Delete('model/:modelId')
+  @ApiOperation({ summary: 'Xóa cả mô hình (kể cả mô hình chưa có tệp: đang xử lý hoặc lỗi)' })
+  removeModel(@CurrentUser('id') adminId: number, @Param('modelId', ParseIntPipe) modelId: number) {
+    return this.catalog.removeModel(adminId, modelId);
+  }
+
   @Delete(':id')
   remove(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
     return this.catalog.remove(adminId, id);
+  }
+
+  @Post(':id/reprocess')
+  @HttpCode(202)
+  @ApiOperation({
+    summary: 'Xử lý lại mô hình failed từ tệp gốc đã lưu (failed → processing); :id là id MÔ HÌNH',
+  })
+  reprocess(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.catalog.reprocess(adminId, id);
+  }
+
+  @Patch(':id/primary')
+  @ApiOperation({ summary: 'Đặt làm mô hình chính của sản phẩm (chỉ khi ready); :id là id MÔ HÌNH' })
+  setPrimary(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.catalog.setPrimary(adminId, id);
   }
 
   /** Cấp URL để trình duyệt PUT tệp GLB/USDZ gốc thẳng lên MinIO (bucket private). */
