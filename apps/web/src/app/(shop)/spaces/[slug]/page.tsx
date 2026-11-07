@@ -45,7 +45,6 @@ export default function SpaceDetailPage() {
   const [selected, setSelected] = useState<Hotspot | null>(null);
   const [checked, setChecked] = useState<number[]>([]);
   const search = useSearchParams();
-  const viewed = useRef<string | null>(null);
 
   useEffect(() => {
     if (!s) return;
@@ -53,12 +52,32 @@ export default function SpaceDetailPage() {
     setChecked(s.products.map((p) => p.id));
   }, [s?.id]);
 
-  // Ghi MỘT lượt xem khi mở không gian (UC-SPACE-06); ?from=<id sản phẩm> nếu khách đi từ trang sản phẩm
+  // Lượt xem (UC-SPACE-06): gom số lần bấm hotspot + cờ đã thêm vào giỏ, rồi gửi ĐÚNG MỘT lần khi rời trang
+  // (tab ẩn / pagehide / chuyển trang trong ứng dụng) bằng sendBeacon. ?from=<slug sản phẩm> là sản phẩm dẫn tới.
+  const stats = useRef({ clicks: 0, added: false, sent: false });
+  const from = search.get('from') ?? undefined;
   useEffect(() => {
-    if (!s || viewed.current === slug) return;
-    viewed.current = slug;
-    const from = Number(search.get('from')) || undefined;
-    spaceApi.recordView(slug, { visitorId: getVisitorId(), sourceProductId: from }).catch(() => undefined);
+    if (!s) return;
+    stats.current = { clicks: 0, added: false, sent: false };
+    const send = () => {
+      const st = stats.current;
+      if (st.sent) return;
+      st.sent = true;
+      spaceApi.sendViewBeacon(slug, {
+        visitorId: getVisitorId(),
+        sourceProductId: from,
+        hotspotClickCount: st.clicks,
+        addedToCart: st.added,
+      });
+    };
+    const onHide = () => document.visibilityState === 'hidden' && send();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', send);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', send);
+      send(); // rời trang bằng điều hướng trong ứng dụng (không có pagehide)
+    };
   }, [s?.id]);
 
   const pano = s?.panoramas.find((p) => p.id === panoId) ?? s?.panoramas[0];
@@ -73,6 +92,7 @@ export default function SpaceDetailPage() {
     },
     onSuccess: (cart) => {
       if (cart) qc.setQueryData(queryKeys.cart, cart);
+      stats.current.added = true;
       toast.success(`Đã thêm ${chosen.length} sản phẩm vào giỏ hàng.`);
     },
     onError: (e) => toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ hàng.'),
@@ -110,6 +130,7 @@ export default function SpaceDetailPage() {
   if (!s || !pano) return null;
 
   const onHotspot = (h: Hotspot) => {
+    stats.current.clicks += 1;
     if (h.type === 'navigation' && h.targetPanoramaId) {
       setPanoId(h.targetPanoramaId);
       setSelected(null);
@@ -158,6 +179,7 @@ export default function SpaceDetailPage() {
                       quantity: 1,
                     });
                     qc.setQueryData(queryKeys.cart, c);
+                    stats.current.added = true;
                     toast.success('Đã thêm vào giỏ hàng.');
                   } catch (e) {
                     toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ.');

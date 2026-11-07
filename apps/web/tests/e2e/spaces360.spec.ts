@@ -142,20 +142,19 @@ test('thêm cả bộ vào giỏ: số lượng theo ô chọn, bỏ chọn mộ
   await expect(badge).toHaveText(String(n0 + 4));
 });
 
-test('lưu không gian: bật/tắt và giữ nguyên sau khi tải lại; mỗi lần mở chỉ +1 lượt xem', async ({
-  page,
-  request,
-}) => {
+test('lưu không gian: bật/tắt và giữ nguyên sau khi tải lại; ', async ({ page, request }) => {
   const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
   const views = async () =>
     ((await (await request.get(`${api}/api/spaces/${SLUG}`)).json()).data.viewCount as number) ?? 0;
-  const v0 = await views();
   await login(page, `/spaces/${SLUG}`);
   await waitViewer(page);
-  await expect.poll(views, { timeout: 15_000 }).toBe(v0 + 1);
+  const v0 = await views();
+  // đang xem thì CHƯA ghi; reload (rời trang) ⇒ đúng +1
+  await page.waitForTimeout(1500);
+  expect(await views()).toBe(v0);
   await page.reload();
   await waitViewer(page);
-  await expect.poll(views, { timeout: 15_000 }).toBe(v0 + 2);
+  await expect.poll(views, { timeout: 15_000 }).toBe(v0 + 1);
 
   const save = side(page).getByRole('button', { name: /Lưu không gian|Đã lưu/ });
   if ((await save.innerText()).includes('Đã lưu')) {
@@ -243,4 +242,58 @@ test('ảnh 360° tải lỗi: chỉ khung xem báo lỗi + nút Thử lại, tr
   await page.getByRole('button', { name: 'Thử lại' }).click();
   await expect(viewer(page)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('alert').filter({ hasText: 'Không tải được ảnh 360°' })).toHaveCount(0);
+});
+
+test('lượt xem ghi MỘT lần khi rời trang bằng sendBeacon: có visitorId, ?from=<slug>, số lần bấm hotspot, đã thêm vào giỏ, accessToken', async ({
+  page,
+  request,
+}) => {
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const views = async () =>
+    ((await (await request.get(`${api}/api/spaces/${SLUG}`)).json()).data.viewCount as number) ?? 0;
+  // ghi lại các lần gọi navigator.sendBeacon (lúc rời trang bằng điều hướng trong ứng dụng, cùng một tài liệu nên đọc lại được)
+  await page.addInitScript(() => {
+    const w = window as unknown as { __beacons: Array<{ url: string; data: Blob }> };
+    w.__beacons = [];
+    const orig = navigator.sendBeacon.bind(navigator);
+    navigator.sendBeacon = (url: string | URL, data?: BodyInit | null) => {
+      w.__beacons.push({ url: String(url), data: data as Blob });
+      return orig(url, data);
+    };
+  });
+  await login(page, `/spaces/${SLUG}`);
+  await page.goto(`/spaces/${SLUG}?from=sofa-nordic`);
+  await waitViewer(page);
+  const v0 = await views();
+  // 2 lần bấm hotspot + thêm sản phẩm vào giỏ từ popover
+  await page.getByRole('button', { name: 'Chất liệu tường' }).click();
+  await page
+    .getByRole('dialog', { name: 'Thông tin điểm tương tác' })
+    .getByRole('button', { name: 'Đóng' })
+    .click();
+  await page.getByRole('button', { name: 'Bàn làm việc', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Thông tin điểm tương tác' })
+    .getByRole('button', { name: 'Thêm' })
+    .click();
+  await expect(page.getByText('Đã thêm vào giỏ hàng.')).toBeVisible();
+  expect(await page.evaluate(() => (window as never as { __beacons: unknown[] }).__beacons.length)).toBe(0); // chưa rời trang ⇒ chưa gửi
+  expect(await views()).toBe(v0);
+
+  await page.getByRole('link', { name: 'Không gian mẫu' }).first().click(); // rời trang bằng điều hướng trong ứng dụng
+  await expect(page).toHaveURL(/\/spaces$/);
+  await expect.poll(views, { timeout: 15_000 }).toBe(v0 + 1);
+  const sent = await page.evaluate(async () => {
+    const w = window as unknown as { __beacons: Array<{ url: string; data: Blob }> };
+    return Promise.all(w.__beacons.map(async (b) => ({ url: b.url, body: JSON.parse(await b.data.text()) })));
+  });
+  expect(sent).toHaveLength(1); // đúng MỘT lần
+  expect(sent[0].url).toMatch(new RegExp(`/spaces/${SLUG}/views$`));
+  expect(sent[0].body).toMatchObject({
+    sourceProductId: 'sofa-nordic',
+    hotspotClickCount: 2,
+    addedToCart: true,
+  });
+  expect(String(sent[0].body.visitorId)).toMatch(/^[0-9a-f-]{36}$/);
+  expect(typeof sent[0].body.accessToken).toBe('string');
 });

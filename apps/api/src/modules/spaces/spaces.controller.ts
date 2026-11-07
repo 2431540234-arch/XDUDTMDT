@@ -36,10 +36,10 @@ export class SpacesController {
 
   @Public()
   @Post(':slug/views')
-  @HttpCode(200)
+  @HttpCode(204)
   @ApiOperation({
     summary:
-      'Ghi một lượt xem (trigger tăng view_count): { visitorId (bắt buộc nếu chưa đăng nhập), sourceProductId?, hotspotClickCount?, addedToCart? }',
+      'Ghi MỘT lượt xem khi rời trang (sendBeacon): { visitorId, sourceProductId? (id hoặc slug), hotspotClickCount?, addedToCart?, accessToken? } ⇒ 204',
   })
   view(@Param('slug') slug: string, @Body() body: unknown, @CurrentUser('id') userId?: number) {
     return this.spaces.recordView(slug, userId ?? null, body);

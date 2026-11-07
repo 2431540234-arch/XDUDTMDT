@@ -1,6 +1,7 @@
 // M15 – Không gian mẫu (công khai): bộ sưu tập, chi tiết (ảnh 360°, hotspot, sản phẩm gợi ý, giá combo), lưu yêu thích.
 // Bảng: spaces, space_panoramas, space_hotspots, space_product_placements, space_bookmarks
 import { Injectable } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
@@ -9,6 +10,8 @@ import { serialize } from '../../common/utils/serialize';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews, PRODUCT_INCLUDE } from '../../common/views/catalog-views.service';
+import { AppConfig } from '../../config/app-config.service';
+import type { AccessTokenPayload } from '../../common/guards/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
 
@@ -40,6 +43,8 @@ export class SpacesService {
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
     private readonly cart: CartService,
+    private readonly jwt: JwtService,
+    private readonly config: AppConfig,
   ) {}
 
   private productIds(s: SpaceRow): number[] {
@@ -128,15 +133,16 @@ export class SpacesService {
 
   /**
    * Ghi MỘT lượt xem không gian (UC-SPACE-06): chèn space_views; trigger DB tăng spaces.view_count.
-   * Khách đăng nhập ghi theo user_id; khách vãng lai gửi visitorId (UUID do client tạo). Có thể kèm sản phẩm dẫn tới,
-   * số lần bấm hotspot và cờ đã thêm vào giỏ.
+   * Client gửi bằng navigator.sendBeacon khi rời trang nên không đặt được header Authorization: userId lấy từ
+   * header (nếu có) hoặc từ `accessToken` trong body (tùy chọn, sai/hết hạn ⇒ ghi ẩn danh). `visitorId` luôn bắt buộc (UUID).
+   * `sourceProductId` nhận id sản phẩm hoặc slug (client chỉ biết `?from=<slug>`).
    */
-  async recordView(slug: string, userId: number | null, raw: unknown) {
+  async recordView(slug: string, headerUserId: number | null, raw: unknown) {
     const b = asBody(raw);
     const errs = new FieldErrors();
     const visitorId = str(b.visitorId).trim().toLowerCase();
-    if (visitorId && !UUID_RE.test(visitorId)) errs.add('visitorId', 'Mã khách vãng lai không hợp lệ.');
-    if (!userId && !visitorId) errs.add('visitorId', 'Thiếu mã khách vãng lai.');
+    if (!visitorId) errs.add('visitorId', 'Thiếu mã khách vãng lai.');
+    else if (!UUID_RE.test(visitorId)) errs.add('visitorId', 'Mã khách vãng lai không hợp lệ.');
     const clicks = b.hotspotClickCount === undefined ? 0 : Number(b.hotspotClickCount);
     if (!Number.isInteger(clicks) || clicks < 0 || clicks > 1000)
       errs.add('hotspotClickCount', 'Số lần bấm không hợp lệ.');
@@ -146,21 +152,43 @@ export class SpacesService {
       select: { id: true },
     });
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
-    const productId = toId(b.sourceProductId);
-    const source = productId
-      ? await this.prisma.product.findFirst({
-          where: { id: productId, deletedAt: null },
+
+    let userId = headerUserId;
+    if (!userId && typeof b.accessToken === 'string' && b.accessToken) {
+      try {
+        const p = await this.jwt.verifyAsync<AccessTokenPayload>(b.accessToken, {
+          secret: this.config.get('JWT_ACCESS_SECRET'),
+        });
+        const u = await this.prisma.user.findFirst({
+          where: { id: p.sub, deletedAt: null, status: 'active' },
           select: { id: true },
-        })
-      : null;
+        });
+        userId = u?.id ?? null;
+      } catch {
+        userId = null; // token sai/hết hạn ⇒ ghi ẩn danh
+      }
+    }
+
+    const src =
+      typeof b.sourceProductId === 'string' && !/^\d+$/.test(b.sourceProductId.trim())
+        ? b.sourceProductId.trim()
+        : null;
+    const productId = src ? 0 : toId(b.sourceProductId);
+    const source =
+      src || productId
+        ? await this.prisma.product.findFirst({
+            where: { deletedAt: null, ...(src ? { slug: src } : { id: productId }) },
+            select: { id: true },
+          })
+        : null;
     await this.prisma.spaceView.create({
       data: {
         spaceId: s.id,
         userId,
-        visitorId: userId ? null : visitorId,
+        visitorId,
         sourceProductId: source?.id ?? null,
         hotspotClickCount: clicks,
-        addedToCart: Boolean(b.addedToCart),
+        addedToCart: b.addedToCart === true,
       },
     });
     return null;
