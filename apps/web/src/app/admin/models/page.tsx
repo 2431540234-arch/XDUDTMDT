@@ -27,7 +27,7 @@ interface UploadItem {
   id: number;
   name: string;
   sizeMB: number;
-  format: 'glb' | 'usdz';
+  format: 'glb';
   file: File;
 }
 
@@ -45,7 +45,6 @@ function UploadModal({
   const [productId, setProductId] = useState(defaultProductId ?? '');
   const [scale, setScale] = useState('1');
   const [unit, setUnit] = useState('mm');
-  const [ar, setAr] = useState(true);
   const [createNew, setCreateNew] = useState(false);
   const [err, setErr] = useState<Record<string, string>>({});
   const seq = useRef(1);
@@ -67,8 +66,8 @@ function UploadModal({
     const ok: UploadItem[] = [];
     for (const f of list) {
       const ext = f.name.split('.').pop()?.toLowerCase();
-      if (!ext || !['glb', 'gltf', 'usdz'].includes(ext)) {
-        toast.error(`“${f.name}” không đúng định dạng (GLB, GLTF, USDZ).`);
+      if (ext !== 'glb') {
+        toast.error('Hệ thống chỉ hỗ trợ tệp GLB');
         continue;
       }
       if (f.size > 100 * 1024 * 1024) {
@@ -79,7 +78,7 @@ function UploadModal({
         id: seq.current++,
         name: f.name,
         sizeMB: Math.max(0.1, Math.round((f.size / 1048576) * 10) / 10),
-        format: ext === 'usdz' ? 'usdz' : 'glb',
+        format: 'glb',
         file: f,
       });
     }
@@ -92,7 +91,6 @@ function UploadModal({
         await adminApi.models.upload(f.file, {
           productId: Number(productId),
           format: f.format,
-          allowAr: ar,
           scale: Number(scale) || 1,
           unit,
           createNew,
@@ -135,10 +133,10 @@ function UploadModal({
         <div className="space-y-4">
           <UploadDropzone
             label="Tệp mô hình"
-            accept=".glb,.gltf,.usdz"
+            accept=".glb"
             maxMB={100}
             multiple
-            hint="Kéo thả hoặc click để chọn – GLB, GLTF, USDZ (tối đa 100MB)"
+            hint="Kéo thả hoặc click để chọn – chỉ GLB (tối đa 100MB)"
             onFiles={add}
             onError={toast.error}
           />
@@ -209,16 +207,6 @@ function UploadModal({
               ]}
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              role="switch"
-              checked={ar}
-              onChange={(e) => setAr(e.target.checked)}
-              className="h-4 w-4 accent-primary"
-            />{' '}
-            Cho phép xem AR
-          </label>
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
@@ -386,10 +374,7 @@ function Content() {
             placeholder: 'Tất cả loại tệp',
             value: st.format,
             onChange: (v) => patch({ format: v }),
-            options: [
-              { value: 'glb', label: 'GLB' },
-              { value: 'usdz', label: 'USDZ' },
-            ],
+            options: [{ value: 'glb', label: 'GLB' }],
           },
         ]}
         actions={
@@ -444,7 +429,7 @@ function Content() {
           Xóa <b>{del?.fileName}</b>?{' '}
           {del?.fileId === null
             ? 'Mô hình này chưa có tệp nào.'
-            : 'Nếu là tệp cuối cùng, sản phẩm sẽ không còn mô hình 3D/AR.'}
+            : 'Nếu là tệp cuối cùng, sản phẩm sẽ không còn mô hình 3D.'}
         </p>
       </Modal>
     </div>

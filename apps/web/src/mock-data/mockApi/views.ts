@@ -177,7 +177,6 @@ export function model3DView(db: Db, m: Product3DModel): Model3DView {
     ...m,
     files,
     glbUrl: files.find((f) => f.format === 'glb')?.url ?? null,
-    usdzUrl: files.find((f) => f.format === 'usdz')?.url ?? null,
     posterUrl: mediaPath(db, m.posterMediaId),
   };
 }

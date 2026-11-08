@@ -118,8 +118,7 @@ export const adminApi = {
       file: File,
       meta: {
         productId: number;
-        format: 'glb' | 'usdz';
-        allowAr: boolean;
+        format: 'glb';
         scale: number;
         unit: string;
         createNew?: boolean;
@@ -131,14 +130,12 @@ export const adminApi = {
           fileName: file.name,
           sizeMB: Math.max(0.1, file.size / 1048576),
           format: meta.format,
-          allowAr: meta.allowAr,
           scale: meta.scale,
         });
       }
       const form = new FormData();
       form.append('file', file);
       form.append('productId', String(meta.productId));
-      form.append('allowAr', String(meta.allowAr));
       form.append('scale', String(meta.scale));
       form.append('unit', meta.unit);
       if (meta.createNew) form.append('createNew', 'true');

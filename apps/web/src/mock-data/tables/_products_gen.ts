@@ -297,32 +297,10 @@ productSpecs.forEach((s, idx) => {
       createdAt,
       updatedAt: createdAt,
     });
-    if (mid % 3 === 1) {
-      const usdzMedia = registerMedia(
-        `/mock/models/placeholder.usdz?p=${id}`,
-        `${slug.replace(/-/g, '_')}.usdz`,
-        'model/vnd.usdz+zip',
-        Math.round(sizeBytes * 0.8),
-        `Mô hình USDZ ${s.name}`,
-      );
-      modelFiles.push({
-        id: modelFiles.length + 1,
-        modelId: mid,
-        format: 'usdz',
-        lod: 'high',
-        mediaId: usdzMedia,
-        polygonCount: null,
-        textureResolution: 2048,
-        isCompressed: false,
-        checksum: `sha256-u${(id * 6151).toString(16).padStart(8, '0')}`,
-        createdAt,
-        updatedAt: createdAt,
-      });
-    }
     if (status === 'ready') {
       const p = products[products.length - 1];
       p.has3dModel = true;
-      p.hasAr = !['rug', 'mirror'].includes(s.type);
+      p.hasAr = false; // AR ngoài phạm vi (D-P11)
     }
   }
 });

@@ -120,7 +120,6 @@ export interface ModelProcessingAccepted {
 export interface Model3DView extends Product3DModel {
   files: ModelFileView[];
   glbUrl: string | null;
-  usdzUrl: string | null;
   posterUrl: string | null;
 }
 
@@ -325,7 +324,7 @@ export interface Model3DAdminRow extends Model3DView {
   lod: 'high' | 'medium' | 'low' | null;
   productName: string;
   productThumbnailUrl: string | null;
-  format: 'glb' | 'usdz';
+  format: 'glb';
   fileName: string;
   sizeMB: number;
   uploadedAt: string;

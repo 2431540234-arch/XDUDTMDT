@@ -1472,12 +1472,11 @@ function modelRows(db: Db): Model3DAdminRow[] {
         db,
         db.productImages.find((i) => i.productId === p.id && i.isPrimary)?.mediaId,
       ),
-      format: f.format,
+      format: 'glb' as const,
       fileName: md.fileName,
       sizeMB: Math.round((md.fileSize / 1024 / 1024) * 10) / 10,
       uploadedAt: f.createdAt,
       glbUrl: f.format === 'glb' ? md.filePath : model3DView(db, m).glbUrl,
-      usdzUrl: f.format === 'usdz' ? md.filePath : model3DView(db, m).usdzUrl,
     });
   }
   return rows;
@@ -1509,7 +1508,7 @@ export function uploadModel(ctx: Ctx): Result {
   const errs: Record<string, string> = {};
   const p = db.products.find((x) => x.id === Number(b.productId));
   if (!p) errs.productId = 'Vui lòng chọn sản phẩm liên kết.';
-  if (!['glb', 'usdz'].includes(b.format)) errs.format = 'Chỉ hỗ trợ GLB, GLTF hoặc USDZ.';
+  if (b.format !== 'glb') errs.format = 'Hệ thống chỉ hỗ trợ tệp GLB';
   if (!(Number(b.sizeMB) > 0) || Number(b.sizeMB) > 50) errs.file = 'Tệp phải nhỏ hơn hoặc bằng 50MB.';
   if (Object.keys(errs).length) throw validation(errs);
   let m = db.product3dModels.find((x) => x.productId === p!.id && x.isPrimary);
@@ -1527,7 +1526,7 @@ export function uploadModel(ctx: Ctx): Result {
       widthMm: w,
       heightMm: h,
       placement: 'floor',
-      allowScaling: !b.allowAr,
+      allowScaling: true,
       viewerConfig: { autoRotate: true, exposure: 1 },
       posterMediaId: db.productImages.find((i) => i.productId === p!.id && i.isPrimary)?.mediaId ?? null,
       status: 'ready',
@@ -1541,21 +1540,18 @@ export function uploadModel(ctx: Ctx): Result {
   }
   const spec = productSpecs.find((s) => s.name === p!.name);
   const modelKey = (spec && modelFor(spec)) ?? 'sofa';
-  const filePath =
-    b.format === 'glb'
-      ? `/mock/models/${modelKey}.glb?u=${Date.now()}`
-      : `/mock/models/placeholder.usdz?u=${Date.now()}`;
+  const filePath = `/mock/models/${modelKey}.glb?u=${Date.now()}`;
   const mediaId = mediaFrom(
     db,
     filePath,
     String(b.fileName),
-    b.format === 'glb' ? 'model/gltf-binary' : 'model/vnd.usdz+zip',
+    'model/gltf-binary',
     Math.round(Number(b.sizeMB) * 1024 * 1024),
   );
   const f = {
     id: nextId(db.modelFiles),
     modelId: m.id,
-    format: b.format as 'glb' | 'usdz',
+    format: 'glb' as const,
     lod: 'high' as const,
     mediaId,
     polygonCount: b.format === 'glb' ? 42_000 : null,
@@ -1567,8 +1563,7 @@ export function uploadModel(ctx: Ctx): Result {
   };
   db.modelFiles.push(f);
   p!.has3dModel = true;
-  p!.hasAr = Boolean(b.allowAr);
-  m.allowScaling = !b.allowAr;
+  p!.hasAr = false; // AR ngoài phạm vi (D-P11)
   log(ctx, 'model.upload', 'product3dmodel', m.id, { fileName: b.fileName });
   return created(modelRows(db).find((r) => r.id === f.id));
 }
