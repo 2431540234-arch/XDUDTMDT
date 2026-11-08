@@ -166,3 +166,63 @@ Không thêm thư viện mới.
 - **Khách:** bỏ khối "Xem AR tại nhà" và mã QR, mọi lời nhắc AR (trang chủ, giới thiệu, danh sách, chi tiết, 360°, metadata); bỏ tham số `hasAr` ở `product.api`; `ProductViewer3D` và `ModelViewerElement` không còn thuộc tính `ar`, `ar-modes`, `ios-src` (vẫn dùng `@google/model-viewer` để xem 3D); trình xem 3D giữ nguyên.
 - **Admin `/admin/models`:** bỏ ô "Cho phép xem AR", ô chọn tệp chỉ nhận `.glb` (báo "Hệ thống chỉ hỗ trợ tệp GLB"), bộ lọc định dạng chỉ còn GLB. Trang Cài đặt không có `ar_enabled`.
 - **Mock:** dữ liệu giả không còn USDZ, `hasAr` luôn `false`, bỏ `usdzUrl`.
+
+---
+
+## Sửa lỗi "lưu xong vẫn hiện dữ liệu cũ" trên toàn bộ trang (2026-11-08) ✅
+
+**Nguyên nhân** (đã chứng minh ở trang media, xem BE_PROGRESS "Lỗi chập chờn admin-m5"): React Query v5 `invalidateQueries` không hủy lần tải đang bay của query chưa có dữ liệu (vd. danh sách vừa đổi bộ lọc tìm kiếm); kết quả đọc TRƯỚC khi ghi ở lại giao diện. `setQueryData` (ghi kết quả máy chủ vào cache) có cùng điểm yếu: lần tải cũ trả về sau sẽ đè lên.
+
+**Cách sửa dùng chung (không sửa từng chỗ theo kiểu riêng):** `src/lib/query-refresh.ts` có `makeWriteSafe(qc)`, được áp cho QueryClient duy nhất của ứng dụng (`makeQueryClient` trong `src/lib/query-client.ts`, dùng bởi `app/providers.tsx`):
+- `invalidateQueries` hủy lần tải đang bay của các query khớp rồi mới làm mới (cùng ý với `refreshAfterWrite`, vẫn dùng tường minh ở trang media);
+- `setQueryData` hủy lần tải đang bay của đúng khóa đó trước khi ghi.
+
+Vì sửa ở QueryClient nên **mọi** chỗ ghi (admin, giỏ hàng, địa chỉ, hồ sơ, yêu thích, đánh giá, lưu không gian, thông báo…) và mọi chỗ thêm sau này đều được bao phủ. Các chỗ được bao phủ (đếm theo mã nguồn, không tính mock):
+
+| Tệp | `invalidateQueries` | `setQueryData` |
+|---|---|---|
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(account)\account\coupons\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(account)\account\notifications\page.tsx` | 3 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(account)\account\orders\[code]\page.tsx` | 2 | 1 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(account)\account\profile\page.tsx` | 2 | 2 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(account)\account\returns\new\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(auth)\verify-email\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(shop)\cart\page.tsx` | 0 | 2 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(shop)\checkout\failed\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(shop)\checkout\page.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(shop)\checkout\success\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\(shop)\spaces\[slug]\page.tsx` | 1 | 2 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\attributes\page.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\brands\page.tsx` | 5 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\categories\page.tsx` | 3 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\content\page.tsx` | 8 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\customers\[id]\page.tsx` | 3 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\customers\page.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\inventory\page.tsx` | 4 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\models\page.tsx` | 6 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\orders\[code]\page.tsx` | 1 | 1 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\orders\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\products\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\promotions\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\questions\page.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\reports\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\returns\page.tsx` | 3 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\reviews\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\settings\page.tsx` | 1 | 1 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\app\admin\spaces\page.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\account\AddressFormModal.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\account\ReviewModal.tsx` | 3 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\admin\Product360Editor.tsx` | 3 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\admin\ProductForm.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\admin\PromotionForm.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\admin\SpaceForm.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\layout\Header.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\product\ProductTabs.tsx` | 1 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\components\product\SpaceCard.tsx` | 2 | 0 |
+| `C:\Users\Dell\XDUDTMDT\apps\web\src\hooks\useCart.ts` | 1 | 1 |
+
+Tổng: 79 lời gọi `invalidateQueries` và 10 lời gọi `setQueryData`.
+
+**Test:**
+- Vitest `tests/unit/query-refresh.test.ts` (5): `refreshAfterWrite` và `makeWriteSafe` cho `invalidateQueries` lẫn `setQueryData`; mỗi trường hợp có đối chứng "client thường" tái hiện lỗi.
+- Playwright (API thật) nhóm `admin-race`, `tests/e2e/admin-race.spec.ts` (2), kịch bản "tìm kiếm rồi lưu ngay" ở hai trang admin khác nhau: **khách hàng** (khóa tài khoản) và **sản phẩm** (xóa). Test dựng đúng thứ tự gây lỗi (giữ kết quả tìm kiếm đã đọc trước khi ghi, chỉ thả sau khi ghi xong) nên không phụ thuộc may rủi về thời gian. Đã kiểm đối chứng: tắt `makeWriteSafe` thì cả hai test fail (khách hàng vẫn hiện "Hoạt động", sản phẩm vẫn còn dòng cũ); bật lại thì xanh.

@@ -10,3 +10,22 @@ export async function refreshAfterWrite(qc: QueryClient, queryKey: QueryKey): Pr
   await qc.cancelQueries({ queryKey });
   await qc.invalidateQueries({ queryKey });
 }
+
+/**
+ * Áp quy tắc "ghi xong thì không để lần tải cũ đang bay ghi đè" cho MỌI chỗ dùng QueryClient của ứng dụng:
+ *  • `invalidateQueries` hủy lần tải đang bay của các query khớp rồi mới làm mới (như `refreshAfterWrite`);
+ *  • `setQueryData` (ghi kết quả máy chủ trả về vào cache) hủy lần tải đang bay của đúng khóa đó, nếu không lần tải
+ *    cũ trả về sau sẽ đè mất dữ liệu mới.
+ * Nhờ vậy ~80 chỗ "ghi rồi invalidate/setQueryData" (admin và khách) dùng chung một cách, không sửa riêng từng chỗ.
+ */
+export function makeWriteSafe<T extends QueryClient>(qc: T): T {
+  const invalidate = qc.invalidateQueries.bind(qc);
+  qc.invalidateQueries = (filters, options) =>
+    qc.cancelQueries(filters).then(() => invalidate(filters, options));
+  const setData = qc.setQueryData.bind(qc);
+  qc.setQueryData = ((key: QueryKey, updater: unknown, options?: unknown) => {
+    void qc.cancelQueries({ queryKey: key, exact: true });
+    return (setData as (k: QueryKey, u: unknown, o?: unknown) => unknown)(key, updater, options);
+  }) as typeof qc.setQueryData;
+  return qc;
+}

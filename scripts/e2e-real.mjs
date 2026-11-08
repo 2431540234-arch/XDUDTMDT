@@ -35,6 +35,8 @@ const GROUPS = [
   { name: 'admin-m5', files: ['tests/e2e/admin-m5.spec.ts'] },
   // xử lý nền mô hình 3D (cần Redis)
   { name: 'admin-3d', files: ['tests/e2e/admin-models.spec.ts'] },
+  // ghi rồi tải lại danh sách khi lần tải tìm kiếm còn đang bay (React Query), xem apps/web/src/lib/query-refresh.ts
+  { name: 'admin-race', files: ['tests/e2e/admin-race.spec.ts'] },
 ];
 
 const log = (m) => console.log(`\n[e2e-real] ${m}`);
