@@ -19,25 +19,34 @@ const DB = 'aurelia_test';
 const PG_PORT = process.env.POSTGRES_PORT ?? '55432';
 const isWin = process.platform === 'win32';
 
+// --minio: chạy API với MinIO THẬT (bucket riêng aurelia-test-*) và CHỈ nhóm admin-minio (tải lên trực tiếp từ trình duyệt,
+// kiểm CORS và presigned PUT). Mặc định (không cờ) dùng driver local để không phụ thuộc container.
+const MINIO = process.argv.includes('--minio') || process.env.E2E_STORAGE === 'minio';
+const S3_ENDPOINT = process.env.S3_ENDPOINT ?? 'http://localhost:9000';
+const TEST_PUBLIC = 'aurelia-test-public';
+const TEST_PRIVATE = 'aurelia-test-private';
+
 /** Nhóm test: thứ tự quan trọng vì test làm thay đổi dữ liệu (giỏ hàng, đơn…) nên mỗi nhóm chạy trên DB vừa reset */
-const GROUPS = [
-  {
-    name: 'khach-hang',
-    files: ['tests/e2e/home.spec.ts', 'tests/e2e/screens.spec.ts'],
-  },
-  {
-    name: 'xem-360',
-    files: ['tests/e2e/product360.spec.ts', 'tests/e2e/spaces360.spec.ts', 'tests/e2e/admin360.spec.ts'],
-  },
-  { name: 'admin-m2', files: ['tests/e2e/admin-m2.spec.ts'] },
-  { name: 'admin-m3', files: ['tests/e2e/admin-m3.spec.ts'] },
-  { name: 'admin-m4', files: ['tests/e2e/admin-m4.spec.ts'] },
-  { name: 'admin-m5', files: ['tests/e2e/admin-m5.spec.ts'] },
-  // xử lý nền mô hình 3D (cần Redis)
-  { name: 'admin-3d', files: ['tests/e2e/admin-models.spec.ts'] },
-  // ghi rồi tải lại danh sách khi lần tải tìm kiếm còn đang bay (React Query), xem apps/web/src/lib/query-refresh.ts
-  { name: 'admin-race', files: ['tests/e2e/admin-race.spec.ts'] },
-];
+const GROUPS = MINIO
+  ? [{ name: 'admin-minio', files: ['tests/e2e/admin-minio.spec.ts'] }]
+  : [
+      {
+        name: 'khach-hang',
+        files: ['tests/e2e/home.spec.ts', 'tests/e2e/screens.spec.ts'],
+      },
+      {
+        name: 'xem-360',
+        files: ['tests/e2e/product360.spec.ts', 'tests/e2e/spaces360.spec.ts', 'tests/e2e/admin360.spec.ts'],
+      },
+      { name: 'admin-m2', files: ['tests/e2e/admin-m2.spec.ts'] },
+      { name: 'admin-m3', files: ['tests/e2e/admin-m3.spec.ts'] },
+      { name: 'admin-m4', files: ['tests/e2e/admin-m4.spec.ts'] },
+      { name: 'admin-m5', files: ['tests/e2e/admin-m5.spec.ts'] },
+      // xử lý nền mô hình 3D (cần Redis)
+      { name: 'admin-3d', files: ['tests/e2e/admin-models.spec.ts'] },
+      // ghi rồi tải lại danh sách khi lần tải tìm kiếm còn đang bay (React Query), xem apps/web/src/lib/query-refresh.ts
+      { name: 'admin-race', files: ['tests/e2e/admin-race.spec.ts'] },
+    ];
 
 const log = (m) => console.log(`\n[e2e-real] ${m}`);
 
@@ -116,6 +125,45 @@ process.on('SIGINT', () => {
 });
 process.on('exit', cleanup);
 
+/** Tạo bucket test (public cho đọc ẩn danh, private) nếu chưa có; báo rõ nếu MinIO không chạy */
+async function ensureTestBuckets() {
+  const req = createRequire(resolve(apiDir, 'package.json'));
+  const { S3Client, CreateBucketCommand, PutBucketPolicyCommand } = req('@aws-sdk/client-s3');
+  try {
+    const h = await fetch(`${S3_ENDPOINT}/minio/health/live`, { signal: AbortSignal.timeout(3000) });
+    if (!h.ok) throw new Error(String(h.status));
+  } catch {
+    throw new Error(`Không thấy MinIO ở ${S3_ENDPOINT}. Bật: docker compose up -d minio minio-init`);
+  }
+  const s3 = new S3Client({
+    endpoint: S3_ENDPOINT,
+    region: 'us-east-1',
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY ?? 'aurelia',
+      secretAccessKey: process.env.S3_SECRET_KEY ?? 'aurelia123',
+    },
+  });
+  for (const b of [TEST_PUBLIC, TEST_PRIVATE])
+    await s3.send(new CreateBucketCommand({ Bucket: b })).catch(() => undefined);
+  await s3.send(
+    new PutBucketPolicyCommand({
+      Bucket: TEST_PUBLIC,
+      Policy: JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Effect: 'Allow',
+            Principal: '*',
+            Action: ['s3:GetObject'],
+            Resource: [`arn:aws:s3:::${TEST_PUBLIC}/*`],
+          },
+        ],
+      }),
+    }),
+  );
+}
+
 async function main() {
   // không cho chạy chồng với bộ test khác trên aurelia_test (supertest hoặc một lần e2e:real khác)
   createRequire(import.meta.url)('./test-lock.cjs').acquire('Playwright (npm run test:e2e:real)');
@@ -140,8 +188,15 @@ async function main() {
     PORT: API_PORT,
     NODE_ENV: 'development',
     CORS_ORIGINS: `http://localhost:${WEB_PORT}`,
-    STORAGE_DRIVER: 'local',
-    STORAGE_PUBLIC_URL: `http://localhost:${API_PORT}/uploads`,
+    ...(MINIO
+      ? {
+          STORAGE_DRIVER: 'minio',
+          S3_ENDPOINT,
+          S3_BUCKET_PUBLIC: TEST_PUBLIC,
+          S3_BUCKET_PRIVATE: TEST_PRIVATE,
+          STORAGE_PUBLIC_URL: `${S3_ENDPOINT}/${TEST_PUBLIC}`,
+        }
+      : { STORAGE_DRIVER: 'local', STORAGE_PUBLIC_URL: `http://localhost:${API_PORT}/uploads` }),
     JWT_ACCESS_EXPIRES_IN: '12h',
     THROTTLE_DEFAULT_LIMIT: '100000',
     THROTTLE_AUTH_LIMIT: '100000',
@@ -162,7 +217,8 @@ async function main() {
   });
   if (first.status !== 0) throw new Error(`Reset ${DB} thất bại`);
 
-  log(`khởi động API test (cổng ${API_PORT}, DB ${DB})`);
+  if (MINIO) await ensureTestBuckets();
+  log(`khởi động API test (cổng ${API_PORT}, DB ${DB}, storage ${MINIO ? 'MINIO thật' : 'local'})`);
   const dotenv = resolve(root, 'node_modules/dotenv-cli/cli.js');
   api = spawn(process.execPath, [dotenv, '-e', '../../.env', '--', process.execPath, 'dist/main.js'], {
     cwd: apiDir,
