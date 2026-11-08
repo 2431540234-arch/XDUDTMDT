@@ -53,7 +53,9 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
 
     for (const m of models) {
       // chỉ GLB (D-P11); tệp nguồn là tệp GLB đầu tiên của mô hình trong seed (USDZ cũ, nếu có, được bỏ qua và không xóa)
-      const first = m.modelFiles.find((f) => f.format === 'glb');
+      const first =
+        m.modelFiles.find((f) => f.format === 'glb' && f.lod === 'high') ??
+        m.modelFiles.find((f) => f.format === 'glb');
       const sources = first ? [first] : [];
       await prisma.product3DModel.update({ where: { id: m.id }, data: { status: 'processing' } });
 
@@ -81,7 +83,8 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
 
       for (const f of sources) {
         const ext = 'glb';
-        const fileName = f.media.fileName;
+        // nguồn đã qua xử lý (chạy lại trên DB có sẵn) có tên dạng <tên>-high.glb: bỏ hậu tố LOD để tên không bị nối dài
+        const fileName = f.media.fileName.replace(/(-(high|medium|low))+(\.glb)$/i, '$3');
         const sourceKey = `models/incoming/seed/${m.id}-${f.format}.${ext}`;
         const data = {
           modelId: m.id,

@@ -58,10 +58,10 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-aurelia}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-aurelia123}
       # Trình duyệt (web http://localhost:3000) PUT thẳng lên MinIO bằng presigned URL nên cần CORS
-      MINIO_API_CORS_ALLOW_ORIGIN: ${CORS_ORIGINS:-http://localhost:3000}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGINS:-http://localhost:3000,http://localhost:3100}
     ports:
       - '${MINIO_PORT:-9000}:9000' # S3 API
-      - '${MINIO_CONSOLE_PORT:-9001}:9001' # Console web
+      - '${MINIO_CONSOLE_PORT:-9011}:9001' # Console web (9011: cổng 9001 thường bị chương trình khác, vd. Mosquitto, chiếm)
     volumes:
       - minio-data:/bitnami/minio/data
     healthcheck:
