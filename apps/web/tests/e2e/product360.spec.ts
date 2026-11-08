@@ -21,7 +21,9 @@ test('nút "Xem 360°" chỉ hiện ở sản phẩm có 360°, mang theo biến
   ]) {
     await page.goto(`/products/${slug}`);
     await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('link', { name: 'Xem 360°' })).toHaveCount(slug === 'sofa-nordic' ? 1 : 0);
+    await expect(page.getByRole('link', { name: 'Xem 360°', exact: true })).toHaveCount(
+      slug === 'sofa-nordic' ? 1 : 0,
+    );
     await expect(page.getByRole('link', { name: /Trải nghiệm 3D ngay/ })).toHaveAttribute(
       'href',
       `/products/${slug}/3d`,
@@ -33,7 +35,7 @@ test('nút "Xem 360°" chỉ hiện ở sản phẩm có 360°, mang theo biến
   await expect(page.getByRole('link', { name: 'Xem sản phẩm 360 độ' })).toBeVisible();
   await page.getByRole('button', { name: 'Kem', exact: true }).click();
   await page.getByRole('button', { name: '4 chỗ' }).click();
-  await page.getByRole('link', { name: 'Xem 360°' }).click();
+  await page.getByRole('link', { name: 'Xem 360°', exact: true }).click();
   await expect(page).toHaveURL(/\/products\/sofa-nordic\/360\?color=kem&size=4-cho/);
   await waitLoaded(page);
   await expect(page.getByTestId('color-name')).toHaveText('Kem');

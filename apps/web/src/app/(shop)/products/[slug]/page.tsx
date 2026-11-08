@@ -168,7 +168,7 @@ export default function ProductDetailPage() {
                   </span>
                   <span className="min-w-0">
                     <span className="line-clamp-2 font-semibold">{s.title}</span>
-                    <span className="text-xs text-muted">{s.productCount} sản phẩm · xem 360°</span>
+                    <span className="text-xs text-muted">{s.productCount} sản phẩm · toàn cảnh 360°</span>
                   </span>
                 </Link>
               </li>
