@@ -95,7 +95,7 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect(row).toMatchObject({ actorId: adminId, targetType: 'brand', auto: false });
       expect(row.actorEmail).toBe('admin@aurelia.vn');
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
       const ranged = await api(
         'get',
         `/admin/activity-logs?from=${today}&to=${today}&targetType=brand`,
