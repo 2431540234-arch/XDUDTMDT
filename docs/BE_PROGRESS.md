@@ -384,3 +384,22 @@ Theo UC-ADM-13, D-N07, D-N21, D-N22, D-T21; ghi nhận ở **D-P10** (thay thế
 **Sửa:** `src/lib/query-refresh.ts` (`refreshAfterWrite`: `cancelQueries` rồi `invalidateQueries`) dùng ở 3 chỗ ghi của trang media. Không tăng thời gian chờ, không tắt giới hạn tốc độ. Các trang admin khác có cùng mẫu "ghi rồi invalidate" chưa đổi (chưa có bằng chứng lỗi); nếu gặp lỗi tương tự thì dùng helper này.
 
 **Giới hạn tốc độ cho môi trường test:** không cần đổi. API e2e đã đặt 100000 yêu cầu/phút; log cho thấy 0 lần 429. Tiền tố bộ đếm đã tách riêng cho e2e/demo (`THROTTLE_PREFIX`).
+
+## PermissionsGuard và ActivityLogInterceptor (2026-11-08, D-P12) ✅
+
+**PermissionsGuard** (DAC_TA mục 2, 9; QUY_UOC §8; DATABASE_SCHEMA §2)
+- `@RequirePermission(...codes)` (`common/decorators/permissions.decorator.ts`, đặt ở class hoặc method, method ghi đè class, nhiều mã = "một trong") và `PermissionsGuard` (`common/guards/permissions.guard.ts`) chạy **sau** `JwtAuthGuard` và `RolesGuard`. Guard đọc `role_permissions` theo vai trò của người dùng; thiếu quyền ⇒ **403 `FORBIDDEN`** "Bạn không có quyền "<tên quyền>" để thực hiện thao tác này." (mã lỗi không đổi nên API_CONTRACT không cần sửa).
+- Gắn quyền cho **mọi** route `/api/admin/*` (30 controller). Quyền theo dòng "Tác nhân chính" của từng UC; route ngoài đặc tả (kho thu chi, đổi trả, hỏi đáp, banner, bài viết, FAQ, liên hệ, thông báo, tìm nhanh) dùng quyền gần nhất. **Bảng route → quyền: CHUAN_MO_RONG.md Phần 3 mục 28.** Đơn hàng tách `view_orders` (xem) và `process_orders` (ghi). Bull Board vẫn do `bullBoardAdminOnly`.
+- Admin có đủ 6 quyền nên hành vi hiện tại không đổi (toàn bộ suite cũ xanh). Quyền được giữ trong **bộ nhớ tiến trình tối đa 10 giây** (`PermissionsService`, không Redis; mục 29), đổi `role_permissions` có hiệu lực sau tối đa 10 giây.
+- Lưu ý: `admin/activity-logs` (UC-ADM-27), `admin/roles`, `admin/ar-snapshots` hiện là khung rỗng (chưa có route), đã gắn quyền ở cấp class để khi thêm route sẽ tự được bảo vệ.
+- **Test:** unit `permissions.guard.spec.ts` (6); supertest `permissions.db-spec.ts` (7): quét metadata (route `/admin/*` nào thiếu quyền ⇒ fail), tạm gỡ từng dòng `role_permissions` của admin ⇒ route tương ứng 403 và route khác vẫn 200, quyền nhiều lựa chọn, khách vẫn 403 từ RolesGuard; mọi dòng gỡ đều được khôi phục.
+
+**ActivityLogInterceptor** (DAC_TA mục 9, §12.3; D-T52; D-D04)
+- Mọi `ActivityLogService.log` trong service **giữ nguyên** (cùng transaction, D-T52). Interceptor là lưới an toàn: với request ghi (POST/PUT/PATCH/DELETE) của admin thành công mà service không gọi `ActivityLogService.log` (đánh dấu bằng `AsyncLocalStorage` theo request), ghi một dòng chung `actorId`, `action` theo route (`<tài nguyên>.<hành động>`), `targetType`/`targetId` (tham số `:id`), IP, `changes = { auto: true, method, route }`. Không ghi trùng; request lỗi, request đọc và request của khách không ghi; lỗi khi ghi log tự động không làm hỏng thao tác đã thành công.
+- **Route trước đây không ghi log và nay được interceptor ghi:**
+  - `PATCH /admin/models/:id/primary` khi mô hình **đã là mô hình chính** (service bỏ qua ghi vì không có thay đổi) — bắt được trong suite supertest (`models.primary`).
+  - `POST /admin/media/presign`, `POST /admin/media/confirm`, `POST /admin/models/:id/files/presign` — phân tích tĩnh (quét thân method service và các method nó gọi) cho thấy service không gọi `ActivityLogService.log`. Chưa chạy qua suite vì cần MinIO (driver local không hỗ trợ presign).
+  - Ngoài các route trên, mọi route ghi admin còn lại đều đã ghi log trong service nên interceptor không ghi thêm.
+- **Test:** supertest `activity-interceptor.db-spec.ts` (6, dùng controller thử để điều khiển việc service có ghi hay không): route có log trong service ⇒ đúng 1 dòng; route thật `POST /admin/brands` ⇒ đúng 1 dòng, không có dòng tự động; route không log ⇒ interceptor ghi đúng 1 dòng (actor, action, target, IP); route có động từ cuối đường dẫn; request lỗi ⇒ 0 dòng; GET và request của khách ⇒ 0 dòng.
+
+**Kiểm thử cuối đợt:** typecheck + lint sạch; unit web 27, unit API 122, supertest 196, Playwright thật 7/7 nhóm.
