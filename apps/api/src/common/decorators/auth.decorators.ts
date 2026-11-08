@@ -9,6 +9,8 @@ export const ROLES_KEY = 'roles';
 export interface RequestUser {
   id: number;
   roles: RoleCode[];
+  /** id phiên đăng nhập (user_sessions) của access token này; token cũ không có thì undefined */
+  sessionId?: number;
 }
 
 /** Bỏ qua JwtAuthGuard toàn cục: endpoint công khai (khách vãng lai). */

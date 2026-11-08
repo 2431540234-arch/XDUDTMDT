@@ -11,6 +11,8 @@ import { AppException } from '../exceptions/app.exception';
 
 export interface AccessTokenPayload {
   sub: number;
+  /** id phiên (user_sessions) phát hành token này */
+  sid?: number;
   roles: RoleCode[];
 }
 
@@ -37,7 +39,7 @@ export class JwtAuthGuard implements CanActivate {
           const payload = await this.jwt.verifyAsync<AccessTokenPayload>(tok, {
             secret: this.config.get('JWT_ACCESS_SECRET'),
           });
-          req.user = { id: payload.sub, roles: payload.roles ?? [] };
+          req.user = { id: payload.sub, roles: payload.roles ?? [], sessionId: payload.sid };
         } catch {
           /* bỏ qua: khách vãng lai */
         }
@@ -54,7 +56,7 @@ export class JwtAuthGuard implements CanActivate {
       const payload = await this.jwt.verifyAsync<AccessTokenPayload>(token, {
         secret: this.config.get('JWT_ACCESS_SECRET'),
       });
-      req.user = { id: payload.sub, roles: payload.roles ?? [] };
+      req.user = { id: payload.sub, roles: payload.roles ?? [], sessionId: payload.sid };
     } catch (e) {
       if (e instanceof TokenExpiredError) {
         throw new AppException(ErrorCode.AUTH_TOKEN_EXPIRED, 'Phiên đăng nhập đã hết hạn.');

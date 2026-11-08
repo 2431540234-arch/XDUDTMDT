@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { compare, hash, hashSync } from 'bcryptjs';
 import { ErrorCode, type RoleCode } from '@aurelia-living/shared-types';
+import { describeDevice } from '../../common/utils/device';
 import { AppException } from '../../common/exceptions/app.exception';
 import { EMAIL_RE, FieldErrors, PHONE_RE, asBody, str } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
@@ -69,20 +70,22 @@ export class AuthService {
   /** Cặp token: access JWT ngắn hạn + refresh ngẫu nhiên (chỉ lưu hash trong user_sessions) */
   private async issueTokens(u: UserWithRoles, meta: RequestMeta) {
     const roles = u.userRoles.map((r) => r.role.code as RoleCode);
-    const accessToken = await this.jwt.signAsync(
-      { sub: u.id, roles },
-      { secret: this.config.get('JWT_ACCESS_SECRET'), expiresIn: this.config.get('JWT_ACCESS_EXPIRES_IN') },
-    );
     const refreshToken = randomBytes(48).toString('base64url');
-    await this.prisma.userSession.create({
+    const session = await this.prisma.userSession.create({
       data: {
         userId: u.id,
         refreshTokenHash: this.refreshHash(refreshToken),
         ipAddress: meta.ip,
         userAgent: meta.userAgent?.slice(0, 255),
+        deviceName: describeDevice(meta.userAgent),
         expiresAt: new Date(Date.now() + this.ttlMs(this.config.get('JWT_REFRESH_EXPIRES_IN'))),
       },
     });
+    // sid: access token mang id phiên để danh sách phiên đánh dấu "thiết bị này" (UC-ACC-03)
+    const accessToken = await this.jwt.signAsync(
+      { sub: u.id, roles, sid: session.id },
+      { secret: this.config.get('JWT_ACCESS_SECRET'), expiresIn: this.config.get('JWT_ACCESS_EXPIRES_IN') },
+    );
     return { accessToken, refreshToken };
   }
 

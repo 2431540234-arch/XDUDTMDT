@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import AddressFormModal from '@/components/account/AddressFormModal';
+import DeleteAccountSection from '@/components/account/DeleteAccountSection';
 import { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -371,6 +372,7 @@ export default function ProfilePage() {
       <ProfileCard />
       <Addresses />
       <RecentOrders />
+      <DeleteAccountSection />
     </div>
   );
 }

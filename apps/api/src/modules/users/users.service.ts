@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { compare, hash } from 'bcryptjs';
 import { ErrorCode, type RoleCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
+import { describeDevice } from '../../common/utils/device';
 import { FieldErrors, PHONE_RE, asBody, str } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
@@ -104,6 +105,69 @@ export class UsersService {
     }
     await this.prisma.user.update({ where: { id: userId }, data });
     return this.view(userId);
+  }
+
+  // ------------------------------------------------------------ UC-ACC-03 phiên đăng nhập
+  /** Phiên CHƯA thu hồi và CHƯA hết hạn của chính user; `current` = phiên của access token đang dùng */
+  async sessions(userId: number, currentSessionId?: number) {
+    const rows = await this.prisma.userSession.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return rows.map((s) => ({
+      id: s.id,
+      deviceName: s.deviceName ?? describeDevice(s.userAgent),
+      ipAddress: s.ipAddress,
+      createdAt: s.createdAt.toISOString(),
+      expiresAt: s.expiresAt.toISOString(),
+      current: s.id === currentSessionId,
+    }));
+  }
+
+  /** Đặt revokedAt cho phiên của CHÍNH user; phiên của người khác, đã thu hồi hoặc không có ⇒ 404 */
+  async revokeSession(userId: number, sessionId: number) {
+    const r = await this.prisma.userSession.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (r.count === 0) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Phiên đăng nhập không tồn tại.');
+    return null;
+  }
+
+  // ------------------------------------------------------------ UC-ACC-07 xóa tài khoản (xóa mềm)
+  /**
+   * Xóa mềm: kiểm tra mật khẩu, chặn khi còn đơn pending…shipping, rồi trong MỘT transaction đặt deletedAt, status = banned và
+   * thu hồi mọi phiên. Không xóa cứng (đơn hàng giữ nguyên). Email được giải phóng nhờ partial unique uq_users_email_active.
+   */
+  async deleteMe(userId: number, raw: unknown) {
+    const password = str(asBody(raw).password);
+    const u = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      include: { userRoles: { include: { role: true } } },
+    });
+    if (!u) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Tài khoản không tồn tại.');
+    if (u.userRoles.some((r) => r.role.code === 'admin'))
+      throw new AppException(ErrorCode.FORBIDDEN, 'Tài khoản quản trị không thể tự xóa.');
+    const errs = new FieldErrors();
+    if (!password) errs.add('password', 'Vui lòng nhập mật khẩu để xác nhận.');
+    else if (!(await compare(password, u.passwordHash))) errs.add('password', 'Mật khẩu không đúng.');
+    errs.throwIfAny();
+    await this.prisma.$transaction(async (tx) => {
+      const open = await tx.order.count({
+        where: { userId, status: { in: ['pending', 'confirmed', 'processing', 'shipping'] } },
+      });
+      if (open > 0)
+        throw new AppException(
+          ErrorCode.INVALID_STATE,
+          `Bạn còn ${open} đơn hàng đang xử lý. Hãy hoàn tất hoặc hủy đơn trước khi xóa tài khoản.`,
+        );
+      await tx.user.update({ where: { id: userId }, data: { deletedAt: new Date(), status: 'banned' } });
+      await tx.userSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    });
+    return null;
   }
 
   async changePassword(userId: number, raw: unknown) {
