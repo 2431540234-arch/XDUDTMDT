@@ -95,13 +95,7 @@ async function ingest(url: string): Promise<{ key: string; size: number; mime: s
     const body = await readFile(file);
     const ext = path.split('.').pop()!.toLowerCase();
     const mime =
-      ext === 'glb'
-        ? 'model/gltf-binary'
-        : ext === 'usdz'
-          ? 'model/vnd.usdz+zip'
-          : ext === 'svg'
-            ? 'image/svg+xml'
-            : 'application/octet-stream';
+      ext === 'glb' ? 'model/gltf-binary' : ext === 'svg' ? 'image/svg+xml' : 'application/octet-stream';
     // Cùng một tệp GLB dùng cho nhiều sản phẩm (?p=<id>) → mỗi bản ghi media cần khóa riêng
     const key = query ? path.slice(1).replace(/(\.\w+)$/, `-${hex(url)}$1`) : path.slice(1);
     const size = await storeObject(key, body, mime);

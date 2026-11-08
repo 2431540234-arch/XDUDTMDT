@@ -34,7 +34,6 @@ const SETTINGS: [string, unknown, string][] = [
   ['currency', 'VND', 'Đơn vị tiền tệ'],
   ['default_shipping_fee', 150000, 'Phí vận chuyển mặc định (VND)'],
   ['free_shipping_threshold', 5000000, 'Miễn phí vận chuyển cho đơn từ mức này (VND)'],
-  ['ar_enabled', true, 'Bật tính năng xem AR'],
   ['maintenance_mode', false, 'Chế độ bảo trì'],
 ];
 
@@ -276,7 +275,7 @@ async function seedSample() {
     }
   }
 
-  // Mô hình 3D sofa (GLB + USDZ => trigger bật has_3d_model, has_ar)
+  // Mô hình 3D sofa (chỉ GLB; AR/USDZ ngoài phạm vi, D-P11 => trigger bật has_3d_model, has_ar luôn false)
   let model = await prisma.product3DModel.findFirst({ where: { productId: sofa.id, isPrimary: true } });
   if (!model) {
     const poster = await media(
@@ -306,7 +305,6 @@ async function seedSample() {
       },
     });
     const glb = await media(admin.id, 'sofa-oslo-high.glb', 'model/gltf-binary', 4200000, 'GLB sofa');
-    const usdz = await media(admin.id, 'sofa-oslo-high.usdz', 'model/vnd.usdz+zip', 5100000, 'USDZ sofa');
     await prisma.modelFile.createMany({
       data: [
         {
@@ -318,16 +316,6 @@ async function seedSample() {
           textureResolution: 2048,
           isCompressed: true,
           checksum: 'a3f5c1d2e4b6a8f0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8',
-        },
-        {
-          modelId: model.id,
-          format: 'usdz',
-          lod: 'high',
-          mediaId: usdz.id,
-          polygonCount: 85000,
-          textureResolution: 2048,
-          isCompressed: false,
-          checksum: 'b4a6d2e3f5c7b9a1d3e5f7a9b1c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9',
         },
       ],
     });

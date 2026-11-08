@@ -2,7 +2,7 @@
 // sinh 3 LOD high/medium/low, checksum, ghi media + model_files rồi mới `ready` (D-P10). Chạy ngoài Nest và ngoài
 // BullMQ (đồng bộ, tuần tự) nên seed không cần Redis. Mô hình lỗi / vượt ngưỡng KHÔNG bị xóa mà được liệt kê ở cuối.
 //
-// Tệp gốc: tệp GLB/USDZ mẫu đang có ở bucket public được chép sang bucket private (như khi admin tải lên) và ghi
+// Tệp gốc: tệp GLB mẫu đang có ở bucket public được chép sang bucket private (như khi admin tải lên) và ghi
 // activity_logs `model.upload` để nút "Xử lý lại" dùng được. Idempotent: chạy lại thì xử lý lại từ tệp gốc của seed.
 import { PrismaClient } from '@prisma/client';
 import { ActivityLogService } from '../src/activity-log/activity-log.service';
@@ -52,10 +52,9 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
     let ok = 0;
 
     for (const m of models) {
-      // GLB trước (ra đủ 3 LOD), USDZ sau; mỗi định dạng chỉ lấy tệp nguồn có LOD cao nhất của seed
-      const sources = (['glb', 'usdz'] as const)
-        .map((format) => m.modelFiles.find((f) => f.format === format))
-        .filter((f): f is NonNullable<typeof f> => Boolean(f));
+      // chỉ GLB (D-P11); tệp nguồn là tệp GLB đầu tiên của mô hình trong seed (USDZ cũ, nếu có, được bỏ qua và không xóa)
+      const first = m.modelFiles.find((f) => f.format === 'glb');
+      const sources = first ? [first] : [];
       await prisma.product3DModel.update({ where: { id: m.id }, data: { status: 'processing' } });
 
       if (!sources.length) {
@@ -81,7 +80,7 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
       }
 
       for (const f of sources) {
-        const ext = f.format === 'glb' ? 'glb' : 'usdz';
+        const ext = 'glb';
         const fileName = f.media.fileName;
         const sourceKey = `models/incoming/seed/${m.id}-${f.format}.${ext}`;
         const data = {
@@ -93,14 +92,11 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
           uploadedBy: adminId,
         } as const;
         try {
-          let body = await storage.download(f.media.filePath, 'public');
-          // USDZ mẫu cũ chỉ là chuỗi 22 byte, không phải ZIP: thay bằng ZIP tối thiểu (chỉ minh họa, như seed-storage)
-          if (f.format === 'usdz' && body.readUInt32LE(0) !== 0x04034b50)
-            body = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 0)]);
+          const body = await storage.download(f.media.filePath, 'public');
           await storage.upload({
             key: sourceKey,
             body,
-            contentType: f.format === 'glb' ? 'model/gltf-binary' : 'model/vnd.usdz+zip',
+            contentType: 'model/gltf-binary',
             visibility: 'private',
           });
           await activity.log({
