@@ -628,3 +628,42 @@ export interface Product360AdminData {
   colors: Array<{ name: string; hex: string; frames: string[] }>;
   variantColors: ColorOption[];
 }
+
+// ---------- Mở rộng nhẹ: nhật ký hoạt động, vai trò, phiên đăng nhập ----------
+/** UC-ADM-27: một dòng activity_logs; `auto` = do ActivityLogInterceptor ghi (service không ghi log) */
+export interface ActivityLogRow {
+  id: number;
+  actorId: number | null;
+  actorName: string | null;
+  actorEmail: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: number | null;
+  changes: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+  auto: boolean;
+}
+export interface ActivityLogOptions {
+  actors: Array<{ id: number; fullName: string; email: string }>;
+  actions: string[];
+  targetTypes: string[];
+}
+/** UC-ADM-02: vai trò kèm quyền (chỉ 2 vai trò: admin, user) */
+export interface RoleView {
+  id: number;
+  code: 'admin' | 'user';
+  name: string;
+  description: string | null;
+  userCount: number;
+  permissions: Array<{ code: string; name: string; description: string | null }>;
+}
+/** UC-ACC-03: phiên đăng nhập còn hiệu lực của chính người dùng */
+export interface SessionView {
+  id: number;
+  deviceName: string;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+}

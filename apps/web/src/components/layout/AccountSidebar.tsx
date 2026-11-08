@@ -27,9 +27,10 @@ const items: Array<{ href: string; label: string; icon: IconName; match?: (p: st
   { href: '/account/reviews', label: 'Đánh giá của tôi', icon: 'star' },
   { href: '/account/notifications', label: 'Thông báo', icon: 'bell' },
   { href: '/account/password', label: 'Đổi mật khẩu', icon: 'lock' },
+  { href: '/account/sessions', label: 'Phiên đăng nhập', icon: 'shield' },
 ];
 
-/** Sidebar tài khoản – 10 mục (WIREFRAME 1.7 bản đầy đủ) */
+/** Sidebar tài khoản – 11 mục (WIREFRAME 1.7 bản đầy đủ) */
 export default function AccountSidebar() {
   const pathname = usePathname();
   const router = useRouter();

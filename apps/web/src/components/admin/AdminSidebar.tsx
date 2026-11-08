@@ -42,6 +42,9 @@ export const adminMenu: Item[] = [
   { href: '/admin/promotions', label: 'Khuyến mãi', icon: 'gift' },
   { href: '/admin/inventory', label: 'Kho hàng', icon: 'boxes' },
   { href: '/admin/reports', label: 'Báo cáo', icon: 'chart' },
+  { href: '/admin/notifications', label: 'Gửi thông báo', icon: 'bell' },
+  { href: '/admin/roles', label: 'Vai trò & quyền', icon: 'shield' },
+  { href: '/admin/activity-logs', label: 'Nhật ký hoạt động', icon: 'list' },
   { href: '/admin/settings', label: 'Cài đặt', icon: 'settings' },
 ];
 

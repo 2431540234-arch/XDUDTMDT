@@ -21,7 +21,10 @@ import type {
   SpaceListItem,
   StockReceipt,
   StoreSettings,
+  ActivityLogOptions,
+  ActivityLogRow,
   AttributeAdmin,
+  RoleView,
   ModelProcessingAccepted,
   ShipmentResult,
   MediaAdmin,
@@ -96,6 +99,10 @@ export const adminApi = {
       >(`/admin/users/${id}`),
     setStatus: (id: number, status: 'active' | 'suspended') =>
       http.patch<UserView>(`/admin/users/${id}/status`, { status }),
+    /** UC-ADM-02: gán/gỡ vai trò admin ⇒ { id, roles } (409 khi tự gỡ của mình hoặc gỡ admin cuối cùng) */
+    grantAdmin: (id: number) => http.put<{ id: number; roles: string[] }>(`/admin/users/${id}/roles/admin`),
+    revokeAdmin: (id: number) =>
+      http.delete<{ id: number; roles: string[] }>(`/admin/users/${id}/roles/admin`),
     create: (body: Record<string, unknown>) => http.post<UserView>('/admin/users', body),
     update: (id: number, body: Record<string, unknown>) => http.patch<UserView>(`/admin/users/${id}`, body),
     orders: (id: number, q: Query = {}) => http.list<OrderView>(`/admin/users/${id}/orders`, q),
@@ -237,6 +244,24 @@ export const adminApi = {
   },
   expenses: {
     create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body),
+  },
+  /** UC-ADM-27: nhật ký hoạt động (chỉ đọc) */
+  activityLogs: {
+    list: (q: Query) => http.list<ActivityLogRow>('/admin/activity-logs', q),
+    options: () => http.get<ActivityLogOptions>('/admin/activity-logs/options'),
+  },
+  /** UC-ADM-02: vai trò và quyền (chỉ đọc) */
+  roles: { list: () => http.get<RoleView[]>('/admin/roles') },
+  /** UC-ADM-26: gửi thông báo cho người dùng (adminApi.notifications là chuông thông báo của admin) */
+  notify: {
+    send: (body: {
+      title: string;
+      content: string;
+      type?: 'system' | 'promo';
+      link?: string;
+      userIds?: number[];
+      all?: boolean;
+    }) => http.post<{ sent: number }>('/admin/notifications', body),
   },
   media: {
     list: (q: Query) => http.list<MediaAdmin>('/admin/media', q),

@@ -107,6 +107,8 @@ async function rawRequest(
   } catch {
     throw new ApiClientError('NETWORK_ERROR', 'Không kết nối được máy chủ. Vui lòng thử lại.', 0);
   }
+  // 204 No Content (vd. DELETE /users/me, DELETE /users/me/sessions/:id) không có thân JSON
+  if (res.status === 204) return { status: 204, body: { success: true, data: null } as ApiResult<unknown> };
   return { status: res.status, body: (await res.json()) as ApiResult<unknown> };
 }
 

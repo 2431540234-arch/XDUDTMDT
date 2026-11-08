@@ -1,8 +1,8 @@
 // Service gọi API liên quan đến xác thực (đăng nhập, đăng ký, quên/đặt lại/đổi mật khẩu)
 import type { AuthTokens } from '@aurelia-living/shared-types';
 import { useAuthStore, type SessionUser } from '@/store/authStore';
-import type { AddressView, UserView } from '@/types/api';
-import { http } from './api-client';
+import type { AddressView, SessionView, UserView } from '@/types/api';
+import { http, request } from './api-client';
 
 export interface AuthResult {
   user: SessionUser;
@@ -33,6 +33,12 @@ export const userApi = {
     http.patch<UserView>('/users/me', body),
   changePassword: (body: { currentPassword: string; newPassword: string; logoutOthers?: boolean }) =>
     http.post<null>('/users/me/change-password', body),
+  /** UC-ACC-03: phiên đăng nhập còn hiệu lực; current = thiết bị này */
+  sessions: () => http.get<SessionView[]>('/users/me/sessions'),
+  revokeSession: (id: number) => http.delete(`/users/me/sessions/${id}`),
+  /** UC-ACC-07: xóa tài khoản (xóa mềm), cần mật khẩu xác nhận; 409 nếu còn đơn đang xử lý */
+  deleteAccount: (password: string) =>
+    request<null>('DELETE', '/users/me', { body: { password } }).then((r) => r.data),
 };
 
 export const addressApi = {
