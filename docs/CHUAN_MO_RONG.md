@@ -136,6 +136,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 31 | MinIO: test và dữ liệu | Supertest (`test:e2e:db`) và `test:e2e:real` giữ `STORAGE_DRIVER=local` **vì** chúng reset/seed `aurelia_test` nhiều lần và không được phụ thuộc container MinIO (chạy được trên máy không bật Docker, nhanh, không để rác trong bucket). MinIO thật được kiểm riêng: `test:e2e:minio` (API) và `test:e2e:real:minio` (trình duyệt, kiểm CORS), dùng bucket `aurelia-test-*`, tự bỏ qua nếu MinIO không chạy | — |
 | 32 | MinIO: cổng console 9011 | Console đổi từ 9001 sang **9011** (`MINIO_CONSOLE_PORT`) vì 9001 do Mosquitto của dự án khác giữ; container `minio-1` được tạo lại với ánh xạ cổng mới, volume `xdudtmdt_minio-data` và dữ liệu giữ nguyên (chủ dự án đã đồng ý) | — |
 | 33 | MinIO: chép `apps/api/uploads` | Script `scripts/minio-sync-uploads.mjs` (`npm run minio:sync`) chép `uploads/public` ⇒ `aurelia-public` và `uploads/private` ⇒ `aurelia-private`, giữ nguyên khóa (`media.file_path` không đổi), idempotent, không xóa thư mục nguồn | — |
+| 34 | **Cache Redis (D-P14): thao tác ghi → khóa bị xóa** | Xem bảng ngay sau bảng này (mục "Cache Redis"). `ProductsService.invalidate()` (gọi sau mọi thao tác admin đổi catalog) là điểm xóa chung cho nhóm catalog | — |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
@@ -174,6 +175,19 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | `search` (tìm nhanh) | `manage_products` **hoặc** `view_orders` **hoặc** `manage_users` | **Ngoài đặc tả**: tìm trên sản phẩm, đơn, khách |
 
 Bull Board `/admin/queues` (không phải controller Nest) vẫn do `bullBoardAdminOnly` chặn theo vai trò admin.
+
+### Cache Redis: thao tác ghi → khóa bị xóa (D-P14, mục 34)
+
+| Khóa (sau tiền tố môi trường) | TTL | Dữ liệu | Thao tác ghi xóa khóa này |
+|---|---|---|---|
+| `products:<slug>` | 1 phút | chi tiết sản phẩm công khai (biến thể, ảnh, thông số, mô hình 3D, đánh giá tổng hợp) | tạo/sửa/xóa sản phẩm, biến thể, ảnh, 360° (admin-products); danh mục, thương hiệu, thuộc tính (đổi tên/xóa); mô hình 3D (tải lên, xử lý xong/lỗi của job, đặt mô hình chính, xử lý lại, xóa); duyệt/ẩn đánh giá, khách gửi/sửa/xóa đánh giá; không gian mẫu (sản phẩm trong bộ); **tồn kho / sold_count đổi**: đặt đơn, hủy đơn, vận đơn giao thành công (hoàn tất đơn), nhập kho/điều chỉnh/xác nhận phiếu nhập, đổi trả (nhập lại kho) |
+| `products:featured:<băm truy vấn>` | 2 phút | danh sách sản phẩm nổi bật (trang chủ) | như `products:<slug>` (xóa theo tiền tố `products:`) |
+| `catalog:index` | 2 phút | chỉ mục danh sách/tìm kiếm/facet/sản phẩm liên quan | như `products:<slug>` |
+| `categories:tree` | 10 phút | cây danh mục công khai | tạo/sửa/xóa danh mục; đổi sản phẩm làm đổi số sản phẩm theo danh mục (qua `ProductsService.invalidate()` xóa cả `categories:`) |
+| `settings:public` | 10 phút | cài đặt công khai (cửa hàng, thanh toán, vùng giao hàng) | `PUT /admin/settings/...` (mọi khóa) |
+| `pages:<slug>` | 10 phút | trang tĩnh/chính sách | tạo/sửa/xóa trang (xóa theo tiền tố `pages:`); 404 không được cache |
+
+**Không cache:** giỏ hàng, đơn hàng, yêu thích, hồ sơ, địa chỉ, thông báo, mọi dữ liệu theo người dùng; danh sách/ chi tiết trong `/admin/*`. **Khởi động API và `db-reset` xóa toàn bộ khóa cache của môi trường.** Lỗi Redis được ghi log và coi như cache miss.
 
 ## Phần 4. Mâu thuẫn trong chính tài liệu chuẩn (liệt kê, chưa tự quyết)
 

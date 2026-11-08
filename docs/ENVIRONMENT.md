@@ -46,7 +46,7 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `THROTTLE_AUTH_LIMIT` | Tùy chọn | `10` | M02 (route gắn `@AuthThrottle()`) | Đăng nhập, đăng ký, quên mật khẩu |
 | `THROTTLE_AUTH_TTL_SECONDS` | Tùy chọn | `60` | như trên | |
 | `CACHE_ENABLED` | Tùy chọn | `true` | CacheService (M01, M06, M07) | `false` = tắt hẳn cache |
-| `CACHE_KEY_PREFIX` | Tùy chọn | `aurelia:cache:` | CacheService | Tiền tố mọi khóa cache |
+| `CACHE_KEY_PREFIX` | Tùy chọn | `aurelia:cache:` | CacheService | Tiền tố khóa cache. **Mỗi môi trường một tiền tố riêng** (D-P14): `npm run demo` đặt `aurelia:cache-demo:`, `test:e2e:real` đặt `aurelia:cache-e2e:`, supertest `cache-e2e-db:`. API khởi động sẽ xóa mọi khóa mang tiền tố của mình |
 | `CACHE_DEFAULT_TTL_SECONDS` | Tùy chọn | `300` | CacheService | TTL khi gọi `set` không nêu TTL |
 
 ## 5. Lưu trữ tệp (MinIO / S3)
