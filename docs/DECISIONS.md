@@ -138,8 +138,8 @@ Các quyết định D-N01..D-N19 trùng số thứ tự với bảng 12.1 của
 
 | Mã | Điểm | Mặc định đang áp dụng |
 | --- | --- | --- |
-| O-01 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh): chưa cài `@nestjs/throttler` | Trả 429 khi làm M02 |
-| O-02 | Callback thanh toán thành công đến sau khi đơn `cancelled` | Chỉ ghi payment `success`, cảnh báo admin hoàn tiền thủ công |
+| O-01 | ~~Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh): chưa cài `@nestjs/throttler`~~ Đã xử lý: throttler có từ D-T40 (`@AuthThrottle()`, bộ đếm Redis) | Đã giải quyết (trả 429) |
+| O-02 | ~~Callback thanh toán thành công đến sau khi đơn `cancelled`~~ Đã chốt bằng D-N28 (giữ đơn `cancelled`, ghi Payment = `success`, thông báo admin hoàn tiền) | Đã giải quyết |
 | O-03 | Vận đơn `failed`/`returned` khi đơn đang `shipping` | Chưa chốt; đề xuất admin hủy/hoàn tiền |
 | O-04 | Xác nhận chuyển khoản (UC-ADM-24) tự chuyển đơn `pending → confirmed` | Có áp dụng (đề xuất) |
 | O-05 | ~~Sơ đồ ảnh chưa xuất lại~~ Đã xuất lại toàn bộ ảnh sơ đồ ngày 2026-10-08 (Đợt 0b) | Đã giải quyết |

@@ -136,8 +136,9 @@ async list(@Query() q: ProductQueryDto) {
 ## 7. Xác thực, phân quyền, quyền sở hữu
 
 - `JwtAuthGuard` và `RolesGuard` đăng ký **toàn cục** (thứ tự: xác thực rồi phân quyền).
-- `@Public()` bỏ qua xác thực. `@Roles('admin')` giới hạn vai trò. `@CurrentUser()` / `@CurrentUser('id')` lấy `{ id, roles }` từ token.
-- Access token JWT: payload `{ sub: <userId>, roles: ['user'|'admin'] }`, hạn 15 phút. Refresh token 7 ngày, xoay vòng, lưu băm trong `user_sessions`.
+- `@Public()` bỏ qua xác thực. `@Roles('admin')` giới hạn vai trò. `@CurrentUser()` / `@CurrentUser('id')` lấy thông tin user.
+- **Vai trò đọc từ DB mỗi request (D-T55):** `JwtAuthGuard` truy vấn DB để lấy trạng thái tài khoản và vai trò hiện tại từ `user_roles` (bỏ qua roles trong JWT payload), giúp việc gán/gỡ admin có hiệu lực ngay lập tức.
+- **Access token JWT:** payload `{ sub: <userId>, roles: ['user'|'admin'], sid: <sessionId> }`, hạn 15 phút. `sid` gắn với phiên đăng nhập trong bảng `user_sessions`. Nếu phiên đã bị thu hồi/đăng xuất hoặc hết hạn ⇒ trả **401 `AUTH_TOKEN_INVALID`** ngay lập tức. Refresh token 7 ngày, xoay vòng, lưu băm trong `user_sessions`.
 - Dữ liệu cá nhân (giỏ, đơn, địa chỉ...): trong service dùng `assertOwnerOrAdmin(user, record.userId)` cho một bản ghi và `ownerScope(user)` làm điều kiện `where` cho danh sách. Không sở hữu thì trả **404** (không phải 403) để không lộ sự tồn tại của bản ghi.
 - Endpoint quản trị: controller `Admin<X>Controller` trong `admin-<module>.controller.ts`, đặt `@Roles('admin')` ở cấp class, URL bắt đầu `/api/admin/...`.
 - Thao tác ghi của admin ghi nhật ký qua `ActivityLogService.log({ actorId, action: 'product.update', targetType, targetId, changes })`, nên truyền `tx` để cùng transaction.
@@ -158,7 +159,7 @@ Module nghiệp vụ chỉ inject `STORAGE_SERVICE` (`upload`, `download`, `dele
 | --- | --- | --- | --- |
 | Ảnh thường | `UPLOAD_MAX_IMAGE_MB` = 5 | Qua API (multipart, bộ nhớ) | `POST /api/admin/media` (trường `file`) → API ghi bucket public → tạo `media` → job `image-processing` |
 | Panorama | `UPLOAD_MAX_PANORAMA_MB` = 20 | Presigned PUT vào bucket public | `POST /api/admin/media/presign` → trình duyệt `PUT` → `POST /api/admin/media/confirm` |
-| Mô hình 3D (GLB/USDZ) | `UPLOAD_MAX_MODEL_MB` = 100 | Presigned PUT vào bucket **private** | `POST /api/admin/models/:id/files/presign` → trình duyệt `PUT` → `POST /api/admin/models/:id/files/confirm` (202) → job `model-processing` |
+| Mô hình 3D (chỉ GLB) | `UPLOAD_MAX_MODEL_MB` = 100 | Presigned PUT vào bucket **private** | `POST /api/admin/models/:id/files/presign` → trình duyệt `PUT` → `POST /api/admin/models/:id/files/confirm` (202) → job `model-processing` |
 
 Quy tắc presigned PUT:
 
@@ -171,7 +172,7 @@ Kiểu dùng chung: `PresignUploadRequest`, `PresignedUpload`, `ConfirmUploadReq
 ### 8.3. Hàng đợi (BullMQ + Redis)
 
 - Có 4 queue: `model-processing`, `image-processing`, `mail`, `notification`. Đẩy job qua `JobsService` (`enqueueModel`, `enqueueImage`, `enqueueMail`, `enqueueNotification`); không dùng BullMQ trực tiếp ở module nghiệp vụ.
-- Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. USDZ: chỉ kiểm tra ZIP + checksum.
+- Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. AR nằm ngoài phạm vi (D-P11), hệ thống chỉ hỗ trợ tệp GLB; tải tệp USDZ bị từ chối 415 UNSUPPORTED_MEDIA_TYPE.
 - Queue `image-processing`: tạo `<key>.webp` và `<key>_thumb.webp` bằng `sharp`.
 - Queue `mail`: gửi email thật qua SMTP (`SmtpMailService`). Queue `notification`: khung, hiện chỉ ghi log; theo D-T47 chỉ dành cho việc nền chậm (ví dụ email thông báo), còn bản ghi `notifications` do Service tạo trực tiếp trong transaction nghiệp vụ (D-N19).
 - Mỗi job thử lại 3 lần, backoff mũ; tệp hỏng không thử lại; job thất bại được giữ để xem tại **Bull Board** `/admin/queues` (chỉ admin: header `Authorization: Bearer`, cookie `bq_token`, hoặc `?token=` lần đầu).
@@ -214,9 +215,15 @@ Nếu một thành phần `down`: `503 SERVICE_UNAVAILABLE` kèm `details.checks
 
 ### 8.6. Cache (Redis)
 
-`CacheService` (`src/cache/`): `get`, `set` (có TTL), `del`, `delByPrefix` (SCAN, không dùng KEYS), `getOrSet`. Khóa có tiền tố `CACHE_KEY_PREFIX`; TTL mặc định `CACHE_DEFAULT_TTL_SECONDS`; tắt hẳn bằng `CACHE_ENABLED=false`. Lỗi Redis không làm hỏng request (coi như cache miss, ghi log). Quy ước khóa: `<nhóm>:<định danh>`, ví dụ `categories:tree`, `products:featured`, `settings:public`, `pages:<slug>`, `products:<slug>`. Admin sửa dữ liệu thì xóa theo tiền tố (`delByPrefix('products:')`). TTL gợi ý: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings công khai 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút (DECISIONS D-T30). Không cache dữ liệu theo người dùng (giỏ, đơn). Hiện chưa module nghiệp vụ nào gọi.
+`CacheService` (`src/cache/`): `get`, `set` (có TTL), `del`, `delByPrefix` (SCAN, không dùng KEYS), `getOrSet`. Khóa có tiền tố `CACHE_KEY_PREFIX`; TTL mặc định `CACHE_DEFAULT_TTL_SECONDS`; tắt hẳn bằng `CACHE_ENABLED=false`. Lỗi Redis không làm hỏng request (coi như cache miss, ghi log). Quy ước khóa: `<nhóm>:<định danh>`, ví dụ `categories:tree`, `products:featured`, `settings:public`, `pages:<slug>`, `products:<slug>`. Admin sửa dữ liệu thì xóa theo tiền tố (`delByPrefix('products:')`). TTL theo D-T30: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings công khai 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút, chỉ mục danh mục 2 phút. Không cache dữ liệu theo người dùng (giỏ, đơn). Đã tích hợp đầy đủ trong CatalogCache (D-P14).
 
 ## 9. Kiểm thử một endpoint mới
 
-- Unit test `*.spec.ts` cạnh code (không cần DB). E2E trong `apps/api/test/*.e2e-spec.ts` dùng DB test riêng (`docker compose --profile test up -d postgres-test`).
+- DB test hiện tại là `aurelia_test` cổng 55432 trên cùng container PostgreSQL `xdudtmdt-postgres-1` (DATABASE_URL=postgresql://postgres:postgres@localhost:55432/aurelia_test).
+- Các lệnh test hiện hành:
+  - Unit test API: `npm test -w @aurelia-living/api` (jest `*.spec.ts`)
+  - Unit test Web: `npm run test -w @aurelia-living/web` (vitest)
+  - Supertest API (kèm DB): `npm run test:e2e:db -w @aurelia-living/api` (jest `*.db-spec.ts`)
+  - Test MinIO: `npm run test:e2e:minio -w @aurelia-living/api`
+  - Playwright e2e: `npm run test:e2e:real` và `npm run test:e2e:real:minio` (Playwright với API thật và Next dev cổng 3100)
 - E2E luôn kiểm tra: định dạng thành công, một lỗi validation, 401 khi thiếu token, 403/404 theo phân quyền/sở hữu.

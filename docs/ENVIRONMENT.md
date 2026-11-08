@@ -73,8 +73,8 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `HTTP_ERROR_LOG_FILE` | Tùy chọn | không | app.setup | Nếu đặt, ghi mọi response ≥ 400 (method, đường dẫn, status, mã lỗi) ra tệp. `scripts/e2e-real.mjs` bật để điều tra test fail (`.e2e-logs/api-errors.log`) |
 | `UPLOAD_MAX_IMAGE_MB` | Tùy chọn | `5` | M05 | Ảnh thường |
 | `UPLOAD_MAX_PANORAMA_MB` | Tùy chọn | `20` | M05, M13 | |
-| `UPLOAD_MAX_MODEL_MB` | Tùy chọn | `100` | M12 | GLB/USDZ |
-| `MODEL_SERVE_MAX_MB` | Tùy chọn | `5` | M12 (job `model-processing`) | Ngưỡng cho mỗi tệp LOD dùng cho web (NFR02, D-N21); vượt thì mô hình `failed` và báo admin. Mới khai báo, logic kiểm tra làm ở M12 |
+| `UPLOAD_MAX_MODEL_MB` | Tùy chọn | `100` | M12 | GLB (USDZ bị từ chối 415 theo D-P11) |
+| `MODEL_SERVE_MAX_MB` | Tùy chọn | `5` | M12 (job `model-processing`) | Ngưỡng cho mỗi tệp LOD dùng cho web (NFR02, D-N21, D-P10); vượt thì mô hình `failed`, ghi `activity_logs` và gửi thông báo admin. Đã có logic kiểm tra |
 
 ## 6. Email
 

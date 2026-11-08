@@ -1,6 +1,6 @@
 # BE_PROGRESS – Tiến độ xây dựng Backend (Aurelia Living)
 
-> Theo dõi `docs/PROMPT_AGENT_BE.md`. Nhánh: `feature/backend` (tách từ `main` @ `2505d25`). Cập nhật: 2026-11-06.
+> Theo dõi `docs/PROMPT_AGENT_BE.md`. Nhánh: `feature/backend` (tách từ `main` @ `2505d25`). Cập nhật: 2026-11-09.
 
 ## Tổng quan
 
@@ -12,8 +12,8 @@
 | 4 | Trích xuất API contract → `docs/API_CONTRACT.md` | ✅ |
 | 5 | Thiết kế → `docs/BACKEND_DESIGN.md` | ✅ |
 | 6 | ⛔ Điểm dừng – người dùng đã "Đồng ý" (2026-11-06) | ✅ |
-| 7–9 | Nền tảng, migration/seed, module theo 4 mốc | 🟡 Mốc 1 ✅ · Mốc 2 ✅ · Mốc 3 ✅ · Mốc 4 chưa làm |
-| 10–12 | Test, nối FE, bàn giao | 🟡 đang làm dần theo từng mốc |
+| 7–9 | Nền tảng, migration/seed, module theo 4 mốc | ✅ Mốc 1 ✅ · Mốc 2 ✅ · Mốc 3 ✅ · Mốc 4 ✅ |
+| 10–12 | Test, nối FE, bàn giao | ✅ Hoàn tất kết nối và kiểm thử toàn diện |
 
 ## Giai đoạn 1 – Tài liệu đã đọc & quy tắc nghiệp vụ tìm được
 

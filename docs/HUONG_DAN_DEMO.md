@@ -69,11 +69,9 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 ## 5. Chưa làm (nói rõ khi trình bày)
 
 - **AR (xem sản phẩm trong phòng thật) nằm NGOÀI phạm vi đồ án** (D-P11, hướng phát triển; cùng 7 use case liên quan). Web chỉ có trình xem 3D và xem 360°; hệ thống chỉ hỗ trợ tệp mô hình GLB.
-- **Mốc 5 còn lại** (ngoài phạm vi hiện tại): đổi chất liệu 3D, đặt đồ trong không gian (placement), thống kê. (Thương hiệu, thuộc tính, media, vận chuyển, nhật ký hoạt động, vai trò, phiên đăng nhập, xóa tài khoản, gửi thông báo đã làm.)
-- **Android** (`apps/mobile`): không nằm trong đợt này.
+- **Ứng dụng Android** (`apps/mobile`): tạm hoãn (D-P09).
 - **VNPAY thật**: đã làm URL có chữ ký, Return URL, IPN, thanh toán lại và đã kiểm bằng khóa giả; chưa có khóa sandbox nên demo dùng chế độ **giả lập**. MoMo/ZaloPay chỉ giả lập.
-- **Bộ nhớ đệm Redis** và ứng dụng Android: hoãn. MinIO **đã làm** (D-P13): ảnh ≤ 5 MB qua API; panorama ≤ 20 MB và mô hình GLB ≤ 100 MB do trình duyệt tải thẳng lên MinIO bằng URL ký sẵn (mô hình vào bucket private rồi được xử lý nền, xem bước 10c; phần trăm tải lên hiện ở hộp thoại tải mô hình).
-- Giá combo của không gian không áp dụng (đặc tả không có); `loyalty_points`, `carts.coupon_id` giữ nguyên cột nhưng chưa có chức năng điểm tích lũy.
+- Giá combo của không gian không áp dụng (đặc tả không có); `loyalty_points`, `carts.coupon_id` giữ nguyên cột theo chuẩn DB nhưng chưa có chức năng điểm tích lũy.
 
 ## 6. Xử lý sự cố nhanh
 
