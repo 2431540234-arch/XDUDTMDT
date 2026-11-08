@@ -111,7 +111,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 3 | Xử lý nền mô hình 3D (`model-processing`) | **Đã làm (D-P10)** và nay tải lên theo đúng UC-ADM-13: presigned PUT vào bucket private (khi driver minio/s3) rồi confirm; driver local vẫn multipart làm dự phòng | — |
 | 4 | `PermissionsGuard` / vai trò-quyền chi tiết (UC-ADM-02) | Chỉ phân biệt khách/admin | Mốc 5 |
 | 5 | `ActivityLogInterceptor` | Nhật ký ghi trực tiếp trong service (`activity_logs`) | Chuyển sang interceptor |
-| 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, thống kê (AR đã chuyển sang NGOÀI phạm vi, xem mục 27) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển đã làm) | Mốc 5 |
+| 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), thống kê (AR đã chuyển sang NGOÀI phạm vi, xem mục 27; quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, vai trò/phân quyền **đã làm**, D-P15, mục 35) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển và 5 UC Mở rộng nhẹ đã làm) | Mốc 5 |
 | 7 | VNPAY khóa thật | Đã làm URL/chữ ký/Return URL/IPN/thanh toán lại và kiểm bằng khóa giả; chưa có khóa sandbox thật nên chưa thử qua cổng thật | Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` khi có tài khoản |
 | 8 | Android (`apps/mobile`) | Không đụng tới | Mốc 6 |
 | 9 | `users.loyalty_points` | Giữ nguyên cột, chưa có logic cộng/dùng điểm (ngoài đặc tả) | Quyết định khi có yêu cầu |
@@ -137,6 +137,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 32 | MinIO: cổng console 9011 | Console đổi từ 9001 sang **9011** (`MINIO_CONSOLE_PORT`) vì 9001 do Mosquitto của dự án khác giữ; container `minio-1` được tạo lại với ánh xạ cổng mới, volume `xdudtmdt_minio-data` và dữ liệu giữ nguyên (chủ dự án đã đồng ý) | — |
 | 33 | MinIO: chép `apps/api/uploads` | Script `scripts/minio-sync-uploads.mjs` (`npm run minio:sync`) chép `uploads/public` ⇒ `aurelia-public` và `uploads/private` ⇒ `aurelia-private`, giữ nguyên khóa (`media.file_path` không đổi), idempotent, không xóa thư mục nguồn | — |
 | 34 | **Cache Redis (D-P14): thao tác ghi → khóa bị xóa** | Xem bảng ngay sau bảng này (mục "Cache Redis"). `ProductsService.invalidate()` (gọi sau mọi thao tác admin đổi catalog) là điểm xóa chung cho nhóm catalog | — |
+| 35 | **5 UC Mở rộng nhẹ (D-P15): chi tiết ngoài đặc tả** | (a) `GET /admin/activity-logs/options` (quản trị viên/hành động/loại đối tượng đang có, để dựng bộ lọc) và trường `auto` của mỗi dòng (= `changes.auto`). (b) Access token có thêm claim `sid` (id `user_sessions`) và `user_sessions.device_name` được điền từ User-Agent ("Chrome trên Windows"); phiên bị thu hồi chỉ chặn việc làm mới token, access token đã cấp còn dùng được tới khi hết hạn (JWT không kiểm DB). (c) Vai trò admin lưu trong JWT nên gán/gỡ có hiệu lực ở lần đăng nhập hoặc làm mới token kế tiếp. (d) `DELETE /users/me` có thân `{ password }`; admin không tự xóa được (403), còn đơn `pending…shipping` ⇒ 409. (e) `POST /admin/notifications` nhận `userIds` (≤ 1000) hoặc `all: true` (mọi tài khoản chưa xóa/chưa bị cấm), `type` = `system` (mặc định) hoặc `promo`, `link` tùy chọn. Không đổi schema, không migration | — |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
@@ -171,7 +172,8 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | `banners`, `posts`, `faq`, `contact-messages` | `manage_content` | **Ngoài đặc tả**: nội dung gần UC-ADM-07 |
 | `stats/finance`, `GET expenses` | `view_orders` | **Ngoài đặc tả**: báo cáo thu chi gần UC-ADM-28 |
 | `POST expenses`, `DELETE expenses/:id` | `process_orders` | **Ngoài đặc tả**: ghi nhận chi phí vận hành |
-| `notifications` (chuông) | `view_orders` | **Ngoài đặc tả**: thông báo đơn/kho cho admin; UC-ADM-26 (gửi thông báo, `manage_content`) chưa làm |
+| `GET notifications` (chuông thông báo của admin) | `view_orders` | **Ngoài đặc tả**: thông báo đơn/kho cho admin |
+| `POST notifications` (gửi thông báo cho người dùng) | `manage_content` | UC-ADM-26 |
 | `search` (tìm nhanh) | `manage_products` **hoặc** `view_orders` **hoặc** `manage_users` | **Ngoài đặc tả**: tìm trên sản phẩm, đơn, khách |
 
 Bull Board `/admin/queues` (không phải controller Nest) vẫn do `bullBoardAdminOnly` chặn theo vai trò admin.

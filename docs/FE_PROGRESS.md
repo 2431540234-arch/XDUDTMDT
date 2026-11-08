@@ -232,3 +232,10 @@ Tổng: 79 lời gọi `invalidateQueries` và 10 lời gọi `setQueryData`.
 - `services/direct-upload.ts`: `getUploadMode()` (đọc `GET /admin/media/upload-config`, nhớ kết quả; dữ liệu giả ⇒ multipart) và `putToStorage()` (PUT bằng XMLHttpRequest, có phần trăm tiến trình). FE **tự chọn** cách tải theo cấu hình máy chủ.
 - **Panorama** (`services/media.api.ts`, dùng ở form không gian): driver minio/s3 ⇒ `/admin/media/presign` ⇒ PUT ⇒ `/admin/media/confirm`; ảnh thường và frame 360° vẫn multipart. **Mô hình 3D** (`/admin/models`): `/admin/models/presign` ⇒ PUT lên bucket private ⇒ `/admin/models/:id/files/confirm` (202); hộp thoại hiện phần trăm tải lên thật (thay cho tiến trình giả đã bỏ ở đợt trước). Driver local giữ multipart.
 - **Test trình duyệt với MinIO thật:** `npm run test:e2e:real:minio` (`tests/e2e/admin-minio.spec.ts`, 2 test): admin tải GLB ⇒ PUT thẳng lên bucket private (kiểm header CORS) ⇒ xử lý nền ⇒ 3 LOD `ready` ⇒ khách tải LOD medium từ bucket public (khác nguồn gốc với web); panorama PUT từ trình duyệt vào bucket public rồi confirm, ảnh mở được.
+
+## 5 use case Mở rộng nhẹ (2026-11-08, D-P15) ✅
+
+- **Trang mới:** `/admin/activity-logs` (bộ lọc quản trị viên, hành động, loại đối tượng, khoảng ngày; dòng do interceptor ghi hiện nhãn "Tự động", dòng do service ghi hiện "Dịch vụ ghi"), `/admin/roles` (xem 2 vai trò và quyền, chỉ đọc), `/admin/notifications` (gửi thông báo: chọn khách/tất cả, tiêu đề, nội dung, loại, liên kết), `/account/sessions` (thiết bị đang đăng nhập, đánh dấu "Thiết bị này", nút "Đăng xuất thiết bị"). Sidebar admin và sidebar tài khoản có mục mới.
+- **Chỉnh trang cũ:** chi tiết khách hàng admin có mục **Vai trò** (gán/gỡ admin; lỗi 409 hiện toast); trang hồ sơ có mục **Xóa tài khoản** (hộp thoại nhập mật khẩu, xong thì đăng xuất về trang chủ).
+- `api-client` xử lý `204 No Content`. Mock API chưa hỗ trợ 5 UC này (chỉ chạy với API thật).
+- **Test:** Playwright nhóm `ext-uc` (`tests/e2e/ext-uc.spec.ts`, 5 test).

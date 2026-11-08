@@ -419,3 +419,13 @@ Theo UC-ADM-13, D-N07, D-N21, D-N22, D-T21; ghi nhận ở **D-P10** (thay thế
 - **Xóa cache:** `ProductsService.invalidate()` (nay trả Promise, mọi nơi gọi đã `await`) xóa nhóm catalog (`products:`, `catalog:index`, `categories:`); cài đặt, trang tĩnh, job xử lý mô hình (ready/failed), đặt đơn, hủy đơn, vận đơn giao thành công, nhập kho/xác nhận phiếu nhập, đổi trả có xóa riêng. Bảng đầy đủ: CHUAN_MO_RONG mục 34.
 - **An toàn:** lỗi Redis ⇒ ghi log và coi như miss (request vẫn trả đủ dữ liệu, thao tác ghi của admin vẫn thành công); `CACHE_ENABLED=false` tắt hẳn (loader luôn chạy). Tiền tố khóa tách môi trường; **API khởi động và `db-reset` xóa cache của môi trường**, nên reset/seed không để lại dữ liệu cũ.
 - **Test:** unit `catalog-cache.spec.ts` (2) + `cache.service.spec.ts` (+2); supertest `cache.db-spec.ts` (9): TTL, chi tiết sản phẩm miss/hit/xóa khi admin sửa, cây danh mục, cài đặt công khai, trang tĩnh (404 không cache), không cache dữ liệu theo người dùng, danh sách nổi bật, **Redis lỗi vẫn trả dữ liệu**, khởi động xóa cache. Toàn bộ suite supertest và `test:e2e:real` chạy với cache BẬT.
+
+## 5 use case Mở rộng nhẹ (2026-11-08, D-P15) ✅
+
+Không đổi schema (partial unique `uq_users_email_active` và `user_sessions` đã đủ), không migration.
+- **UC-ADM-27** nhật ký hoạt động: `GET /admin/activity-logs` (+ `/options`), chỉ đọc, quyền `manage_settings`; dòng của interceptor có `auto = true`.
+- **UC-ADM-02** vai trò: `GET /admin/roles`; `PUT|DELETE /admin/users/:id/roles/admin` trong `$transaction` (khóa `user_roles` của vai trò admin), 409 tự gỡ / admin cuối cùng; `activity_logs`.
+- **UC-ACC-03** phiên: `GET /users/me/sessions`, `DELETE /users/me/sessions/:id` (204). Access token mang `sid`; `device_name` điền từ User-Agent.
+- **UC-ACC-07** xóa tài khoản mềm: `DELETE /users/me` (204) kiểm mật khẩu, chặn khi còn đơn `pending…shipping` (409) và admin (403); `$transaction`: `deletedAt`, `banned`, thu hồi mọi phiên.
+- **UC-ADM-26** gửi thông báo: `POST /admin/notifications` (`manage_content`), một/nhiều/tất cả, `Notification` + `activity_logs` cùng transaction.
+- **Test:** supertest `extension.db-spec.ts` (17): thành công, validation, 401/403/404, thiếu quyền `role_permissions` ⇒ 403, 409 theo quy tắc, không để lại dữ liệu dở. Playwright nhóm `ext-uc` (5).

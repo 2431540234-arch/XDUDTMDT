@@ -1107,3 +1107,19 @@ export interface Product360AdminData {
 - `POST /spaces/:slug/views` ⇒ `204`; body `{ visitorId (bắt buộc), sourceProductId (id hoặc slug), hotspotClickCount, addedToCart, accessToken? }`, FE gửi bằng `navigator.sendBeacon` khi rời trang.
 - Phí ship: tỉnh ngoài mọi vùng dùng `default_shipping_fee` và `free_shipping_threshold` (xem `CHUAN_MO_RONG.md`).
 - Phương thức thanh toán bị tắt trong Cài đặt ⇒ `400 VALIDATION_FAILED` (details `paymentMethod`) khi đặt hàng hoặc thanh toán lại.
+
+### Mở rộng nhẹ (2026-11-08, D-P15)
+
+| Method | Path | Quyền | Mô tả |
+|---|---|---|---|
+| GET | `/admin/activity-logs` | admin + `manage_settings` | UC-ADM-27, CHỈ ĐỌC. Query: `actorId`, `action` (chứa, không phân biệt hoa thường), `targetType`, `from`/`to` (yyyy-MM-dd, `to` gồm cả ngày), `page`, `pageSize` (mặc định 20). Mới nhất trước. Mỗi dòng: `id, actorId, actorName, actorEmail, action, targetType, targetId, changes, ipAddress, createdAt, auto` (`auto` = do ActivityLogInterceptor ghi). Sai tham số ⇒ 400. Không có POST/PATCH/DELETE |
+| GET | `/admin/activity-logs/options` | như trên | `{ actors: [{id, fullName, email}], actions: string[], targetTypes: string[] }` cho bộ lọc |
+| GET | `/admin/roles` | admin + `manage_users` | UC-ADM-02: đúng 2 vai trò `[{ id, code, name, description, userCount, permissions: [{code, name, description}] }]` |
+| PUT | `/admin/users/:id/roles/admin` | như trên | Gán vai trò admin (idempotent) ⇒ `200 { id, roles }`; ghi `activity_logs` `user.grant_admin`; 404 người dùng không tồn tại |
+| DELETE | `/admin/users/:id/roles/admin` | như trên | Gỡ vai trò admin trong `$transaction` ⇒ `200 { id, roles }`; ghi `user.revoke_admin`. **409 `INVALID_STATE`** khi tự gỡ của chính mình, gỡ **admin cuối cùng**, hoặc người đó không phải admin; 404 không tồn tại. Không tạo vai trò mới |
+| GET | `/users/me/sessions` | đăng nhập | UC-ACC-03: phiên chưa thu hồi và chưa hết hạn `[{ id, deviceName, ipAddress, createdAt, expiresAt, current }]` (`current` = thiết bị của access token đang dùng) |
+| DELETE | `/users/me/sessions/:id` | đăng nhập | Thu hồi phiên của CHÍNH mình ⇒ `204`; phiên của người khác/đã thu hồi/không có ⇒ 404 |
+| DELETE | `/users/me` | đăng nhập | UC-ACC-07: thân `{ password }` ⇒ `204`. Mật khẩu thiếu/sai ⇒ 400 (`details.password`); còn đơn `pending…shipping` ⇒ 409 `INVALID_STATE`; admin ⇒ 403. Trong `$transaction`: `deletedAt`, `status = banned`, thu hồi mọi phiên (xóa mềm, đơn giữ nguyên, email đăng ký lại được) |
+| POST | `/admin/notifications` | admin + `manage_content` | UC-ADM-26: `{ title (2–150), content (1–2000), type?: "system"\|"promo", link?: "/…"\|"http(s)://…", userIds?: number[] (≤ 1000) \| all?: true }` ⇒ `201 { sent }`; tạo `Notification` + `activity_logs` `notification.send` cùng transaction. Sai dữ liệu, người nhận không tồn tại/đã xóa ⇒ 400 (không tạo gì) |
+
+Access token có thêm claim `sid` (id phiên). `204` không có thân JSON (FE xử lý trong `api-client`).
