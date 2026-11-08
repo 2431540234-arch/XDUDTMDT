@@ -580,7 +580,7 @@ export function spaceDetail(db: Db, s: Db['spaces'][number], userId?: number | n
               : null,
           };
         }),
-      placements: db.spaceProductPlacements.filter((x) => x.panoramaId === p.id),
+      placements: [], // UC-ADM-17: mô hình 3D trong ảnh 360° chỉ có với API thật
     }));
   const productsList = spaceProductIds(db, s.id).map((id) =>
     productListItem(

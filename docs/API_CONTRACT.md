@@ -185,6 +185,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/spaces/:slug` | public | `space.detail` |  |  |  |
 | PUT | `/spaces/:slug/bookmark` | user | `space.bookmark` |  |  |  |
 | DELETE | `/spaces/:slug/bookmark` | user | `space.unbookmark` |  |  |  |
+| GET | `/spaces/:slug/placements/:placementId/alternatives` | public | `space.alternatives` |  |  | Đổi món (UC-SPACE-05): `[{ id, name, slug, price, salePrice, thumbnailUrl, variantId, model }]` sản phẩm cùng danh mục, đã đăng bán, có mô hình chính ready (≤ 12). Không ghi DB. Không gian/vị trí không có ⇒ `404`. `model` = `{ id, lengthMm, widthMm, heightMm, files:[{ lod, url, fileSize }], materialVariants[] }` |
 
 ### 4. `cart`
 
@@ -406,6 +407,18 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/spaces/:id` | admin | `admin.get` |  |  |  |
 | PATCH | `/admin/spaces/:id` | admin | `admin.` |  |  |  |
 | DELETE | `/admin/spaces/:id` | admin | `admin.remove` |  |  |  |
+
+### 4. `admin/panoramas` (đặt mô hình 3D vào ảnh 360°, UC-ADM-17; `:id` = id ẢNH 360°)
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| GET | `/admin/panoramas/:id/placements` | admin (manage_content) | `admin.placements.list` |  |  | `PlacementView[]`; ảnh không có ⇒ `404` |
+| POST | `/admin/panoramas/:id/placements` | admin (manage_content) | `admin.placements.create` |  | { productId, variantId?, modelId? (mặc định mô hình chính), yaw, pitch, distance, rotationX?, rotationY?, rotationZ?, scale? } | `201 PlacementView`. `400`: `scale` ≤ 0, `distance` ≤ 0, vị trí sai khoảng, biến thể không thuộc sản phẩm, mô hình không thuộc sản phẩm hoặc chưa `ready`, sản phẩm chưa có mô hình ready. Ghi `placement.create` |
+| PATCH | `/admin/panoramas/:id/placements/:placementId` | admin (manage_content) | `admin.placements.update` |  | các trường như POST, chỉ gửi trường cần đổi | `200 PlacementView`; đổi `productId` mà không gửi biến thể/mô hình ⇒ bỏ biến thể cũ, dùng mô hình chính của sản phẩm mới. Ghi `placement.update` |
+| DELETE | `/admin/panoramas/:id/placements/:placementId` | admin (manage_content) | `admin.placements.remove` |  |  | `200`; không có ⇒ `404`. Ghi `placement.delete` |
+
+`PlacementView` = `{ id, panoramaId, productId, variantId, modelId, yaw, pitch, distance, rotationX, rotationY, rotationZ, scale, product:{id,name,slug}, model: {…}|null }`; `GET /spaces/:slug` trả cùng dạng trong `panoramas[].placements` (ảnh chưa đặt gì ⇒ `[]`).
+
 
 ### 4. `admin/banners`
 

@@ -1,7 +1,7 @@
 'use client';
 
 // Chi tiết không gian mẫu (WIREFRAME 7.6): viewer 360° + hotspot | sản phẩm trong không gian + tổng giá thật (đặc tả không có giá combo)
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -22,7 +22,8 @@ import { ApiClientError } from '@/services/api-client';
 import { cartApi } from '@/services/cart.api';
 import { spaceApi } from '@/services/space.api';
 import { toast } from '@/store/uiStore';
-import type { PanoramaView } from '@/types/api';
+import type { PlacementOverride } from '@/components/viewer/SpacePanorama';
+import type { PanoramaView, PlacementView } from '@/types/api';
 
 const SpacePanorama = dynamic(() => import('@/components/viewer/SpacePanorama'), {
   ssr: false,
@@ -44,6 +45,16 @@ export default function SpaceDetailPage() {
   const [panoId, setPanoId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Hotspot | null>(null);
   const [checked, setChecked] = useState<number[]>([]);
+  // UC-SPACE-05: món đang chọn trong ảnh và các món "Đổi món" thử (chỉ ở client, KHÔNG lưu)
+  const [placement, setPlacement] = useState<PlacementView | null>(null);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swaps, setSwaps] = useState<Record<number, PlacementOverride & { slug: string }>>({});
+  const alternatives = useQuery({
+    queryKey: ['space-alternatives', slug, placement?.id],
+    queryFn: () => spaceApi.alternatives(slug, placement!.id),
+    enabled: Boolean(placement) && swapOpen,
+    staleTime: 60_000,
+  });
   const search = useSearchParams();
 
   useEffect(() => {
@@ -134,9 +145,118 @@ export default function SpaceDetailPage() {
     if (h.type === 'navigation' && h.targetPanoramaId) {
       setPanoId(h.targetPanoramaId);
       setSelected(null);
-    } else setSelected(h);
+      setPlacement(null);
+    } else {
+      setSelected(h);
+      setPlacement(null);
+    }
+  };
+  const onPlacement = (p: PlacementView) => {
+    setSelected(null);
+    setSwapOpen(false);
+    setPlacement(p);
   };
   const firstModelProduct = s.products.find((p) => p.has3dModel);
+
+  const swap = placement ? swaps[placement.id] : undefined;
+  const placementPopover = placement && (
+    <div
+      className="absolute bottom-16 left-4 z-30 w-[min(92%,340px)] rounded-card bg-white p-3 shadow-xl"
+      role="dialog"
+      aria-label="Món đặt trong không gian"
+      data-testid="placement-popover"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={() => {
+          setPlacement(null);
+          setSwapOpen(false);
+        }}
+        className="absolute right-2 top-2 text-muted hover:text-ink"
+      >
+        <Icon name="close" size={16} />
+      </button>
+      <p className="pr-5 text-sm font-bold" data-testid="placement-name">
+        {swap?.name ?? placement.product?.name ?? 'Sản phẩm'}
+      </p>
+      {swap && <p className="text-xs text-primary">Đang xem thử — không được lưu lại</p>}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => setSwapOpen((o) => !o)} aria-expanded={swapOpen}>
+          Đổi món
+        </Button>
+        <LinkButton
+          size="sm"
+          variant="ghost"
+          href={`/products/${swap?.slug ?? placement.product?.slug ?? ''}`}
+        >
+          Xem sản phẩm
+        </LinkButton>
+        {swap && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              setSwaps((m) => {
+                const { [placement.id]: _drop, ...rest } = m;
+                void _drop;
+                return rest;
+              })
+            }
+          >
+            Về món gốc
+          </Button>
+        )}
+      </div>
+      {swapOpen && (
+        <div className="mt-3" data-testid="alternatives">
+          {alternatives.isLoading && <p className="text-xs text-muted">Đang tìm món cùng loại…</p>}
+          {alternatives.isError && (
+            <p role="alert" className="text-xs text-danger">
+              Không tải được danh sách món. Vui lòng thử lại.
+            </p>
+          )}
+          {alternatives.data && alternatives.data.length === 0 && (
+            <p className="text-xs text-muted">Chưa có món cùng loại có mô hình 3D.</p>
+          )}
+          <ul className="flex max-h-44 flex-col gap-1 overflow-y-auto">
+            {alternatives.data?.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  data-testid={`alt-${a.id}`}
+                  onClick={() => {
+                    setSwaps((m) => ({
+                      ...m,
+                      [placement.id]: {
+                        productId: a.id,
+                        name: a.name,
+                        slug: a.slug,
+                        variantId: a.variantId,
+                        model: a.model,
+                      },
+                    }));
+                    setSwapOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md border border-line p-1.5 text-left text-sm hover:border-primary"
+                >
+                  <span className="h-10 w-10 shrink-0 overflow-hidden rounded bg-surface-muted">
+                    {a.thumbnailUrl && (
+                      <img src={a.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-1 font-semibold">{a.name}</span>
+                    <span className="text-xs text-danger">{formatCurrency(a.salePrice ?? a.price)}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 
   const popover = selected && (
     <div
@@ -224,7 +344,11 @@ export default function SpaceDetailPage() {
               panorama={pano}
               onSelect={onHotspot}
               selectedId={selected?.id}
-              overlay={popover}
+              overlay={popover || placementPopover}
+              placements={pano.placements}
+              overrides={swaps}
+              selectedPlacementId={placement?.id ?? null}
+              onSelectPlacement={onPlacement}
             />
           </div>
           <div className="mt-3 flex gap-2 overflow-x-auto">
@@ -235,6 +359,7 @@ export default function SpaceDetailPage() {
                 onClick={() => {
                   setPanoId(p.id);
                   setSelected(null);
+                  setPlacement(null);
                 }}
                 aria-current={p.id === pano.id}
                 className={cn(

@@ -493,7 +493,16 @@ async function main() {
       });
       await tx.spacePanorama.createMany({ data: db.spacePanoramas, skipDuplicates: true });
       await tx.spaceHotspot.createMany({ data: db.spaceHotspots, skipDuplicates: true });
-      await tx.spaceProductPlacement.createMany({ data: db.spaceProductPlacements, skipDuplicates: true });
+      // Mô hình 3D đặt trong ảnh 360° (UC-ADM-17): chỉ 3 không gian đầu có placement làm dữ liệu demo; các không gian còn lại
+      // không có placement nên hiển thị như trước (không tải mô hình, nhẹ cho điện thoại)
+      const placedSpaces = new Set(db.spaces.slice(0, 3).map((x) => x.id));
+      const placedPanos = new Set(
+        db.spacePanoramas.filter((p) => placedSpaces.has(p.spaceId)).map((p) => p.id),
+      );
+      await tx.spaceProductPlacement.createMany({
+        data: db.spaceProductPlacements.filter((p) => placedPanos.has(p.panoramaId)),
+        skipDuplicates: true,
+      });
       await tx.spaceBookmark.createMany({ data: db.spaceBookmarks, skipDuplicates: true });
       await tx.spaceView.createMany({
         data: db.spaceViews.map((v) => ({ ...v, visitorId: v.visitorId ? fixUuid(v.visitorId) : null })),

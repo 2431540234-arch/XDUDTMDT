@@ -290,6 +290,47 @@ export interface SpaceListItem extends Space {
   isBookmarked: boolean;
 }
 
+/** UC-ADM-17 / UC-SPACE-04: mô hình 3D rút gọn của một món đặt trong ảnh 360° (các LOD của GLB + vật liệu theo biến thể) */
+export interface PlacementModel {
+  id: number;
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  files: Array<{ lod: 'high' | 'medium' | 'low' | null; url: string; fileSize: number }>;
+  materialVariants: MaterialVariantView[];
+}
+
+/** Mô hình 3D đã đặt vào ảnh 360°: hướng (yaw, pitch độ), khoảng cách (m), xoay (độ), tỉ lệ */
+export interface PlacementView {
+  id: number;
+  panoramaId: number;
+  productId: number;
+  variantId: number | null;
+  modelId: number | null;
+  yaw: number;
+  pitch: number;
+  distance: number;
+  rotationX: number;
+  rotationY: number;
+  rotationZ: number;
+  scale: number;
+  product: { id: number; name: string; slug: string } | null;
+  /** null = không có mô hình dùng được (client bỏ qua) */
+  model: PlacementModel | null;
+}
+
+/** UC-SPACE-05 "Đổi món": sản phẩm cùng danh mục có mô hình ready */
+export interface PlacementAlternative {
+  id: number;
+  name: string;
+  slug: string;
+  price: number;
+  salePrice: number | null;
+  thumbnailUrl: string | null;
+  variantId: number | null;
+  model: PlacementModel;
+}
+
 export interface PanoramaView extends SpacePanorama {
   url: string;
   hotspots: Array<
@@ -300,7 +341,7 @@ export interface PanoramaView extends SpacePanorama {
       > | null;
     }
   >;
-  placements: SpaceProductPlacement[];
+  placements: PlacementView[];
 }
 
 export interface SpaceDetail extends SpaceListItem {

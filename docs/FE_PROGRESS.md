@@ -245,3 +245,10 @@ Tổng: 79 lời gọi `invalidateQueries` và 10 lời gọi `setQueryData`.
 - **Admin:** hành động dòng **Vật liệu theo biến thể** ở `/admin/models` (mô hình ready) mở hộp thoại `MaterialVariantsModal`: mỗi biến thể một dòng, chọn vật liệu từ danh sách có trong GLB, chọn màu (xem trước hình cầu), độ nhám, kim loại; Lưu/Xóa.
 - **Khách:** `ProductViewer3D` nhận `variantId`; có `materialVariants` cho biến thể thì áp màu/độ nhám/kim loại lên vật liệu cùng tên ngay trên `<model-viewer>` (không tải lại mô hình, không gọi API). Thuộc tính `data-material-applied` trên `viewer-3d` phục vụ test.
 - **Test:** Playwright nhóm `vat-lieu` (`tests/e2e/materials.spec.ts`): đổi màu biến thể ⇒ đọc `baseColorFactor` từ scene, kiểm không có yêu cầu .glb/API mới; admin cấu hình qua hộp thoại. Mock API không hỗ trợ.
+
+## Mô hình 3D trong ảnh 360° (2026-11-08, D-T57) ✅
+
+- **Khách:** `SpacePanorama` nhận `placements`: React Three Fiber + `useGLTF` (Meshopt, không Draco/CDN), chọn LOD theo thiết bị (`preferredLod`), **chỉ tải sau khi ảnh 360° hiện**, `Suspense` + hộp lỗi riêng cho từng mô hình, trạng thái "Đang tải mô hình 3D…", ghim bấm được. Không có placement ⇒ không thêm gì (hiển thị như cũ). Bấm ghim ⇒ hộp **Đổi món** (danh sách từ `alternatives`) ⇒ thay mô hình tại chỗ, nhãn "Đang xem thử — không được lưu lại", "Về món gốc". Phần tử ẩn `placed-models` (`data-total/loaded/items`) phục vụ test.
+- **Admin:** tab **Đặt sản phẩm 3D** trong form không gian (`PlacementEditor`): nút **Đặt sản phẩm 3D**, chọn sản phẩm có mô hình + biến thể, **kéo ghim** để đổi yaw/pitch, ô số + thanh trượt cho khoảng cách/xoay X-Y-Z/tỉ lệ, xem trước trực tiếp ngay trong khung, **Lưu vị trí** / Hoàn tác / Gỡ.
+- Mock API trả `placements: []` (chỉ chạy với API thật).
+- **Test:** Playwright nhóm `phong-3d` (`tests/e2e/placements360.spec.ts`): admin đặt, khách thấy và đổi món, không lưu DB; không gian trống như cũ; mô hình bị chặn tải thì ảnh vẫn dùng được.

@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import FormSection, { FormGrid } from '@/components/admin/FormSection';
 import { PageHeader } from '@/components/admin/FilterBar';
+import PlacementEditor from '@/components/admin/PlacementEditor';
 import UploadDropzone, { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import { uploadMany } from '@/services/media.api';
 import Button, { LinkButton } from '@/components/ui/Button';
@@ -21,11 +22,12 @@ import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
 import type { RoomType } from '@aurelia-living/shared-types';
 
-type Tab = 'basic' | 'pano' | 'hotspots' | 'products' | 'display';
+type Tab = 'basic' | 'pano' | 'hotspots' | 'place' | 'products' | 'display';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'basic', label: 'Thông tin cơ bản' },
   { key: 'pano', label: 'Ảnh 360°' },
   { key: 'hotspots', label: 'Điểm tương tác (hotspot)' },
+  { key: 'place', label: 'Đặt sản phẩm 3D' },
   { key: 'products', label: 'Sản phẩm gợi ý' },
   { key: 'display', label: 'Cài đặt hiển thị' },
 ];
@@ -329,6 +331,41 @@ export default function SpaceForm({ spaceId }: { spaceId?: number }) {
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+        )}
+
+        {tab === 'place' && (
+          <div className="space-y-4">
+            {!editing || !q.data ? (
+              <p className="rounded-card bg-surface-muted/60 p-4 text-sm text-muted">
+                Hãy lưu không gian trước, rồi mở lại để đặt sản phẩm 3D vào từng ảnh 360°.
+              </p>
+            ) : q.data.panoramas.length === 0 ? (
+              <p className="rounded-card bg-surface-muted/60 p-4 text-sm text-muted">
+                Hãy thêm ít nhất một ảnh 360° ở tab "Ảnh 360°" và lưu.
+              </p>
+            ) : (
+              <>
+                <Select
+                  label="Ảnh 360°"
+                  value={Math.min(activePano, q.data.panoramas.length - 1)}
+                  onChange={(e) => setActivePano(Number(e.target.value))}
+                  options={q.data.panoramas.map((p, i) => ({
+                    value: i,
+                    label: `${i + 1}. ${p.title || 'Góc ' + (i + 1)}`,
+                  }))}
+                />
+                {panos.length !== q.data.panoramas.length && (
+                  <p role="note" className="text-xs text-warning">
+                    Danh sách ảnh 360° có thay đổi chưa lưu; lưu không gian để đặt sản phẩm vào ảnh mới.
+                  </p>
+                )}
+                <PlacementEditor
+                  key={q.data.panoramas[Math.min(activePano, q.data.panoramas.length - 1)].id}
+                  panorama={q.data.panoramas[Math.min(activePano, q.data.panoramas.length - 1)]}
+                />
+              </>
             )}
           </div>
         )}

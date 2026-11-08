@@ -249,6 +249,11 @@ export class AdminSpacesService {
           const oldIds = oldPanos.map((p) => p.id);
           const oldIndex = new Map(oldPanos.map((p, i) => [p.id, i]));
           await tx.spaceHotspot.deleteMany({ where: { panoramaId: { in: oldIds } } });
+          // mô hình 3D đã đặt (UC-ADM-17) không nằm trong form này: giữ lại theo ẢNH (cùng mediaId), ảnh bị bỏ thì placement mất theo
+          const oldPlacements = await tx.spaceProductPlacement.findMany({
+            where: { panoramaId: { in: oldIds } },
+            orderBy: { id: 'asc' },
+          });
           await tx.spaceProductPlacement.deleteMany({ where: { panoramaId: { in: oldIds } } });
           await tx.spacePanorama.deleteMany({ where: { spaceId: space.id } });
           const created: number[] = [];
@@ -263,6 +268,23 @@ export class AdminSpacesService {
               },
             });
             created.push(row.id);
+          }
+          const newByOld = new Map<number, number>();
+          const usedNew = new Set<number>();
+          for (const o of oldPanos) {
+            const k = panoMedia.findIndex((m, i) => m === o.mediaId && !usedNew.has(i));
+            if (k >= 0) {
+              usedNew.add(k);
+              newByOld.set(o.id, created[k]);
+            }
+          }
+          for (const pl of oldPlacements) {
+            const target = newByOld.get(pl.panoramaId);
+            if (!target) continue;
+            const { id: _id, panoramaId: _pid, ...rest } = pl;
+            void _id;
+            void _pid;
+            await tx.spaceProductPlacement.create({ data: { ...rest, panoramaId: target } });
           }
           for (const [i, p] of panos.entries()) {
             for (const h of p.hotspots ?? []) {

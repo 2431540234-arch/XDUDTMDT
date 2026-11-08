@@ -4,6 +4,7 @@ import type {
   AdminMaterialVariant,
   Banner,
   MaterialConfig,
+  PlacementView,
   CategoryNode,
   CouponView,
   DashboardStats,
@@ -207,6 +208,16 @@ export const adminApi = {
     update: (id: number, body: Record<string, unknown>) =>
       http.patch<SpaceDetail>(`/admin/spaces/${id}`, body),
     remove: (id: number) => http.delete(`/admin/spaces/${id}`),
+  },
+  /** UC-ADM-17: mô hình 3D đặt trong ảnh 360° (:id là id ảnh 360°) */
+  placements: {
+    list: (panoramaId: number) => http.get<PlacementView[]>(`/admin/panoramas/${panoramaId}/placements`),
+    create: (panoramaId: number, body: Record<string, unknown>) =>
+      http.post<PlacementView>(`/admin/panoramas/${panoramaId}/placements`, body),
+    update: (panoramaId: number, id: number, body: Record<string, unknown>) =>
+      http.patch<PlacementView>(`/admin/panoramas/${panoramaId}/placements/${id}`, body),
+    remove: (panoramaId: number, id: number) =>
+      http.delete(`/admin/panoramas/${panoramaId}/placements/${id}`),
   },
   content: {
     banners: () => http.get<Banner[]>('/admin/banners'), // TODO: chưa có trong BE

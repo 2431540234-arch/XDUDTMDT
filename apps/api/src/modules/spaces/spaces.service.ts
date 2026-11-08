@@ -14,6 +14,7 @@ import { AppConfig } from '../../config/app-config.service';
 import type { AccessTokenPayload } from '../../common/guards/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
+import { PanoramasService } from '../panoramas/panoramas.service';
 
 export const COMBO_DISCOUNT_PERCENT = 10;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -45,6 +46,7 @@ export class SpacesService {
     private readonly cart: CartService,
     private readonly jwt: JwtService,
     private readonly config: AppConfig,
+    private readonly placements: PanoramasService,
   ) {}
 
   private productIds(s: SpaceRow): number[] {
@@ -194,6 +196,46 @@ export class SpacesService {
     return null;
   }
 
+  /**
+   * UC-SPACE-05 "Đổi món": sản phẩm CÙNG DANH MỤC với món đang đặt, đã đăng bán và có mô hình chính ready, để client thay mô hình
+   * tại đúng vị trí đó. Chỉ là gợi ý xem thử, KHÔNG lưu gì vào DB.
+   */
+  async alternatives(slug: string, placementId: number) {
+    const pl = await this.prisma.spaceProductPlacement.findFirst({
+      where: { id: placementId, panorama: { space: { slug, status: 'published' } } },
+      include: { product: { select: { categoryId: true } } },
+    });
+    if (!pl) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Vị trí đặt sản phẩm không tồn tại.');
+    const rows = await this.prisma.product.findMany({
+      where: {
+        id: { not: pl.productId },
+        categoryId: pl.product.categoryId,
+        status: 'published',
+        deletedAt: null,
+        product3dModels: { some: { isPrimary: true, status: 'ready' } },
+      },
+      include: PRODUCT_INCLUDE,
+      orderBy: { id: 'asc' },
+      take: 12,
+    });
+    const models = await this.placements.primaryModels(rows.map((p) => p.id));
+    return rows
+      .filter((p) => models.has(p.id))
+      .map((p) => {
+        const li = this.views.listItem(p);
+        return {
+          id: li.id,
+          name: li.name,
+          slug: li.slug,
+          price: li.price,
+          salePrice: li.salePrice,
+          thumbnailUrl: li.thumbnailUrl,
+          variantId: li.defaultVariantId,
+          model: models.get(p.id)!,
+        };
+      });
+  }
+
   /** Chi tiết cho admin: mọi trạng thái, không tính lượt xem */
   async adminDetail(id: number) {
     const s = await this.prisma.space.findUnique({ where: { id }, include: SPACE_INCLUDE });
@@ -221,8 +263,13 @@ export class SpacesService {
     );
     const byId = new Map(items.map((i) => [i.id, i]));
 
+    // UC-SPACE-04/05: mô hình 3D đã đặt trong từng ảnh (kèm tệp GLB các LOD); ảnh chưa đặt gì ⇒ placements: [] như trước
+    const placed = await this.placements.placementViews(
+      s.spacePanoramas.flatMap((p) => p.spaceProductPlacements),
+    );
     const panoramas = s.spacePanoramas.map((p) => {
-      const { media, spaceHotspotsAsPanorama, spaceProductPlacements, ...pb } = p;
+      const { media, spaceHotspotsAsPanorama, spaceProductPlacements: _placed, ...pb } = p;
+      void _placed;
       return {
         ...serialize(pb),
         url: this.views.url(media.filePath) ?? '',
@@ -243,7 +290,7 @@ export class SpacesService {
               : null,
           };
         }),
-        placements: serialize(spaceProductPlacements),
+        placements: placed.filter((x) => x.panoramaId === p.id),
       };
     });
     const originalTotal = items.reduce((sum, p) => sum + (p.salePrice ?? p.price), 0);

@@ -445,3 +445,12 @@ Không đổi schema (partial unique `uq_users_email_active` và `user_sessions`
 - **Không có 409 "trùng" ở luồng thường:** PUT là tạo-hoặc-thay-thế nên lặp lại chỉ cập nhật; 409 chỉ xảy ra khi hai yêu cầu tạo đồng thời (P2002 ⇒ 409). Test kiểm không sinh bản trùng.
 - Dữ liệu demo: `seed-models.ts` gắn cấu hình vật liệu cho mọi mô hình chính có ≥ 2 màu (220 dòng trên aurelia_demo).
 - Test: `model-materials.db-spec.ts` (3 test: tạo/thay thế/xóa/nhật ký/khách thấy; 400; 404/401/403).
+
+## Mô hình 3D trong ảnh 360° (2026-11-08, D-T57) ✅
+
+- UC-ADM-17: `PanoramasService` + `AdminPanoramasController` (`/admin/panoramas/:id/placements` GET/POST/PATCH/DELETE): kiểm `scale` > 0, `distance` > 0, khoảng giá trị, biến thể thuộc sản phẩm, mô hình thuộc sản phẩm và `ready` (không chọn ⇒ mô hình chính), ghi `activity_logs` (`placement.create|update|delete`).
+- UC-SPACE-04: `GET /spaces/:slug` trả `placements[]` kèm `model` (LOD GLB + vật liệu); batch một lần cho cả không gian (không N+1).
+- UC-SPACE-05: `GET /spaces/:slug/placements/:id/alternatives` (cùng danh mục, đã đăng bán, có mô hình chính ready, ≤ 12), không ghi DB.
+- Sửa không gian có `panoramas` giữ placement (chép theo `media_id` của ảnh) thay vì làm mất như trước.
+- Dữ liệu demo: `seed-mock.ts` chỉ giữ placement của 3 không gian đầu; `aurelia_demo` đã tỉa còn 12 dòng (84 dòng seed cũ của 45 không gian khác bị xóa vì nay không dùng).
+- Test: `placements.db-spec.ts` (5 test: tạo/sửa/đọc/xóa + nhật ký, 400, 404/401/403, alternatives không ghi DB, sửa không gian giữ placement).
