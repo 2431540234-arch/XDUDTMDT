@@ -8,16 +8,18 @@ Yêu cầu: Node ≥ 22, Docker Desktop, đã chạy `npm install` ở thư mụ
 
 | Bước | Lệnh (thư mục gốc dự án) | Kết quả |
 |---|---|---|
-| 1. Hạ tầng | `npm run docker:up` | Postgres (cổng host **55432**), Redis (**6380**), Mailpit (UI **http://localhost:8025**). Không tạo lại container đang chạy |
+| 1. Hạ tầng | `npm run docker:up` | Postgres (cổng host **55432**), Redis (**6380**), Mailpit (UI **http://localhost:8025**) và **MinIO** (S3 **http://localhost:9000**, console **http://localhost:9011**, đăng nhập `aurelia` / `aurelia123`, 2 bucket `aurelia-public`, `aurelia-private`). Không tạo lại container đang chạy |
 | 2. (Chỉ khi cần dữ liệu sạch) | `node scripts/db-reset.mjs aurelia_demo` | Xóa và nạp lại **chỉ** `aurelia_demo` từ dữ liệu mẫu. Lệnh từ chối mọi DB khác |
-| 3. API + Web | `npm run demo` | API cổng **4000** (Swagger http://localhost:4000/docs) và web cổng **3000** (admin: http://localhost:3000/admin/login). Chỉ API: `npm run demo:api`. Dừng: Ctrl+C |
+| 3. API + Web | `npm run demo` | API cổng **4000** (Swagger http://localhost:4000/docs) và web cổng **3000** (admin: http://localhost:3000/admin/login), tệp lưu ở **MinIO**. Chỉ API: `npm run demo:api`. **Dự phòng khi MinIO trục trặc: `npm run demo:local`** (tệp lưu trên đĩa, không cần MinIO). Dừng: Ctrl+C |
 
-`npm run demo` tự đặt `DATABASE_URL` = `aurelia_demo`, `STORAGE_DRIVER=local`, `STORAGE_PUBLIC_URL`, `PAYMENT_SANDBOX_FAKE=true` và `NEXT_PUBLIC_USE_MOCK=false` chỉ cho hai tiến trình này; **không sửa `.env`** (khóa JWT… vẫn lấy từ `.env`) và không bao giờ dùng `aurelia_dev`.
+`npm run demo` tự đặt `DATABASE_URL` = `aurelia_demo`, `STORAGE_DRIVER=minio` (hoặc `local` với `demo:local`), `STORAGE_PUBLIC_URL`, `PAYMENT_SANDBOX_FAKE=true` và `NEXT_PUBLIC_USE_MOCK=false` chỉ cho hai tiến trình này; **không sửa `.env`** (khóa JWT… vẫn lấy từ `.env`) và không bao giờ dùng `aurelia_dev`. Nếu chưa bật MinIO, lệnh dừng ngay và chỉ cách bật hoặc chuyển sang `demo:local`.
+
+**Kiểm tra MinIO:** `curl http://localhost:9000/minio/health/live` trả 200; mở console http://localhost:9011 thấy 2 bucket; `docker ps` có `xdudtmdt-minio-1` (healthy). Cổng console là **9011** (9001 hay bị chương trình khác chiếm). **Sau khi `db-reset aurelia_demo`** chạy thêm `npm run minio:sync` để chép tệp mẫu lên MinIO (giữ nguyên khóa, không xóa gì; chạy lại an toàn).
 
 Kiểm tra nhanh: mở http://localhost:3000 thấy trang chủ có banner và sản phẩm; http://localhost:4000/docs mở được Swagger.
 
 Lưu ý:
-- Ảnh demo nằm trong thư mục `apps/api/uploads`; **đừng xóa** thư mục này, nếu không ảnh sẽ vỡ (khi đó chạy lại bước 2).
+- Ảnh demo nằm ở MinIO và vẫn còn bản ở thư mục `apps/api/uploads` (dùng cho `demo:local` và để chép lại bằng `npm run minio:sync`); **đừng xóa** thư mục này.
 - Email (xác thực, đặt lại mật khẩu) xem ở Mailpit http://localhost:8025.
 - Mỗi lần thao tác thử làm thay đổi dữ liệu demo (đơn, giỏ…). Muốn trở về trạng thái ban đầu: dừng API rồi chạy bước 2.
 
@@ -65,7 +67,7 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 - **Mốc 5 còn lại** (ngoài phạm vi hiện tại): đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên đăng nhập, xóa tài khoản, gửi thông báo thủ công, màn nhật ký hoạt động, thống kê, phân quyền chi tiết theo vai trò. (Thương hiệu, thuộc tính, media, vận chuyển đã làm.)
 - **Android** (`apps/mobile`): không nằm trong đợt này.
 - **VNPAY thật**: đã làm URL có chữ ký, Return URL, IPN, thanh toán lại và đã kiểm bằng khóa giả; chưa có khóa sandbox nên demo dùng chế độ **giả lập**. MoMo/ZaloPay chỉ giả lập.
-- **MinIO, bộ nhớ đệm Redis**: hoãn; demo lưu ảnh trên đĩa (`STORAGE_DRIVER=local`). (Xử lý nền mô hình 3D — tạo LOD — **đã làm**, xem bước 10c; tải lên vẫn qua API, chưa dùng presigned URL.)
+- **Bộ nhớ đệm Redis** và ứng dụng Android: hoãn. MinIO **đã làm** (D-P13): ảnh ≤ 5 MB qua API; panorama ≤ 20 MB và mô hình GLB ≤ 100 MB do trình duyệt tải thẳng lên MinIO bằng URL ký sẵn (mô hình vào bucket private rồi được xử lý nền, xem bước 10c; phần trăm tải lên hiện ở hộp thoại tải mô hình).
 - Giá combo của không gian không áp dụng (đặc tả không có); `loyalty_points`, `carts.coupon_id` giữ nguyên cột nhưng chưa có chức năng điểm tích lũy.
 
 ## 6. Xử lý sự cố nhanh
@@ -73,7 +75,7 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 | Hiện tượng | Cách xử lý |
 |---|---|
 | Thanh toán online báo "Cổng thanh toán chưa được cấu hình" | API không chạy bằng `npm run demo` (thiếu `PAYMENT_SANDBOX_FAKE=true`) |
-| Ảnh sản phẩm/không gian bị vỡ | Thiếu `apps/api/uploads` hoặc API không chạy bằng `npm run demo` (`STORAGE_DRIVER=local`); chạy lại bước 2 |
+| Ảnh sản phẩm/không gian bị vỡ | Chưa chép tệp lên MinIO (chạy `npm run minio:sync`), MinIO chưa bật (`npm run docker:up`), hoặc thiếu `apps/api/uploads`. Cần chạy ngay không MinIO: `npm run demo:local` |
 | Web báo lỗi mạng | API chưa chạy ở cổng 4000 hoặc `NEXT_PUBLIC_API_URL` sai |
 | Đăng nhập báo hết phiên | Phiên tự làm mới; nếu vẫn lỗi, đăng nhập lại |
 | Dữ liệu demo đã bị sửa nhiều | Dừng API, chạy `node scripts/db-reset.mjs aurelia_demo`, chạy lại API |

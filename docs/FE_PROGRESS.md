@@ -226,3 +226,9 @@ Tổng: 79 lời gọi `invalidateQueries` và 10 lời gọi `setQueryData`.
 **Test:**
 - Vitest `tests/unit/query-refresh.test.ts` (5): `refreshAfterWrite` và `makeWriteSafe` cho `invalidateQueries` lẫn `setQueryData`; mỗi trường hợp có đối chứng "client thường" tái hiện lỗi.
 - Playwright (API thật) nhóm `admin-race`, `tests/e2e/admin-race.spec.ts` (2), kịch bản "tìm kiếm rồi lưu ngay" ở hai trang admin khác nhau: **khách hàng** (khóa tài khoản) và **sản phẩm** (xóa). Test dựng đúng thứ tự gây lỗi (giữ kết quả tìm kiếm đã đọc trước khi ghi, chỉ thả sau khi ghi xong) nên không phụ thuộc may rủi về thời gian. Đã kiểm đối chứng: tắt `makeWriteSafe` thì cả hai test fail (khách hàng vẫn hiện "Hoạt động", sản phẩm vẫn còn dòng cũ); bật lại thì xanh.
+
+## MinIO: tải thẳng từ trình duyệt (2026-11-08, D-P13) ✅
+
+- `services/direct-upload.ts`: `getUploadMode()` (đọc `GET /admin/media/upload-config`, nhớ kết quả; dữ liệu giả ⇒ multipart) và `putToStorage()` (PUT bằng XMLHttpRequest, có phần trăm tiến trình). FE **tự chọn** cách tải theo cấu hình máy chủ.
+- **Panorama** (`services/media.api.ts`, dùng ở form không gian): driver minio/s3 ⇒ `/admin/media/presign` ⇒ PUT ⇒ `/admin/media/confirm`; ảnh thường và frame 360° vẫn multipart. **Mô hình 3D** (`/admin/models`): `/admin/models/presign` ⇒ PUT lên bucket private ⇒ `/admin/models/:id/files/confirm` (202); hộp thoại hiện phần trăm tải lên thật (thay cho tiến trình giả đã bỏ ở đợt trước). Driver local giữ multipart.
+- **Test trình duyệt với MinIO thật:** `npm run test:e2e:real:minio` (`tests/e2e/admin-minio.spec.ts`, 2 test): admin tải GLB ⇒ PUT thẳng lên bucket private (kiểm header CORS) ⇒ xử lý nền ⇒ 3 LOD `ready` ⇒ khách tải LOD medium từ bucket public (khác nguồn gốc với web); panorama PUT từ trình duyệt vào bucket public rồi confirm, ảnh mở được.

@@ -51,6 +51,8 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 
 ## 5. Lưu trữ tệp (MinIO / S3)
 
+**Driver theo môi trường (D-P13):** dev và demo dùng `STORAGE_DRIVER=minio` (mặc định của `.env`); `npm run demo:local` dùng `local` làm dự phòng; **supertest (`test:e2e:db`) và `test:e2e:real` giữ `local`** để không phụ thuộc container. Test với MinIO thật: `npm run test:e2e:minio` (API) và `npm run test:e2e:real:minio` (trình duyệt), dùng bucket riêng `aurelia-test-public` / `aurelia-test-private`. Chép tệp từ `apps/api/uploads` lên MinIO: `npm run minio:sync`.
+
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
 | `STORAGE_DRIVER` | Tùy chọn | `minio` | M05, M12, M13 | `local`, `minio` (dev), `s3` (production) |
@@ -64,7 +66,11 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Theo driver `minio` | không | StorageService, MinIO | Dev: `aurelia` / `aurelia123`; với `s3` có thể bỏ (IAM role) |
 | `S3_BUCKET_PUBLIC` | Tùy chọn | `aurelia-public` | StorageService | |
 | `S3_BUCKET_PRIVATE` | Tùy chọn | `aurelia-private` | StorageService | |
-| `MINIO_PORT`, `MINIO_CONSOLE_PORT` | Tùy chọn | `9000`, `9001` | docker-compose | Cổng MinIO API và Console trên máy host |
+| `MINIO_PORT`, `MINIO_CONSOLE_PORT` | Tùy chọn | `9000`, `9011` | docker-compose | Cổng MinIO API và Console trên máy host (console đổi từ 9001 sang **9011** vì 9001 thường bị Mosquitto của dự án khác chiếm) |
+| `MINIO_CORS_ORIGINS` | Tùy chọn | `http://localhost:3000,http://localhost:3100` | docker-compose (MinIO) | Origin web được PUT/GET trực tiếp lên MinIO (CORS), cách nhau bằng dấu phẩy; 3000 = web demo/dev, 3100 = web của e2e |
+| `BULL_PREFIX` | Tùy chọn | `bull` (`bull-test` khi `NODE_ENV=test`) | Jobs | Tiền tố khóa BullMQ trong Redis. Demo đặt `bull-demo`, e2e `bull-e2e` để worker của môi trường này không nhận job của môi trường kia |
+| `THROTTLE_PREFIX` | Tùy chọn | `throttle:` (`throttle-test:` khi `NODE_ENV=test`) | Throttler | Tiền tố bộ đếm giới hạn tốc độ trong Redis. Demo `throttle-demo:`, e2e `throttle-e2e:` |
+| `HTTP_ERROR_LOG_FILE` | Tùy chọn | không | app.setup | Nếu đặt, ghi mọi response ≥ 400 (method, đường dẫn, status, mã lỗi) ra tệp. `scripts/e2e-real.mjs` bật để điều tra test fail (`.e2e-logs/api-errors.log`) |
 | `UPLOAD_MAX_IMAGE_MB` | Tùy chọn | `5` | M05 | Ảnh thường |
 | `UPLOAD_MAX_PANORAMA_MB` | Tùy chọn | `20` | M05, M13 | |
 | `UPLOAD_MAX_MODEL_MB` | Tùy chọn | `100` | M12 | GLB/USDZ |

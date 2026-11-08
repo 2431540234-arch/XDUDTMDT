@@ -377,6 +377,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/models` | admin | `admin.list` | `format`, `productId`, `q`, `sort` |  |  |
 | POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, format:"glb", fileData (data-URL base64, BẮT BUỘC), scale, unit?, createNew? } | `202 { modelId, jobId, status:"processing" }` |
 | POST | `/admin/models/upload` | admin | `admin.upload` |  | multipart: `file` + `productId`, `variantId?`, `scale?`, `unit?`, `placement?`, `createNew?` | `202 { modelId, jobId, status:"processing" }` |
+| POST | `/admin/models/presign` | admin | `admin.upload` |  | { productId, fileName, size, format:"glb", scale, unit?, createNew? } | Chỉ khi driver minio/s3. `200 { modelId, key, uploadUrl, method:"PUT", headers, expiresIn }`: chọn/tạo mô hình đích (mới ở trạng thái `uploading`) và cấp URL PUT vào bucket PRIVATE `models/incoming/<modelId>/<uuid>.glb`. Sau khi PUT xong gọi `POST /admin/models/:id/files/confirm { key, format, fileName }` ⇒ `202 { modelId, jobId, status:"processing" }`. USDZ ⇒ `415`, > 100 MB ⇒ `413`; driver local ⇒ `400` |
 | POST | `/admin/models/:id/reprocess` | admin | `admin.reprocess` |  |  | `:id` = id MÔ HÌNH. `202 { modelId, jobId, status:"processing" }`; không phải `failed` ⇒ `409 INVALID_STATE`; mất tệp gốc ⇒ `409`; không có ⇒ `404` |
 | PATCH | `/admin/models/:id/primary` | admin | `admin.setPrimary` |  |  | `:id` = id MÔ HÌNH. `{ modelId, productId, isPrimary:true }`; chỉ khi `ready` (khác ⇒ `409 INVALID_STATE`), không có ⇒ `404` |
 | DELETE | `/admin/models/model/:modelId` | admin | `admin.removeModel` |  |  | Xóa cả mô hình (kể cả chưa có tệp: đang xử lý / lỗi) |
@@ -467,6 +468,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/payments/vnpay/return` | Return URL VNPAY: kiểm tra chữ ký, cập nhật payment, chuyển hướng tới `/checkout/success|failed?order=<code>` |
 | GET | `/payments/vnpay/ipn` | IPN VNPAY (server-to-server), idempotent, trả `{RspCode, Message}` theo chuẩn VNPAY |
 | POST | `/admin/media`, `/admin/media/presign`, `/admin/media/confirm` | Upload ảnh/GLB/frame 360 (đã có khung trong BE). FE hiện gửi ảnh dạng data-URL/đường dẫn trong body (`images[]`, `frames[]`, `imageUrl`) nên BE phải **chấp nhận cả URL lẫn data-URL base64** và tự lưu vào `StorageService` |
+| GET | `/admin/media/upload-config` | `{ mode: "presigned" \| "multipart", driver, limitsMB: { image, panorama, model } }`: FE tự chọn cách tải theo driver kho (minio/s3 ⇒ presigned; local ⇒ multipart) |
 | GET | `/admin/brands` | Danh sách thương hiệu cho form sản phẩm (FE ghi chú `có /admin/brands`) |
 
 ## 5b. Ghi chú triển khai BE (bổ sung/khác mock) – cập nhật Mốc 2
@@ -489,7 +491,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
   - `GET /admin/models` liệt kê mỗi TỆP một dòng; mô hình chưa có tệp (đang xử lý / lỗi) là một dòng riêng với `fileId = null`, `id = -modelId`. Mỗi dòng có `modelId`, `status`, `isPrimary`, `lod`, `failureReason` (chỉ khi `failed`; lấy từ `activity_logs`, không thêm cột). FE gọi lại danh sách định kỳ khi còn mô hình `processing`.
   - `createNew=true`: tạo mô hình MỚI cho sản phẩm (mặc định thay tệp của mô hình chính; sản phẩm chưa có mô hình chính thì mô hình mới thành chính). Chỉ một mô hình chính mỗi sản phẩm.
   - Công khai: `GET /products/:slug/model` chỉ trả mô hình chính ở trạng thái `ready`, kèm `files[]` (mỗi tệp có `format`, `lod`, `url`, `fileSize`, `polygonCount`, `isCompressed`, `checksum`); `glbUrl` mặc định là LOD `medium`. `has3dModel`/`hasAr` do trigger DB cập nhật, service không ghi.
-  - Chưa dùng MinIO nên tải lên vẫn là multipart/JSON qua API (chưa có presigned URL); luồng `POST /admin/models/:id/files/presign` + `confirm` (202) dành cho MinIO vẫn giữ nguyên.
+  - **Cách tải theo driver kho (D-P13)**: `local` ⇒ multipart/JSON qua API (như trên, dự phòng); `minio`/`s3` ⇒ ảnh ≤ 5 MB multipart qua API vào bucket public, **panorama ≤ 20 MB** `POST /admin/media/presign` ⇒ PUT vào bucket public ⇒ `POST /admin/media/confirm` (201, tạo media + job ảnh), **mô hình GLB ≤ 100 MB** `POST /admin/models/presign` ⇒ PUT vào bucket PRIVATE ⇒ `POST /admin/models/:id/files/confirm` (202) ⇒ job đọc từ private, ghi LOD vào public. URL ký cả `Content-Type` và `Content-Length` (PUT sai ⇒ kho trả 403) và hết hạn sau `PRESIGN_EXPIRES_SECONDS` (mặc định 900). Hai route `presign`/`confirm` không ghi log trong service nên `ActivityLogInterceptor` ghi dòng tự động (`media.presign`, `media.confirm`, `models.presign`).
 - **Liên hệ**: `POST /contact` giới hạn 5 lần/phút/IP (`429`).
 - Cổng API mặc định **4000** (`NEXT_PUBLIC_API_URL=http://localhost:4000`).
 

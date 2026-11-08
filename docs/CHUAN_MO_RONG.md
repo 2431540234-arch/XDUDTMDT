@@ -106,9 +106,9 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 
 | # | Mục | Hiện trạng | Hướng sửa |
 |---|---|---|---|
-| 1 | MinIO / presigned upload | Dùng driver `local`; tải ảnh qua JSON base64 | Làm theo UC-ADM-04 khi có MinIO |
+| 1 | MinIO / presigned upload | **Đã làm (D-P13)**: dev và demo dùng MinIO; panorama và mô hình GLB tải bằng presigned PUT; ảnh ≤ 5 MB multipart qua API. **Lệch còn lại:** supertest và `test:e2e:real` giữ driver `local` (không phụ thuộc container; mục 31); driver `local` vẫn giữ làm dự phòng cho demo (`npm run demo:local`) | — |
 | 2 | Redis cache (`CacheService`) | Chưa module nào dùng; sản phẩm dùng chỉ mục RAM 15 giây | Áp dụng theo D-T30 |
-| 3 | Xử lý nền mô hình 3D (`model-processing`) | **Đã làm (D-P10)**: kiểm tra GLB, LOD high/medium/low, checksum, retry, ngưỡng 5 MB, reprocess, mô hình chính. **Lệch còn lại:** chưa có MinIO nên tải lên vẫn là **multipart/JSON qua API** (UC-ADM-13 yêu cầu presigned URL: bước đó thay bằng tải thẳng lên API, các bước sau giữ nguyên); luồng presign + confirm đã có sẵn cho MinIO | Chuyển sang presigned khi làm MinIO (mục 1) |
+| 3 | Xử lý nền mô hình 3D (`model-processing`) | **Đã làm (D-P10)** và nay tải lên theo đúng UC-ADM-13: presigned PUT vào bucket private (khi driver minio/s3) rồi confirm; driver local vẫn multipart làm dự phòng | — |
 | 4 | `PermissionsGuard` / vai trò-quyền chi tiết (UC-ADM-02) | Chỉ phân biệt khách/admin | Mốc 5 |
 | 5 | `ActivityLogInterceptor` | Nhật ký ghi trực tiếp trong service (`activity_logs`) | Chuyển sang interceptor |
 | 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, thống kê (AR đã chuyển sang NGOÀI phạm vi, xem mục 27) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển đã làm) | Mốc 5 |
@@ -122,7 +122,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 14 | Slug không gian | Đã sửa: đổi tên KHÔNG đổi slug; admin muốn đổi thì sửa ô slug (kiểm tra duy nhất) | — |
 | 15 | Lối vào `/products/[slug]/360` | Đã khôi phục nút "360°" ở thư viện ảnh (chỉ hiện khi sản phẩm có 360°) | — |
 | 16 | Tải ảnh lớn | Đã sửa: frame 360° và panorama tải từng tệp bằng multipart | Presigned/MinIO là mục 1 |
-| 20 | Media: panorama và tệp lớn | Chưa dùng MinIO nên **panorama chưa dùng presigned PUT**; mọi ảnh tải qua API (multipart) và lưu bằng driver `local`. Job `image-processing` (BullMQ + sharp) vẫn tạo bản webp và thumbnail cho ảnh tải qua `/admin/media` | Làm cùng MinIO (mục 1) |
+| 20 | Media: panorama và tệp lớn | **Đã làm (D-P13)**: panorama dùng presigned PUT vào bucket public + confirm khi driver minio/s3; driver local vẫn multipart. Job `image-processing` vẫn tạo bản webp và thumbnail | — |
 | 21 | Media: xóa tệp | Theo DAC_TA UC-ADM-04: tệp đang dùng ở tham chiếu BẮT BUỘC (ảnh sản phẩm, panorama, mô hình, ảnh đánh giá…) ⇒ 409; tham chiếu TÙY CHỌN (ảnh danh mục, logo thương hiệu, avatar, ảnh bìa) bị gỡ liên kết (SET NULL) chứ không chặn. (Yêu cầu ban đầu ghi "đang dùng thì 409"; đã theo đặc tả và FE cảnh báo trước khi xóa) | — |
 | 22 | Thuộc tính hệ thống | `color`, `size`, `material` do mã nguồn dùng để dựng nhãn biến thể/màu 360° ⇒ không đổi mã, không xóa (ngoài đặc tả) | — |
 | 23 | Mô hình 3D: nơi lưu lý do lỗi và tệp gốc | Không thêm cột/bảng (không migration): lý do lỗi (`failureReason`) và `sourceKey` của tệp gốc (cho "Xử lý lại") đọc từ `activity_logs` (`model.processing_failed`, `model.upload`); tệp gốc giữ ở bucket private `models/incoming/…` | Thêm cột nếu cần truy vấn nặng |
@@ -133,6 +133,9 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 28 | **Bảng route → quyền (PermissionsGuard, D-P12)** | Route theo đặc tả lấy đúng quyền ở "Tác nhân chính" của UC. Route NGOÀI đặc tả dùng quyền gần nhất (cột "Ghi chú"). Route nhiều quyền là "một trong". Test quét metadata: route admin nào chưa gắn quyền sẽ làm test fail. Xem bảng "Route → quyền" ngay sau bảng này | — |
 | 29 | Cache quyền trong bộ nhớ | `PermissionsService` giữ quyền theo tổ hợp vai trò tối đa **10 giây** trong bộ nhớ tiến trình (không Redis, cache Redis vẫn hoãn). Đổi `role_permissions` có hiệu lực sau tối đa 10 giây; test gọi `clearCache()` | Bỏ hoặc chuyển Redis khi làm cache |
 | 30 | Nhật ký tự động của interceptor | Dòng do `ActivityLogInterceptor` ghi có `changes = { auto: true, method, route }`, `action = <tài nguyên>.<hành động theo route>` (vd. `orders.cancel`), `target_type` = tài nguyên, `target_id` = tham số `:id` nếu có. Không thay các log trong service | — |
+| 31 | MinIO: test và dữ liệu | Supertest (`test:e2e:db`) và `test:e2e:real` giữ `STORAGE_DRIVER=local` **vì** chúng reset/seed `aurelia_test` nhiều lần và không được phụ thuộc container MinIO (chạy được trên máy không bật Docker, nhanh, không để rác trong bucket). MinIO thật được kiểm riêng: `test:e2e:minio` (API) và `test:e2e:real:minio` (trình duyệt, kiểm CORS), dùng bucket `aurelia-test-*`, tự bỏ qua nếu MinIO không chạy | — |
+| 32 | MinIO: cổng console 9011 | Console đổi từ 9001 sang **9011** (`MINIO_CONSOLE_PORT`) vì 9001 do Mosquitto của dự án khác giữ; container `minio-1` được tạo lại với ánh xạ cổng mới, volume `xdudtmdt_minio-data` và dữ liệu giữ nguyên (chủ dự án đã đồng ý) | — |
+| 33 | MinIO: chép `apps/api/uploads` | Script `scripts/minio-sync-uploads.mjs` (`npm run minio:sync`) chép `uploads/public` ⇒ `aurelia-public` và `uploads/private` ⇒ `aurelia-private`, giữ nguyên khóa (`media.file_path` không đổi), idempotent, không xóa thư mục nguồn | — |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
