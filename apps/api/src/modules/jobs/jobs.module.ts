@@ -34,7 +34,7 @@ const defaultJobOptions = {
           maxRetriesPerRequest: null,
         },
         // Tách khóa của test khỏi dev để e2e không đụng hàng đợi thật
-        prefix: config.get('NODE_ENV') === 'test' ? 'bull-test' : 'bull',
+        prefix: config.get('BULL_PREFIX') ?? (config.get('NODE_ENV') === 'test' ? 'bull-test' : 'bull'),
       }),
     }),
     BullModule.registerQueue(

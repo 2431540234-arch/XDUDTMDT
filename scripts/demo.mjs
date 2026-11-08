@@ -24,6 +24,7 @@ const apiEnv = {
   STORAGE_DRIVER: 'local',
   STORAGE_PUBLIC_URL: `http://localhost:${API_PORT}/uploads`,
   PAYMENT_SANDBOX_FAKE: 'true',
+  BULL_PREFIX: 'bull-demo', // hàng đợi riêng, không lẫn với API dev/e2e dùng chung Redis
 };
 const webEnv = {
   ...process.env,

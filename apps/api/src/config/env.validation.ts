@@ -21,6 +21,12 @@ export const envSchema = z.object({
 
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
+  // Tiền tố khóa BullMQ trong Redis. Mỗi môi trường (dev/demo/e2e) nên một tiền tố riêng, nếu không worker của môi trường
+  // này sẽ nhận job của môi trường kia (và xử lý trên nhầm DB). Mặc định: test ⇒ bull-test, còn lại bull.
+  BULL_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
 
   // local: đĩa cục bộ | minio: MinIO dev | s3: AWS S3 production (cùng mã, chỉ khác biến môi trường)
   STORAGE_DRIVER: z.enum(['local', 'minio', 's3']).default('minio'),

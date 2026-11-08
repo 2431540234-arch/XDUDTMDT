@@ -118,6 +118,8 @@ async function main() {
     THROTTLE_AUTH_LIMIT: '100000',
     MAIL_TRANSPORT: 'direct',
     PAYMENT_SANDBOX_FAKE: 'true',
+    // hàng đợi riêng: nếu có API demo/dev đang chạy, worker của nó không được nhận job của e2e (xử lý nhầm DB)
+    BULL_PREFIX: 'bull-e2e',
   };
 
   // reset lần đầu để API khởi động trên DB sẵn sàng
