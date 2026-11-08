@@ -111,7 +111,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 3 | Xử lý nền mô hình 3D (`model-processing`) | **Đã làm (D-P10)**: kiểm tra GLB, LOD high/medium/low, checksum, retry, ngưỡng 5 MB, reprocess, mô hình chính. **Lệch còn lại:** chưa có MinIO nên tải lên vẫn là **multipart/JSON qua API** (UC-ADM-13 yêu cầu presigned URL: bước đó thay bằng tải thẳng lên API, các bước sau giữ nguyên); luồng presign + confirm đã có sẵn cho MinIO | Chuyển sang presigned khi làm MinIO (mục 1) |
 | 4 | `PermissionsGuard` / vai trò-quyền chi tiết (UC-ADM-02) | Chỉ phân biệt khách/admin | Mốc 5 |
 | 5 | `ActivityLogInterceptor` | Nhật ký ghi trực tiếp trong service (`activity_logs`) | Chuyển sang interceptor |
-| 6 | UC "Mốc 5" còn lại: AR, đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, thống kê AR | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển đã làm) | Mốc 5 |
+| 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, thống kê (AR đã chuyển sang NGOÀI phạm vi, xem mục 27) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển đã làm) | Mốc 5 |
 | 7 | VNPAY khóa thật | Đã làm URL/chữ ký/Return URL/IPN/thanh toán lại và kiểm bằng khóa giả; chưa có khóa sandbox thật nên chưa thử qua cổng thật | Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` khi có tài khoản |
 | 8 | Android (`apps/mobile`) | Không đụng tới | Mốc 6 |
 | 9 | `users.loyalty_points` | Giữ nguyên cột, chưa có logic cộng/dùng điểm (ngoài đặc tả) | Quyết định khi có yêu cầu |
@@ -128,7 +128,8 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 23 | Mô hình 3D: nơi lưu lý do lỗi và tệp gốc | Không thêm cột/bảng (không migration): lý do lỗi (`failureReason`) và `sourceKey` của tệp gốc (cho "Xử lý lại") đọc từ `activity_logs` (`model.processing_failed`, `model.upload`); tệp gốc giữ ở bucket private `models/incoming/…` | Thêm cột nếu cần truy vấn nặng |
 | 24 | Mô hình 3D: tham số `createNew`, dòng "mô hình chưa có tệp" (`fileId = null`, `id = -modelId`), `DELETE /admin/models/model/:modelId` | Ngoài đặc tả, thêm để có thể tạo mô hình thứ hai cho một sản phẩm (để "Đặt làm mô hình chính" có ý nghĩa) và để hiện/xóa được mô hình đang xử lý hoặc lỗi | — |
 | 25 | Bộ giải nén Meshopt của `<model-viewer>` | Phục vụ tại chỗ `apps/web/public/vendor/meshopt_decoder.js` (bản sao `meshoptimizer` 0.18, MIT) thay vì CDN; loại khỏi eslint/prettier | Bỏ khi có bộ giải nén tự host trong bản build |
-| 26 | USDZ mẫu của seed | Tệp USDZ mẫu cũ (22 byte) không phải ZIP nên bị thay bằng ZIP tối thiểu khi seed xử lý nền (chỉ minh họa, không dựng hình được) | Thay bằng USDZ thật khi làm AR |
+| 26 | (bỏ) USDZ mẫu của seed | Đã bỏ cùng AR (D-P11): seed không tạo USDZ nữa | — |
+| 27 | Bảng/cột AR giữ theo chuẩn nhưng KHÔNG dùng (D-P11) | `ar_sessions`, `ar_snapshots`, cột `products.has_ar` (luôn `false`), enum `model_file_format` có `usdz`, trigger `refresh_product_3d_flags` (tính `has_ar` khi có đủ GLB + USDZ) giữ nguyên đúng `CAU_TRUC_DB.md`; không viết migration xoá. Code chỉ nhận GLB nên `has_ar` không bao giờ bật. Các module `ar-*` trong `apps/api/src/modules` chỉ là khung rỗng, không có route | Dùng lại khi AR được đưa vào (hướng phát triển) |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |

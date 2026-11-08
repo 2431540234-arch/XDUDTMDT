@@ -90,7 +90,7 @@
 | Nhóm | Màn hình (WIREFRAME) |
 |---|---|
 | `auth`, `users`, `addresses` | Đăng nhập/đăng ký/quên mật khẩu (7.1–7.4), Hồ sơ, Sổ địa chỉ, Đổi mật khẩu, Admin login |
-| `categories`, `brands`, `products*`, `wishlist`, `reviews` | Trang chủ, Danh sách/Tìm kiếm/Chi tiết sản phẩm, 3D/AR (7.7), **Xem 360°**, Yêu thích, Đánh giá của tôi |
+| `categories`, `brands`, `products*`, `wishlist`, `reviews` | Trang chủ, Danh sách/Tìm kiếm/Chi tiết sản phẩm, 3D (7.7), **Xem 360°**, Yêu thích, Đánh giá của tôi |
 | `spaces*` | Không gian mẫu (2.14, 7.6) |
 | `cart`, `orders`, `payments`, `returns`, `coupons` | Giỏ hàng, Thanh toán, Thành công/Thất bại, Đơn hàng của tôi/Chi tiết, Đổi trả, Mã giảm giá |
 | `notifications`, `banners`, `posts`, `pages`, `faq`, `contact`, `settings/public` | Thông báo, trang chủ, bài viết, chính sách, FAQ, liên hệ, footer |
@@ -148,9 +148,9 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
-| GET | `/products` | public | `product.list` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `hasAr`, `featured`, `sort`, `page`, `pageSize` |  |  |
-| GET | `/products/search` | public | `product.search` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `hasAr`, `featured`, `sort`, `page`, `pageSize` |  |  |
-| GET | `/products/facets` | public | `product.facets` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `hasAr`, `featured`, `sort`, `page`, `pageSize` |  |  |
+| GET | `/products` | public | `product.list` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort`, `page`, `pageSize` |  |  |
+| GET | `/products/search` | public | `product.search` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort`, `page`, `pageSize` |  |  |
+| GET | `/products/facets` | public | `product.facets` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort`, `page`, `pageSize` |  |  |
 | GET | `/products/:slug` | public | `product.detail` |  |  |  |
 | GET | `/products/:slug/model` | public | `product.model` |  |  |  |
 | GET | `/products/:slug/360` | public | `product.view360` |  |  |  |
@@ -375,8 +375,8 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | GET | `/admin/models` | admin | `admin.list` | `format`, `productId`, `q`, `sort` |  |  |
-| POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, format:"glb"\|"usdz", fileData (data-URL base64, BẮT BUỘC), allowAr, scale, unit?, createNew? } | `202 { modelId, jobId, status:"processing" }` |
-| POST | `/admin/models/upload` | admin | `admin.upload` |  | multipart: `file` + `productId`, `variantId?`, `allowAr?`, `scale?`, `unit?`, `placement?`, `createNew?` | `202 { modelId, jobId, status:"processing" }` |
+| POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, format:"glb", fileData (data-URL base64, BẮT BUỘC), scale, unit?, createNew? } | `202 { modelId, jobId, status:"processing" }` |
+| POST | `/admin/models/upload` | admin | `admin.upload` |  | multipart: `file` + `productId`, `variantId?`, `scale?`, `unit?`, `placement?`, `createNew?` | `202 { modelId, jobId, status:"processing" }` |
 | POST | `/admin/models/:id/reprocess` | admin | `admin.reprocess` |  |  | `:id` = id MÔ HÌNH. `202 { modelId, jobId, status:"processing" }`; không phải `failed` ⇒ `409 INVALID_STATE`; mất tệp gốc ⇒ `409`; không có ⇒ `404` |
 | PATCH | `/admin/models/:id/primary` | admin | `admin.setPrimary` |  |  | `:id` = id MÔ HÌNH. `{ modelId, productId, isPrimary:true }`; chỉ khi `ready` (khác ⇒ `409 INVALID_STATE`), không có ⇒ `404` |
 | DELETE | `/admin/models/model/:modelId` | admin | `admin.removeModel` |  |  | Xóa cả mô hình (kể cả chưa có tệp: đang xử lý / lỗi) |
@@ -466,7 +466,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/health` | Health check (đã có ở khung BE) |
 | GET | `/payments/vnpay/return` | Return URL VNPAY: kiểm tra chữ ký, cập nhật payment, chuyển hướng tới `/checkout/success|failed?order=<code>` |
 | GET | `/payments/vnpay/ipn` | IPN VNPAY (server-to-server), idempotent, trả `{RspCode, Message}` theo chuẩn VNPAY |
-| POST | `/admin/media`, `/admin/media/presign`, `/admin/media/confirm` | Upload ảnh/GLB/USDZ/frame 360 (đã có khung trong BE). FE hiện gửi ảnh dạng data-URL/đường dẫn trong body (`images[]`, `frames[]`, `imageUrl`) nên BE phải **chấp nhận cả URL lẫn data-URL base64** và tự lưu vào `StorageService` |
+| POST | `/admin/media`, `/admin/media/presign`, `/admin/media/confirm` | Upload ảnh/GLB/frame 360 (đã có khung trong BE). FE hiện gửi ảnh dạng data-URL/đường dẫn trong body (`images[]`, `frames[]`, `imageUrl`) nên BE phải **chấp nhận cả URL lẫn data-URL base64** và tự lưu vào `StorageService` |
 | GET | `/admin/brands` | Danh sách thương hiệu cho form sản phẩm (FE ghi chú `có /admin/brands`) |
 
 ## 5b. Ghi chú triển khai BE (bổ sung/khác mock) – cập nhật Mốc 2
@@ -478,11 +478,12 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 - Khóa tài khoản: mọi request của người bị khóa (kể cả token còn hạn) ⇒ `403 AUTH_ACCOUNT_LOCKED`.
 - `POST /admin/users`: mật khẩu tạm ngẫu nhiên gửi qua email (mock đặt `12345678`).
 - `POST /admin/settings/reset-mock`: chỉ có ở mock, BE không cài.
-- **Mốc 3 – endpoint thêm/khác mock**: `PATCH /admin/banners/reorder` `{ids}`; `GET /posts/:slug`; `POST|PATCH|DELETE /admin/pages`; `/admin/faq` (+ `/topics`, `/items`); `GET /admin/contact-messages` + `PATCH /admin/contact-messages/:id/handled`; `POST /spaces/:slug/add-to-cart` → `{ added, unavailable:[{productId,name,reason}], cart }`; `POST /admin/models/upload` (multipart `file` + `productId`, `variantId?`, `allowAr?`, `scale?`, `unit?`, `placement?`).
+- **Mốc 3 – endpoint thêm/khác mock**: `PATCH /admin/banners/reorder` `{ids}`; `GET /posts/:slug`; `POST|PATCH|DELETE /admin/pages`; `/admin/faq` (+ `/topics`, `/items`); `GET /admin/contact-messages` + `PATCH /admin/contact-messages/:id/handled`; `POST /spaces/:slug/add-to-cart` → `{ added, unavailable:[{productId,name,reason}], cart }`; `POST /admin/models/upload` (multipart `file` + `productId`, `variantId?`, `scale?`, `unit?`, `placement?`).
 - **Đổi trả**: `POST /returns` số lượng vượt `đã mua − đã yêu cầu` ⇒ `400 VALIDATION_FAILED` (`details.items`); quá 7 ngày ⇒ `409 INVALID_STATE`; `PATCH /admin/returns/:id` loại `refund` chỉ sang `refunded`, loại `exchange` chỉ sang `exchanged`; từ chối bắt buộc `adminNote`.
 - **Hỏi đáp**: `PATCH /admin/questions/:id` nhận thêm `{ status: "visible" }` (hiện lại). `POST /products/:slug/questions` giới hạn 5 câu/giờ (`429 RATE_LIMITED`), trùng nội dung 24h ⇒ `409 CONFLICT`.
 - **Đánh giá**: `images` tối đa 5 (`400`), mỗi ảnh ≤ 5MB (`413`), sai chữ ký tệp (`415`).
-- **Mô hình 3D – xử lý nền (UC-ADM-13, D-P10)**: tải lên (JSON `fileData` hoặc multipart) chỉ kiểm tra (đuôi `.glb|.gltf|.usdz`, chữ ký, MIME, ≤ 100MB) và lưu tệp GỐC ở bucket private, rồi đặt `status = processing`, đẩy job `model-processing` và trả **202** `{ modelId, jobId, status }`. **Không còn dùng tệp mẫu** khi thiếu tệp: thiếu `fileData`/`file` ⇒ `400` (`details.file`).
+- **Mô hình 3D – xử lý nền (UC-ADM-13, D-P10)**: tải lên (JSON `fileData` hoặc multipart) chỉ kiểm tra (đuôi `.glb`, chữ ký `glTF`, MIME, ≤ 100MB) và lưu tệp GỐC ở bucket private, rồi đặt `status = processing`, đẩy job `model-processing` và trả **202** `{ modelId, jobId, status }`. **Không còn dùng tệp mẫu** khi thiếu tệp: thiếu `fileData`/`file` ⇒ `400` (`details.file`).
+- **AR ngoài phạm vi (D-P11)**: hệ thống chỉ nhận và phục vụ **GLB**. Gửi USDZ, GLTF hay đuôi khác (JSON, multipart, hoặc `files/presign`) ⇒ `415 UNSUPPORTED_MEDIA_TYPE` "Hệ thống chỉ hỗ trợ tệp GLB". Đã bỏ: tham số `hasAr` của `/products*`, trường `usdzUrl` của `Model3DView`, trường `allowAr` khi tải mô hình, khóa cài đặt `ar_enabled` (PUT ⇒ 400 "khóa không được phép"). Không có route AR nào. Bảng `ar_sessions`, `ar_snapshots`, cột `products.has_ar` (luôn `false`) và enum định dạng `usdz` vẫn còn theo chuẩn DB nhưng không dùng.
   - Job: GLB được kiểm tra bằng `@gltf-transform/core`, đo `polygonCount`/`textureResolution`, sinh 3 LOD `high|medium|low` (dedup, prune, simplify, thu nhỏ texture, nén Meshopt), `checksum` SHA-256; ghi `media` + `model_files` của mọi LOD rồi đặt `ready` trong MỘT transaction. USDZ: chỉ kiểm tra chữ ký ZIP + checksum. Tải lại cùng định dạng/LOD ghi đè (upsert), không nhân đôi.
   - Lỗi: tệp hỏng ⇒ `failed`, KHÔNG retry. Lỗi tạm thời ⇒ retry 3 lần, backoff lũy thừa (2s, 4s, 8s). Mỗi LOD GLB phải ≤ `MODEL_SERVE_MAX_MB` (mặc định 5 MB, D-N21), vượt ⇒ `failed`. Mọi lần `failed` cuối cùng ghi `activity_logs` `model.processing_failed` (`changes.reason`) và tạo thông báo cho admin đã tải lên, cùng transaction với việc đặt `failed` (D-N22). Riêng USDZ lỗi mà mô hình vẫn còn GLB thì giữ `ready` (vẫn ghi log và báo admin).
   - `GET /admin/models` liệt kê mỗi TỆP một dòng; mô hình chưa có tệp (đang xử lý / lỗi) là một dòng riêng với `fileId = null`, `id = -modelId`. Mỗi dòng có `modelId`, `status`, `isPrimary`, `lod`, `failureReason` (chỉ khi `failed`; lấy từ `activity_logs`, không thêm cột). FE gọi lại danh sách định kỳ khi còn mô hình `processing`.
@@ -620,7 +621,6 @@ export interface ModelFileView extends ModelFile {
 export interface Model3DView extends Product3DModel {
   files: ModelFileView[];
   glbUrl: string | null;
-  usdzUrl: string | null;
   posterUrl: string | null;
 }
 
@@ -816,7 +816,7 @@ export interface DashboardStats {
 export interface Model3DAdminRow extends Model3DView {
   productName: string;
   productThumbnailUrl: string | null;
-  format: 'glb' | 'usdz';
+  format: 'glb';
   fileName: string;
   sizeMB: number;
   uploadedAt: string;
@@ -1074,7 +1074,7 @@ export interface Product360AdminData {
 - `POST /admin/expenses { category, amount > 0, note, date }`: `category` ∈ `cogs|shipping|marketing|payment_fee|other` (`refund` do hệ thống sinh ⇒ 400); `date` nhận `YYYY-MM-DD` hoặc ISO. `DELETE` chỉ với phiếu nhập tay (phiếu gắn đơn/phiếu kho ⇒ `409`).
 
 ### Cài đặt (UC-ADM-03)
-- `GET /admin/settings` → `{ store, payments, shippingZones, general }`; `general` gồm `site_name, contact_email, contact_phone, currency, default_shipping_fee, free_shipping_threshold, ar_enabled, maintenance_mode`.
+- `GET /admin/settings` → `{ store, payments, shippingZones, general }`; `general` gồm `site_name, contact_email, contact_phone, currency, default_shipping_fee, free_shipping_threshold, maintenance_mode`.
 - `PUT /admin/settings/store` (trang Cài đặt) chỉ ghi phần được gửi; lỗi theo tên ô (`name`, `email`, `hotline`, `payments.<i>.method`, `shippingZones.<i>.fee`…). `PUT /admin/settings/:key { value }`: khóa ngoài danh sách ⇒ 400, sai kiểu ⇒ 400. Mỗi lần sửa ghi `activity_logs` (`setting.update`, trước/sau). Cài đặt công khai vẫn là `GET /settings/public`.
 
 ### VNPAY sandbox (UC-PAY-01/02/03)

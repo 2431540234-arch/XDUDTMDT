@@ -44,7 +44,7 @@
 | 29, 30 | Quên / đặt lại mật khẩu | `/forgot-password`, `/reset-password` | ✅ | OTP `123456` |
 | 31 | Đổi mật khẩu | `/account/password` | ✅ | |
 | 32 | Chi tiết không gian mẫu | `/spaces/[slug]` | ✅ | viewer 360° bằng R3F; chưa vẽ mô hình đặt trong ảnh |
-| 33 | Trình xem 3D/AR | `/products/[slug]/3d` | 🟡 | mã QR AR là minh họa |
+| 33 | Trình xem 3D | `/products/[slug]/3d` | ✅ | AR ngoài phạm vi (D-P11): không còn nút/QR AR |
 | 34 | Modal viết/sửa đánh giá | — | ✅ | |
 | 35 | Yêu cầu đổi trả + DS | `/account/returns[/new]` | ✅ | |
 | 36 | Thông báo | `/account/notifications` | ✅ | |
@@ -158,3 +158,11 @@ Không thêm thư viện mới.
 - **Khách `/products/[slug]/3d`:** `ProductViewer3D` chọn LOD theo thiết bị (UC-3D-01 bước 4): mặc định `medium`; điện thoại (màn hình hẹp / UA di động) hoặc mạng chậm (`saveData`, 2g/3g, downlink < 1,5) ⇒ `low`; thiếu LOD thì lùi dần. Tải mô hình lỗi ⇒ ảnh poster/ảnh sản phẩm + thông báo "Không tải được mô hình 3D".
 - **Bộ giải nén Meshopt phục vụ tại chỗ** (`public/vendor/meshopt_decoder.js`, MIT): LOD do máy chủ sinh được nén Meshopt mà `<model-viewer>` mặc định tải bộ giải nén từ CDN (không xem được khi mất mạng); xem `public/vendor/README.md`.
 - **Test:** Playwright nhóm `admin-3d` (`tests/e2e/admin-models.spec.ts`, API thật + Redis): tải GLB → xử lý nền → 3 LOD `ready`, khách xem 3D bằng LOD medium; điện thoại dùng LOD low; tệp lỗi hiện ảnh thay thế; GLB hỏng → Lỗi + lý do + Xử lý lại; đặt làm mô hình chính. Mock vẫn chạy (mô hình luôn `ready`).
+
+---
+
+## Bỏ AR (2026-11-08, D-P11) ✅
+
+- **Khách:** bỏ khối "Xem AR tại nhà" và mã QR, mọi lời nhắc AR (trang chủ, giới thiệu, danh sách, chi tiết, 360°, metadata); bỏ tham số `hasAr` ở `product.api`; `ProductViewer3D` và `ModelViewerElement` không còn thuộc tính `ar`, `ar-modes`, `ios-src` (vẫn dùng `@google/model-viewer` để xem 3D); trình xem 3D giữ nguyên.
+- **Admin `/admin/models`:** bỏ ô "Cho phép xem AR", ô chọn tệp chỉ nhận `.glb` (báo "Hệ thống chỉ hỗ trợ tệp GLB"), bộ lọc định dạng chỉ còn GLB. Trang Cài đặt không có `ar_enabled`.
+- **Mock:** dữ liệu giả không còn USDZ, `hasAr` luôn `false`, bỏ `usdzUrl`.

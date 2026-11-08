@@ -342,3 +342,30 @@ Theo UC-ADM-13, D-N07, D-N21, D-N22, D-T21; ghi nhận ở **D-P10** (thay thế
 - **Public:** `GET /products/:slug/model` chỉ trả mô hình chính `ready`, `files[]` đủ LOD; `glbUrl` = LOD medium. `has3dModel`/`hasAr` do trigger.
 - **Dữ liệu mẫu:** `prisma/seed-models.ts` (chạy cuối `db:seed`, đồng bộ, không cần Redis) cho mọi mô hình mẫu đi qua đúng luồng trên; `npm run db:process-models -w @aurelia-living/api` chạy lại trên DB demo/test đã có dữ liệu mà không reset. Kết quả: aurelia_test và aurelia_demo đều **52/52 mô hình `ready`, 0 failed, 0 mô hình > 5 MB** (aurelia_demo: `model_files` 70 → 174; mô hình mẫu `failed`/`processing` cũ — mỗi loại 1 — nay `ready`). USDZ mẫu cũ (22 byte, không phải ZIP) được thay bằng ZIP tối thiểu.
 - **Test:** Jest unit `model-processing.service.spec.ts` (GLB hợp lệ, GLB hỏng, USDZ, vượt 5 MB, lỗi tạm thời, `markFailed`, processor retry); supertest `test/models-processing.db-spec.ts` (14 test, **cần Redis**: upload → 202 → ready, job `attempts=3` + backoff lũy thừa, hỏng không retry, vượt ngưỡng ⇒ log + thông báo, reprocess, mô hình chính, ghi đè không nhân đôi, quyền). Fixture `sphere.glb`/`broken.glb` CC0 (D-T27). Test cũ về tải mô hình trong `mock-m3` đã chuyển sang file mới (luồng 202).
+
+---
+
+## Bỏ AR, chỉ hỗ trợ GLB (2026-11-08, D-P11) ✅
+
+- **API:** tải mô hình (JSON `fileData`, multipart `/upload`, `files/presign`, `files/confirm`) chỉ nhận GLB; USDZ/GLTF/đuôi khác ⇒ **415** "Hệ thống chỉ hỗ trợ tệp GLB". Job `model-processing` bỏ nhánh USDZ (job USDZ cũ còn sót bị loại không retry). Bỏ tham số `hasAr` của `/products*`, `usdzUrl` của `Model3DView`, `allowAr`, khóa cài đặt `ar_enabled` (seed cũng bỏ). Không thêm route AR. `markFailed` luôn đặt `failed` (không còn ngoại lệ USDZ).
+- **DB chuẩn giữ nguyên:** `ar_sessions`, `ar_snapshots`, `products.has_ar`, enum có `usdz`, trigger `refresh_product_3d_flags`; **không có migration**. Ghi ở CHUAN_MO_RONG Phần 3 mục 27.
+- **Dữ liệu mẫu:** seed không tạo USDZ (kể cả ZIP tối thiểu). `aurelia_demo` nạp lại bằng `db-reset` rồi `db:process-models`: **0 sản phẩm `has_ar`**, 52/52 sản phẩm `has_3d_model`, 52/52 mô hình `ready` (156 tệp = 52 × 3 LOD), 0 dòng `usdz`. `aurelia_test` tương tự. `aurelia_dev` chỉ kiểm tra, KHÔNG sửa: có **1** dòng `model_files` định dạng `usdz` (trên tổng 2 dòng) và 1 sản phẩm `has_ar`.
+- **Test:** unit validator + `ModelProcessingService` (USDZ ⇒ 415 / job bị loại), supertest `models-processing` (USDZ/GLTF ⇒ 415 ở JSON, multipart, presign; `has_ar` luôn false; không còn `usdzUrl`), `mock-m4` (không còn `ar_enabled`). Bỏ 3 test USDZ/`ar_enabled` cũ, thay bằng 3 test từ chối tương đương nên số test không giảm.
+
+## Lỗi chập chờn admin-m5 (media) – kết luận điều tra (2026-11-08)
+
+**Triệu chứng:** sau khi lưu mô tả ảnh (toast "Đã lưu mô tả ảnh." hiện), thẻ ảnh vẫn ghi "Chưa có mô tả", `expect(...).toHaveCount(1)` quá hạn 5 giây (`admin-m5.spec.ts` dòng 220).
+
+**Giả thuyết cần kiểm:** trước `f207bf5` (tách `BULL_PREFIX`), worker của API demo cổng 4000 nhận nhầm job `image-processing` của e2e nên trang media chờ webp/thumbnail mãi.
+
+**Cách kiểm:** chạy `admin-m5` lặp lại trên cùng máy, API demo (bản cũ, prefix `bull`) đang chạy; nhóm A dùng chung prefix `bull` (sửa tạm `scripts/e2e-real.mjs`, đã hoàn tác, không commit), nhóm B dùng `bull-e2e` (bản đã commit).
+
+| Nhóm | Số lần chạy | Fail |
+|---|---|---|
+| A. dùng chung prefix với API demo | 6 (4 lần ghi nhận rõ) | 2 |
+| B. prefix tách (`bull-e2e`) | 23 | 1 |
+
+**Kết luận (một phần):**
+- Đã **xác nhận** worker demo nhận nhầm job của e2e: 6 job `model-processing` thất bại với "Không tìm thấy mô hình 53/54" trong Redis (cùng cơ chế sẽ xảy ra với `image-processing`). Đó là lỗi thật đã được sửa ở `f207bf5`, và là nguyên nhân của các lần fail ở nhóm test mô hình 3D.
+- Với admin-m5, tần suất fail giảm từ ~1/3 (nhóm A) xuống ~1/23 (nhóm B), nhưng **chưa chứng minh được cơ chế** và **chưa loại bỏ hoàn toàn**: vẫn còn 1 lần fail ở nhóm B. Giả thuyết "trang media chờ webp/thumbnail" **không đúng như đã nêu**: danh sách media không phụ thuộc kết quả job (job ảnh không ghi lại hàng `media`, `GET /admin/media` đọc thẳng từ CSDL; đo độ trễ 0,1 s), và khi fail thì thẻ hiển thị dữ liệu cũ chứ không phải đang chờ.
+- Chưa tăng thời gian chờ, chưa sửa test. Việc tiếp theo nếu muốn dứt điểm: bắt thêm một trace lỗi (đã thiết lập vòng lặp bắt trace nhưng 15/15 lần chạy sau đó đều xanh).
