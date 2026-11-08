@@ -95,6 +95,16 @@ export class AdminModelsController {
     return this.catalog.remove(adminId, id);
   }
 
+  /**
+   * Driver MinIO/S3: chọn/tạo mô hình đích rồi cấp URL PUT thẳng lên bucket private. Body như upload (productId, scale, unit,
+   * placement, createNew…) + { fileName, size, format }. Sau khi PUT xong gọi POST :id/files/confirm.
+   */
+  @Post('presign')
+  @HttpCode(200)
+  presignUpload(@CurrentUser('id') adminId: number, @Body() body: unknown) {
+    return this.catalog.presignUpload(adminId, this.catalog.presignInput(body));
+  }
+
   @Post(':id/reprocess')
   @HttpCode(202)
   @ApiOperation({

@@ -29,6 +29,8 @@ interface UploadItem {
   sizeMB: number;
   format: 'glb';
   file: File;
+  /** % đã tải lên kho (chỉ khi tải thẳng lên MinIO) */
+  progress?: number;
 }
 
 function UploadModal({
@@ -94,6 +96,8 @@ function UploadModal({
           scale: Number(scale) || 1,
           unit,
           createNew,
+          onProgress: (percent) =>
+            setFiles((cur) => cur.map((x) => (x.id === f.id ? { ...x, progress: percent } : x))),
         });
     },
     onSuccess: () => {
@@ -152,6 +156,7 @@ function UploadModal({
                   <span className="min-w-0 truncate font-medium">{f.name}</span>
                   <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
                     {f.sizeMB} MB
+                    {f.progress !== undefined && <span data-testid="upload-progress">{f.progress}%</span>}
                     <button
                       type="button"
                       aria-label="Bỏ tệp"

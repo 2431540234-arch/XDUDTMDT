@@ -31,7 +31,9 @@ import type {
   UserView,
 } from '@/types/api';
 import { readAsDataUrl } from '@/components/admin/UploadDropzone';
+import type { PresignedUpload } from '@aurelia-living/shared-types';
 import { USE_MOCK, http, type Query } from './api-client';
+import { getUploadMode, putToStorage } from './direct-upload';
 
 export const adminApi = {
   stats: (q: { from?: string; to?: string }) => http.get<DashboardStats>('/admin/stats/overview', q),
@@ -122,6 +124,8 @@ export const adminApi = {
         scale: number;
         unit: string;
         createNew?: boolean;
+        /** phần trăm tải lên kho (chỉ có khi tải thẳng lên MinIO) */
+        onProgress?: (percent: number) => void;
       },
     ) => {
       if (USE_MOCK) {
@@ -131,6 +135,24 @@ export const adminApi = {
           sizeMB: Math.max(0.1, file.size / 1048576),
           format: meta.format,
           scale: meta.scale,
+        });
+      }
+      // Kho MinIO/S3 (UC-ADM-13 bước 4–5): presign ⇒ PUT thẳng lên bucket PRIVATE ⇒ confirm (202, xử lý nền)
+      if ((await getUploadMode()) === 'presigned') {
+        const p = await http.post<PresignedUpload & { modelId: number }>('/admin/models/presign', {
+          productId: meta.productId,
+          fileName: file.name,
+          size: file.size,
+          format: meta.format,
+          scale: meta.scale,
+          unit: meta.unit,
+          createNew: meta.createNew ?? false,
+        });
+        await putToStorage(p, file, meta.onProgress);
+        return http.post<ModelProcessingAccepted>(`/admin/models/${p.modelId}/files/confirm`, {
+          key: p.key,
+          format: meta.format,
+          fileName: file.name,
         });
       }
       const form = new FormData();

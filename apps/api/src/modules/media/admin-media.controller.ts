@@ -65,6 +65,13 @@ export class AdminMediaController {
     return this.media.confirm(dto, adminId);
   }
 
+  /** FE chọn cách tải theo cấu hình kho: presigned (MinIO/S3) hoặc multipart (driver local) */
+  @Get('upload-config')
+  @ApiOperation({ summary: 'Cách tải lên hiện dùng: { mode: presigned | multipart, driver, limits }' })
+  uploadConfig() {
+    return this.media.uploadConfig();
+  }
+
   @Get()
   @ApiOperation({ summary: 'Thư viện media (phân trang; q, type=image|other, usage=unused)' })
   async list(@Query() q: RawQuery) {

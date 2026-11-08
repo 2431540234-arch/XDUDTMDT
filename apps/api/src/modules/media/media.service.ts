@@ -109,6 +109,20 @@ export class MediaService {
     return { ...media, url: this.storage.getUrl(key), jobId };
   }
 
+  /** Cách tải lên theo driver kho: MinIO/S3 ⇒ presigned PUT cho panorama và mô hình; local ⇒ multipart qua API */
+  uploadConfig() {
+    const presigned = this.storage.driver !== 'local';
+    return {
+      mode: presigned ? ('presigned' as const) : ('multipart' as const),
+      driver: this.storage.driver,
+      limitsMB: {
+        image: this.config.get('UPLOAD_MAX_IMAGE_MB'),
+        panorama: this.config.get('UPLOAD_MAX_PANORAMA_MB'),
+        model: this.config.get('UPLOAD_MAX_MODEL_MB'),
+      },
+    };
+  }
+
   /** Bước 1 (panorama): kiểm tra loại tệp, dung lượng, rồi cấp URL PUT (tệp vào bucket public). */
   async presign(dto: PresignUploadDto): Promise<PresignedUpload> {
     if (!IMAGE_MIME.includes(dto.mimeType)) {
