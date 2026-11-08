@@ -3,10 +3,12 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from 
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { AdminCategoriesService } from './admin-categories.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – categories')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_products')
 @Controller('admin/categories')
 export class AdminCategoriesController {
   constructor(private readonly categories: AdminCategoriesService) {}

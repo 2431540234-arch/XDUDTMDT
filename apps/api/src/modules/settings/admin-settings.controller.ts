@@ -3,10 +3,12 @@ import { Body, Controller, Get, Param, Put } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { SettingsService } from './settings.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – settings')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_settings')
 @Controller('admin/settings')
 export class AdminSettingsController {
   constructor(private readonly settings: SettingsService) {}

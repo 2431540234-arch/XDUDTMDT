@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminReviewsService } from './admin-reviews.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – reviews')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_content')
 @Controller('admin/reviews')
 export class AdminReviewsController {
   constructor(private readonly reviews: AdminReviewsService) {}

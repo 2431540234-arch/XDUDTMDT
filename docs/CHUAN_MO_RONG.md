@@ -130,12 +130,47 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 25 | Bộ giải nén Meshopt của `<model-viewer>` | Phục vụ tại chỗ `apps/web/public/vendor/meshopt_decoder.js` (bản sao `meshoptimizer` 0.18, MIT) thay vì CDN; loại khỏi eslint/prettier | Bỏ khi có bộ giải nén tự host trong bản build |
 | 26 | (bỏ) USDZ mẫu của seed | Đã bỏ cùng AR (D-P11): seed không tạo USDZ nữa | — |
 | 27 | Bảng/cột AR giữ theo chuẩn nhưng KHÔNG dùng (D-P11) | `ar_sessions`, `ar_snapshots`, cột `products.has_ar` (luôn `false`), enum `model_file_format` có `usdz`, trigger `refresh_product_3d_flags` (tính `has_ar` khi có đủ GLB + USDZ) giữ nguyên đúng `CAU_TRUC_DB.md`; không viết migration xoá. Code chỉ nhận GLB nên `has_ar` không bao giờ bật. Các module `ar-*` trong `apps/api/src/modules` chỉ là khung rỗng, không có route | Dùng lại khi AR được đưa vào (hướng phát triển) |
+| 28 | **Bảng route → quyền (PermissionsGuard, D-P12)** | Route theo đặc tả lấy đúng quyền ở "Tác nhân chính" của UC. Route NGOÀI đặc tả dùng quyền gần nhất (cột "Ghi chú"). Route nhiều quyền là "một trong". Test quét metadata: route admin nào chưa gắn quyền sẽ làm test fail. Xem bảng "Route → quyền" ngay sau bảng này | — |
+| 29 | Cache quyền trong bộ nhớ | `PermissionsService` giữ quyền theo tổ hợp vai trò tối đa **10 giây** trong bộ nhớ tiến trình (không Redis, cache Redis vẫn hoãn). Đổi `role_permissions` có hiệu lực sau tối đa 10 giây; test gọi `clearCache()` | Bỏ hoặc chuyển Redis khi làm cache |
+| 30 | Nhật ký tự động của interceptor | Dòng do `ActivityLogInterceptor` ghi có `changes = { auto: true, method, route }`, `action = <tài nguyên>.<hành động theo route>` (vd. `orders.cancel`), `target_type` = tài nguyên, `target_id` = tham số `:id` nếu có. Không thay các log trong service | — |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
 | 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
 | 19 | Test chập chờn | Đã chạy supertest 10 lần liên tiếp (114/114 mỗi lần) và nhóm `khach-hang` 10 lần liên tiếp: xanh cả 20 lần (kết quả chi tiết trong `BE_PROGRESS.md`). Chạy HAI bộ test cùng lúc trên một `aurelia_test` tái hiện đúng kiểu lỗi cũ (404 ở "Hỏi đáp", sai tồn kho…) ⇒ nguyên nhân khả dĩ nhất là chồng chéo hai lần chạy; đã thêm khóa chặn chạy song song | Theo dõi |
 
 ---
+
+### Bảng route → quyền (PermissionsGuard, D-P12; mục 28 ở trên)
+
+| Nhóm route (`/api/admin/…`) | Quyền | UC / Ghi chú |
+|---|---|---|
+| `users` | `manage_users` | UC-ADM-01 |
+| `roles` | `manage_users` | UC-ADM-02 (khung rỗng) |
+| `settings` | `manage_settings` | UC-ADM-03 |
+| `activity-logs` | `manage_settings` | UC-ADM-27 |
+| `media` | `manage_products` **hoặc** `manage_content` | UC-ADM-04 |
+| `categories`, `brands`, `attributes` | `manage_products` | UC-ADM-05, 06, 08 |
+| `pages` | `manage_content` | UC-ADM-07 |
+| `products`, `variants`, `product-images`, `models` | `manage_products` | UC-ADM-09, 10, 11, 13, 14 |
+| `inventory` | `manage_products` | UC-ADM-12 |
+| `spaces`, `panoramas`, `hotspots` | `manage_content` | UC-ADM-15, 16 |
+| `reviews` | `manage_content` | UC-ADM-18 |
+| `coupons` | `manage_content` | UC-ADM-19 |
+| `GET orders`, `orders/counts`, `orders/:code`, `orders/:code/invoice` | `view_orders` | UC-ADM-20 |
+| `POST orders`, `PATCH orders/:id/status`, `orders/:id/cancel`, `orders/:id/refund`, `orders/:id/note` | `process_orders` | UC-ADM-21, 22, 23 (tạo đơn hộ khách và ghi chú nội bộ cùng nhóm xử lý đơn) |
+| `payments` | `process_orders` | UC-ADM-24 |
+| `orders/:id/shipments`, `shipments/:id` | `process_orders` | UC-ADM-25 |
+| `stats/overview` | `view_orders` | UC-ADM-28 |
+| `ar-snapshots` | `manage_content` | UC-ADM-30 (khung rỗng, AR ngoài phạm vi) |
+| `returns` | `process_orders` | **Ngoài đặc tả**: đổi trả → hoàn tiền gần UC-ADM-23 |
+| `questions` | `manage_content` | **Ngoài đặc tả**: duyệt hỏi đáp gần UC-ADM-18 |
+| `banners`, `posts`, `faq`, `contact-messages` | `manage_content` | **Ngoài đặc tả**: nội dung gần UC-ADM-07 |
+| `stats/finance`, `GET expenses` | `view_orders` | **Ngoài đặc tả**: báo cáo thu chi gần UC-ADM-28 |
+| `POST expenses`, `DELETE expenses/:id` | `process_orders` | **Ngoài đặc tả**: ghi nhận chi phí vận hành |
+| `notifications` (chuông) | `view_orders` | **Ngoài đặc tả**: thông báo đơn/kho cho admin; UC-ADM-26 (gửi thông báo, `manage_content`) chưa làm |
+| `search` (tìm nhanh) | `manage_products` **hoặc** `view_orders` **hoặc** `manage_users` | **Ngoài đặc tả**: tìm trên sản phẩm, đơn, khách |
+
+Bull Board `/admin/queues` (không phải controller Nest) vẫn do `bullBoardAdminOnly` chặn theo vai trò admin.
 
 ## Phần 4. Mâu thuẫn trong chính tài liệu chuẩn (liệt kê, chưa tự quyết)
 

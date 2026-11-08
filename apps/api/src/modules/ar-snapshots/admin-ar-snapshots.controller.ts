@@ -5,8 +5,10 @@
 import { Controller } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/auth.decorators';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – ar-snapshots')
 @Roles('admin')
+@RequirePermission('manage_content')
 @Controller('admin/ar-snapshots')
 export class AdminArSnapshotsController {}

@@ -5,14 +5,17 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminOrdersService } from './admin-orders.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – orders')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('process_orders')
 @Controller('admin/orders')
 export class AdminOrdersController {
   constructor(private readonly orders: AdminOrdersService) {}
 
+  @RequirePermission('view_orders')
   @Get()
   @ApiOperation({ summary: 'Danh sách đơn (status=a,b, paymentStatus, from, to, q, sort, phân trang)' })
   async list(@Query() q: RawQuery) {
@@ -28,17 +31,20 @@ export class AdminOrdersController {
     return this.orders.create(adminId, body);
   }
 
+  @RequirePermission('view_orders')
   @Get('counts')
   counts() {
     return this.orders.counts();
   }
 
+  @RequirePermission('view_orders')
   @Get(':code/invoice')
   @ApiOperation({ summary: 'Dữ liệu in hóa đơn (cửa hàng + đơn)' })
   invoice(@Param('code') code: string) {
     return this.orders.invoice(code);
   }
 
+  @RequirePermission('view_orders')
   @Get(':code')
   detail(@Param('code') code: string) {
     return this.orders.detail(code);

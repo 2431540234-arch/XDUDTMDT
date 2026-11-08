@@ -3,10 +3,12 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from 
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { AdminContentService } from './admin-content.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – pages')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_content')
 @Controller('admin/pages')
 export class AdminPagesController {
   constructor(private readonly content: AdminContentService) {}

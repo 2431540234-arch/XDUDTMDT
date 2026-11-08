@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminQuestionsService } from './admin-questions.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – questions')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_content')
 @Controller('admin/questions')
 export class AdminQuestionsController {
   constructor(private readonly questions: AdminQuestionsService) {}

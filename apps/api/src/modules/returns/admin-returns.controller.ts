@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminReturnsService } from './admin-returns.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – returns')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('process_orders')
 @Controller('admin/returns')
 export class AdminReturnsController {
   constructor(private readonly returns: AdminReturnsService) {}

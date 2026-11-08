@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminCouponsService } from './admin-coupons.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – coupons')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_content')
 @Controller('admin/coupons')
 export class AdminCouponsController {
   constructor(private readonly coupons: AdminCouponsService) {}

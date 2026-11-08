@@ -4,10 +4,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import type { RawQuery } from '../../common/utils/list-query';
 import { BrandsService } from './brands.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – brands')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_products')
 @Controller('admin/brands')
 export class AdminBrandsController {
   constructor(private readonly brands: BrandsService) {}

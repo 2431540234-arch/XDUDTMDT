@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminFinanceService } from './admin-finance.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – thu chi')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('view_orders')
 @Controller('admin')
 export class AdminFinanceController {
   constructor(private readonly finance: AdminFinanceService) {}
@@ -29,12 +31,14 @@ export class AdminFinanceController {
     return paginated(r.items, r.page, r.pageSize, r.total);
   }
 
+  @RequirePermission('process_orders')
   @Post('expenses')
   @ApiOperation({ summary: 'Thêm phiếu chi { category, amount, note, date }' })
   create(@CurrentUser('id') adminId: number, @Body() body: unknown) {
     return this.finance.createExpense(adminId, body);
   }
 
+  @RequirePermission('process_orders')
   @Delete('expenses/:id')
   @HttpCode(200)
   @ApiOperation({ summary: 'Xóa phiếu chi nhập tay (phiếu hệ thống tự sinh không xóa được)' })

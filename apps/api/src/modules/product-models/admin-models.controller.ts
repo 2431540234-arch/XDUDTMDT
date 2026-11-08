@@ -26,10 +26,12 @@ import { MODEL_MAX_BYTES } from './model-file-validator';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { ConfirmModelFileDto, PresignModelFileDto } from './dto/model-file.dto';
 import { ProductModelsService } from './product-models.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – models')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_products')
 @Controller('admin/models')
 export class AdminModelsController {
   constructor(

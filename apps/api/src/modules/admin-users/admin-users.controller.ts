@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminUsersService } from './admin-users.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – users')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_users')
 @Controller('admin/users')
 export class AdminUsersController {
   constructor(private readonly users: AdminUsersService) {}

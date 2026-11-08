@@ -3,10 +3,12 @@ import { Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { AdminOrdersService } from '../orders/admin-orders.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – payments')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('process_orders')
 @Controller('admin/payments')
 export class AdminPaymentsController {
   constructor(private readonly orders: AdminOrdersService) {}

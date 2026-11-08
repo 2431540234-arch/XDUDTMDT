@@ -5,10 +5,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminProductsService } from './admin-products.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – products')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_products')
 @Controller('admin/products')
 export class AdminProductsController {
   constructor(private readonly products: AdminProductsService) {}

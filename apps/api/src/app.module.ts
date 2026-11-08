@@ -10,6 +10,7 @@ import { AuthCoreModule } from './common/auth/auth-core.module';
 import { AUTH_THROTTLE_KEY, AUTH_THROTTLER } from './common/decorators/throttle.decorators';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { PermissionsGuard, PermissionsService } from './common/guards/permissions.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 import { AppConfig } from './config/app-config.service';
@@ -72,10 +73,13 @@ import { StorageModule } from './storage/storage.module';
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: TransformResponseInterceptor },
-    // Thứ tự quan trọng: giới hạn tốc độ, xác thực, rồi phân quyền
+    // Thứ tự quan trọng: giới hạn tốc độ, xác thực, vai trò, rồi quyền chi tiết
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Sau JwtAuthGuard và RolesGuard: quyền chi tiết theo role_permissions (@RequirePermission)
+    PermissionsService,
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

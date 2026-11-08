@@ -4,10 +4,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/auth.decorators';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminStatsService } from './admin-stats.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – stats')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('view_orders')
 @Controller('admin/stats')
 export class AdminStatsController {
   constructor(private readonly stats: AdminStatsService) {}

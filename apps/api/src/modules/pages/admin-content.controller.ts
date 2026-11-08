@@ -17,10 +17,12 @@ import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
 import { AdminContentService } from './admin-content.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – content')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_content')
 @Controller('admin')
 export class AdminContentController {
   constructor(private readonly content: AdminContentService) {}

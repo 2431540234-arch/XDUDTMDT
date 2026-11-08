@@ -24,10 +24,12 @@ import type { RawQuery } from '../../common/utils/list-query';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { ConfirmUploadDto, PresignUploadDto } from './dto/media-upload.dto';
 import { MediaService, type UploadedImage } from './media.service';
+import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
 @ApiTags('Admin – media')
 @ApiBearerAuth()
 @Roles('admin')
+@RequirePermission('manage_products', 'manage_content')
 @Controller('admin/media')
 export class AdminMediaController {
   constructor(private readonly media: MediaService) {}
