@@ -7,6 +7,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 import { PermissionsService } from '../src/common/guards/permissions.guard';
+import { AdminRolesService } from '../src/modules/admin-roles/admin-roles.service';
 
 describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
   let app: INestApplication;
@@ -183,10 +184,8 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect(await prisma.activityLog.count({ where: { action: 'user.grant_admin', targetId: c.id } })).toBe(
         1,
       );
-      // token cũ chưa có vai trò admin; đăng nhập lại thì có
-      expect((await api('get', '/admin/orders', c.token)).status).toBe(403);
-      const again = await login(c.email, c.password);
-      expect((await api('get', '/admin/orders', again.accessToken)).status).toBe(200);
+      // hiệu lực NGAY: vai trò đọc từ DB mỗi request, nên token cấp TRƯỚC khi được gán admin dùng được ở request kế tiếp
+      expect((await api('get', '/admin/orders', c.token)).status).toBe(200);
 
       const revoke = await api('delete', `/admin/users/${c.id}/roles/admin`, admin);
       expect(revoke.status).toBe(200);
@@ -194,11 +193,13 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect(await prisma.activityLog.count({ where: { action: 'user.revoke_admin', targetId: c.id } })).toBe(
         1,
       );
+      // gỡ xong thì request admin KẾ TIẾP của chính token đó bị 403 (không đợi token hết hạn)
+      expect((await api('get', '/admin/orders', c.token)).status).toBe(403);
       // gỡ lần nữa: không còn vai trò admin ⇒ 409
       expect((await api('delete', `/admin/users/${c.id}/roles/admin`, admin)).status).toBe(409);
     });
 
-    it('409: tự gỡ quyền của chính mình; gỡ admin CUỐI CÙNG (token cũ của admin vừa bị gỡ); 404 người dùng không tồn tại; 401/403', async () => {
+    it('409: tự gỡ quyền của chính mình; gỡ admin CUỐI CÙNG (service, bỏ qua cổng quyền); 404; 401/403', async () => {
       const self = await api('delete', `/admin/users/${adminId}/roles/admin`, admin);
       expect(self.status).toBe(409);
       expect(self.body.error.code).toBe('INVALID_STATE');
@@ -206,22 +207,13 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
 
       const adminRole = await prisma.role.findFirstOrThrow({ where: { code: 'admin' } });
       expect(await prisma.userRole.count({ where: { roleId: adminRole.id } })).toBe(1); // chỉ admin gốc
-      // c được gán admin rồi gỡ admin gốc ⇒ c là admin duy nhất. Token CŨ của admin gốc vẫn hợp lệ (JWT chưa hết hạn)
-      // nên qua được cổng quyền, nhưng service phải chặn việc gỡ admin cuối cùng.
+      // Qua HTTP không còn đường gỡ admin cuối cùng (người gỡ phải là admin nên luôn còn ≥ 1 admin khác). Quy tắc vẫn được
+      // service thực thi (chống hai yêu cầu đồng thời): gọi thẳng service với một "người gỡ" bất kỳ khác admin gốc.
       const c = await newCustomer('last');
-      expect((await api('put', `/admin/users/${c.id}/roles/admin`, admin)).status).toBe(200);
-      const cAdmin = (await login(c.email, c.password)).accessToken;
-      expect((await api('delete', `/admin/users/${adminId}/roles/admin`, cAdmin)).status).toBe(200);
-      try {
-        const last = await api('delete', `/admin/users/${c.id}/roles/admin`, admin); // admin gốc (token cũ) gỡ admin cuối cùng
-        expect(last.status).toBe(409);
-        expect(last.body.error.message).toContain('cuối cùng');
-        expect(await prisma.userRole.count({ where: { roleId: adminRole.id } })).toBe(1);
-      } finally {
-        // khôi phục: c trả lại quyền cho admin gốc rồi admin gốc gỡ c
-        expect((await api('put', `/admin/users/${adminId}/roles/admin`, cAdmin)).status).toBe(200);
-        expect((await api('delete', `/admin/users/${c.id}/roles/admin`, admin)).status).toBe(200);
-      }
+      const svc = app.get(AdminRolesService);
+      const last = await svc.revokeAdmin(c.id, adminId).catch((e: { status: number; message: string }) => e);
+      expect(last).toMatchObject({ status: 409 });
+      expect((last as { message: string }).message).toContain('cuối cùng');
       expect(await prisma.userRole.count({ where: { roleId: adminRole.id } })).toBe(1);
 
       expect((await api('put', '/admin/users/99999999/roles/admin', admin)).status).toBe(404);
@@ -285,12 +277,37 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect((await api('delete', `/users/me/sessions/${target.id}`, a.token)).status).toBe(404); // đã thu hồi
       expect((await api('delete', '/users/me/sessions/99999999', a.token)).status).toBe(404);
 
+      // access token gắn với phiên đã thu hồi bị từ chối NGAY (401 AUTH_TOKEN_INVALID), token của phiên khác vẫn dùng được
+      const revokedToken = await api('get', '/users/me', other.accessToken);
+      expect(revokedToken.status).toBe(401);
+      expect(revokedToken.body.error.code).toBe('AUTH_TOKEN_INVALID');
+      expect((await api('get', '/users/me', a.token)).status).toBe(200);
       // phiên hiện tại vẫn làm mới được; dùng lại refresh token của phiên đã thu hồi bị từ chối
       // (và theo cơ chế phát hiện dùng lại token sẽ thu hồi mọi phiên của user, nên làm bước này sau cùng)
       expect((await api('post', '/auth/refresh', undefined, { refreshToken: a.refresh })).status).toBe(200);
       expect(
         (await api('post', '/auth/refresh', undefined, { refreshToken: other.refreshToken })).status,
       ).toBeGreaterThanOrEqual(400);
+    });
+
+    it('đăng xuất thu hồi phiên: access token của phiên đó bị từ chối ngay; đổi mật khẩu + đăng xuất thiết bị khác', async () => {
+      const c = await newCustomer('logout');
+      const second = await login(c.email, c.password);
+      expect((await api('get', '/users/me', second.accessToken)).status).toBe(200);
+      expect(
+        (await api('post', '/auth/logout', second.accessToken, { refreshToken: second.refreshToken })).status,
+      ).toBe(200);
+      expect((await api('get', '/users/me', second.accessToken)).status).toBe(401);
+      expect((await api('get', '/users/me', c.token)).status).toBe(200); // phiên khác không bị ảnh hưởng
+
+      const third = await login(c.email, c.password);
+      const pw = await api('post', '/users/me/change-password', c.token, {
+        currentPassword: c.password,
+        newPassword: 'matkhau-moi-99',
+        logoutOthers: true,
+      });
+      expect(pw.status).toBe(200);
+      expect((await api('get', '/users/me', third.accessToken)).status).toBe(401); // thiết bị khác bị đăng xuất
     });
 
     it('phiên đã hết hạn hoặc đã thu hồi không được liệt kê', async () => {

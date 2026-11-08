@@ -64,16 +64,38 @@ export class JwtAuthGuard implements CanActivate {
       throw new AppException(ErrorCode.AUTH_TOKEN_INVALID, 'Phiên đăng nhập không hợp lệ.');
     }
 
-    // Khóa tài khoản có hiệu lực NGAY (kể cả với access token còn hạn): kiểm tra trạng thái mỗi request
+    // Mỗi request đọc trạng thái HIỆN TẠI từ DB bằng MỘT truy vấn (không tin vai trò/phiên đóng băng trong JWT):
+    //  • khóa/xóa tài khoản có hiệu lực NGAY, kể cả với access token còn hạn;
+    //  • vai trò lấy từ user_roles: gán/gỡ admin có hiệu lực ở request kế tiếp (Roles/PermissionsGuard dùng req.user.roles này);
+    //  • token mang sid (id phiên) mà phiên đã bị thu hồi/hết hạn (đăng xuất thiết bị từ xa, đăng xuất, đổi mật khẩu…) ⇒ 401.
+    // Token cũ không có sid thì bỏ qua kiểm tra phiên.
+    const sid = req.user!.sessionId;
     const u = await this.prisma.user.findUnique({
       where: { id: req.user!.id },
-      select: { status: true, deletedAt: true },
+      select: {
+        status: true,
+        deletedAt: true,
+        userRoles: { select: { role: { select: { code: true } } } },
+        ...(sid
+          ? { userSessions: { where: { id: sid }, select: { revokedAt: true, expiresAt: true } } }
+          : {}),
+      },
     });
     if (!u || u.deletedAt)
       throw new AppException(ErrorCode.AUTH_TOKEN_INVALID, 'Phiên đăng nhập không hợp lệ.');
     if (u.status !== 'active') {
       throw new AppException(ErrorCode.AUTH_ACCOUNT_LOCKED, 'Tài khoản của bạn đang bị khóa.');
     }
+    if (sid) {
+      const session = (u as { userSessions?: Array<{ revokedAt: Date | null; expiresAt: Date }> })
+        .userSessions?.[0];
+      if (!session || session.revokedAt || session.expiresAt < new Date())
+        throw new AppException(
+          ErrorCode.AUTH_TOKEN_INVALID,
+          'Phiên đăng nhập đã bị đăng xuất. Vui lòng đăng nhập lại.',
+        );
+    }
+    req.user!.roles = u.userRoles.map((r) => r.role.code as RoleCode);
     return true;
   }
 }

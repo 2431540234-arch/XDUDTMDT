@@ -429,3 +429,11 @@ Không đổi schema (partial unique `uq_users_email_active` và `user_sessions`
 - **UC-ACC-07** xóa tài khoản mềm: `DELETE /users/me` (204) kiểm mật khẩu, chặn khi còn đơn `pending…shipping` (409) và admin (403); `$transaction`: `deletedAt`, `banned`, thu hồi mọi phiên.
 - **UC-ADM-26** gửi thông báo: `POST /admin/notifications` (`manage_content`), một/nhiều/tất cả, `Notification` + `activity_logs` cùng transaction.
 - **Test:** supertest `extension.db-spec.ts` (17): thành công, validation, 401/403/404, thiếu quyền `role_permissions` ⇒ 403, 409 theo quy tắc, không để lại dữ liệu dở. Playwright nhóm `ext-uc` (5).
+
+## Vai trò và phiên có hiệu lực ngay (2026-11-08, D-T55) ✅
+
+- `JwtAuthGuard` (một truy vấn `users` mỗi request, vốn đã có để kiểm khóa/xóa tài khoản) nay lấy thêm `user_roles` và phiên của `sid`: vai trò **hiện tại** thay cho roles trong JWT; phiên đã thu hồi/hết hạn ⇒ **401 `AUTH_TOKEN_INVALID`**. Gỡ admin xong, request admin kế tiếp của người đó ⇒ 403; đăng xuất / "đăng xuất thiết bị" / đổi mật khẩu kèm đăng xuất thiết bị khác ⇒ token của phiên đó bị từ chối ngay.
+- **Vì sao không cần cache người dùng:** vai trò đọc cùng truy vấn kiểm khóa nên luôn mới; cache 10 giây vẫn chỉ dùng cho `role_permissions` (`PermissionsService`). Không đổi cấu trúc token (`sid` đã có), không thêm truy vấn.
+- **Xoay vòng refresh token** thu hồi phiên cũ khi làm mới; điều này chỉ làm mất hiệu lực access token CŨ (vốn đã hết hạn lúc FE làm mới, vì FE chỉ làm mới sau 401) nên không đổi hành vi thực tế.
+- **Demo:** `scripts/demo.mjs` đặt `JWT_ACCESS_EXPIRES_IN=15m` như production. (`test:e2e:real` dùng 12h để tránh làm mới giữa chừng; nay cũng bị ràng buộc bởi phiên.)
+- **Test:** `extension.db-spec.ts` (+1, 18): gán admin có hiệu lực ngay, gỡ xong request kế tiếp 403, admin cuối cùng kiểm qua service, token của phiên bị thu hồi / đã đăng xuất ⇒ 401, phiên khác không ảnh hưởng. Toàn bộ supertest 223 xanh.

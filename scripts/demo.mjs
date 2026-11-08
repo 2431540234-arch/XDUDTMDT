@@ -34,6 +34,7 @@ const apiEnv = {
         S3_ENDPOINT: `http://localhost:${MINIO_PORT}`,
       }),
   PAYMENT_SANDBOX_FAKE: 'true',
+  JWT_ACCESS_EXPIRES_IN: '15m', // access token 15 phút như production (không để dài hơn khi demo)
   THROTTLE_PREFIX: 'throttle-demo:',
   CACHE_KEY_PREFIX: 'aurelia:cache-demo:', // cache Redis riêng cho demo (D-P14)
   BULL_PREFIX: 'bull-demo', // hàng đợi riêng, không lẫn với API dev/e2e dùng chung Redis

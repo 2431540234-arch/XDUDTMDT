@@ -180,7 +180,7 @@ export default function AdminCustomerDetailPage() {
               ))}
             </p>
             <p className="mt-2 text-xs text-muted">
-              Admin có đủ 6 quyền quản trị. Thay đổi có hiệu lực ở lần đăng nhập tiếp theo của người đó. Xem{' '}
+              Admin có đủ 6 quyền quản trị. Thay đổi có hiệu lực ngay ở yêu cầu kế tiếp của người đó. Xem{' '}
               <Link href="/admin/roles" className="text-primary hover:underline">
                 vai trò & quyền
               </Link>
