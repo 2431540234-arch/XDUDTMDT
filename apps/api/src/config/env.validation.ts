@@ -27,6 +27,11 @@ export const envSchema = z.object({
     .string()
     .regex(/^[a-z0-9-]+$/)
     .optional(),
+  // Tiền tố khóa bộ đếm giới hạn tốc độ trong Redis (cùng lý do với BULL_PREFIX). Mặc định: test ⇒ throttle-test:, còn lại throttle:
+  THROTTLE_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9:-]+$/)
+    .optional(),
 
   // local: đĩa cục bộ | minio: MinIO dev | s3: AWS S3 production (cùng mã, chỉ khác biến môi trường)
   STORAGE_DRIVER: z.enum(['local', 'minio', 's3']).default('minio'),

@@ -7,6 +7,7 @@
 // Tùy chọn: E2E_ONLY=admin-m3 (chạy một nhóm theo tên), E2E_API_PORT, E2E_WEB_PORT, SKIP_BUILD=1
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -37,6 +38,32 @@ const GROUPS = [
 ];
 
 const log = (m) => console.log(`\n[e2e-real] ${m}`);
+
+// Bằng chứng khi test fail: log response >= 400 của API và trace/screenshot Playwright được giữ trong .e2e-logs/
+const logDir = resolve(root, '.e2e-logs');
+mkdirSync(logDir, { recursive: true });
+const apiErrorLog = resolve(logDir, 'api-errors.log');
+writeFileSync(apiErrorLog, '');
+
+/** Giữ trace/screenshot của nhóm fail (Playwright xóa test-results ở lần chạy sau) và in đường dẫn */
+function keepEvidence(group) {
+  const src = resolve(webDir, 'test-results');
+  const dst = resolve(logDir, `${group}-${new Date().toISOString().replace(/[:.]/g, '-')}`);
+  if (existsSync(src)) cpSync(src, dst, { recursive: true });
+  if (existsSync(apiErrorLog)) cpSync(apiErrorLog, resolve(dst, 'api-errors.log'));
+  const traces = [];
+  const walk = (d) => {
+    for (const e of existsSync(d) ? readdirSync(d, { withFileTypes: true }) : []) {
+      const f = resolve(d, e.name);
+      if (e.isDirectory()) walk(f);
+      else if (e.name === 'trace.zip') traces.push(f);
+    }
+  };
+  walk(dst);
+  console.log(`\n[e2e-real] ❌ nhóm ${group} fail. Bằng chứng: ${dst}`);
+  for (const t of traces) console.log(`[e2e-real]   trace: npx playwright show-trace ${t}`);
+  console.log(`[e2e-real]   log response >= 400 của API: ${apiErrorLog}`);
+}
 
 function killPort(port) {
   if (isWin) {
@@ -120,6 +147,8 @@ async function main() {
     PAYMENT_SANDBOX_FAKE: 'true',
     // hàng đợi riêng: nếu có API demo/dev đang chạy, worker của nó không được nhận job của e2e (xử lý nhầm DB)
     BULL_PREFIX: 'bull-e2e',
+    THROTTLE_PREFIX: 'throttle-e2e:', // bộ đếm giới hạn tốc độ riêng, không dùng chung với API demo/dev
+    HTTP_ERROR_LOG_FILE: apiErrorLog, // mọi response >= 400 của API e2e (xem .e2e-logs/)
   };
 
   // reset lần đầu để API khởi động trên DB sẵn sàng
@@ -172,6 +201,7 @@ async function main() {
         E2E_PORT: WEB_PORT,
       },
     });
+    if (p.status !== 0) keepEvidence(g.name);
     results.push([g.name, p.status === 0]);
     killPort(WEB_PORT);
   }

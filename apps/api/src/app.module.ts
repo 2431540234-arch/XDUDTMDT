@@ -52,7 +52,9 @@ import { StorageModule } from './storage/storage.module';
           new Redis({
             host: config.get('REDIS_HOST'),
             port: config.get('REDIS_PORT'),
-            keyPrefix: config.get('NODE_ENV') === 'test' ? 'throttle-test:' : 'throttle:',
+            keyPrefix:
+              config.get('THROTTLE_PREFIX') ??
+              (config.get('NODE_ENV') === 'test' ? 'throttle-test:' : 'throttle:'),
           }),
         ),
       }),

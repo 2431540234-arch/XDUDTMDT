@@ -63,6 +63,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...(mapped.details ? { details: mapped.details } : {}),
       },
     };
+    res.locals.errorCode = mapped.code; // cho middleware ghi log lỗi (error-response-log)
     res.status(mapped.status).json(body);
   }
 

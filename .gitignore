@@ -65,7 +65,7 @@ apps/web/playwright-report/
 apps/web/test-results/
 apps/web/coverage/
 
-# Kh�a k� app, kh�a ri�ng, ch?ng ch?
+# Kh�a k� app, kh�a ri�ng, ch?ng ch?
 *.jks
 *.keystore
 keystore.properties
@@ -100,3 +100,6 @@ apps/api/uploads/
 
 # Prompt làm việc cá nhân, không commit
 docs/PROMPT_AGENT_BE.md
+
+# Bằng chứng khi test e2e thật fail (trace, screenshot, log response >= 400)
+.e2e-logs/
