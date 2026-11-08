@@ -91,7 +91,6 @@ export class ProductsService {
     const min = qNum(q, 'minPrice', -1);
     const max = qNum(q, 'maxPrice', -1);
     const has3d = qBool(q, 'has3d');
-    const hasAr = qBool(q, 'hasAr');
     const featured = qBool(q, 'featured');
     const brand = qStr(q, 'brand');
     const out: Array<{ e: IndexEntry; score: number }> = [];
@@ -102,7 +101,6 @@ export class ProductsService {
       if (!ignoreCategory && catIds.size && !(it.categoryId && catIds.has(it.categoryId))) continue;
       if (brand && String(it.brandId) !== brand) continue;
       if (has3d !== undefined && it.has3dModel !== has3d) continue;
-      if (hasAr !== undefined && it.hasAr !== hasAr) continue;
       if (featured !== undefined && it.isFeatured !== featured) continue;
       const price = it.salePrice ?? it.price;
       if (min >= 0 && price < min) continue;

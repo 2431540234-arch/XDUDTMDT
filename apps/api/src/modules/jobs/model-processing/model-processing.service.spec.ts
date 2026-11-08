@@ -1,4 +1,4 @@
-// Unit test ModelProcessingService (UC-ADM-13): GLB hợp lệ, GLB hỏng, USDZ, LOD vượt ngưỡng 5 MB. Không cần Redis/Postgres.
+// Unit test ModelProcessingService (UC-ADM-13): GLB hợp lệ, GLB hỏng, định dạng khác GLB (AR ngoài phạm vi, D-P11), LOD vượt ngưỡng 5 MB. Không cần Redis/Postgres.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { UnrecoverableError, type Job } from 'bullmq';
@@ -118,26 +118,16 @@ describe('ModelProcessingService', () => {
     expect(t.saved.status).toBeUndefined();
   });
 
-  it('USDZ: chỉ kiểm tra chữ ký ZIP + checksum, một tệp đúng LOD', async () => {
+  it('USDZ (AR ngoài phạm vi): job bị loại với InvalidModelFileError, không đọc kho, không ghi gì', async () => {
     const zip = Buffer.concat([Buffer.from([0x50, 0x4b, 3, 4]), Buffer.alloc(32, 7)]);
     const t = setup({ source: zip });
-    const r = await t.service.process(job({ format: 'usdz', lod: 'high', fileName: 'sofa.usdz' }));
-    expect(r.files).toHaveLength(1);
-    expect(t.saved.files[0]).toMatchObject({
-      format: 'usdz',
-      lod: 'high',
-      polygonCount: null,
-      isCompressed: false,
-    });
-    expect(t.saved.files[0].checksum).toMatch(/^[0-9a-f]{64}$/);
-    expect(t.saved.status).toBe('ready');
-  });
-
-  it('USDZ không phải ZIP: InvalidModelFileError', async () => {
-    const t = setup({ source: Buffer.from('not a zip at all') });
-    await expect(t.service.process(job({ format: 'usdz', fileName: 'x.usdz' }))).rejects.toBeInstanceOf(
-      InvalidModelFileError,
-    );
+    const err = await t.service
+      .process(job({ format: 'usdz', lod: 'high', fileName: 'sofa.usdz' }))
+      .catch((e: Error) => e);
+    expect(err).toBeInstanceOf(InvalidModelFileError);
+    expect((err as Error).message).toBe('Hệ thống chỉ hỗ trợ tệp GLB');
+    expect(t.storage.download).not.toHaveBeenCalled();
+    expect(t.prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('LOD vượt MODEL_SERVE_MAX_MB: ModelTooLargeError (không retry), không ghi gì', async () => {
@@ -172,10 +162,10 @@ describe('ModelProcessingService', () => {
     expect(t.notes[0][4]).toBe('LOD quá lớn');
   });
 
-  it('markFailed USDZ khi vẫn còn GLB: giữ ready nhưng vẫn ghi log và báo admin', async () => {
+  it('markFailed luôn đặt failed, kể cả khi mô hình còn tệp GLB từ trước', async () => {
     const t = setup({ source: Buffer.alloc(0), glbCount: 3 });
-    await t.service.markFailed(job({ format: 'usdz' }), 'USDZ hỏng');
-    expect(t.saved.status).toBeUndefined();
+    await t.service.markFailed(job(), 'GLB hỏng');
+    expect(t.saved.status).toBe('failed');
     expect(t.logs).toHaveLength(1);
     expect(t.notes).toHaveLength(1);
   });

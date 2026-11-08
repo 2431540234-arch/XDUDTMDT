@@ -110,7 +110,7 @@ describe('Xử lý nền mô hình 3D (UC-ADM-13) – cần Redis', () => {
 
   it('GLB hợp lệ: 202 processing ⇒ job ⇒ ready; 3 LOD, checksum, nén; public chỉ trả khi ready; cờ has3dModel do trigger', async () => {
     const p = await newProduct('glb');
-    const r = await upload(p.id, SPHERE, 'sphere.glb', { allowAr: 'true', scale: '1.5', unit: 'cm' });
+    const r = await upload(p.id, SPHERE, 'sphere.glb', { scale: '1.5', unit: 'cm' });
     expect(r.status).toBe(202);
     const { modelId, jobId, status } = r.body.data;
     expect(status).toBe('processing');
@@ -185,12 +185,12 @@ describe('Xử lý nền mô hình 3D (UC-ADM-13) – cần Redis', () => {
     const noFile = await post({ fileName: 'a.glb', sizeMB: 1 });
     expect(noFile.status).toBe(400);
     expect(noFile.body.error.details.file[0]).toContain('chọn tệp');
-    expect((await post({ fileName: 'a.exe', fileData: b64(SPHERE) })).status).toBe(400);
+    expect((await post({ fileName: 'a.exe', fileData: b64(SPHERE) })).status).toBe(415);
     expect(
       (await post({ fileName: 'fake.glb', fileData: b64(Buffer.from('<html>fake</html>')) })).status,
     ).toBe(400);
     expect((await post({ fileName: 'big.glb', sizeMB: 110 })).body.error.details.file[0]).toContain('100MB');
-    expect((await post({ fileName: 'a.glb', format: 'usdz', fileData: b64(SPHERE) })).status).toBe(400);
+    expect((await post({ fileName: 'a.glb', format: 'usdz', fileData: b64(SPHERE) })).status).toBe(415);
     expect(
       (
         await api('post', '/admin/models', admin, {
@@ -290,31 +290,46 @@ describe('Xử lý nền mô hình 3D (UC-ADM-13) – cần Redis', () => {
     expect(list.body.data[0].failureReason).toMatch(/vượt ngưỡng 5 MB/);
   }, 120_000);
 
-  it('USDZ: chỉ kiểm tra ZIP + checksum; GLB cùng mô hình ⇒ sản phẩm hỗ trợ AR; USDZ hỏng ⇒ báo lỗi nhưng GLB vẫn ready', async () => {
+  it('AR ngoài phạm vi (D-P11): USDZ/GLTF bị từ chối 415 "Hệ thống chỉ hỗ trợ tệp GLB", không tạo mô hình; sản phẩm has_ar luôn false', async () => {
     const p = await newProduct('usdz');
+    const before = await prisma.product3DModel.count({ where: { productId: p.id } });
+    for (const [buf, name] of [
+      [USDZ, 'ghe.usdz'],
+      [SPHERE, 'ghe.gltf'],
+    ] as const) {
+      const bad = await upload(p.id, buf, name);
+      expect(bad.status).toBe(415);
+      expect(bad.body.error.message).toBe('Hệ thống chỉ hỗ trợ tệp GLB');
+    }
+    const json = await api('post', '/admin/models', admin, {
+      productId: p.id,
+      fileName: 'ghe.usdz',
+      format: 'usdz',
+      fileData: b64(USDZ),
+    });
+    expect(json.status).toBe(415);
+    expect(json.body.error.message).toBe('Hệ thống chỉ hỗ trợ tệp GLB');
+    expect(await prisma.product3DModel.count({ where: { productId: p.id } })).toBe(before);
+
+    // luồng presign (MinIO) cũng từ chối USDZ
+    const m = await prisma.product3DModel.create({
+      data: { productId: p.id, lengthMm: 1, widthMm: 1, heightMm: 1, status: 'failed' },
+    });
+    const pre = await api('post', `/admin/models/${m.id}/files/presign`, admin, {
+      format: 'usdz',
+      fileName: 'a.usdz',
+      size: 100,
+    });
+    expect(pre.status).toBe(415);
+
+    // GLB hợp lệ ⇒ ready, has3dModel bật còn has_ar vẫn false
     const g = await upload(p.id, SPHERE, 'ghe.glb');
     await waitStatus(g.body.data.modelId, 'ready');
-    const u = await upload(p.id, USDZ, 'ghe.usdz');
-    expect(u.status).toBe(202);
-    expect(u.body.data.modelId).toBe(g.body.data.modelId); // cùng mô hình chính
-    await waitFor(
-      async () =>
-        (await prisma.modelFile.count({ where: { modelId: u.body.data.modelId, format: 'usdz' } })) === 1,
-    );
-    await waitStatus(u.body.data.modelId, 'ready');
-    const f = await prisma.modelFile.findFirstOrThrow({
-      where: { modelId: u.body.data.modelId, format: 'usdz' },
-    });
-    expect(f.checksum).toMatch(/^[0-9a-f]{64}$/);
-    expect(f.polygonCount).toBeNull();
     const prod = await prisma.product.findUniqueOrThrow({ where: { id: p.id } });
     expect(prod.has3dModel).toBe(true);
-    const pub = await api('get', `/products/${p.slug}/model`);
-    expect(pub.body.data.usdzUrl).toMatch(/\.usdz$/);
-
-    // USDZ không phải ZIP: qua kiểm tra chữ ký lúc tải lên bị chặn ngay (400)
-    const bad = await upload(p.id, Buffer.from('xxxxxxxxxxxx'), 'sai.usdz');
-    expect(bad.status).toBe(400);
+    expect(prod.hasAr).toBe(false);
+    expect((await api('get', `/products/${p.slug}/model`)).body.data).not.toHaveProperty('usdzUrl');
+    expect(await prisma.modelFile.count({ where: { modelId: g.body.data.modelId, format: 'usdz' } })).toBe(0);
   }, 90_000);
 
   it('tải lại cùng định dạng/LOD ghi đè (upsert): không nhân đôi model_files, tệp cũ được dọn', async () => {

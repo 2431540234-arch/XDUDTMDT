@@ -13,7 +13,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 type Json = Prisma.InputJsonValue;
 const PAYMENT_METHODS = ['cod', 'bank_transfer', 'vnpay', 'momo', 'zalopay', 'card'];
 
-/** Khóa đơn giản (spec UC-ADM-03): tên website, liên hệ, tiền tệ, phí vận chuyển mặc định, ngưỡng miễn phí, bật AR, bảo trì */
+/** Khóa đơn giản (spec UC-ADM-03): tên website, liên hệ, tiền tệ, phí vận chuyển mặc định, ngưỡng miễn phí, bảo trì (AR ngoài phạm vi, D-P11) */
 const GENERAL_KEYS = [
   'site_name',
   'contact_email',
@@ -21,7 +21,6 @@ const GENERAL_KEYS = [
   'currency',
   'default_shipping_fee',
   'free_shipping_threshold',
-  'ar_enabled',
   'maintenance_mode',
 ] as const;
 /** Khóa cấu trúc dùng cho trang Cài đặt của FE */
@@ -169,7 +168,6 @@ export class SettingsService {
       case 'default_shipping_fee':
       case 'free_shipping_threshold':
         return this.num(v, field, errs);
-      case 'ar_enabled':
       case 'maintenance_mode':
         if (typeof v !== 'boolean') errs.add(field, 'Giá trị phải là true hoặc false.');
         return v === true;

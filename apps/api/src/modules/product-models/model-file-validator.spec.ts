@@ -1,9 +1,19 @@
 // Unit test: kiểm tra tệp mô hình 3D tải lên (đuôi, MIME, dung lượng, chữ ký tệp, tên tệp an toàn).
-import { MODEL_MAX_BYTES, safeFileName, validateModelFile } from './model-file-validator';
+import { MODEL_MAX_BYTES, ONLY_GLB_MESSAGE, safeFileName, validateModelFile } from './model-file-validator';
 
 const glb = Buffer.concat([Buffer.from('glTF'), Buffer.alloc(32)]);
 const usdz = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(32)]);
 const gltf = Buffer.from('{ "asset": { "version": "2.0" } }');
+
+const failsWith = (fn: () => unknown, code: string, message: string) => {
+  try {
+    fn();
+  } catch (e) {
+    expect(e).toMatchObject({ code, message });
+    return;
+  }
+  throw new Error('Đáng lẽ phải ném lỗi');
+};
 
 const fails = (fn: () => unknown, code: string) => {
   try {
@@ -16,7 +26,7 @@ const fails = (fn: () => unknown, code: string) => {
 };
 
 describe('validateModelFile', () => {
-  it('chấp nhận GLB, GLTF, USDZ hợp lệ', () => {
+  it('chấp nhận GLB hợp lệ', () => {
     expect(
       validateModelFile({
         fileName: 'sofa.glb',
@@ -25,24 +35,31 @@ describe('validateModelFile', () => {
         mimeType: 'model/gltf-binary',
       }),
     ).toMatchObject({ format: 'glb', ext: 'glb' });
-    expect(validateModelFile({ fileName: 'sofa.GLTF', sizeBytes: gltf.length, bytes: gltf })).toMatchObject({
-      format: 'glb',
-      mime: 'model/gltf+json',
-    });
-    expect(
-      validateModelFile({
-        fileName: 'sofa.usdz',
-        sizeBytes: usdz.length,
-        bytes: usdz,
-        declaredFormat: 'usdz',
-      }),
-    ).toMatchObject({ format: 'usdz' });
+  });
+  it('AR ngoài phạm vi (D-P11): USDZ và GLTF bị từ chối 415 với thông báo "Hệ thống chỉ hỗ trợ tệp GLB"', () => {
+    failsWith(
+      () =>
+        validateModelFile({
+          fileName: 'sofa.usdz',
+          sizeBytes: usdz.length,
+          bytes: usdz,
+          declaredFormat: 'usdz',
+        }),
+      'UNSUPPORTED_MEDIA_TYPE',
+      ONLY_GLB_MESSAGE,
+    );
+    failsWith(
+      () => validateModelFile({ fileName: 'sofa.GLTF', sizeBytes: gltf.length, bytes: gltf }),
+      'UNSUPPORTED_MEDIA_TYPE',
+      ONLY_GLB_MESSAGE,
+    );
+    expect(ONLY_GLB_MESSAGE).toBe('Hệ thống chỉ hỗ trợ tệp GLB');
   });
   it('từ chối đuôi tệp lạ (415)', () => {
     fails(() => validateModelFile({ fileName: 'virus.exe', sizeBytes: 100 }), 'UNSUPPORTED_MEDIA_TYPE');
     fails(() => validateModelFile({ fileName: 'model.obj', sizeBytes: 100 }), 'UNSUPPORTED_MEDIA_TYPE');
   });
-  it('định dạng khai báo phải khớp đuôi tệp', () => {
+  it('định dạng khai báo khác GLB bị từ chối (415)', () => {
     fails(
       () => validateModelFile({ fileName: 'sofa.glb', sizeBytes: 100, declaredFormat: 'usdz' }),
       'UNSUPPORTED_MEDIA_TYPE',
@@ -66,14 +83,6 @@ describe('validateModelFile', () => {
     fails(
       () =>
         validateModelFile({ fileName: 'fake.glb', sizeBytes: 20, bytes: Buffer.from('<html>fake</html>') }),
-      'UNSUPPORTED_MEDIA_TYPE',
-    );
-    fails(
-      () => validateModelFile({ fileName: 'fake.usdz', sizeBytes: 20, bytes: glb }),
-      'UNSUPPORTED_MEDIA_TYPE',
-    );
-    fails(
-      () => validateModelFile({ fileName: 'fake.gltf', sizeBytes: 20, bytes: Buffer.from('{"x":1}') }),
       'UNSUPPORTED_MEDIA_TYPE',
     );
   });

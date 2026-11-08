@@ -20,7 +20,12 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../storage/storage.service';
 import { JobsService } from '../jobs/jobs.service';
 import { ProductsService } from '../products/products.service';
-import { MODEL_MAX_BYTES, validateModelFile, type ModelFormat } from './model-file-validator';
+import {
+  MODEL_MAX_BYTES,
+  ONLY_GLB_MESSAGE,
+  validateModelFile,
+  type ModelFormat,
+} from './model-file-validator';
 
 const MODEL_INCLUDE = {
   product: {
@@ -86,7 +91,6 @@ export class AdminModelCatalogService {
     }));
     const glb =
       files.find((x) => x.format === 'glb' && x.lod === 'medium') ?? files.find((x) => x.format === 'glb');
-    const usdz = files.find((x) => x.format === 'usdz');
     const fileName = f?.media.fileName ?? notes.upload?.fileName ?? '(chưa có tệp)';
     const bytes = f?.media.fileSize ?? notes.upload?.sizeBytes ?? 0;
     return {
@@ -97,7 +101,6 @@ export class AdminModelCatalogService {
       id: f ? f.id : -m.id,
       fileId: f ? f.id : null,
       glbUrl: glb?.url ?? null,
-      usdzUrl: usdz?.url ?? null,
       posterUrl: this.views.url(posterMedia?.filePath),
       productName: p.name,
       productThumbnailUrl: this.views.url(p.productImages[0]?.media.filePath),
@@ -206,6 +209,8 @@ export class AdminModelCatalogService {
         bytes,
       });
     } catch (e) {
+      // định dạng khác GLB (USDZ...) ⇒ 415 nguyên văn (D-P11)
+      if (e instanceof AppException && e.message === ONLY_GLB_MESSAGE) throw e;
       if (e instanceof AppException && e.code !== ErrorCode.PAYLOAD_TOO_LARGE)
         throw new AppException(ErrorCode.VALIDATION_FAILED, 'Dữ liệu không hợp lệ.', {
           [e.code === ErrorCode.UNSUPPORTED_MEDIA_TYPE ? 'format' : 'file']: [e.message],

@@ -172,7 +172,6 @@ export class CatalogViews {
       glbUrl:
         (files.find((f) => f.format === 'glb' && f.lod === 'medium') ?? files.find((f) => f.format === 'glb'))
           ?.url ?? null,
-      usdzUrl: files.find((f) => f.format === 'usdz')?.url ?? null,
       posterUrl: this.url(posterMedia?.filePath),
     };
   }

@@ -127,8 +127,8 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       expect(r.body.data.general).toMatchObject({
         site_name: expect.any(String),
         default_shipping_fee: expect.any(Number),
-        ar_enabled: expect.any(Boolean),
       });
+      expect(r.body.data.general).not.toHaveProperty('ar_enabled'); // AR ngoài phạm vi (D-P11)
     });
 
     it('lưu trang cài đặt: sai email/tên trống/hotline trống ⇒ 400 đúng tên ô; hợp lệ ⇒ lưu và GET /settings/public thấy ngay', async () => {
@@ -205,7 +205,7 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       expect((await put('default_shipping_fee', -1)).status).toBe(400);
       expect((await put('default_shipping_fee', 'abc')).status).toBe(400);
       expect((await put('free_shipping_threshold', -100)).status).toBe(400);
-      expect((await put('ar_enabled', 'yes')).status).toBe(400);
+      expect((await put('ar_enabled', true)).status).toBe(400); // khóa không còn được phép (D-P11)
       expect((await put('maintenance_mode', 1)).status).toBe(400);
       expect((await put('contact_email', 'sai')).status).toBe(400);
       expect((await put('currency', 'dong')).status).toBe(400);
@@ -225,8 +225,6 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       });
       expect(log!.changes).toMatchObject({ key: 'default_shipping_fee', before, after: 175000 });
       expect((await put('default_shipping_fee', before)).status).toBe(200);
-      expect((await put('ar_enabled', false)).status).toBe(200);
-      expect((await put('ar_enabled', true)).status).toBe(200);
     });
   });
 

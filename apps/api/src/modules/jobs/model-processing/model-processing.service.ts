@@ -55,9 +55,10 @@ export class ModelProcessingService {
     const model = await this.prisma.product3DModel.findUnique({ where: { id: data.modelId } });
     if (!model) throw new InvalidModelFileError(`Không tìm thấy mô hình ${data.modelId}.`);
 
+    // AR ngoài phạm vi (D-P11): chỉ xử lý GLB; job USDZ cũ còn sót trong hàng đợi bị loại, không retry
+    if (data.format !== 'glb') throw new InvalidModelFileError('Hệ thống chỉ hỗ trợ tệp GLB');
     const source = await this.storage.download(data.sourceKey, 'private');
-    const files =
-      data.format === 'glb' ? await this.prepareGlb(data, source) : this.prepareUsdz(data, source);
+    const files = await this.prepareGlb(data, source);
 
     // Tệp lên kho trước, bản ghi CSDL sau: nếu giữa chừng lỗi thì chưa có bản ghi nào trỏ tới tệp thiếu
     for (const f of files) {
@@ -79,16 +80,10 @@ export class ModelProcessingService {
    * ghi `activity_logs` (`model.processing_failed`) và tạo thông báo cho admin đã tải lên (D-N21, D-N22).
    */
   async markFailed(data: ModelJobData, reason: string): Promise<void> {
-    // Tệp USDZ (AR) lỗi không làm mất bản xem web: còn GLB thì giữ nguyên `ready`, vẫn ghi log và báo admin
-    const keepReady =
-      data.format === 'usdz' &&
-      (await this.prisma.modelFile.count({ where: { modelId: data.modelId, format: 'glb' } })) > 0;
     await this.prisma.$transaction(async (tx) => {
       const exists = await tx.product3DModel.count({ where: { id: data.modelId } });
       if (!exists) return; // mô hình đã bị xóa trong lúc xử lý
-      if (!keepReady) {
-        await tx.product3DModel.update({ where: { id: data.modelId }, data: { status: 'failed' } });
-      }
+      await tx.product3DModel.update({ where: { id: data.modelId }, data: { status: 'failed' } });
       await this.activity.log(
         {
           actorId: data.uploadedBy,
@@ -145,29 +140,6 @@ export class ModelProcessingService {
       checksum: sha256(o.buffer),
       body: o.buffer,
     }));
-  }
-
-  /** USDZ do admin tải thủ công: chỉ kiểm tra chữ ký ZIP, tính checksum rồi chép sang bucket public. */
-  private prepareUsdz(data: ModelJobData, source: Buffer) {
-    if (source.length < 4 || source.readUInt32LE(0) !== 0x04034b50) {
-      throw new InvalidModelFileError('Tệp không phải USDZ hợp lệ (không phải ZIP).');
-    }
-    const stem = stemOf(data.fileName);
-    return [
-      {
-        format: 'usdz' as const,
-        lod: data.lod,
-        key: `models/${data.modelId}/${stem}-${data.lod}.usdz`,
-        fileName: `${stem}-${data.lod}.usdz`,
-        mimeType: 'model/vnd.usdz+zip',
-        size: source.length,
-        polygonCount: null,
-        textureResolution: null,
-        isCompressed: false,
-        checksum: sha256(source),
-        body: source,
-      },
-    ];
   }
 
   /**
