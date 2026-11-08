@@ -2,6 +2,7 @@
 
 // Chi tiết sản phẩm (WIREFRAME 2.3): gallery | thông tin → banner 3D → tabs → sản phẩm liên quan
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
@@ -17,6 +18,7 @@ import { discountPercent } from '@/lib/format';
 import { pushRecent } from '@/lib/recent';
 import { parseVariantQuery, variantQuery } from '@/lib/variant';
 import { productApi } from '@/services/product.api';
+import { spaceApi } from '@/services/space.api';
 import { ApiClientError } from '@/services/api-client';
 
 export default function ProductDetailPage() {
@@ -25,6 +27,12 @@ export default function ProductDetailPage() {
   const related = useQuery({
     queryKey: ['related', slug],
     queryFn: () => productApi.related(slug),
+    enabled: Boolean(q.data),
+  });
+  // UC-SPACE-06: không gian mẫu có chứa sản phẩm này (liên kết gắn ?from=<slug> để ghi nhận sản phẩm dẫn tới)
+  const inSpaces = useQuery({
+    queryKey: ['spaces', 'with-product', slug],
+    queryFn: () => spaceApi.list({ product: slug, pageSize: 3, sort: 'popular' }),
     enabled: Boolean(q.data),
   });
   const qc = useQueryClient();
@@ -142,6 +150,32 @@ export default function ProductDetailPage() {
           Trải nghiệm 3D ngay <Icon name="arrowRight" size={16} />
         </LinkButton>
       </section>
+
+      {inSpaces.data && inSpaces.data.items.length > 0 && (
+        <section className="mt-10" data-testid="spaces-with-product" aria-labelledby="in-spaces">
+          <h2 id="in-spaces" className="mb-4 text-xl font-extrabold uppercase">
+            Xem trong không gian mẫu
+          </h2>
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {inSpaces.data.items.map((s) => (
+              <li key={s.id}>
+                <Link
+                  href={`/spaces/${s.slug}?from=${encodeURIComponent(p.slug)}`}
+                  className="flex items-center gap-3 rounded-card border border-line bg-white p-2 transition hover:border-primary"
+                >
+                  <span className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-surface-muted">
+                    {s.coverUrl && <img src={s.coverUrl} alt="" className="h-full w-full object-cover" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 font-semibold">{s.title}</span>
+                    <span className="text-xs text-muted">{s.productCount} sản phẩm · xem 360°</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <ProductTabs product={p} tab={tab} onTab={setTab} />
 

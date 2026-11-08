@@ -20,6 +20,8 @@ export interface SpaceQuery {
   page?: number;
   pageSize?: number;
   bookmarked?: boolean;
+  /** slug sản phẩm: chỉ các không gian có chứa sản phẩm này (UC-SPACE-06) */
+  product?: string;
 }
 
 export interface SpaceFacets {

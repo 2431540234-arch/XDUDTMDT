@@ -25,7 +25,8 @@ export class SpacesController {
   @Public()
   @Get()
   @ApiOperation({
-    summary: 'Danh sách không gian mẫu (lọc roomType, style, q, bookmarked; sắp xếp newest|popular|title)',
+    summary:
+      'Danh sách không gian mẫu (lọc roomType, style, q, bookmarked, product = slug sản phẩm có trong không gian; sắp xếp newest|popular|title)',
   })
   async list(@Query() q: RawQuery, @CurrentUser('id') userId?: number) {
     const r = await this.spaces.list(q, userId ?? null);

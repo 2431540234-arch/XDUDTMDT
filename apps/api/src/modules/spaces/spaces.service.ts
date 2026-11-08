@@ -81,6 +81,16 @@ export class SpacesService {
     const style = qStr(q, 'style');
     const search = foldVi(qStr(q, 'q'));
     const only = qBool(q, 'bookmarked');
+    // UC-SPACE-06: không gian CÓ chứa sản phẩm (qua điểm tương tác loại sản phẩm); `product` = slug. Không có sản phẩm ⇒ rỗng
+    const productSlug = qStr(q, 'product');
+    const productId = productSlug
+      ? ((
+          await this.prisma.product.findFirst({
+            where: { slug: productSlug, deletedAt: null },
+            select: { id: true },
+          })
+        )?.id ?? 0)
+      : null;
     const rows = await this.prisma.space.findMany({
       where: {
         status: 'published',
@@ -91,6 +101,7 @@ export class SpacesService {
     });
     const bm = await this.bookmarks(userId);
     let items = rows
+      .filter((s) => productId === null || this.productIds(s).includes(productId))
       .filter((s) => !search || foldVi(`${s.title} ${s.style ?? ''} ${s.description ?? ''}`).includes(search))
       .map((s) => this.listItem(s, bm));
     if (only) items = items.filter((s) => s.isBookmarked);
