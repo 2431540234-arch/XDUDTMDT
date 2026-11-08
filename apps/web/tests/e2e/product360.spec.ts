@@ -46,12 +46,12 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   await page.keyboard.press('Space'); // dừng tự xoay
   const a0 = await angle(page);
   await page.keyboard.press('ArrowRight');
-  expect(await angle(page)).toBe((a0 + 10) % 360);
+  await expect.poll(() => angle(page)).toBe((a0 + 10) % 360);
   await page.keyboard.press('ArrowLeft');
-  expect(await angle(page)).toBe(a0);
+  await expect.poll(() => angle(page)).toBe(a0);
 
   await page.getByRole('slider', { name: 'Góc xoay' }).fill('180');
-  expect(await angle(page)).toBe(180);
+  await expect.poll(() => angle(page)).toBe(180);
 
   // kéo chuột
   const box = (await stage(page).boundingBox())!;
@@ -59,14 +59,15 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 120, box.y + 200, { steps: 8 });
   await page.mouse.up();
-  expect(await angle(page)).not.toBe(180);
+  await expect.poll(() => angle(page)).not.toBe(180);
   await expect(page.getByText('Kéo để xoay 360°')).toBeHidden();
 
   // tự xoay
   await page.getByRole('button', { name: 'Tự xoay' }).click();
   const before = await angle(page);
-  // chờ tối đa 10 s (máy tải nặng có thể làm requestAnimationFrame chậm); trước đây chỉ chờ cố định 1,5 s nên đôi khi đỏ
-  await expect.poll(() => angle(page), { timeout: 10_000 }).not.toBe(before);
+  // Chờ ĐIỀU KIỆN (frame hiện tại đổi), không chờ cố định. Đo giả lập CPU chậm (CDP): bình thường frame đầu đổi sau ~0,1 s; chậm 12 lần
+  // ~0,8–1,9 s; chậm 20 lần tới ~4,9 s. 15 s ~ 3 lần mức tệ nhất đo được; hết 15 s mà frame vẫn đứng nghĩa là tự xoay hỏng thật.
+  await expect.poll(() => angle(page), { timeout: 15_000 }).not.toBe(before);
   await page.getByRole('button', { name: 'Dừng tự xoay' }).click();
 
   // zoom
@@ -74,7 +75,7 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   await expect(stage(page)).toHaveAttribute('data-zoom', /1\.[1-9]/);
   await page.getByRole('button', { name: 'Đặt lại góc' }).click();
   await expect(stage(page)).toHaveAttribute('data-zoom', '1.00');
-  expect(await angle(page)).toBe(0);
+  await expect.poll(() => angle(page)).toBe(0);
 });
 
 test('đổi màu/kích thước: giữ góc, URL đổi, không tải lại trang, hết hàng', async ({ page }) => {
