@@ -1,9 +1,10 @@
 // UC-ADM-01 – Quản trị khách hàng: /admin/users (chỉ role admin). Bảng: users, user_roles
-import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
+import { AdminRolesService } from '../admin-roles/admin-roles.service';
 import { AdminUsersService } from './admin-users.service';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
@@ -13,7 +14,10 @@ import { RequirePermission } from '../../common/decorators/permissions.decorator
 @RequirePermission('manage_users')
 @Controller('admin/users')
 export class AdminUsersController {
-  constructor(private readonly users: AdminUsersService) {}
+  constructor(
+    private readonly users: AdminUsersService,
+    private readonly roles: AdminRolesService,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Danh sách khách hàng (group=new|loyal, status=active|locked, q, sort)' })
@@ -30,6 +34,18 @@ export class AdminUsersController {
   @Get(':id')
   detail(@Param('id', ParseIntPipe) id: number) {
     return this.users.detail(id);
+  }
+
+  @Put(':id/roles/admin')
+  @ApiOperation({ summary: 'Gán vai trò admin (idempotent); ghi activity_logs' })
+  grantAdmin(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.roles.grantAdmin(adminId, id);
+  }
+
+  @Delete(':id/roles/admin')
+  @ApiOperation({ summary: 'Gỡ vai trò admin; 409 nếu tự gỡ của mình hoặc gỡ admin cuối cùng' })
+  revokeAdmin(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.roles.revokeAdmin(adminId, id);
   }
 
   @Patch(':id/status')
