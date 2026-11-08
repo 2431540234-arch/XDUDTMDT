@@ -150,7 +150,20 @@ export class CatalogViews {
       where: { productId, isPrimary: true, status: 'ready' },
       include: { modelFiles: { include: { media: true } }, posterMedia: true },
     });
-    return m ? this.model3d(m) : null;
+    if (!m) return null;
+    // UC-3D-03: cấu hình vật liệu theo biến thể để client đổi màu ngay trên mô hình đang hiển thị (không tải lại mô hình)
+    const mv = await this.prisma.modelMaterialVariant.findMany({
+      where: { modelId: m.id },
+      orderBy: { variantId: 'asc' },
+    });
+    return {
+      ...this.model3d(m),
+      materialVariants: mv.map((r) => ({
+        variantId: r.variantId,
+        materialName: r.materialName,
+        config: r.config,
+      })),
+    };
   }
 
   model3d(

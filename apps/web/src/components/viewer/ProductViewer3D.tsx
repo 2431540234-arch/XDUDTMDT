@@ -14,7 +14,17 @@ interface MV extends HTMLElement {
   autoRotate: boolean;
   getCameraOrbit(): { theta: number; phi: number; radius: number };
   jumpCameraToGoal(): void;
-  model?: { materials: Array<{ pbrMetallicRoughness: { setBaseColorFactor(c: string | number[]): void } }> };
+  model?: {
+    materials: Array<{
+      name: string;
+      pbrMetallicRoughness: {
+        baseColorFactor: number[];
+        setBaseColorFactor(c: string | number[]): void;
+        setRoughnessFactor(v: number): void;
+        setMetallicFactor(v: number): void;
+      };
+    }>;
+  };
 }
 
 const VIEWS = [
@@ -64,11 +74,14 @@ export default function ProductViewer3D({
   model,
   alt,
   tint,
+  variantId,
   fallbackImage,
 }: {
   model: Model3DView;
   alt: string;
   tint?: string | null;
+  /** Biến thể đang chọn: nếu mô hình có cấu hình vật liệu cho biến thể này thì áp ngay lên vật liệu tương ứng (không tải lại mô hình) */
+  variantId?: number | null;
   /** Ảnh thay thế khi không tải được mô hình (mặc định ảnh poster của mô hình) */
   fallbackImage?: string | null;
 }) {
@@ -92,15 +105,34 @@ export default function ProductViewer3D({
       .catch(() => setError(true));
   }, []);
 
-  // đổi màu realtime: nhuộm vật liệu thân chính của mô hình
+  // UC-3D-03: cấu hình vật liệu của biến thể đang chọn (từ dữ liệu mô hình đã tải cùng trang, không gọi thêm API)
+  const mv = variantId == null ? undefined : model.materialVariants?.find((x) => x.variantId === variantId);
+  const [applied, setApplied] = useState('');
+
+  // đổi màu realtime: có cấu hình vật liệu của biến thể thì áp lên đúng vật liệu theo tên; không thì nhuộm vật liệu thân chính
   useEffect(() => {
     const el = ref.current;
-    if (!el || !tint) return;
-    const apply = () => el.model?.materials?.[0]?.pbrMetallicRoughness.setBaseColorFactor(tint);
+    if (!el || (!mv && !tint)) return;
+    const apply = () => {
+      const mats = el.model?.materials;
+      if (!mats?.length) return;
+      if (mv) {
+        const m = mats.find((x) => x.name === mv.materialName);
+        if (!m) return;
+        const c = mv.config;
+        if (c.baseColor) m.pbrMetallicRoughness.setBaseColorFactor(c.baseColor);
+        if (c.roughness !== undefined) m.pbrMetallicRoughness.setRoughnessFactor(c.roughness);
+        if (c.metalness !== undefined) m.pbrMetallicRoughness.setMetallicFactor(c.metalness);
+        setApplied(`${mv.materialName}=${c.baseColor ?? ''}`);
+      } else {
+        mats[0].pbrMetallicRoughness.setBaseColorFactor(tint!);
+        setApplied('');
+      }
+    };
     if (el.model) apply();
     el.addEventListener('load', apply);
     return () => el.removeEventListener('load', apply);
-  }, [tint, ready]);
+  }, [mv, tint, ready]);
 
   useEffect(() => {
     const el = ref.current;
@@ -168,6 +200,7 @@ export default function ProductViewer3D({
       ref={wrap}
       data-testid="viewer-3d"
       data-lod={glb.lod ?? ''}
+      data-material-applied={applied}
       className="relative h-full min-h-[460px] w-full overflow-hidden bg-gradient-to-b from-white to-surface-muted"
     >
       {ready ? (

@@ -46,6 +46,8 @@ const GROUPS = MINIO
       { name: 'admin-3d', files: ['tests/e2e/admin-models.spec.ts'] },
       // ghi rồi tải lại danh sách khi lần tải tìm kiếm còn đang bay (React Query), xem apps/web/src/lib/query-refresh.ts
       { name: 'admin-race', files: ['tests/e2e/admin-race.spec.ts'] },
+      // đổi chất liệu trên mô hình 3D (UC-ADM-14, UC-3D-03)
+      { name: 'vat-lieu', files: ['tests/e2e/materials.spec.ts'] },
       // use case Mở rộng nhẹ: nhật ký, vai trò, phiên đăng nhập, xóa tài khoản, gửi thông báo
       { name: 'ext-uc', files: ['tests/e2e/ext-uc.spec.ts'] },
     ];

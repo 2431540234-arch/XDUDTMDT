@@ -12,6 +12,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   UploadedFile,
   UseInterceptors,
@@ -25,6 +26,7 @@ import { AdminModelCatalogService } from './admin-model-catalog.service';
 import { MODEL_MAX_BYTES } from './model-file-validator';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { ConfirmModelFileDto, PresignModelFileDto } from './dto/model-file.dto';
+import { ModelMaterialsService } from './model-materials.service';
 import { ProductModelsService } from './product-models.service';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
@@ -37,6 +39,7 @@ export class AdminModelsController {
   constructor(
     private readonly models: ProductModelsService,
     private readonly catalog: AdminModelCatalogService,
+    private readonly materials: ModelMaterialsService,
   ) {}
 
   @Get()
@@ -136,5 +139,41 @@ export class AdminModelsController {
     @CurrentUser('id') adminId: number,
   ) {
     return this.models.confirmFile(id, dto, adminId);
+  }
+
+  // ---- UC-ADM-14: vật liệu theo biến thể (:id là id MÔ HÌNH) ----
+  @Get(':id/materials')
+  @ApiOperation({ summary: 'Tên các vật liệu có trong tệp GLB của mô hình (để chọn materialName)' })
+  materialNames(@Param('id', ParseIntPipe) id: number) {
+    return this.materials.materialNames(id);
+  }
+
+  @Get(':id/material-variants')
+  @ApiOperation({ summary: 'Cấu hình vật liệu theo biến thể của mô hình' })
+  listMaterialVariants(@Param('id', ParseIntPipe) id: number) {
+    return this.materials.list(id);
+  }
+
+  @Put(':id/material-variants/:variantId')
+  @ApiOperation({
+    summary: 'Đặt (tạo hoặc thay thế) cấu hình vật liệu { materialName, config } cho một biến thể',
+  })
+  setMaterialVariant(
+    @CurrentUser('id') adminId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('variantId', ParseIntPipe) variantId: number,
+    @Body() body: unknown,
+  ) {
+    return this.materials.set(adminId, id, variantId, body);
+  }
+
+  @Delete(':id/material-variants/:variantId')
+  @ApiOperation({ summary: 'Xóa cấu hình vật liệu của một biến thể' })
+  removeMaterialVariant(
+    @CurrentUser('id') adminId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Param('variantId', ParseIntPipe) variantId: number,
+  ) {
+    return this.materials.remove(adminId, id, variantId);
   }
 }

@@ -1,7 +1,9 @@
 // Service gọi API khu vực quản trị (/api/admin/*) – chỉ tài khoản role 'admin' (Doanh nghiệp)
 import type { Coupon, OrderStatus, ReviewStatus } from '@aurelia-living/shared-types';
 import type {
+  AdminMaterialVariant,
   Banner,
+  MaterialConfig,
   CategoryNode,
   CouponView,
   DashboardStats,
@@ -174,6 +176,17 @@ export const adminApi = {
     remove: (id: number) => http.delete(`/admin/models/${id}`),
     /** Xóa cả mô hình chưa có tệp (đang xử lý / lỗi) */
     removeModel: (modelId: number) => http.delete(`/admin/models/model/${modelId}`),
+    /** UC-ADM-14: vật liệu theo biến thể (:modelId là id MÔ HÌNH) */
+    materialNames: (modelId: number) => http.get<{ names: string[] }>(`/admin/models/${modelId}/materials`),
+    materialVariants: (modelId: number) =>
+      http.get<AdminMaterialVariant[]>(`/admin/models/${modelId}/material-variants`),
+    setMaterialVariant: (
+      modelId: number,
+      variantId: number,
+      body: { materialName: string; config: MaterialConfig },
+    ) => http.put<AdminMaterialVariant>(`/admin/models/${modelId}/material-variants/${variantId}`, body),
+    removeMaterialVariant: (modelId: number, variantId: number) =>
+      http.delete(`/admin/models/${modelId}/material-variants/${variantId}`),
     /** failed → processing; :id là id MÔ HÌNH */
     reprocess: (modelId: number) => http.post<ModelProcessingAccepted>(`/admin/models/${modelId}/reprocess`),
     setPrimary: (modelId: number) =>

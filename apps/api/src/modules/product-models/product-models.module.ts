@@ -6,12 +6,13 @@ import { Module } from '@nestjs/common';
 import { ProductsModule } from '../products/products.module';
 import { AdminModelCatalogService } from './admin-model-catalog.service';
 import { AdminModelsController } from './admin-models.controller';
+import { ModelMaterialsService } from './model-materials.service';
 import { ProductModelsService } from './product-models.service';
 
 @Module({
   imports: [ProductsModule],
   controllers: [AdminModelsController],
-  providers: [ProductModelsService, AdminModelCatalogService],
+  providers: [ProductModelsService, AdminModelCatalogService, ModelMaterialsService],
   exports: [ProductModelsService, AdminModelCatalogService],
 })
 export class ProductModelsModule {}

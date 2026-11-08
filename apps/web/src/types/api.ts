@@ -117,8 +117,27 @@ export interface ModelProcessingAccepted {
   status: 'processing';
 }
 
+/** UC-ADM-14: cấu hình vật liệu áp lên vật liệu `materialName` của GLB khi khách chọn biến thể `variantId` (UC-3D-03) */
+export interface MaterialConfig {
+  baseColor?: string;
+  roughness?: number;
+  metalness?: number;
+}
+export interface MaterialVariantView {
+  variantId: number;
+  materialName: string;
+  config: MaterialConfig;
+}
+
+export interface AdminMaterialVariant extends MaterialVariantView {
+  id: number;
+  modelId: number;
+  updatedAt: string;
+}
+
 export interface Model3DView extends Product3DModel {
   files: ModelFileView[];
+  materialVariants?: MaterialVariantView[];
   glbUrl: string | null;
   posterUrl: string | null;
 }

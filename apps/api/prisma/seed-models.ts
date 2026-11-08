@@ -12,6 +12,7 @@ import {
   InvalidModelFileError,
   ModelProcessingService,
 } from '../src/modules/jobs/model-processing/model-processing.service';
+import { readGlb } from '../src/modules/jobs/model-processing/glb-tools';
 import { NotificationsService } from '../src/modules/notifications/notifications.service';
 import { LocalStorageService } from '../src/storage/local-storage.service';
 import { MinioStorageService } from '../src/storage/minio-storage.service';
@@ -22,6 +23,58 @@ export interface SeedModelProblem {
   slug: string;
   fileName: string;
   reason: string;
+}
+
+/**
+ * UC-ADM-14 (dữ liệu demo): với mỗi mô hình chính đã ready của sản phẩm có từ 2 màu trở lên, gắn cấu hình vật liệu cho từng
+ * biến thể: vật liệu đầu tiên của GLB (thân sản phẩm) đổi sang màu của biến thể (attribute_values.color_hex). Idempotent (upsert).
+ */
+async function seedMaterialVariants(prisma: PrismaClient, storage: StorageService): Promise<number> {
+  const models = await prisma.product3DModel.findMany({
+    where: { isPrimary: true, status: 'ready' },
+    include: {
+      modelFiles: { include: { media: true } },
+      product: {
+        include: {
+          productVariants: {
+            include: {
+              variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+            },
+          },
+        },
+      },
+    },
+  });
+  let n = 0;
+  for (const m of models) {
+    const hexOf = (v: (typeof m.product.productVariants)[number]) =>
+      v.variantAttributeValues.find((x) => x.attributeValue.attribute.code === 'color')?.attributeValue
+        .colorHex ?? null;
+    const colors = new Set(m.product.productVariants.map(hexOf).filter(Boolean));
+    if (colors.size < 2) continue;
+    const files = m.modelFiles.filter((f) => f.format === 'glb');
+    const f = files.find((x) => x.lod === 'medium') ?? files[0];
+    if (!f) continue;
+    const doc = await readGlb(await storage.download(f.media.filePath, 'public'));
+    const materialName = doc
+      .getRoot()
+      .listMaterials()
+      .map((x) => x.getName())
+      .find((x) => x.trim().length > 0);
+    if (!materialName) continue;
+    for (const v of m.product.productVariants) {
+      const hex = hexOf(v);
+      if (!hex) continue;
+      const config = { baseColor: hex.toUpperCase(), roughness: 0.85, metalness: 0 };
+      await prisma.modelMaterialVariant.upsert({
+        where: { modelId_variantId: { modelId: m.id, variantId: v.id } },
+        update: { materialName, config },
+        create: { modelId: m.id, variantId: v.id, materialName, config },
+      });
+      n++;
+    }
+  }
+  return n;
 }
 
 export async function processSeedModels(): Promise<SeedModelProblem[]> {
@@ -130,6 +183,9 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
         }
       }
     }
+
+    const mats = await seedMaterialVariants(prisma, storage);
+    console.log(`Cấu hình vật liệu theo biến thể (model_material_variants): ${mats} dòng.`);
 
     const [ready, failed] = [
       await prisma.product3DModel.count({ where: { status: 'ready' } }),

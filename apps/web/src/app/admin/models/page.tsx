@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import DataTable, { type Column } from '@/components/admin/DataTable';
 import FilterBar, { PageHeader } from '@/components/admin/FilterBar';
+import MaterialVariantsModal from '@/components/admin/MaterialVariantsModal';
 import UploadDropzone from '@/components/admin/UploadDropzone';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -240,6 +241,7 @@ function Content() {
   const q = useDebounced(st.q);
   const [upload, setUpload] = useState(false);
   const [preview, setPreview] = useState<Model3DAdminRow | null>(null);
+  const [materials, setMaterials] = useState<Model3DAdminRow | null>(null);
   const [del, setDel] = useState<Model3DAdminRow | null>(null);
   const products = useQuery({
     queryKey: ['admin', 'products', 'pick'],
@@ -405,9 +407,11 @@ function Content() {
         unit="mô hình"
         actions={[
           { label: 'Xem trước 3D', hidden: (r) => !r.glbUrl || r.format !== 'glb', onClick: setPreview },
+          { label: 'Vật liệu theo biến thể', hidden: (r) => r.status !== 'ready', onClick: setMaterials },
           { label: 'Xóa', danger: true, onClick: setDel },
         ]}
       />
+      <MaterialVariantsModal model={materials} onClose={() => setMaterials(null)} />
       <UploadModal open={upload} onClose={() => setUpload(false)} defaultProductId={st.productId} />
       <Modal open={Boolean(preview)} onClose={() => setPreview(null)} title={preview?.fileName} width={640}>
         <div className="h-80 overflow-hidden rounded-btn bg-surface-muted">

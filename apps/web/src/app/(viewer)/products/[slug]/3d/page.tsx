@@ -113,6 +113,7 @@ export default function Viewer3DPage() {
             model={p.model}
             alt={`Mô hình 3D ${p.name}`}
             tint={hex}
+            variantId={variant?.id ?? null}
             fallbackImage={p.images[0]?.url ?? null}
           />
         </div>

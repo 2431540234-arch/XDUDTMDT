@@ -239,3 +239,9 @@ Tổng: 79 lời gọi `invalidateQueries` và 10 lời gọi `setQueryData`.
 - **Chỉnh trang cũ:** chi tiết khách hàng admin có mục **Vai trò** (gán/gỡ admin; lỗi 409 hiện toast); trang hồ sơ có mục **Xóa tài khoản** (hộp thoại nhập mật khẩu, xong thì đăng xuất về trang chủ).
 - `api-client` xử lý `204 No Content`. Mock API chưa hỗ trợ 5 UC này (chỉ chạy với API thật).
 - **Test:** Playwright nhóm `ext-uc` (`tests/e2e/ext-uc.spec.ts`, 5 test).
+
+## Vật liệu theo biến thể (2026-11-08, D-T56) ✅
+
+- **Admin:** hành động dòng **Vật liệu theo biến thể** ở `/admin/models` (mô hình ready) mở hộp thoại `MaterialVariantsModal`: mỗi biến thể một dòng, chọn vật liệu từ danh sách có trong GLB, chọn màu (xem trước hình cầu), độ nhám, kim loại; Lưu/Xóa.
+- **Khách:** `ProductViewer3D` nhận `variantId`; có `materialVariants` cho biến thể thì áp màu/độ nhám/kim loại lên vật liệu cùng tên ngay trên `<model-viewer>` (không tải lại mô hình, không gọi API). Thuộc tính `data-material-applied` trên `viewer-3d` phục vụ test.
+- **Test:** Playwright nhóm `vat-lieu` (`tests/e2e/materials.spec.ts`): đổi màu biến thể ⇒ đọc `baseColorFactor` từ scene, kiểm không có yêu cầu .glb/API mới; admin cấu hình qua hộp thoại. Mock API không hỗ trợ.

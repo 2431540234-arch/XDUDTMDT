@@ -62,7 +62,7 @@
 | `GET /orders/counts`, `GET /admin/orders/counts` | `{ all, pending, confirmed, processing, shipping, completed, cancelled, refunded }` (số đơn theo trạng thái; admin: toàn hệ thống, khách: của mình) |
 | `POST /payments/:orderId/checkout`, `/retry` | `{ redirectUrl: string }` – URL tương đối của FE (`/checkout/success?order=<code>` hoặc `/checkout/failed?order=<code>`) hoặc URL cổng thanh toán (VNPAY) |
 | `GET /notifications/unread-count` | `{ count: number }` |
-| `GET /products/:slug/model` | `Model3DView \| null` |
+| `GET /products/:slug/model` | `Model3DView \| null` (kèm `materialVariants[{ variantId, materialName, config }]`, D-T56) |
 | `GET /products/facets` | `ProductFacets` (theo bộ lọc hiện tại, trừ chính nó) |
 | `GET /spaces/facets` | `{ styles:[{value,count}], roomTypes:[{value,count}] }` |
 | `GET /faq` | `FaqTopic[]` = `[{ key, label, items:[{ id, question, answer }] }]` |
@@ -382,6 +382,10 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | PATCH | `/admin/models/:id/primary` | admin | `admin.setPrimary` |  |  | `:id` = id MÔ HÌNH. `{ modelId, productId, isPrimary:true }`; chỉ khi `ready` (khác ⇒ `409 INVALID_STATE`), không có ⇒ `404` |
 | DELETE | `/admin/models/model/:modelId` | admin | `admin.removeModel` |  |  | Xóa cả mô hình (kể cả chưa có tệp: đang xử lý / lỗi) |
 | DELETE | `/admin/models/:id` | admin | `admin.remove` |  |  |  |
+| GET | `/admin/models/:id/materials` | admin | `admin.materialNames` |  |  | `:id` = id MÔ HÌNH. `{ names: string[] }`: tên các vật liệu có trong GLB (rỗng nếu chưa có tệp; không đọc được tệp ⇒ `404`) |
+| GET | `/admin/models/:id/material-variants` | admin | `admin.listMaterialVariants` |  |  | `[{ id, modelId, variantId, materialName, config, updatedAt }]` |
+| PUT | `/admin/models/:id/material-variants/:variantId` | admin | `admin.setMaterialVariant` |  | { materialName, config: { baseColor?: "#RRGGBB", roughness?: 0–1, metalness?: 0–1 } } | Tạo hoặc thay thế (UNIQUE model+variant) ⇒ `200`. Biến thể không thuộc sản phẩm của mô hình, config sai, khóa lạ ⇒ `400`; mô hình không có ⇒ `404`. Ghi `model.material_create` / `model.material_update` |
+| DELETE | `/admin/models/:id/material-variants/:variantId` | admin | `admin.removeMaterialVariant` |  |  | `200`; chưa có cấu hình ⇒ `404`. Ghi `model.material_delete` |
 
 ### 4. `admin/coupons`
 

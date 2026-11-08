@@ -437,3 +437,11 @@ Không đổi schema (partial unique `uq_users_email_active` và `user_sessions`
 - **Xoay vòng refresh token** thu hồi phiên cũ khi làm mới; điều này chỉ làm mất hiệu lực access token CŨ (vốn đã hết hạn lúc FE làm mới, vì FE chỉ làm mới sau 401) nên không đổi hành vi thực tế.
 - **Demo:** `scripts/demo.mjs` đặt `JWT_ACCESS_EXPIRES_IN=15m` như production. (`test:e2e:real` dùng 12h để tránh làm mới giữa chừng; nay cũng bị ràng buộc bởi phiên.)
 - **Test:** `extension.db-spec.ts` (+1, 18): gán admin có hiệu lực ngay, gỡ xong request kế tiếp 403, admin cuối cùng kiểm qua service, token của phiên bị thu hồi / đã đăng xuất ⇒ 401, phiên khác không ảnh hưởng. Toàn bộ supertest 223 xanh.
+
+## Vật liệu theo biến thể (2026-11-08, D-T56) ✅
+
+- UC-ADM-14: `ModelMaterialsService` (`PUT|DELETE|GET /admin/models/:id/material-variants…`, `GET /admin/models/:id/materials` đọc tên vật liệu từ GLB). Kiểm biến thể cùng sản phẩm với mô hình, kiểm `config`, upsert theo UNIQUE (model, variant), ghi `activity_logs` (`model.material_create|update|delete`), xóa cache sản phẩm.
+- UC-3D-03: `GET /products/:slug/model` và `model` trong chi tiết sản phẩm trả thêm `materialVariants[]`.
+- **Không có 409 "trùng" ở luồng thường:** PUT là tạo-hoặc-thay-thế nên lặp lại chỉ cập nhật; 409 chỉ xảy ra khi hai yêu cầu tạo đồng thời (P2002 ⇒ 409). Test kiểm không sinh bản trùng.
+- Dữ liệu demo: `seed-models.ts` gắn cấu hình vật liệu cho mọi mô hình chính có ≥ 2 màu (220 dòng trên aurelia_demo).
+- Test: `model-materials.db-spec.ts` (3 test: tạo/thay thế/xóa/nhật ký/khách thấy; 400; 404/401/403).
