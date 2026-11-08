@@ -171,7 +171,7 @@ export function recomputeAggregates(db: Db) {
       .reduce((s, it) => s + it.quantity, 0);
     const model = db.product3dModels.find((m) => m.productId === p.id && m.isPrimary && m.status === 'ready');
     p.has3dModel = Boolean(model);
-    p.hasAr = Boolean(model) && !['Thảm', 'Gương'].some((k) => p.name.startsWith(k));
+    p.hasAr = false; // AR ngoài phạm vi (D-P11)
   }
   for (const c of db.coupons) c.usedCount = db.couponUsages.filter((u) => u.couponId === c.id).length;
 }

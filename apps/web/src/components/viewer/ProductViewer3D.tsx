@@ -175,13 +175,8 @@ export default function ProductViewer3D({
           ref={ref as never}
           class="h-full w-full"
           src={glb.url}
-          ios-src={model.usdzUrl ?? undefined}
           alt={alt}
           poster={model.posterUrl ?? undefined}
-          ar={model.status === 'ready' ? true : undefined}
-          ar-modes="webxr scene-viewer quick-look"
-          ar-scale={model.allowScaling ? 'auto' : 'fixed'}
-          ar-placement={model.placement === 'wall' ? 'wall' : 'floor'}
           camera-controls
           auto-rotate={spin ? true : undefined}
           shadow-intensity="1"

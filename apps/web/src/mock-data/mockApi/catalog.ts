@@ -75,7 +75,6 @@ export function filterProducts(ctx: Ctx, q: Query, opts: { ignoreCategory?: bool
   const min = qNum(q, 'minPrice', -1);
   const max = qNum(q, 'maxPrice', -1);
   const has3d = qBool(q, 'has3d');
-  const hasAr = qBool(q, 'hasAr');
   const featured = qBool(q, 'featured');
   const brand = qStr(q, 'brand');
   const scored: Array<{ p: Product; score: number }> = [];
@@ -85,7 +84,6 @@ export function filterProducts(ctx: Ctx, q: Query, opts: { ignoreCategory?: bool
     if (!opts.ignoreCategory && catIds.size && !(p.categoryId && catIds.has(p.categoryId))) continue;
     if (brand && String(p.brandId) !== brand) continue;
     if (has3d !== undefined && p.has3dModel !== has3d) continue;
-    if (hasAr !== undefined && p.hasAr !== hasAr) continue;
     if (featured !== undefined && p.isFeatured !== featured) continue;
     const li = productListItem(db, p);
     const price = li.salePrice ?? li.price;

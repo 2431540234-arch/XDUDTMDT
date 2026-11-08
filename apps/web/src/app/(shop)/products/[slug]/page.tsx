@@ -134,7 +134,7 @@ export default function ProductDetailPage() {
           <div>
             <h2 className="text-lg font-extrabold">Trải nghiệm sản phẩm 3D</h2>
             <p className="text-sm text-muted">
-              Xoay 360°, phóng to và đặt thử {p.name} vào căn phòng của bạn bằng AR.
+              Xoay, phóng to và quan sát {p.name} từ mọi góc ngay trên website.
             </p>
           </div>
         </div>

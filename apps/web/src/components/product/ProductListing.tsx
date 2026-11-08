@@ -91,7 +91,7 @@ export default function ProductListing({ mode }: { mode: 'list' | 'search' }) {
                 </p>
                 <p className="mt-2 max-w-xl text-sm text-muted">
                   {currentCat?.description ??
-                    'Bộ sưu tập nội thất hiện đại, chất liệu chọn lọc, hỗ trợ xem 3D/AR trước khi mua.'}
+                    'Bộ sưu tập nội thất hiện đại, chất liệu chọn lọc, hỗ trợ xem 3D trước khi mua.'}
                 </p>
               </>
             )}

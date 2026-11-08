@@ -22,7 +22,6 @@ export interface ProductQuery extends Query {
   material?: string[];
   style?: string[];
   has3d?: boolean;
-  hasAr?: boolean;
   featured?: boolean;
   sort?: string;
   page?: number;

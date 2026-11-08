@@ -5,28 +5,14 @@
 import { useEffect, useState } from 'react';
 
 export interface ModelViewerElementProps {
-  /** URL tệp GLB (Android, web) */
+  /** URL tệp GLB (hệ thống chỉ hỗ trợ GLB; AR ngoài phạm vi, D-P11) */
   src: string;
-  /** URL tệp USDZ (iOS Quick Look) */
-  iosSrc?: string;
   alt: string;
   poster?: string;
-  /** Bật nút AR (Scene Viewer / Quick Look / WebXR) */
-  ar?: boolean;
-  /** Khóa tỉ lệ khi AR (khớp Product3DModel.allowScaling = false) */
-  fixedScale?: boolean;
   className?: string;
 }
 
-export default function ModelViewerElement({
-  src,
-  iosSrc,
-  alt,
-  poster,
-  ar = true,
-  fixedScale = true,
-  className,
-}: ModelViewerElementProps) {
+export default function ModelViewerElement({ src, alt, poster, className }: ModelViewerElementProps) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -47,12 +33,8 @@ export default function ModelViewerElement({
       // React 18 không chuyển className thành class cho Web Component, nên dùng thẳng thuộc tính class
       class={className}
       src={src}
-      ios-src={iosSrc}
       alt={alt}
       poster={poster}
-      ar={ar ? true : undefined} // thuộc tính boolean của Web Component: có mặt là bật, nên không truyền false
-      ar-modes="webxr scene-viewer quick-look"
-      ar-scale={fixedScale ? 'fixed' : 'auto'}
       camera-controls
       shadow-intensity="1"
     />

@@ -17,7 +17,7 @@ const stats = [
 const values: Array<[IconName, string, string]> = [
   ['shield', 'Chất lượng', 'Vật liệu chọn lọc, kiểm tra nghiêm ngặt 5 bước.'],
   ['eye', 'Minh bạch', 'Giá rõ ràng, chính sách đổi trả dễ dàng.'],
-  ['cube', 'Sáng tạo', 'Công nghệ 3D/AR giúp chọn đồ chính xác.'],
+  ['cube', 'Sáng tạo', 'Công nghệ 3D giúp chọn đồ chính xác.'],
   ['heart', 'Tận tâm', 'Đồng hành từ tư vấn đến lắp đặt tại nhà.'],
 ];
 const team = [
@@ -45,7 +45,7 @@ export default function AboutPage() {
           </h1>
           <p className="mt-3 max-w-lg text-white/85">
             Từ phòng khách đến phòng ngủ, chúng tôi giúp bạn hình dung và sở hữu không gian sống hoàn hảo bằng
-            công nghệ 3D và AR.
+            công nghệ 3D.
           </p>
         </div>
       </section>
