@@ -1,5 +1,6 @@
 // M06 – Danh mục sản phẩm: cây 2 cấp (GET /categories). Quản trị danh mục (CRUD) ở admin-categories.
 import { Injectable } from '@nestjs/common';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -28,10 +29,15 @@ export class CategoriesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
+    private readonly cache: CatalogCache,
   ) {}
 
-  /** Cây danh mục; includeInactive=true cho quản trị (đếm cả sản phẩm chưa đăng) */
-  async tree(includeInactive = false): Promise<CategoryNodeView[]> {
+  /** Cây danh mục công khai: cache 10 phút (admin sửa danh mục thì ProductsService.invalidate xóa). includeInactive=true cho quản trị: không cache */
+  tree(includeInactive = false): Promise<CategoryNodeView[]> {
+    return includeInactive ? this.buildTree(true) : this.cache.categoriesTree(() => this.buildTree(false));
+  }
+
+  private async buildTree(includeInactive: boolean): Promise<CategoryNodeView[]> {
     const [cats, counts] = await Promise.all([
       this.prisma.category.findMany({ include: { imageMedia: true } }),
       this.prisma.product.groupBy({

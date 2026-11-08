@@ -377,7 +377,7 @@ export class AdminProductsService {
       },
       { timeout: 60_000 },
     );
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.detailOf(await this.row(id));
   }
 
@@ -408,7 +408,7 @@ export class AdminProductsService {
       },
       { timeout: 60_000 },
     );
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.detailOf(await this.row(id));
   }
 
@@ -439,7 +439,7 @@ export class AdminProductsService {
         changes: { name: p.name },
       });
     }
-    this.products.invalidate();
+    await this.products.invalidate();
     return null;
   }
 
@@ -554,7 +554,7 @@ export class AdminProductsService {
       },
       { timeout: 60_000 },
     );
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.get360(id);
   }
 }

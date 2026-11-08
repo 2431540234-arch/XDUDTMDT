@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { EMAIL_RE, FieldErrors, PHONE_RE, asBody, str } from '../../common/utils/validate';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -12,6 +13,7 @@ export class ContentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
+    private readonly cache: CatalogCache,
   ) {}
 
   // ---------------- banner ----------------
@@ -107,10 +109,13 @@ export class ContentService {
   }
 
   // ---------------- trang tĩnh ----------------
-  async pageBySlug(slug: string) {
-    const p = await this.prisma.page.findFirst({ where: { slug, status: 'published' } });
-    if (!p) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Trang không tồn tại.');
-    return p;
+  /** Trang tĩnh công khai: cache 10 phút theo slug (admin sửa/xóa trang thì xóa cache; 404 không được cache) */
+  pageBySlug(slug: string) {
+    return this.cache.page(slug, async () => {
+      const p = await this.prisma.page.findFirst({ where: { slug, status: 'published' } });
+      if (!p) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Trang không tồn tại.');
+      return p;
+    });
   }
 
   /** Danh sách chính sách (type=policy) để dựng menu footer */
@@ -154,7 +159,12 @@ export class ContentService {
   }
 
   // ---------------- cài đặt công khai ----------------
-  async publicSettings() {
+  /** Cài đặt công khai: cache 10 phút (admin sửa cài đặt thì xóa cache) */
+  publicSettings() {
+    return this.cache.settingsPublic(() => this.loadPublicSettings());
+  }
+
+  private async loadPublicSettings() {
     const rows = await this.prisma.setting.findMany({
       where: { key: { in: ['store', 'payments', 'shippingZones'] } },
     });

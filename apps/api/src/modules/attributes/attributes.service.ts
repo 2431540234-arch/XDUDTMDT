@@ -144,7 +144,7 @@ export class AttributesService {
         tx,
       );
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.view(await this.one(id));
   }
 
@@ -264,7 +264,7 @@ export class AttributesService {
         tx,
       );
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.view(await this.one(attributeId)).values.find((v) => v.id === valueId)!;
   }
 

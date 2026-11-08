@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { basename, extname } from 'node:path';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ActivityLogService } from '../../../activity-log/activity-log.service';
+import { CatalogCache } from '../../../cache/catalog-cache';
 import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../../storage/storage.service';
@@ -48,6 +49,7 @@ export class ModelProcessingService {
     private readonly config: AppConfig,
     private readonly activity: ActivityLogService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CatalogCache,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
   ) {}
 
@@ -65,6 +67,7 @@ export class ModelProcessingService {
       await this.storage.upload({ key: f.key, body: f.body, contentType: f.mimeType, visibility: 'public' });
     }
     const replaced = await this.saveAll(data, files);
+    await this.cache.invalidateProducts(); // mô hình đã ready: chi tiết sản phẩm cache phải có mô hình mới
     // Dọn tệp của lần tải lên trước (tên khác) mà không còn bản ghi nào dùng
     for (const key of replaced) await this.storage.delete(key, 'public').catch(() => undefined);
 
@@ -105,6 +108,7 @@ export class ModelProcessingService {
         );
       }
     });
+    await this.cache.invalidateProducts();
     this.logger.warn(`Mô hình ${data.modelId} xử lý thất bại: ${reason}`);
   }
 

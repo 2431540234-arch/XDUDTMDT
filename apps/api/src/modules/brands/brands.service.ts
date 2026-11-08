@@ -102,7 +102,7 @@ export class BrandsService {
       );
       return row.id;
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.get(id);
   }
 
@@ -145,7 +145,7 @@ export class BrandsService {
         tx,
       );
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.get(id);
   }
 
@@ -167,7 +167,7 @@ export class BrandsService {
       );
       return r.count;
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return { id, productsDetached: affected };
   }
 }

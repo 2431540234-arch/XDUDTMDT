@@ -11,6 +11,7 @@ import { qNum, qStr, resolvePage, parseSort, type RawQuery } from '../../common/
 import { asBody, FieldErrors, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews } from '../../common/views/catalog-views.service';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type Tx = Prisma.TransactionClient;
@@ -40,6 +41,7 @@ export class InventoryService {
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
     private readonly activity: ActivityLogService,
+    private readonly cache: CatalogCache,
   ) {}
 
   // ---------------------------------------------------------------- tồn kho theo biến thể
@@ -183,7 +185,7 @@ export class InventoryService {
     if (ref.length > 100) errs.add('referenceCode', 'Mã chứng từ tối đa 100 ký tự.');
     errs.throwIfAny();
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const v = await this.applyMovement(tx, {
         variantId,
         type: type as 'import' | 'adjustment' | 'return',
@@ -208,6 +210,8 @@ export class InventoryService {
       });
       return { variantId, stockQuantity: v.stockQuantity, movement: m };
     });
+    await this.cache.invalidateProducts(); // tồn kho đổi
+    return result;
   }
 
   /** Đổi tồn bằng UPDATE có điều kiện (không âm) + đúng một movement; thiếu hàng ⇒ 409 */
@@ -425,6 +429,7 @@ export class InventoryService {
         tx,
       );
     });
+    await this.cache.invalidateProducts(); // phiếu nhập xác nhận ⇒ tồn kho và giá vốn đổi
     return this.receipt(id).then(({ items: _i, ...v }) => v);
   }
 

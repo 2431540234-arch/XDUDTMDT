@@ -77,7 +77,7 @@ export class AdminCategoriesService {
       targetType: 'category',
       targetId: c.id,
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.node(c.id);
   }
 
@@ -113,7 +113,7 @@ export class AdminCategoriesService {
       targetType: 'category',
       targetId: id,
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.node(id);
   }
 
@@ -140,7 +140,7 @@ export class AdminCategoriesService {
       targetType: 'category',
       targetId: id,
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return null;
   }
 }

@@ -122,3 +122,23 @@ describe('CacheService', () => {
     await expect(service.del('k')).resolves.toBeUndefined();
   });
 });
+
+describe('CacheService.onApplicationBootstrap', () => {
+  it('khởi động xóa mọi khóa của môi trường (theo tiền tố), không đụng khóa môi trường khác', async () => {
+    const { service, redis } = make();
+    redis.store.set('test:products:a', '1');
+    redis.store.set('test:pages:b', '1');
+    redis.store.set('khac:products:a', '1'); // môi trường khác dùng tiền tố khác
+    await service.onApplicationBootstrap();
+    expect([...redis.store.keys()]).toEqual(['khac:products:a']);
+  });
+
+  it('cache tắt (CACHE_ENABLED=false) ⇒ get/set/del đều bỏ qua và không chạm Redis', async () => {
+    const { service, redis } = make({ CACHE_ENABLED: false });
+    await service.set('k', 1);
+    await expect(service.get('k')).resolves.toBeNull();
+    await service.onApplicationBootstrap();
+    expect(redis.store.size).toBe(0);
+    await expect(service.getOrSet('k', async () => 7)).resolves.toBe(7); // luôn chạy loader
+  });
+});

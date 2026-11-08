@@ -9,6 +9,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { serialize } from '../../common/utils/serialize';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ORDER_INCLUDE, OrderViewsService } from '../orders/order-views.service';
@@ -40,6 +41,7 @@ export class ShipmentsService {
     private readonly orderViews: OrderViewsService,
     private readonly activity: ActivityLogService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CatalogCache,
   ) {}
 
   private async order(key: string) {
@@ -206,6 +208,7 @@ export class ShipmentsService {
       );
       return cur.orderId;
     });
+    if (to === 'delivered') await this.cache.invalidateProducts(); // đơn hoàn tất ⇒ sold_count đổi
     return {
       shipment: serialize(await this.prisma.shipment.findUniqueOrThrow({ where: { id } })),
       order: await this.viewOrder(orderId),

@@ -1,13 +1,13 @@
 // Cache Redis dùng chung (D-T30). Module nghiệp vụ gọi get/set/del/delByPrefix; chưa module nào dùng ở giai đoạn nền tảng.
 // Cache chỉ là tối ưu: lỗi Redis không bao giờ làm hỏng request (ghi log rồi coi như cache miss).
-import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import type Redis from 'ioredis';
 import { AppConfig } from '../config/app-config.service';
 
 export const CACHE_REDIS = Symbol('CACHE_REDIS');
 
 @Injectable()
-export class CacheService implements OnModuleDestroy {
+export class CacheService implements OnModuleDestroy, OnApplicationBootstrap {
   private readonly logger = new Logger(CacheService.name);
   private readonly enabled: boolean;
   private readonly prefix: string;
@@ -20,6 +20,14 @@ export class CacheService implements OnModuleDestroy {
     this.enabled = config.get('CACHE_ENABLED');
     this.prefix = config.get('CACHE_KEY_PREFIX');
     this.defaultTtl = config.get('CACHE_DEFAULT_TTL_SECONDS');
+  }
+
+  /**
+   * Khởi động API thì xóa mọi khóa cache của MÔI TRƯỜNG NÀY (theo CACHE_KEY_PREFIX): dữ liệu có thể đã đổi khi API không chạy
+   * (reset DB, seed, sửa tay) nên cache cũ không được phép sống sót qua lần khởi động.
+   */
+  async onApplicationBootstrap() {
+    if (this.enabled) await this.delByPrefix('');
   }
 
   get isEnabled(): boolean {

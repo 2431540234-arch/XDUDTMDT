@@ -48,3 +48,15 @@ const run = (cmd) => execSync(cmd, { cwd: apiDir, stdio: 'inherit', env });
 run('npm run db:deploy --silent');
 run('npm run db:seed --silent');
 console.log(`Sau khi seed – ${count(name)}  (users|products|orders)`);
+// Dữ liệu vừa đổi ngoài API ⇒ xóa cache Redis (chỉ là bộ nhớ đệm, API tự dựng lại). Không phải lỗi nếu Redis không chạy.
+try {
+  const redis = process.env.REDIS_CONTAINER ?? 'xdudtmdt-redis-1';
+  execFileSync(
+    'docker',
+    ['exec', redis, 'sh', '-c', "redis-cli --scan --pattern '*cache*' | xargs -r redis-cli del >/dev/null"],
+    { stdio: 'ignore' },
+  );
+  console.log('Đã xóa cache Redis (khóa *cache*)');
+} catch {
+  console.log('(bỏ qua xóa cache Redis: không truy cập được container Redis)');
+}

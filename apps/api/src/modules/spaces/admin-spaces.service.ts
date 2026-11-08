@@ -328,7 +328,7 @@ export class AdminSpacesService {
       },
       { timeout: 60_000 },
     );
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.spaces.adminDetail(spaceId);
   }
 

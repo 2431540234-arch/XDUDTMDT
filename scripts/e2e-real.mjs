@@ -204,6 +204,7 @@ async function main() {
     PAYMENT_SANDBOX_FAKE: 'true',
     // hàng đợi riêng: nếu có API demo/dev đang chạy, worker của nó không được nhận job của e2e (xử lý nhầm DB)
     BULL_PREFIX: 'bull-e2e',
+    CACHE_KEY_PREFIX: 'aurelia:cache-e2e:', // cache Redis BẬT, tiền tố riêng cho e2e (D-P14)
     THROTTLE_PREFIX: 'throttle-e2e:', // bộ đếm giới hạn tốc độ riêng, không dùng chung với API demo/dev
     HTTP_ERROR_LOG_FILE: apiErrorLog, // mọi response >= 400 của API e2e (xem .e2e-logs/)
   };

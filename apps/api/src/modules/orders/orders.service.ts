@@ -11,6 +11,7 @@ import { nextOrderCode } from '../../common/utils/code-generator';
 import { qList, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CartService } from '../cart/cart.service';
@@ -48,6 +49,7 @@ export class OrdersService {
     private readonly cart: CartService,
     private readonly coupons: CouponsService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CatalogCache,
   ) {}
 
   /**
@@ -328,6 +330,7 @@ export class OrdersService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 20_000 },
     );
+    await this.cache.invalidateProducts(); // tồn kho đổi ⇒ chi tiết sản phẩm cache không được cũ
     return this.byId(orderId);
   }
 
@@ -441,5 +444,6 @@ export class OrdersService {
         `/account/orders/${o.order_code}`,
       );
     });
+    await this.cache.invalidateProducts(); // hoàn lại tồn kho
   }
 }

@@ -68,6 +68,7 @@ function setup(opts: { serveMaxMb?: number; source: Buffer; glbCount?: number })
     config as never,
     activity as never,
     notifications as never,
+    { invalidateProducts: jest.fn(async () => undefined) } as never,
     storage as never,
   );
   return { service, saved, uploaded, logs, notes, prisma, storage, tx };

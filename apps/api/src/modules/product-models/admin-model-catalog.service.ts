@@ -249,7 +249,7 @@ export class AdminModelCatalogService {
       fileName: check.fileName,
       uploadedBy: adminId,
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return { modelId, jobId, status: 'processing' };
   }
 
@@ -505,7 +505,7 @@ export class AdminModelCatalogService {
           tx,
         );
       });
-      this.products.invalidate();
+      await this.products.invalidate();
     }
     return { modelId, productId: model.productId, isPrimary: true };
   }
@@ -535,7 +535,7 @@ export class AdminModelCatalogService {
       );
     });
     await this.dropMediaIfUnused(f.mediaId, f.media.filePath);
-    this.products.invalidate();
+    await this.products.invalidate();
     return null;
   }
 
@@ -562,7 +562,7 @@ export class AdminModelCatalogService {
       );
     });
     for (const f of model.modelFiles) await this.dropMediaIfUnused(f.mediaId, f.media.filePath);
-    this.products.invalidate();
+    await this.products.invalidate();
     return null;
   }
 

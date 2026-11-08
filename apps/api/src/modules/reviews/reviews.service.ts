@@ -192,7 +192,7 @@ export class ReviewsService {
         changes: { rating },
       },
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.toView(review);
   }
 
@@ -232,14 +232,14 @@ export class ReviewsService {
       },
       include: REVIEW_INCLUDE,
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.toView(r);
   }
 
   async remove(userId: number, id: number) {
     await this.own(userId, id);
     await this.prisma.review.delete({ where: { id } });
-    this.products.invalidate();
+    await this.products.invalidate();
     return null;
   }
 }

@@ -7,6 +7,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { EMAIL_RE, FieldErrors, asBody, str } from '../../common/utils/validate';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -34,6 +35,7 @@ export class SettingsService {
     private readonly activity: ActivityLogService,
     private readonly ingest: MediaIngestService,
     private readonly views: CatalogViews,
+    private readonly cache: CatalogCache,
   ) {}
 
   private async valueOf(key: string): Promise<unknown> {
@@ -198,6 +200,7 @@ export class SettingsService {
         );
       }
     });
+    await this.cache.invalidateSettings(); // GET /settings/public thấy giá trị mới ngay
   }
 
   /** PUT /admin/settings/store (trang Cài đặt FE): { store?, payments?, shippingZones? } – chỉ ghi phần được gửi */

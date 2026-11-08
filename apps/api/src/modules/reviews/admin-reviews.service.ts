@@ -91,7 +91,7 @@ export class AdminReviewsService {
       );
       return r;
     });
-    this.products.invalidate();
+    await this.products.invalidate();
     return this.reviews.toView(updated);
   }
 }

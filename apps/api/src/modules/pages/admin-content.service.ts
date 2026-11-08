@@ -9,6 +9,7 @@ import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query'
 import { toSlug } from '../../common/utils/slug';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ContentService } from './content.service';
 
@@ -49,6 +50,7 @@ export class AdminContentService {
     private readonly content: ContentService,
     private readonly ingest: MediaIngestService,
     private readonly activity: ActivityLogService,
+    private readonly cache: CatalogCache,
   ) {}
 
   // ------------------------------------------------------------ banner
@@ -254,6 +256,7 @@ export class AdminContentService {
       targetType: 'page',
       targetId: row.id,
     });
+    await this.cache.invalidatePages();
     return row;
   }
 
@@ -267,6 +270,7 @@ export class AdminContentService {
       );
     await this.prisma.page.delete({ where: { id } });
     await this.activity.log({ actorId: adminId, action: 'page.delete', targetType: 'page', targetId: id });
+    await this.cache.invalidatePages();
     return null;
   }
 

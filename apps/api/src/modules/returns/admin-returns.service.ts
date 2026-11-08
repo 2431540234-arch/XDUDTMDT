@@ -11,6 +11,7 @@ import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { asBody, FieldErrors, str } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { OrdersService } from '../orders/orders.service';
@@ -43,6 +44,7 @@ export class AdminReturnsService {
     private readonly orders: OrdersService,
     private readonly activity: ActivityLogService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CatalogCache,
   ) {}
 
   async list(q: RawQuery) {
@@ -227,6 +229,7 @@ export class AdminReturnsService {
       );
       return id;
     });
+    await this.cache.invalidateProducts(); // nhập lại kho / đổi hàng làm đổi tồn
     return this.returns.toView(
       await this.prisma.returnRequest.findUniqueOrThrow({ where: { id: done }, include: RETURN_INCLUDE }),
     );

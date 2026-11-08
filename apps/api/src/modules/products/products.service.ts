@@ -7,11 +7,14 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { qBool, qList, qNum, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews, PRODUCT_INCLUDE, type ProductRow } from '../../common/views/catalog-views.service';
+import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
 
 type ListItem = ReturnType<CatalogViews['listItem']>;
+/** Mục chỉ mục: chỉ giữ phần JSON-an toàn cần cho lọc/sắp xếp (lưu được vào Redis) */
 interface IndexEntry {
-  row: ProductRow;
+  id: number;
+  categoryId: number | null;
   item: ListItem;
   hay: string;
   nameFold: string;
@@ -23,24 +26,27 @@ interface CatRow {
   name: string;
 }
 
-const INDEX_TTL_MS = 15_000;
-
 @Injectable()
 export class ProductsService {
-  private index: { at: number; entries: IndexEntry[]; categories: CatRow[] } | null = null;
-
   constructor(
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
+    private readonly cache: CatalogCache,
   ) {}
 
-  /** Xóa chỉ mục sau khi dữ liệu catalog thay đổi (gọi từ module admin) */
-  invalidate() {
-    this.index = null;
+  /**
+   * Xóa cache catalog (chi tiết, nổi bật, chỉ mục danh sách, cây danh mục) sau khi admin đổi dữ liệu. Gọi với await để lần đọc
+   * ngay sau đó thấy dữ liệu mới. (Không còn chỉ mục RAM 15 giây: chỉ mục nằm trong Redis, D-T30.)
+   */
+  invalidate(): Promise<void> {
+    return this.cache.invalidateCatalog();
   }
 
-  private async load() {
-    if (this.index && Date.now() - this.index.at < INDEX_TTL_MS) return this.index;
+  private load() {
+    return this.cache.catalogIndex(() => this.buildIndex());
+  }
+
+  private async buildIndex(): Promise<{ entries: IndexEntry[]; categories: CatRow[] }> {
     const [rows, categories] = await Promise.all([
       this.prisma.product.findMany({
         where: { status: 'published', deletedAt: null },
@@ -52,7 +58,8 @@ export class ProductsService {
     const entries = rows.map((row) => {
       const item = this.views.listItem(row);
       return {
-        row,
+        id: row.id,
+        categoryId: row.categoryId,
         item,
         hay: foldVi(
           `${row.name} ${item.category?.name ?? ''} ${item.style ?? ''} ${row.shortDescription ?? ''}`,
@@ -60,8 +67,7 @@ export class ProductsService {
         nameFold: foldVi(row.name),
       };
     });
-    this.index = { at: Date.now(), entries, categories };
-    return this.index;
+    return { entries, categories };
   }
 
   private categoryIdsWithChildren(cats: CatRow[], slug: string) {
@@ -114,6 +120,17 @@ export class ProductsService {
   }
 
   async list(q: RawQuery, userId: number | null, defaultSort: string) {
+    // Danh sách nổi bật (trang chủ) cache 2 phút; cờ "đã yêu thích" gắn SAU khi lấy từ cache (không cache theo người dùng)
+    const page =
+      qBool(q, 'featured') === true
+        ? await this.cache.featured({ q, defaultSort }, () => this.listBase(q, defaultSort))
+        : await this.listBase(q, defaultSort);
+    const data = await this.views.withWishlist(page.slice, userId);
+    return { data, page: page.page, pageSize: page.pageSize, total: page.total };
+  }
+
+  /** Trang kết quả chưa gắn cờ yêu thích (dùng chung được giữa mọi người dùng) */
+  private async listBase(q: RawQuery, defaultSort: string) {
     const scored = await this.filter(q);
     const sort = qStr(q, 'sort') || defaultSort;
     const items = scored.map((s) => ({ item: s.e.item, score: s.score }));
@@ -138,8 +155,7 @@ export class ProductsService {
     }
     const page = resolvePage(q, items.length, 12);
     const slice = items.slice(page.skip, page.skip + page.pageSize).map((i) => i.item);
-    const data = await this.views.withWishlist(slice, userId);
-    return { data, page: page.page, pageSize: page.pageSize, total: items.length };
+    return { slice, page: page.page, pageSize: page.pageSize, total: items.length };
   }
 
   async facets(q: RawQuery) {
@@ -179,8 +195,8 @@ export class ProductsService {
   }
 
   async detail(slug: string, userId: number | null) {
-    const p = await this.bySlug(slug);
-    const d = await this.views.detail(p);
+    // chi tiết công khai cache 1 phút (404 không được cache); isWishlisted gắn sau, theo từng người dùng
+    const d = await this.cache.product(slug, async () => this.views.detail(await this.bySlug(slug)));
     const [withWish] = await this.views.withWishlist([d], userId);
     return withWish;
   }
@@ -194,12 +210,10 @@ export class ProductsService {
     const p = await this.bySlug(slug);
     const { entries, categories } = await this.load();
     const parentOf = (id: number | null) => categories.find((c) => c.id === id)?.parentId ?? null;
-    const same = entries.filter((e) => e.row.id !== p.id && e.row.categoryId === p.categoryId);
+    const same = entries.filter((e) => e.id !== p.id && e.categoryId === p.categoryId);
     const rest = entries.filter(
       (e) =>
-        e.row.id !== p.id &&
-        e.row.categoryId !== p.categoryId &&
-        parentOf(e.row.categoryId) === parentOf(p.categoryId),
+        e.id !== p.id && e.categoryId !== p.categoryId && parentOf(e.categoryId) === parentOf(p.categoryId),
     );
     return this.views.withWishlist(
       [...same, ...rest].slice(0, 4).map((e) => e.item),

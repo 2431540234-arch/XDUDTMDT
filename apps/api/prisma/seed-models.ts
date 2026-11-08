@@ -39,6 +39,8 @@ export async function processSeedModels(): Promise<SeedModelProblem[]> {
       config,
       activity,
       new NotificationsService(prisma as never),
+      // seed chạy ngoài API: cache được xóa khi API khởi động (CacheService.onApplicationBootstrap), nên không cần Redis ở đây
+      { invalidateProducts: async () => undefined } as never,
       storage,
     );
     const admin = await prisma.user.findFirst({ where: { email: 'admin@aurelia.vn' } });
