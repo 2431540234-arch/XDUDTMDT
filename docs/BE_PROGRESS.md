@@ -454,3 +454,9 @@ Không đổi schema (partial unique `uq_users_email_active` và `user_sessions`
 - Sửa không gian có `panoramas` giữ placement (chép theo `media_id` của ảnh) thay vì làm mất như trước.
 - Dữ liệu demo: `seed-mock.ts` chỉ giữ placement của 3 không gian đầu; `aurelia_demo` đã tỉa còn 12 dòng (84 dòng seed cũ của 45 không gian khác bị xóa vì nay không dùng).
 - Test: `placements.db-spec.ts` (5 test: tạo/sửa/đọc/xóa + nhật ký, 400, 404/401/403, alternatives không ghi DB, sửa không gian giữ placement).
+
+## Phễu không gian mẫu (2026-11-09, D-T58) ✅
+
+- `GET /admin/stats/spaces?from=&to=` (`AdminSpaceStatsService`, quyền `manage_content` ở mức hàm): gộp theo visitorId bằng SQL (`bool_or` theo người xem), trả `totals`, `spaces[]` (kèm nguồn top 5) và `sources[]` (top 10). Ngày theo giờ Việt Nam, kiểm định dạng/đảo ngược ⇒ 400.
+- Dữ liệu demo: `seed-space-views.ts` (≈ 350 lượt xem 30 ngày gần nhất), gọi trong `seed-mock.ts`; `npm run db:seed-space-views` bổ sung cho DB demo/test đã có (đã chạy trên aurelia_demo: +354 dòng).
+- Test: `space-funnel.db-spec.ts` (2 test): dữ liệu cụ thể 2 không gian trong khoảng 03/2020 (gộp user+khách, người xem lại, biên ngày, ngoài khoảng) kiểm đúng số và tỉ lệ (0,6; 0,6; 0,6667; tổng 0,8…), nguồn dẫn tới; 400/401/403.

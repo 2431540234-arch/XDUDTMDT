@@ -65,8 +65,8 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   // tự xoay
   await page.getByRole('button', { name: 'Tự xoay' }).click();
   const before = await angle(page);
-  await page.waitForTimeout(1500);
-  expect(await angle(page)).not.toBe(before);
+  // chờ tối đa 10 s (máy tải nặng có thể làm requestAnimationFrame chậm); trước đây chỉ chờ cố định 1,5 s nên đôi khi đỏ
+  await expect.poll(() => angle(page), { timeout: 10_000 }).not.toBe(before);
   await page.getByRole('button', { name: 'Dừng tự xoay' }).click();
 
   // zoom

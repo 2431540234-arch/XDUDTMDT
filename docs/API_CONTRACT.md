@@ -283,6 +283,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 |---|---|---|---|---|---|---|
 | GET | `/admin/stats/overview` | admin | `admin.stats` |  |  |  |
 | GET | `/admin/stats/finance` | admin | `admin.finance` |  |  |  |
+| GET | `/admin/stats/spaces` | admin (manage_content) | `admin.spaceFunnel` | `from`, `to` (YYYY-MM-DD, mặc định 30 ngày gần nhất; sai ⇒ `400`) |  | Phễu không gian mẫu: `{ from, to, totals, spaces[], sources[] }`. `totals` và mỗi phần tử `spaces[]` (kèm `spaceId`, `title`, `slug`, `sources[]` top 5) có `{ views (lượt), viewers (người, gộp user+khách theo visitorId), clicked, carted, clickRate, cartRate, clickToCartRate }`: `clickRate = clicked/viewers`, `cartRate = carted/viewers`, `clickToCartRate = (bấm và thêm giỏ)/clicked`, làm tròn 4 chữ số, 0 khi mẫu số 0. `sources[]` (top 10) = sản phẩm dẫn tới `{ productId, name, slug, views, viewers, spaces }`. Chỉ liệt kê không gian có lượt xem trong khoảng. `totals.viewers` đếm mỗi người MỘT lần dù xem nhiều không gian |
 
 ### 4. `admin/notifications`
 

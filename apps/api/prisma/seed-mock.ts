@@ -9,6 +9,7 @@ import Module from 'node:module';
 import { resolve } from 'node:path';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { recentSpaceViews } from './seed-space-views';
 import { storeObject } from './seed-storage';
 
 const WEB_SRC = resolve(__dirname, '../../web/src');
@@ -508,6 +509,34 @@ async function main() {
         data: db.spaceViews.map((v) => ({ ...v, visitorId: v.visitorId ? fixUuid(v.visitorId) : null })),
         skipDuplicates: true,
       });
+      // lượt xem 30 ngày gần nhất (phễu không gian mẫu): dữ liệu mock cũ chỉ kéo đến tháng 10 nên khoảng mặc định sẽ trống
+      {
+        const sp = await tx.space.findMany({
+          where: { status: 'published' },
+          orderBy: { id: 'asc' },
+          take: 12,
+          select: { id: true },
+        });
+        const pr = await tx.product.findMany({
+          where: { deletedAt: null, status: 'published' },
+          orderBy: { id: 'asc' },
+          take: 16,
+          select: { id: true },
+        });
+        const us = await tx.user.findMany({
+          where: { deletedAt: null },
+          orderBy: { id: 'asc' },
+          take: 10,
+          select: { id: true },
+        });
+        await tx.spaceView.createMany({
+          data: recentSpaceViews(
+            sp.map((x) => x.id),
+            pr.map((x) => x.id),
+            us.map((x) => x.id),
+          ),
+        });
+      }
 
       // giỏ hàng, yêu thích, mã giảm giá
       await tx.cart.createMany({ data: db.carts, skipDuplicates: true });

@@ -265,7 +265,7 @@ export class AdminOrdersService {
           category: 'refund',
           amount: o.total,
           note: `Hoàn tiền đơn ${o.orderCode}`,
-          date: new Date(),
+          date: new Date(Date.now() + 7 * 3_600_000), // cột DATE lưu ngày theo UTC: cộng 7 giờ để là ngày giờ Việt Nam
           orderId: o.id,
         },
       });

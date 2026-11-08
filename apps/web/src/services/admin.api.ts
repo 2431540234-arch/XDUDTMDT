@@ -4,6 +4,7 @@ import type {
   AdminMaterialVariant,
   Banner,
   MaterialConfig,
+  SpaceFunnel,
   PlacementView,
   CategoryNode,
   CouponView,
@@ -44,6 +45,8 @@ import { getUploadMode, putToStorage } from './direct-upload';
 export const adminApi = {
   stats: (q: { from?: string; to?: string }) => http.get<DashboardStats>('/admin/stats/overview', q),
   finance: (q: { from?: string; to?: string }) => http.get<FinanceReport>('/admin/stats/finance', q),
+  /** Phễu không gian mẫu (cần quyền manage_content) */
+  spaceFunnel: (q: { from?: string; to?: string }) => http.get<SpaceFunnel>('/admin/stats/spaces', q),
 
   products: {
     list: (q: Query) => http.list<ProductListItem>('/admin/products', q),

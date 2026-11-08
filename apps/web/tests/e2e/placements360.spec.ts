@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 
 // UC-ADM-17 / UC-SPACE-04/05 (API thật): admin đặt mô hình 3D vào ảnh 360° của một không gian chưa có placement, khách thấy
 // mô hình (tải SAU khi ảnh 360° hiện, có trạng thái đang tải) và "Đổi món" thử mà KHÔNG lưu vào DB; không gian chưa đặt gì thì
@@ -41,7 +41,7 @@ async function emptySpace(request: APIRequestContext) {
   throw new Error('Không có không gian trống để thử');
 }
 
-const placed = (page: Page) => page.getByTestId('placed-models');
+const placed = (page: Page | Locator) => page.getByTestId('placed-models');
 
 test('admin đặt mô hình vào ảnh 360°, khách thấy mô hình và Đổi món thử (không lưu); không gian khác không đổi', async ({
   page,

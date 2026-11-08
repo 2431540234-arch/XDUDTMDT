@@ -178,7 +178,7 @@ export class AdminReturnsService {
             category: 'refund',
             amount: r.refundAmount,
             note: `Hoàn tiền đổi trả ${r.code} (đơn ${r.order.orderCode})`,
-            date: new Date(),
+            date: new Date(Date.now() + 7 * 3_600_000), // cột DATE lưu ngày theo UTC: cộng 7 giờ để là ngày giờ Việt Nam
             orderId: r.orderId,
           },
         });

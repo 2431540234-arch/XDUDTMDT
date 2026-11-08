@@ -252,3 +252,7 @@ Tổng: 79 lời gọi `invalidateQueries` và 10 lời gọi `setQueryData`.
 - **Admin:** tab **Đặt sản phẩm 3D** trong form không gian (`PlacementEditor`): nút **Đặt sản phẩm 3D**, chọn sản phẩm có mô hình + biến thể, **kéo ghim** để đổi yaw/pitch, ô số + thanh trượt cho khoảng cách/xoay X-Y-Z/tỉ lệ, xem trước trực tiếp ngay trong khung, **Lưu vị trí** / Hoàn tác / Gỡ.
 - Mock API trả `placements: []` (chỉ chạy với API thật).
 - **Test:** Playwright nhóm `phong-3d` (`tests/e2e/placements360.spec.ts`): admin đặt, khách thấy và đổi món, không lưu DB; không gian trống như cũ; mô hình bị chặn tải thì ảnh vẫn dùng được.
+
+## Phễu không gian mẫu (2026-11-09, D-T58) ✅
+
+- Trang mới `/admin/reports/spaces` ("Hiệu quả không gian mẫu", mục menu cạnh Báo cáo): chọn khoảng ngày, 4 thẻ KPI (người xem, bấm hotspot, thêm giỏ, bấm → thêm giỏ), biểu đồ cột nhóm theo 10 không gian nhiều người xem nhất, bảng chi tiết kèm nguồn dẫn tới, danh sách sản phẩm dẫn khách tới không gian. Mock API chưa hỗ trợ.

@@ -727,3 +727,33 @@ export interface SessionView {
   expiresAt: string;
   current: boolean;
 }
+
+/** UC-ADM-29 (không gian mẫu): phễu người xem → bấm hotspot → thêm giỏ; người dùng và khách gộp theo visitorId */
+export interface SpaceFunnelStage {
+  /** số lượt xem (mỗi lần mở không gian) */
+  views: number;
+  /** số người xem (đã gộp theo visitorId) */
+  viewers: number;
+  clicked: number;
+  carted: number;
+  /** clicked / viewers, cartRate = carted / viewers, clickToCartRate = (bấm và thêm giỏ) / clicked; 0 khi mẫu số = 0 */
+  clickRate: number;
+  cartRate: number;
+  clickToCartRate: number;
+}
+export interface SpaceFunnelSource {
+  productId: number;
+  name: string;
+  slug: string | null;
+  views: number;
+  viewers: number;
+}
+export interface SpaceFunnel {
+  from: string;
+  to: string;
+  totals: SpaceFunnelStage;
+  spaces: Array<
+    SpaceFunnelStage & { spaceId: number; title: string; slug: string | null; sources: SpaceFunnelSource[] }
+  >;
+  sources: Array<SpaceFunnelSource & { spaces: number }>;
+}

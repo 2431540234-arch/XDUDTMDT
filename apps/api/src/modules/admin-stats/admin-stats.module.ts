@@ -8,13 +8,14 @@ import { AdminMiscController } from './admin-misc.controller';
 import { AdminMiscService } from './admin-misc.service';
 import { AdminFinanceController } from './admin-finance.controller';
 import { AdminFinanceService } from './admin-finance.service';
+import { AdminSpaceStatsService } from './admin-space-stats.service';
 import { AdminStatsController } from './admin-stats.controller';
 import { AdminStatsService } from './admin-stats.service';
 
 @Module({
   imports: [OrdersModule],
   controllers: [AdminStatsController, AdminMiscController, AdminFinanceController],
-  providers: [AdminStatsService, AdminMiscService, AdminFinanceService],
+  providers: [AdminStatsService, AdminSpaceStatsService, AdminMiscService, AdminFinanceService],
   exports: [AdminStatsService],
 })
 export class AdminStatsModule {}
