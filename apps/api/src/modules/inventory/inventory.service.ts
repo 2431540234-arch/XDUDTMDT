@@ -9,6 +9,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { nextExpenseCode, nextReceiptCode } from '../../common/utils/code-generator';
 import { qNum, qStr, resolvePage, parseSort, type RawQuery } from '../../common/utils/list-query';
 import { asBody, FieldErrors, str, toId } from '../../common/utils/validate';
+import { vnDbDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { CatalogCache } from '../../cache/catalog-cache';
@@ -32,7 +33,6 @@ const RECEIPT_INCLUDE = {
 type ReceiptRow = Prisma.StockReceiptGetPayload<{ include: typeof RECEIPT_INCLUDE }>;
 
 const MOVEMENT_TYPES = ['import', 'adjustment', 'return'] as const;
-const vnToday = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
 const int = (v: unknown) => (typeof v === 'number' ? v : Number(str(v)));
 
 @Injectable()
@@ -413,7 +413,7 @@ export class InventoryService {
             category: 'cogs',
             amount: total,
             note: `Giá vốn phiếu nhập ${r.code}`,
-            date: new Date(vnToday()),
+            date: vnDbDate(),
             receiptId: r.id,
           },
         });

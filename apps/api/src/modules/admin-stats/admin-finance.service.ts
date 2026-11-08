@@ -12,13 +12,12 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qNum, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { asBody, FieldErrors, str } from '../../common/utils/validate';
+import { vnYmd } from '../../common/utils/vn-date';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminStatsService } from './admin-stats.service';
 
 const DAY = 86_400_000;
-const TZ = 'Asia/Ho_Chi_Minh';
-const vnYmd = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: TZ });
 const pct = (cur: number, prev: number) =>
   prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100);
 

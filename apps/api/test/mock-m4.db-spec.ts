@@ -704,6 +704,68 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       expect(r1.income.discountAndRefund).toBeGreaterThanOrEqual(refund);
     });
 
+    it('hoàn tiền lúc 00:30 giờ VN (ngày UTC còn là hôm qua) vẫn ghi phiếu chi đúng NGÀY VN và vào báo cáo ngày đó', async () => {
+      // Chỉ giả lập đồng hồ (Date) trong lúc duyệt hoàn tiền; mốc 00:30 giờ VN của `today` ⇒ UTC là 17:30 của hôm trước.
+      const o = await deliveredOrder();
+      const item = await prisma.orderItem.findFirstOrThrow({ where: { orderId: o.id } });
+      const png =
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      const ret = await api('post', '/returns', cust, {
+        orderId: o.id,
+        type: 'refund',
+        reason: 'defect',
+        description: 'Sản phẩm bị lỗi khi nhận hàng',
+        images: [png],
+        items: [{ orderItemId: item.id, quantity: item.quantity }],
+      });
+      expect(ret.status).toBe(201);
+      for (const st of ['picking', 'inspecting'])
+        expect(
+          (await api('patch', `/admin/returns/${ret.body.data.id}`, admin, { status: st, adminNote: 'ok' }))
+            .status,
+        ).toBe(200);
+      const r0 = await report();
+      jest.useFakeTimers({
+        now: new Date(`${today}T00:30:00+07:00`),
+        doNotFake: [
+          'hrtime',
+          'nextTick',
+          'performance',
+          'queueMicrotask',
+          'requestAnimationFrame',
+          'cancelAnimationFrame',
+          'requestIdleCallback',
+          'cancelIdleCallback',
+          'setImmediate',
+          'clearImmediate',
+          'setInterval',
+          'clearInterval',
+          'setTimeout',
+          'clearTimeout',
+        ],
+      });
+      try {
+        expect(
+          (
+            await api('patch', `/admin/returns/${ret.body.data.id}`, admin, {
+              status: 'refunded',
+              adminNote: 'ok',
+            })
+          ).status,
+        ).toBe(200);
+      } finally {
+        jest.useRealTimers();
+      }
+      const exp = await prisma.expense.findFirstOrThrow({ where: { orderId: o.id, category: 'refund' } });
+      expect(exp.date.toISOString().slice(0, 10)).toBe(today); // trước khi sửa: ngày UTC (hôm qua)
+      const list = await api('get', `/admin/expenses?category=refund&from=${today}&to=${today}`, admin);
+      expect(list.body.data.map((e: { code: string }) => e.code)).toContain(exp.code);
+      const r1 = await report();
+      const refundOf = (r: { expenseBreakdown: Array<{ category: string; amount: number }> }) =>
+        r.expenseBreakdown.find((c) => c.category === 'refund')?.amount ?? 0;
+      expect(refundOf(r1)).toBe(refundOf(r0) + Number(exp.amount));
+    });
+
     it('giá vốn chỉ trừ MỘT lần: phiếu nhập 10 × 1.200.000 = 12.000.000 làm giá vốn +12.000.000; đơn giao thành công không trừ thêm giá vốn', async () => {
       const r0 = await report();
       const v = (await variantWithStock(1))!;

@@ -6,14 +6,11 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qNum, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { PrismaService } from '../../prisma/prisma.service';
-
-const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+import { parseVnDate } from '../../common/utils/vn-date';
 
 /** Ngày yyyy-MM-dd (hoặc ISO) ⇒ Date; `end` = hết ngày. Sai định dạng ⇒ 400 */
 function parseDate(field: 'from' | 'to', raw: string): Date {
-  const d = new Date(
-    DATE_ONLY.test(raw) ? `${raw}T${field === 'to' ? '23:59:59.999' : '00:00:00.000'}Z` : raw,
-  );
+  const d = parseVnDate(raw, field === 'to' ? 'end' : 'start'); // chỉ có ngày ⇒ ngày giờ Việt Nam
   if (Number.isNaN(d.getTime()))
     throw new AppException(ErrorCode.VALIDATION_FAILED, 'Dữ liệu không hợp lệ.', {
       [field]: ['Ngày không hợp lệ (định dạng yyyy-MM-dd).'],

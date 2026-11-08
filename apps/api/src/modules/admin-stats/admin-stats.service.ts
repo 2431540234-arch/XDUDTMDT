@@ -3,6 +3,7 @@
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { qStr, type RawQuery } from '../../common/utils/list-query';
+import { addDaysYmd, endOfDayVn, startOfDayVn, vnYmd } from '../../common/utils/vn-date';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ORDER_INCLUDE, OrderViewsService } from '../orders/order-views.service';
@@ -22,11 +23,6 @@ const STATUSES: OrderStatus[] = [
 const pct = (cur: number, prev: number) =>
   prev === 0 ? (cur > 0 ? 100 : 0) : Math.round(((cur - prev) / prev) * 100);
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
-const vnToday = () => new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
-
-/** Mốc đầu ngày/cuối ngày theo giờ Việt Nam (UTC+7, không có giờ mùa hè) */
-const startOfDayVn = (ymd: string) => new Date(`${ymd}T00:00:00+07:00`);
-const endOfDayVn = (ymd: string) => new Date(`${ymd}T23:59:59.999+07:00`);
 
 export function activityText(action: string, targetId: number | null, c: Record<string, unknown>): string {
   switch (action) {
@@ -63,9 +59,9 @@ export class AdminStatsService {
 
   /** Khoảng thời gian chọn + kỳ liền trước có cùng độ dài */
   range(q: RawQuery) {
-    const today = isoDay(vnToday());
+    const today = vnYmd();
     const to = qStr(q, 'to') || today;
-    const from = qStr(q, 'from') || isoDay(new Date(startOfDayVn(to).getTime() - 29 * DAY));
+    const from = qStr(q, 'from') || addDaysYmd(to, -29); // 30 ngày tính cả ngày `to`
     const start = startOfDayVn(from);
     const end = endOfDayVn(to);
     const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / DAY));

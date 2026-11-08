@@ -8,6 +8,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { parseVnDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CouponsService } from './coupons.service';
@@ -102,7 +103,7 @@ export class AdminCouponsService {
     if (kind === 'fixed' && !(Number(b.value) > 0)) errs.add('value', 'Giá trị giảm phải lớn hơn 0.');
     if (!b.startsAt) errs.add('startsAt', 'Vui lòng chọn ngày bắt đầu.');
     if (!b.endsAt) errs.add('endsAt', 'Vui lòng chọn ngày kết thúc.');
-    else if (b.startsAt && new Date(str(b.endsAt)) <= new Date(str(b.startsAt)))
+    else if (b.startsAt && parseVnDate(str(b.endsAt), 'end') <= parseVnDate(str(b.startsAt), 'start'))
       errs.add('endsAt', 'Ngày kết thúc phải sau ngày bắt đầu.');
     if (b.maxDiscount && Number(b.maxDiscount) < 0) errs.add('maxDiscount', 'Giảm tối đa không hợp lệ.');
     if (b.minOrderValue && Number(b.minOrderValue) < 0)
@@ -165,8 +166,9 @@ export class AdminCouponsService {
       minOrderValue: Number(b.minOrderValue) || 0,
       usageLimit: b.usageLimit ? Number(b.usageLimit) : null,
       perUserLimit: b.perUserLimit ? Number(b.perUserLimit) : null,
-      startsAt: new Date(str(b.startsAt)),
-      endsAt: new Date(str(b.endsAt)),
+      // chỉ gửi ngày (YYYY-MM-DD) ⇒ ngày giờ Việt Nam: bắt đầu từ 00:00, hết hạn lúc 23:59:59 của ngày đó
+      startsAt: parseVnDate(str(b.startsAt), 'start'),
+      endsAt: parseVnDate(str(b.endsAt), 'end'),
       isActive: b.isActive !== false,
       name: str(b.name).trim(),
       description: str(b.description) || null,

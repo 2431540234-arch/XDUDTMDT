@@ -10,6 +10,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { asBody, FieldErrors, str } from '../../common/utils/validate';
+import { vnDbDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -178,7 +179,7 @@ export class AdminReturnsService {
             category: 'refund',
             amount: r.refundAmount,
             note: `Hoàn tiền đổi trả ${r.code} (đơn ${r.order.orderCode})`,
-            date: new Date(Date.now() + 7 * 3_600_000), // cột DATE lưu ngày theo UTC: cộng 7 giờ để là ngày giờ Việt Nam
+            date: vnDbDate(), // cột DATE: ngày theo giờ Việt Nam
             orderId: r.orderId,
           },
         });

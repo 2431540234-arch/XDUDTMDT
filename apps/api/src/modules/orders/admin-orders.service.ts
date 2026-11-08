@@ -13,6 +13,7 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qList, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { vnDbDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -265,7 +266,7 @@ export class AdminOrdersService {
           category: 'refund',
           amount: o.total,
           note: `Hoàn tiền đơn ${o.orderCode}`,
-          date: new Date(Date.now() + 7 * 3_600_000), // cột DATE lưu ngày theo UTC: cộng 7 giờ để là ngày giờ Việt Nam
+          date: vnDbDate(), // cột DATE: ngày theo giờ Việt Nam
           orderId: o.id,
         },
       });

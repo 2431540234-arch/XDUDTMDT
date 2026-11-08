@@ -11,11 +11,10 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { qStr, type RawQuery } from '../../common/utils/list-query';
 import { validationError } from '../../common/utils/validate';
+import { addDaysYmd, endOfDayVn, startOfDayVn, vnYmd } from '../../common/utils/vn-date';
 import { PrismaService } from '../../prisma/prisma.service';
 
-const DAY = 86_400_000;
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
-const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 const ratio = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 10_000) / 10_000 : 0);
 
 interface Row {
@@ -41,8 +40,8 @@ export class AdminSpaceStatsService {
   constructor(private readonly prisma: PrismaService) {}
 
   private range(q: RawQuery) {
-    const to = qStr(q, 'to') || isoDay(new Date(Date.now() + 7 * 3_600_000));
-    const from = qStr(q, 'from') || isoDay(new Date(new Date(`${to}T00:00:00+07:00`).getTime() - 29 * DAY));
+    const to = qStr(q, 'to') || vnYmd();
+    const from = qStr(q, 'from') || addDaysYmd(to, -29); // 30 ngày tính cả ngày `to`
     const bad: Record<string, string> = {};
     if (!YMD.test(from) || Number.isNaN(Date.parse(`${from}T00:00:00+07:00`)))
       bad.from = 'Ngày bắt đầu phải có dạng YYYY-MM-DD.';
@@ -53,8 +52,8 @@ export class AdminSpaceStatsService {
     return {
       from,
       to,
-      start: new Date(`${from}T00:00:00+07:00`),
-      end: new Date(`${to}T23:59:59.999+07:00`),
+      start: startOfDayVn(from),
+      end: endOfDayVn(to),
     };
   }
 

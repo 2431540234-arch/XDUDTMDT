@@ -12,7 +12,7 @@ import Input, { Select, Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useCategories } from '@/hooks/useProducts';
 import { cn } from '@/lib/cn';
-import { toInputDate } from '@/lib/date';
+import { toInputDate, toVnInputDate } from '@/lib/date';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
@@ -80,8 +80,8 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       categoryIds: [],
       group: '',
       channel: '',
-      startsAt: c.startsAt.slice(0, 10),
-      endsAt: c.endsAt?.slice(0, 10) ?? '',
+      startsAt: toVnInputDate(c.startsAt),
+      endsAt: c.endsAt ? toVnInputDate(c.endsAt) : '',
       usageLimit: c.usageLimit ? String(c.usageLimit) : '',
       perUserLimit: c.perUserLimit ? String(c.perUserLimit) : '',
       isActive: c.isActive,
