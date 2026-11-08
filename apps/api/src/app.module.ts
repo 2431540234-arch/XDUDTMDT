@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
+import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { CacheModule } from './cache/cache.module';
 import { AuthCoreModule } from './common/auth/auth-core.module';
@@ -72,6 +73,8 @@ import { StorageModule } from './storage/storage.module';
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    // ngoài cùng: bọc handler để biết service đã ghi nhật ký chưa (lưới an toàn, không thay log trong service)
+    { provide: APP_INTERCEPTOR, useClass: ActivityLogInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TransformResponseInterceptor },
     // Thứ tự quan trọng: giới hạn tốc độ, xác thực, vai trò, rồi quyền chi tiết
     { provide: APP_GUARD, useClass: ThrottlerGuard },
