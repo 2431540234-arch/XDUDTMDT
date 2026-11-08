@@ -369,3 +369,18 @@ Theo UC-ADM-13, D-N07, D-N21, D-N22, D-T21; ghi nhận ở **D-P10** (thay thế
 - Đã **xác nhận** worker demo nhận nhầm job của e2e: 6 job `model-processing` thất bại với "Không tìm thấy mô hình 53/54" trong Redis (cùng cơ chế sẽ xảy ra với `image-processing`). Đó là lỗi thật đã được sửa ở `f207bf5`, và là nguyên nhân của các lần fail ở nhóm test mô hình 3D.
 - Với admin-m5, tần suất fail giảm từ ~1/3 (nhóm A) xuống ~1/23 (nhóm B), nhưng **chưa chứng minh được cơ chế** và **chưa loại bỏ hoàn toàn**: vẫn còn 1 lần fail ở nhóm B. Giả thuyết "trang media chờ webp/thumbnail" **không đúng như đã nêu**: danh sách media không phụ thuộc kết quả job (job ảnh không ghi lại hàng `media`, `GET /admin/media` đọc thẳng từ CSDL; đo độ trễ 0,1 s), và khi fail thì thẻ hiển thị dữ liệu cũ chứ không phải đang chờ.
 - Chưa tăng thời gian chờ, chưa sửa test. Việc tiếp theo nếu muốn dứt điểm: bắt thêm một trace lỗi (đã thiết lập vòng lặp bắt trace nhưng 15/15 lần chạy sau đó đều xanh).
+
+## Lỗi chập chờn admin-m5 – nguyên nhân đã xác định bằng trace (2026-11-08)
+
+**Bằng chứng:** bật `trace: 'retain-on-failure'` + `screenshot`, log mọi response ≥ 400 của API e2e (`.e2e-logs/api-errors.log`), giữ bằng chứng của nhóm fail trong `.e2e-logs/<nhóm>-<thời điểm>/` (in đường dẫn trace khi fail). Chạy `admin-m5` 20 lần liên tiếp: **1 lần fail (lần 10), 19 lần xanh, 0 response 429** trong cả 20 lần.
+
+**Đọc trace của lần fail:**
+- Log API của lần fail chỉ có các 409 dự kiến của test; **không có 429, 403 hay 5xx** ⇒ giả thuyết giới hạn tốc độ **bị loại**. (API e2e đặt `THROTTLE_DEFAULT_LIMIT=100000`; trước đây nó dùng chung tiền tố Redis \`throttle:\` với API demo/dev nên bộ đếm lẫn nhau, nay tách thành \`throttle-e2e:\`/\`throttle-demo:\`, không phải nguyên nhân của lỗi này.)
+- Giả thuyết worker demo lấy nhầm job ảnh cũng **không phải nguyên nhân** của lỗi này (danh sách media không phụ thuộc job).
+- Dòng thời gian các request `/api/admin/media`: `GET ?q=ban+an+e2e` (lần tải đầu của khóa tìm kiếm mới) bắt đầu 16 ms **trước** `PATCH /media/1714` (lưu mô tả). PATCH trả 200 nhưng **không có GET danh sách nào sau PATCH**. Server đọc danh sách trước khi PATCH ghi xong ⇒ giao diện giữ mô tả cũ ("Chưa có mô tả") và `toHaveCount(1)` quá hạn 5 giây.
+- **Cơ chế:** React Query v5 `invalidateQueries` chỉ hủy lần tải đang chạy khi query ĐÃ có dữ liệu; với query đang ở lần tải đầu (khóa vừa đổi do tìm kiếm) nó gộp vào lần tải đang bay, nên kết quả đọc trước khi ghi ở lại. Đây là lỗi thật của giao diện (người dùng gõ tìm kiếm rồi lưu ngay cũng gặp), chỉ lộ ra khi hai thao tác sát nhau (máy chậm hơn ⇒ dễ gặp hơn, đó cũng là lý do tần suất thay đổi theo tải của máy).
+- Tái hiện có kiểm soát bằng unit test `tests/unit/query-refresh.test.ts` (invalidate trơn ⇒ 1 lần tải, dữ liệu cũ ở lại; `refreshAfterWrite` ⇒ 2 lần tải, dữ liệu mới).
+
+**Sửa:** `src/lib/query-refresh.ts` (`refreshAfterWrite`: `cancelQueries` rồi `invalidateQueries`) dùng ở 3 chỗ ghi của trang media. Không tăng thời gian chờ, không tắt giới hạn tốc độ. Các trang admin khác có cùng mẫu "ghi rồi invalidate" chưa đổi (chưa có bằng chứng lỗi); nếu gặp lỗi tương tự thì dùng helper này.
+
+**Giới hạn tốc độ cho môi trường test:** không cần đổi. API e2e đã đặt 100000 yêu cầu/phút; log cho thấy 0 lần 429. Tiền tố bộ đếm đã tách riêng cho e2e/demo (`THROTTLE_PREFIX`).

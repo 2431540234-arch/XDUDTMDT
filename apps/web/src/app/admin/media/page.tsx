@@ -13,6 +13,7 @@ import Pagination from '@/components/ui/Pagination';
 import { EmptyState, ErrorState } from '@/components/ui/States';
 import { useDebounced } from '@/hooks/useListState';
 import { formatDate } from '@/lib/format';
+import { refreshAfterWrite } from '@/lib/query-refresh';
 import { errorMessage } from '@/lib/validators';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
@@ -28,7 +29,7 @@ function AltModal({ media, onClose }: { media: MediaAdmin; onClose: () => void }
     mutationFn: () => adminApi.media.update(media.id, { altText: alt.trim() }),
     onSuccess: () => {
       toast.success('Đã lưu mô tả ảnh.');
-      qc.invalidateQueries({ queryKey: ['admin', 'media'] });
+      void refreshAfterWrite(qc, ['admin', 'media']);
       onClose();
     },
     onError: (e) => toast.error(errorMessage(e)),
@@ -87,7 +88,7 @@ export default function AdminMediaPage() {
     mutationFn: (id: number) => adminApi.media.remove(id),
     onSuccess: () => {
       toast.success('Đã xóa tệp.');
-      qc.invalidateQueries({ queryKey: ['admin', 'media'] });
+      void refreshAfterWrite(qc, ['admin', 'media']);
       setDel(null);
     },
     onError: (e) => {
@@ -110,7 +111,7 @@ export default function AdminMediaPage() {
     setUploading(false);
     if (ok) {
       toast.success(ok === 1 ? 'Đã tải lên 1 tệp.' : `Đã tải lên ${ok} tệp.`);
-      qc.invalidateQueries({ queryKey: ['admin', 'media'] });
+      void refreshAfterWrite(qc, ['admin', 'media']);
       setPage(1);
     }
   };
