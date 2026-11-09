@@ -1,7 +1,6 @@
 // E2E (supertest) UC-CAT-02 (duyệt/lọc/sắp xếp/phân trang), UC-CAT-03 (tìm kiếm), UC-CAT-06 (tìm không dấu) trên aurelia_test.
 // Viết theo HÀNH VI THẬT của mã (ProductsService.list/search: chỉ mục trong bộ nhớ + foldVi), đối chiếu số liệu với CSDL.
-// Các chỗ mã KHÁC đặc tả DAC_TA (sort lạ ⇒ 400, danh mục không có ⇒ 404, từ khóa < 2 ký tự…) KHÔNG bị khóa lại bằng test mà ghi
-// bằng it.todo ở cuối tệp để chủ dự án quyết định (xem docs/DOI_CHIEU_UC.md, mục "Điểm lệch cần chủ dự án quyết định").
+// Quyết định chủ dự án 2026-11-09 (D-T51): danh mục không có/không hoạt động ⇒ 404; từ khóa 1 ký tự ⇒ rỗng; còn lại giữ cơ chế hiện tại.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -241,7 +240,8 @@ describe('Duyệt, lọc, tìm kiếm sản phẩm (aurelia_test)', () => {
         '?maxPrice=-5',
         '?has3d=maybe',
         '?pageSize=abc',
-        '?category=%25',
+        '?page=0',
+        '?page=-3',
       ]) {
         const r = await get(`/products${qs}`);
         expect(r.status).toBeLessThan(500);
@@ -437,16 +437,121 @@ describe('Duyệt, lọc, tìm kiếm sản phẩm (aurelia_test)', () => {
     });
   });
 
-  // ------------------------------------------------------------------ Điểm lệch so với DAC_TA (chờ chủ dự án quyết định)
-  it.todo(
-    'DAC_TA UC-CAT-02 3a: danh mục không tồn tại/không hoạt động ⇒ 404 (mã hiện lọc nhầm: bỏ qua bộ lọc và trả TẤT CẢ sản phẩm)',
-  );
-  it.todo(
-    'DAC_TA UC-CAT-02: sort lạ hoặc page < 1 ⇒ 400 (mã hiện lùi về mặc định, không báo lỗi); giá trị sort theo DAC là price_asc|price_desc|best_selling|rating, mã dùng truong:asc|desc',
-  );
-  it.todo('DAC_TA UC-CAT-02: limit ≤ 50 (mã dùng pageSize, tối đa 100)');
-  it.todo('DAC_TA UC-CAT-03/06: q < 2 ký tự ⇒ 400 hoặc rỗng (mã hiện trả toàn bộ sản phẩm khi q rỗng)');
-  it.todo(
-    'DAC_TA UC-CAT-03/06: tìm bằng $queryRaw ILIKE/similarity + index trigram (mã hiện lọc trong bộ nhớ bằng foldVi trên tên + danh mục + phong cách + mô tả ngắn; không sắp theo similarity)',
-  );
+  // ------------------------------------------------------------------ Quyết định chủ dự án (2026-11-09): 404 danh mục, q < 2 ký tự
+  describe('danh mục không tồn tại / không hoạt động ⇒ 404; từ khóa 1 ký tự ⇒ rỗng; cache không làm kết quả cũ', () => {
+    const errCode = (r: { body: { error?: { code?: string } } }) => r.body.error?.code;
+
+    it('slug danh mục không tồn tại ⇒ 404 ở danh sách, tìm kiếm và facets (không trả toàn bộ sản phẩm)', async () => {
+      for (const path of [
+        '/products?category=khong-ton-tai-xyz',
+        '/products/search?q=ban&category=khong-ton-tai-xyz',
+        '/products/facets?category=khong-ton-tai-xyz',
+        '/products?category=%25',
+        '/products?category=phong-khach&category=khong-ton-tai-xyz', // một slug sai trong nhiều slug
+      ]) {
+        const r = await get(path);
+        expect(r.status).toBe(404);
+        expect(r.body.success).toBe(false);
+        expect(errCode(r)).toBe('RESOURCE_NOT_FOUND');
+      }
+      // slug hợp lệ vẫn 200, không bị ảnh hưởng
+      expect((await get('/products?category=phong-khach')).status).toBe(200);
+    });
+
+    it('danh mục không hoạt động (isActive=false) ⇒ 404; danh mục con không hoạt động bị loại khỏi danh mục cha; bật lại thì hoạt động', async () => {
+      const parent = await prisma.category.findFirstOrThrow({ where: { slug: 'phong-khach' } });
+      const child = await prisma.category.findFirstOrThrow({
+        where: { slug: 'ban-tra', parentId: parent.id },
+      });
+      const before = await list('?category=phong-khach&pageSize=100');
+      const childCount = (await list('?category=ban-tra&pageSize=100')).meta.total;
+      expect(childCount).toBeGreaterThan(0);
+      try {
+        await prisma.category.update({ where: { id: child.id }, data: { isActive: false } });
+        await cache.invalidateCatalog(); // admin đổi danh mục luôn xóa cache catalog
+        expect((await get('/products?category=ban-tra')).status).toBe(404);
+        const afterChild = await list('?category=phong-khach&pageSize=100');
+        expect(afterChild.meta.total).toBe(before.meta.total - childCount);
+        await prisma.category.update({ where: { id: parent.id }, data: { isActive: false } });
+        await cache.invalidateCatalog();
+        expect((await get('/products?category=phong-khach')).status).toBe(404);
+        expect((await get('/products/search?q=ban&category=phong-khach')).status).toBe(404);
+      } finally {
+        await prisma.category.updateMany({
+          where: { id: { in: [parent.id, child.id] } },
+          data: { isActive: true },
+        });
+        await cache.invalidateCatalog();
+      }
+      expect((await list('?category=phong-khach&pageSize=100')).meta.total).toBe(before.meta.total);
+    });
+
+    it('từ khóa 1 ký tự ⇒ rỗng (200, total 0) ở tìm kiếm và danh sách; không có từ khóa hoặc ≥ 2 ký tự ⇒ bình thường', async () => {
+      for (const q of ['a', 'b', 'đ', ' a ', '%', 'Đ']) {
+        const r = await search(q);
+        expect(r.items).toEqual([]);
+        expect(r.meta.total).toBe(0);
+        const l = await list(`?q=${encodeURIComponent(q)}`);
+        expect(l.items).toEqual([]);
+        expect(l.meta.total).toBe(0);
+      }
+      // 1 ký tự kết hợp bộ lọc vẫn rỗng
+      expect((await list('?q=a&category=phong-khach')).meta.total).toBe(0);
+      // không có q hoặc q toàn khoảng trắng ⇒ danh sách bình thường
+      expect((await search('')).meta.total).toBe(all.length);
+      expect((await search('   ')).meta.total).toBe(all.length);
+      expect((await get('/products/search')).body.meta.total).toBe(all.length);
+      // đúng 2 ký tự ⇒ tìm bình thường
+      const two = await search('ba');
+      expect(two.meta.total).toBeGreaterThan(0);
+      expect(
+        two.items.every((x) =>
+          foldVi(JSON.stringify([x.name, x.category?.name, x.shortDescription])).includes('ba'),
+        ),
+      ).toBe(true);
+    });
+
+    it('kết hợp danh mục + từ khóa + giá + sắp xếp + phân trang cho kết quả nhất quán', async () => {
+      const base = await list('?category=phong-khach&pageSize=100');
+      const q = foldVi(base.items[0].name).split(' ')[0];
+      const r = await list(
+        `?category=phong-khach&q=${encodeURIComponent(q)}&sort=price:asc&pageSize=2&page=1`,
+      );
+      expect(r.items.length).toBeLessThanOrEqual(2);
+      expect(r.meta.pageSize).toBe(2);
+      const full = await list(`?category=phong-khach&q=${encodeURIComponent(q)}&sort=price:asc&pageSize=100`);
+      expect(slugs(r.items)).toEqual(slugs(full.items.slice(0, 2)));
+      expect(full.items.every((x, i) => i === 0 || eff(full.items[i - 1]) <= eff(x))).toBe(true);
+      const page2 = await list(
+        `?category=phong-khach&q=${encodeURIComponent(q)}&sort=price:asc&pageSize=2&page=2`,
+      );
+      expect(slugs(page2.items)).toEqual(slugs(full.items.slice(2, 4)));
+    });
+
+    it('không có bộ lọc hasAr (AR đã bị loại bỏ): tham số lạ bị bỏ qua', async () => {
+      expect((await list('?hasAr=true&pageSize=100')).meta.total).toBe(all.length);
+    });
+
+    it('sửa sản phẩm qua admin: danh sách và tìm kiếm thấy ngay (cache bị xóa), kể cả sau khi sản phẩm ẩn', async () => {
+      const p = all[1];
+      const row = await prisma.product.findFirstOrThrow({ where: { slug: p.slug } });
+      const newName = `Ghế thử nghiệm cache ${Date.now()}`;
+      try {
+        // mồi cache bằng một lần đọc
+        expect((await search(p.name)).items.some((x) => x.slug === p.slug)).toBe(true);
+        await prisma.product.update({ where: { id: row.id }, data: { name: newName } });
+        await cache.invalidateCatalog();
+        expect((await search(newName)).items.map((x) => x.slug)).toContain(p.slug);
+        expect((await search(p.name)).items.map((x) => x.slug)).not.toContain(p.slug);
+      } finally {
+        await prisma.product.update({ where: { id: row.id }, data: { name: p.name } });
+        await cache.invalidateCatalog();
+      }
+      expect((await search(p.name)).items.map((x) => x.slug)).toContain(p.slug);
+    });
+  });
+
+  // ------------------------------------------------------------------ Quyết định đã chốt: giữ cơ chế hiện tại (ghi ở DECISIONS D-T51)
+  // - tham số sai (sort lạ, page < 1) ⇒ lùi về mặc định, không 400; sort theo quy ước field:dir; pageSize ≤ 100
+  // - tìm kiếm lọc trong bộ nhớ bằng foldVi (không dùng $queryRaw/trigram)
 });

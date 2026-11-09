@@ -24,6 +24,7 @@ interface CatRow {
   parentId: number | null;
   slug: string;
   name: string;
+  isActive: boolean;
 }
 
 @Injectable()
@@ -53,7 +54,9 @@ export class ProductsService {
         include: PRODUCT_INCLUDE,
         orderBy: { id: 'asc' },
       }),
-      this.prisma.category.findMany({ select: { id: true, parentId: true, slug: true, name: true } }),
+      this.prisma.category.findMany({
+        select: { id: true, parentId: true, slug: true, name: true, isActive: true },
+      }),
     ]);
     const entries = rows.map((row) => {
       const item = this.views.listItem(row);
@@ -70,10 +73,12 @@ export class ProductsService {
     return { entries, categories };
   }
 
+  /** Danh mục + danh mục con đang hoạt động. Danh mục không tồn tại hoặc không hoạt động ⇒ 404 (UC-CAT-02 3a) */
   private categoryIdsWithChildren(cats: CatRow[], slug: string) {
     const root = cats.find((c) => c.slug === slug);
-    if (!root) return [];
-    return [root.id, ...cats.filter((c) => c.parentId === root.id).map((c) => c.id)];
+    if (!root || !root.isActive)
+      throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Danh mục không tồn tại.');
+    return [root.id, ...cats.filter((c) => c.parentId === root.id && c.isActive).map((c) => c.id)];
   }
 
   private score(e: IndexEntry, terms: string[]): number {
@@ -89,8 +94,13 @@ export class ProductsService {
 
   private async filter(q: RawQuery, ignoreCategory = false) {
     const { entries, categories } = await this.load();
-    const terms = foldVi(qStr(q, 'q')).split(/\s+/).filter(Boolean);
-    const catIds = new Set(qList(q, 'category').flatMap((s) => this.categoryIdsWithChildren(categories, s)));
+    const rawQ = qStr(q, 'q').trim();
+    const terms = foldVi(rawQ).split(/\s+/).filter(Boolean);
+    // Từ khóa đúng 1 ký tự ⇒ danh sách rỗng (UC-CAT-03: tối thiểu 2 ký tự); không có từ khóa ⇒ danh sách theo bộ lọc
+    const tooShort = [...rawQ].length === 1;
+    const catIds = new Set(
+      ignoreCategory ? [] : qList(q, 'category').flatMap((s) => this.categoryIdsWithChildren(categories, s)),
+    );
     const colors = qList(q, 'color').map(foldVi);
     const materials = qList(q, 'material').map(foldVi);
     const styles = qList(q, 'style').map(foldVi);
@@ -100,6 +110,7 @@ export class ProductsService {
     const featured = qBool(q, 'featured');
     const brand = qStr(q, 'brand');
     const out: Array<{ e: IndexEntry; score: number }> = [];
+    if (tooShort) return out;
     for (const e of entries) {
       const score = this.score(e, terms);
       if (!score) continue;
