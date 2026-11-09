@@ -540,6 +540,84 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       expect((await api('delete', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200); // bỏ lần nữa: không lỗi
       expect((await api('get', '/spaces?bookmarked=true', u.token)).body.data).toEqual([]);
     });
+
+    it('không gian chưa đăng (draft/archived) ⇒ 404 khi lưu và không tạo bookmark; không gian đã lưu rồi bị ẩn thì biến mất khỏi danh sách nhưng vẫn bỏ lưu được', async () => {
+      const u = await customer('bm-draft');
+      const pub = await prisma.space.findFirstOrThrow({
+        where: { status: 'published' },
+        orderBy: { id: 'asc' },
+      });
+      const copy = await prisma.space.create({
+        data: {
+          title: 'Không gian nháp thử bookmark',
+          slug: `nhap-bm-${Date.now()}`,
+          roomType: pub.roomType,
+          status: 'draft',
+        },
+      });
+      try {
+        const r = await api('put', `/spaces/${copy.slug}/bookmark`, u.token);
+        expect(r.status).toBe(404);
+        expect(await prisma.spaceBookmark.count({ where: { spaceId: copy.id } })).toBe(0);
+
+        // đã lưu khi đang đăng, sau đó bị ẩn
+        await prisma.space.update({
+          where: { id: copy.id },
+          data: { status: 'published', publishedAt: new Date() },
+        });
+        expect((await api('put', `/spaces/${copy.slug}/bookmark`, u.token)).status).toBe(200);
+        expect(
+          (
+            (await api('get', '/spaces?bookmarked=true&pageSize=50', u.token)).body.data as Array<{
+              slug: string;
+            }>
+          ).map((x) => x.slug),
+        ).toContain(copy.slug);
+        await prisma.space.update({ where: { id: copy.id }, data: { status: 'archived' } });
+        expect(
+          (
+            (await api('get', '/spaces?bookmarked=true&pageSize=50', u.token)).body.data as Array<{
+              slug: string;
+            }>
+          ).map((x) => x.slug),
+        ).not.toContain(copy.slug);
+        expect((await api('put', `/spaces/${copy.slug}/bookmark`, u.token)).status).toBe(404);
+        // bỏ lưu một không gian đã ẩn vẫn thành công và xóa bản ghi
+        expect((await api('delete', `/spaces/${copy.slug}/bookmark`, u.token)).status).toBe(200);
+        expect(await prisma.spaceBookmark.count({ where: { userId: u.id, spaceId: copy.id } })).toBe(0);
+      } finally {
+        await prisma.spaceBookmark.deleteMany({ where: { spaceId: copy.id } });
+        await prisma.space.delete({ where: { id: copy.id } });
+      }
+    });
+
+    it('danh sách đã lưu: khách ẩn danh nhận danh sách rỗng (không lộ dữ liệu người khác), có phân trang, mỗi người một danh sách', async () => {
+      const u = await customer('bm-list');
+      const other = await customer('bm-list-o');
+      const spaces = await prisma.space.findMany({
+        where: { status: 'published' },
+        orderBy: { id: 'asc' },
+        take: 3,
+      });
+      expect(spaces.length).toBeGreaterThanOrEqual(3);
+      for (const sp of spaces)
+        expect((await api('put', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200);
+
+      const anon = await api('get', '/spaces?bookmarked=true');
+      expect(anon.status).toBe(200);
+      expect(anon.body.data).toEqual([]);
+      expect(anon.body.meta.total).toBe(0);
+      expect((await api('get', '/spaces?bookmarked=true', other.token)).body.meta.total).toBe(0);
+
+      const p1 = await api('get', '/spaces?bookmarked=true&pageSize=2&page=1', u.token);
+      const p2 = await api('get', '/spaces?bookmarked=true&pageSize=2&page=2', u.token);
+      expect(p1.body.meta).toMatchObject({ total: 3, totalPages: 2, pageSize: 2, page: 1 });
+      expect(p1.body.data).toHaveLength(2);
+      expect(p2.body.data).toHaveLength(1);
+      const got = [...p1.body.data, ...p2.body.data].map((x: { slug: string }) => x.slug).sort();
+      expect(got).toEqual(spaces.map((x) => x.slug).sort());
+      expect((p1.body.data as Array<{ isBookmarked: boolean }>).every((x) => x.isBookmarked)).toBe(true);
+    });
   });
 
   // ------------------------------------------------------------------ UC-ADM-24 xác nhận thanh toán
@@ -624,12 +702,6 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
   });
 
   // ------------------------------------------------------------------ Điểm lệch so với DAC_TA (chờ chủ dự án quyết định)
-  it.todo(
-    'DAC_TA UC-SPACE-04 3a: lưu không gian chưa đăng bán/đã ẩn ⇒ 404 (mã SpacesService.bookmark tìm theo slug, không kiểm status nên lưu được cả không gian nháp)',
-  );
-  it.todo(
-    'DAC_TA UC-SPACE-04: trả 204 và có GET /api/spaces/bookmarks/me + trang /account/saved-spaces (mã trả 200 body null; danh sách đã lưu lấy bằng GET /spaces?bookmarked=true; FE chưa có trang riêng)',
-  );
   it.todo(
     'UC-ADM-24: xác nhận thanh toán cho đơn đã bị hủy (cancelled) hiện vẫn được phép (đặt paid); DAC_TA/D-N28 chưa quy định riêng cho đường quản trị – chờ chủ dự án',
   );

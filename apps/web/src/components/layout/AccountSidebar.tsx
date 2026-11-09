@@ -23,6 +23,7 @@ const items: Array<{ href: string; label: string; icon: IconName; match?: (p: st
     match: (p) => p.startsWith('/account/returns'),
   },
   { href: '/wishlist', label: 'Sản phẩm yêu thích', icon: 'heart' },
+  { href: '/account/saved-spaces', label: 'Không gian đã lưu', icon: 'home' },
   { href: '/account/coupons', label: 'Mã giảm giá của tôi', icon: 'tag' },
   { href: '/account/reviews', label: 'Đánh giá của tôi', icon: 'star' },
   { href: '/account/notifications', label: 'Thông báo', icon: 'bell' },

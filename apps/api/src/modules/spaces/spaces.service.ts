@@ -362,8 +362,12 @@ export class SpacesService {
     return { added, unavailable, cart: await this.cart.view(userId) };
   }
 
+  /** Không gian ĐANG ĐĂNG (published); không tồn tại, nháp hoặc đã ẩn ⇒ 404 (UC-SPACE-04 3a) */
   private async bySlug(slug: string) {
-    const s = await this.prisma.space.findUnique({ where: { slug }, select: { id: true } });
+    const s = await this.prisma.space.findFirst({
+      where: { slug, status: 'published' },
+      select: { id: true },
+    });
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
     return s;
   }
