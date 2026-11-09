@@ -460,3 +460,10 @@ Không đổi schema (partial unique `uq_users_email_active` và `user_sessions`
 - `GET /admin/stats/spaces?from=&to=` (`AdminSpaceStatsService`, quyền `manage_content` ở mức hàm): gộp theo visitorId bằng SQL (`bool_or` theo người xem), trả `totals`, `spaces[]` (kèm nguồn top 5) và `sources[]` (top 10). Ngày theo giờ Việt Nam, kiểm định dạng/đảo ngược ⇒ 400.
 - Dữ liệu demo: `seed-space-views.ts` (≈ 350 lượt xem 30 ngày gần nhất), gọi trong `seed-mock.ts`; `npm run db:seed-space-views` bổ sung cho DB demo/test đã có (đã chạy trên aurelia_demo: +354 dòng).
 - Test: `space-funnel.db-spec.ts` (2 test): dữ liệu cụ thể 2 không gian trong khoảng 03/2020 (gộp user+khách, người xem lại, biên ngày, ngoài khoảng) kiểm đúng số và tỉ lệ (0,6; 0,6; 0,6667; tổng 0,8…), nguồn dẫn tới; 400/401/403.
+
+## Đợt xử lý kết quả audit (2026-11-09) ✅
+
+- **Test mới:** `catalog-search.db-spec.ts` (UC-CAT-02/03/06: lọc, sắp xếp, phân trang, tìm kiếm, không dấu; 20 test + 5 it.todo cho điểm lệch DAC), `account.db-spec.ts` (UC-ACC-04 sổ địa chỉ, UC-ACC-01 hồ sơ, UC-ACC-06 yêu thích, UC-SPACE-04 bookmark, UC-ADM-24 xác nhận thanh toán; 18 test + 6 it.todo).
+- **Lỗi thật được phát hiện và sửa nhờ test:** lần dựng chỉ mục catalog ĐẦU TIÊN sau mỗi lần xóa cache (khởi động API, sau khi admin sửa dữ liệu) sắp xếp "mới nhất" sai vì so sánh `String(Date)` thay vì thời điểm (`products.service.ts`; cùng lỗi ở danh sách quản trị sản phẩm và không gian). Đọc lại từ cache thì đúng nên khó thấy.
+- **Chú thích cũ:** dòng "TRẠNG THÁI: khung rỗng" ở 20 tệp `*.module.ts` đã có controller/route thật được đổi thành "đã cài đặt"; các khung thật sự rỗng (ar-sessions, ar-snapshots, hotspots, product-images, variants và các controller/service rỗng) giữ nguyên.
+- **Ghi nhận để chủ dự án quyết định:** xem `DOI_CHIEU_UC.md` mục 4 và DECISIONS O-07. Mã nguồn không bị đổi theo các điểm đó.
