@@ -89,7 +89,12 @@ export const adminApi = {
       id: number,
       body: { status?: string; carrier?: string; trackingCode?: string; fee?: number },
     ) => http.patch<ShipmentResult>(`/admin/shipments/${id}`, body),
-    confirmPayment: (id: number) => http.patch<OrderView>(`/admin/payments/${id}/confirm`),
+    /** UC-ADM-24: xác nhận đã nhận tiền chuyển khoản (transactionCode tùy chọn, duy nhất) */
+    confirmPayment: (id: number, body?: { transactionCode?: string }) =>
+      http.patch<OrderView>(`/admin/payments/${id}/confirm`, body),
+    /** UC-ADM-24: đánh dấu giao dịch chuyển khoản thất bại */
+    failPayment: (id: number, body?: { reason?: string }) =>
+      http.patch<OrderView>(`/admin/payments/${id}/fail`, body),
     saveNote: (id: number, note: string) => http.patch<OrderView>(`/admin/orders/${id}/note`, { note }), // TODO: chưa có trong BE
   },
   returns: {

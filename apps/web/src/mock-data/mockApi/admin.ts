@@ -705,6 +705,14 @@ export function confirmPayment(ctx: Ctx): Result {
   if (!pay) throw notFound('Giao dịch');
   const o = db.orders.find((x) => x.id === pay.orderId)!;
   if (o.paymentStatus === 'paid') throw new ApiFail('INVALID_STATE', 'Đơn hàng đã được thanh toán.');
+  if (pay.method !== 'bank_transfer')
+    throw new ApiFail('INVALID_STATE', 'Chỉ giao dịch chuyển khoản mới xác nhận thủ công.');
+  if (pay.status !== 'pending' && !(o.status === 'cancelled' && pay.status === 'failed'))
+    throw new ApiFail('INVALID_STATE', 'Chỉ giao dịch đang chờ mới xử lý được.');
+  const code = String(ctx.body?.transactionCode ?? '').trim();
+  if (code && db.payments.some((p) => p.id !== pay.id && p.transactionCode === code))
+    throw new ApiFail('CONFLICT', 'Mã giao dịch đã được dùng cho giao dịch khác.');
+  if (code) pay.transactionCode = code;
   pay.status = 'success';
   pay.paidAt = nowIso();
   pay.updatedAt = nowIso();
@@ -721,6 +729,19 @@ export function confirmPayment(ctx: Ctx): Result {
       createdAt: nowIso(),
     });
   }
+  return ok(orderView(db, o, { customer: true }));
+}
+
+export function failPayment(ctx: Ctx): Result {
+  const db = ctx.db;
+  const pay = db.payments.find((p) => p.id === Number(ctx.params.id));
+  if (!pay) throw notFound('Giao dịch');
+  const o = db.orders.find((x) => x.id === pay.orderId)!;
+  if (pay.method !== 'bank_transfer' || pay.status !== 'pending' || o.paymentStatus === 'paid')
+    throw new ApiFail('INVALID_STATE', 'Chỉ giao dịch chuyển khoản đang chờ mới đánh dấu thất bại được.');
+  pay.status = 'failed';
+  pay.updatedAt = nowIso();
+  o.paymentStatus = 'failed';
   return ok(orderView(db, o, { customer: true }));
 }
 

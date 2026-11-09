@@ -130,11 +130,30 @@ export default function AdminOrderDetailPage() {
       ),
     onError,
   });
+  const [txnCode, setTxnCode] = useState('');
+  const [failOpen, setFailOpen] = useState(false);
+  const [failReason, setFailReason] = useState('');
   const confirmPay = useMutation({
-    mutationFn: () => adminApi.orders.confirmPayment(o!.payment!.id),
+    mutationFn: () =>
+      adminApi.orders.confirmPayment(
+        o!.payment!.id,
+        txnCode.trim() ? { transactionCode: txnCode.trim() } : {},
+      ),
     onSuccess: (d) => {
       refresh(d);
+      setTxnCode('');
       toast.success('Đã xác nhận thanh toán.');
+    },
+    onError,
+  });
+  const failPay = useMutation({
+    mutationFn: () =>
+      adminApi.orders.failPayment(o!.payment!.id, failReason.trim() ? { reason: failReason.trim() } : {}),
+    onSuccess: (d) => {
+      refresh(d);
+      setFailOpen(false);
+      setFailReason('');
+      toast.success('Đã đánh dấu giao dịch thất bại.');
     },
     onError,
   });
@@ -162,8 +181,14 @@ export default function AdminOrderDetailPage() {
   o.history.forEach((h) => (times[h.toStatus] = h.createdAt));
   const canCancel = ['pending', 'confirmed', 'processing'].includes(o.status);
   const canRefund = o.status === 'completed' || (o.status === 'cancelled' && o.paymentStatus === 'paid');
+  // Chỉ giao dịch CHUYỂN KHOẢN đang chờ đối soát xác nhận/đánh dấu thất bại thủ công (online do cổng quản lý, COD tự ghi nhận).
+  // Đơn đã hủy: giao dịch chờ đã bị chuyển "thất bại" lúc hủy; tiền về muộn vẫn xác nhận được để hoàn tiền (D-T53).
+  const manualBank =
+    o.payment?.method === 'bank_transfer' && o.paymentStatus !== 'paid' && o.paymentStatus !== 'refunded';
   const canConfirmPay =
-    o.payment && o.paymentStatus !== 'paid' && o.paymentStatus !== 'refunded' && o.status !== 'cancelled';
+    manualBank &&
+    (o.payment!.status === 'pending' || (o.status === 'cancelled' && o.payment!.status === 'failed'));
+  const canFailPay = manualBank && o.payment!.status === 'pending';
 
   return (
     <div className="space-y-5">
@@ -462,14 +487,26 @@ export default function AdminOrderDetailPage() {
               <p className="text-xs text-muted">Thanh toán lúc {formatDateTime(o.payment.paidAt)}</p>
             )}
             {canConfirmPay && (
-              <Button
-                size="sm"
-                className="mt-2"
-                loading={confirmPay.isPending}
-                onClick={() => confirmPay.mutate()}
-              >
-                Xác nhận đã thanh toán
-              </Button>
+              <div className="mt-2 space-y-2">
+                <input
+                  value={txnCode}
+                  onChange={(e) => setTxnCode(e.target.value)}
+                  maxLength={100}
+                  placeholder="Mã giao dịch ngân hàng (tùy chọn)"
+                  aria-label="Mã giao dịch"
+                  className="field text-sm"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" loading={confirmPay.isPending} onClick={() => confirmPay.mutate()}>
+                    Xác nhận đã thanh toán
+                  </Button>
+                  {canFailPay && (
+                    <Button size="sm" variant="danger" onClick={() => setFailOpen(true)}>
+                      Đánh dấu thất bại
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </section>
           <section className="card p-5 text-sm">
@@ -503,6 +540,32 @@ export default function AdminOrderDetailPage() {
           Hủy đơn <b>#{o.orderCode}</b>: tồn kho và lượt dùng mã giảm giá sẽ được hoàn lại.
         </p>
         <Textarea label="Lý do hủy" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+      </Modal>
+      <Modal
+        open={failOpen}
+        onClose={() => setFailOpen(false)}
+        title="Đánh dấu thanh toán thất bại"
+        width={460}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setFailOpen(false)}>
+              Đóng
+            </Button>
+            <Button variant="danger" loading={failPay.isPending} onClick={() => failPay.mutate()}>
+              Đánh dấu thất bại
+            </Button>
+          </>
+        }
+      >
+        <p className="mb-3 text-sm text-muted">
+          Đơn <b>#{o.orderCode}</b>: khách sẽ nhận thông báo chưa xác nhận được thanh toán.
+        </p>
+        <Textarea
+          label="Lý do (tùy chọn)"
+          rows={3}
+          value={failReason}
+          onChange={(e) => setFailReason(e.target.value)}
+        />
       </Modal>
       <Modal
         open={refund}

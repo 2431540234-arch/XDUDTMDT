@@ -699,10 +699,293 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       expect(r.status).toBe(200);
       expect(r.body.data).toMatchObject({ paymentStatus: 'paid', status: 'processing' });
     });
-  });
 
-  // ------------------------------------------------------------------ Điểm lệch so với DAC_TA (chờ chủ dự án quyết định)
-  it.todo(
-    'UC-ADM-24: xác nhận thanh toán cho đơn đã bị hủy (cancelled) hiện vẫn được phép (đặt paid); DAC_TA/D-N28 chưa quy định riêng cho đường quản trị – chờ chủ dự án',
-  );
+    const tx = (label: string) => `TXN-${label}-${Date.now()}-${++seq}`;
+    const payRow = (id: number) => prisma.payment.findUniqueOrThrow({ where: { id } });
+    const ordRow = (id: number) => prisma.order.findUniqueOrThrow({ where: { id } });
+
+    it('xác nhận kèm transactionCode: lưu mã giao dịch, thông tin đối soát (người xác nhận, thời điểm) và nhật ký', async () => {
+      const { order } = await bankOrder();
+      const code = tx('ok');
+      const r = await api('patch', `/admin/payments/${order.payment.id}/confirm`, admin, {
+        transactionCode: `  ${code}  `,
+      });
+      expect(r.status).toBe(200);
+      const p = await payRow(order.payment.id);
+      expect(p.status).toBe('success');
+      expect(p.transactionCode).toBe(code); // đã cắt khoảng trắng
+      expect(p.paidAt).not.toBeNull();
+      expect(p.gatewayResponse).toMatchObject({ manual: true, action: 'confirm' });
+      expect((p.gatewayResponse as { confirmedBy: number }).confirmedBy).toBeGreaterThan(0);
+      const log = await prisma.activityLog.findFirstOrThrow({
+        where: { action: 'order.confirm_payment', targetId: order.id },
+      });
+      expect(JSON.stringify(log.changes)).toContain(code);
+      // transactionCode quá dài ⇒ 400, không đổi gì
+      const { order: o2 } = await bankOrder();
+      const long = await api('patch', `/admin/payments/${o2.payment.id}/confirm`, admin, {
+        transactionCode: 'x'.repeat(101),
+      });
+      expect(long.status).toBe(400);
+      expect((await payRow(o2.payment.id)).status).toBe('pending');
+    });
+
+    it('transactionCode trùng với giao dịch khác ⇒ 409 (kiểm ở mã và ở CSDL); giao dịch vẫn pending, đơn không đổi', async () => {
+      const a = await bankOrder();
+      const b = await bankOrder();
+      const code = tx('dup');
+      expect(
+        (
+          await api('patch', `/admin/payments/${a.order.payment.id}/confirm`, admin, {
+            transactionCode: code,
+          })
+        ).status,
+      ).toBe(200);
+      const dup = await api('patch', `/admin/payments/${b.order.payment.id}/confirm`, admin, {
+        transactionCode: code,
+      });
+      expect(dup.status).toBe(409);
+      expect(dup.body.error.code).toBe('CONFLICT');
+      expect(dup.body.error.details.fields).toContain('transactionCode');
+      expect((await payRow(b.order.payment.id)).status).toBe('pending');
+      expect((await ordRow(b.order.id)).paymentStatus).toBe('unpaid');
+      // ràng buộc UNIQUE ở CSDL (không chỉ ở mã): ghi thẳng cũng bị từ chối
+      await expect(
+        prisma.payment.update({ where: { id: b.order.payment.id }, data: { transactionCode: code } }),
+      ).rejects.toMatchObject({ code: 'P2002' });
+      // cùng giao dịch xác nhận lại với mã của chính nó vẫn là 409 (đã thanh toán), không phải lỗi mã trùng
+      expect(
+        (
+          await api('patch', `/admin/payments/${a.order.payment.id}/confirm`, admin, {
+            transactionCode: code,
+          })
+        ).status,
+      ).toBe(409);
+    });
+
+    it('đơn đã HỦY: vẫn xác nhận được để hoàn tiền (D-N28): giao dịch success, đơn giữ cancelled và paid, sau đó hoàn tiền được', async () => {
+      const { order } = await bankOrder();
+      expect(
+        (await api('post', `/admin/orders/${order.id}/cancel`, admin, { reason: 'khách đổi ý' })).status,
+      ).toBe(200);
+      expect((await ordRow(order.id)).status).toBe('cancelled');
+      const r = await api('patch', `/admin/payments/${order.payment.id}/confirm`, admin, {
+        transactionCode: tx('cancelled'),
+      });
+      expect(r.status).toBe(200);
+      expect(r.body.data).toMatchObject({ status: 'cancelled', paymentStatus: 'paid' });
+      expect((await payRow(order.payment.id)).status).toBe('success');
+      const refund = await api('post', `/admin/orders/${order.id}/refund`, admin);
+      expect(refund.status).toBe(200);
+      expect((await ordRow(order.id)).paymentStatus).toBe('refunded');
+    });
+
+    it('chỉ chuyển khoản mới xác nhận tay: giao dịch online (cổng quản lý) và COD ⇒ 409, không đổi gì', async () => {
+      for (const method of ['vnpay', 'momo', 'zalopay', 'card', 'cod'] as const) {
+        const { order } = await bankOrder();
+        await prisma.payment.update({ where: { id: order.payment.id }, data: { method } });
+        const r = await api('patch', `/admin/payments/${order.payment.id}/confirm`, admin, {
+          transactionCode: tx(method),
+        });
+        expect(r.status).toBe(409);
+        expect(r.body.error.code).toBe('INVALID_STATE');
+        expect(r.body.error.message).toMatch(method === 'cod' ? /COD/ : /cổng thanh toán/);
+        const f = await api('patch', `/admin/payments/${order.payment.id}/fail`, admin, { reason: 'x' });
+        expect(f.status).toBe(409);
+        const p = await payRow(order.payment.id);
+        expect([p.status, p.transactionCode, p.paidAt]).toEqual(['pending', null, null]);
+        expect((await ordRow(order.id)).paymentStatus).toBe('unpaid');
+      }
+    });
+
+    it('chỉ giao dịch đang chờ: failed / success / refunded không bị ghi đè thành paid', async () => {
+      for (const status of ['failed', 'success', 'refunded'] as const) {
+        const { order } = await bankOrder();
+        await prisma.payment.update({ where: { id: order.payment.id }, data: { status } });
+        const r = await api('patch', `/admin/payments/${order.payment.id}/confirm`, admin, {
+          transactionCode: tx(status),
+        });
+        expect(r.status).toBe(409);
+        expect(r.body.error.code).toBe('INVALID_STATE');
+        const p = await payRow(order.payment.id);
+        expect(p.status).toBe(status);
+        expect(p.transactionCode).toBeNull();
+        expect((await ordRow(order.id)).paymentStatus).toBe('unpaid');
+      }
+    });
+
+    it('đánh dấu thất bại: giao dịch failed, đơn paymentStatus=failed (trạng thái đơn giữ nguyên), thông báo + nhật ký; không làm lại được', async () => {
+      const { u, order } = await bankOrder();
+      const r = await api('patch', `/admin/payments/${order.payment.id}/fail`, admin, {
+        reason: 'Không thấy tiền về tài khoản',
+      });
+      expect(r.status).toBe(200);
+      expect(r.body.data).toMatchObject({ paymentStatus: 'failed', status: 'pending' });
+      const p = await payRow(order.payment.id);
+      expect(p.status).toBe('failed');
+      expect(p.paidAt).toBeNull();
+      expect(p.gatewayResponse).toMatchObject({
+        manual: true,
+        action: 'fail',
+        reason: 'Không thấy tiền về tài khoản',
+      });
+      const note = await prisma.notification.findFirstOrThrow({
+        where: { userId: u.id, title: `Thanh toán đơn ${order.orderCode} chưa được xác nhận` },
+      });
+      expect(JSON.stringify(note.data)).toContain('Không thấy tiền');
+      expect(
+        await prisma.activityLog.count({ where: { action: 'order.fail_payment', targetId: order.id } }),
+      ).toBe(1);
+      // chuyển trạng thái không hợp lệ: đã failed thì không fail lại, không xác nhận
+      expect((await api('patch', `/admin/payments/${order.payment.id}/fail`, admin)).status).toBe(409);
+      expect((await api('patch', `/admin/payments/${order.payment.id}/confirm`, admin)).status).toBe(409);
+      expect((await payRow(order.payment.id)).status).toBe('failed');
+    });
+
+    it('đánh dấu thất bại KHÔNG ghi đè giao dịch đã thanh toán hoặc đã hoàn tiền; lý do quá dài ⇒ 400; không cần lý do', async () => {
+      const paid = await bankOrder();
+      expect((await api('patch', `/admin/payments/${paid.order.payment.id}/confirm`, admin)).status).toBe(
+        200,
+      );
+      const f1 = await api('patch', `/admin/payments/${paid.order.payment.id}/fail`, admin, {
+        reason: 'nhầm',
+      });
+      expect(f1.status).toBe(409);
+      expect((await payRow(paid.order.payment.id)).status).toBe('success');
+      expect((await ordRow(paid.order.id)).paymentStatus).toBe('paid');
+
+      const refunded = await bankOrder();
+      await prisma.payment.update({ where: { id: refunded.order.payment.id }, data: { status: 'refunded' } });
+      await prisma.order.update({ where: { id: refunded.order.id }, data: { paymentStatus: 'refunded' } });
+      expect((await api('patch', `/admin/payments/${refunded.order.payment.id}/fail`, admin)).status).toBe(
+        409,
+      );
+      expect((await payRow(refunded.order.payment.id)).status).toBe('refunded');
+
+      const none = await bankOrder();
+      const long = await api('patch', `/admin/payments/${none.order.payment.id}/fail`, admin, {
+        reason: 'x'.repeat(256),
+      });
+      expect(long.status).toBe(400);
+      expect((await payRow(none.order.payment.id)).status).toBe('pending');
+      expect((await api('patch', `/admin/payments/${none.order.payment.id}/fail`, admin)).status).toBe(200); // không gửi lý do vẫn được
+    });
+
+    it('đồng thời: 8 yêu cầu xác nhận cùng một giao dịch ⇒ đúng một thành công, còn lại 409; một thông báo, một nhật ký', async () => {
+      const { u, order } = await bankOrder();
+      const rs = await Promise.all(
+        Array.from({ length: 8 }, (_, i) =>
+          api('patch', `/admin/payments/${order.payment.id}/confirm`, admin, {
+            transactionCode: tx(`par${i}`),
+          }),
+        ),
+      );
+      const codes = rs.map((r) => r.status).sort();
+      expect(codes).toEqual([200, 409, 409, 409, 409, 409, 409, 409]);
+      expect((await payRow(order.payment.id)).status).toBe('success');
+      expect(
+        await prisma.notification.count({
+          where: { userId: u.id, title: `Thanh toán đơn ${order.orderCode} đã được xác nhận` },
+        }),
+      ).toBe(1);
+      expect(
+        await prisma.activityLog.count({ where: { action: 'order.confirm_payment', targetId: order.id } }),
+      ).toBe(1);
+    });
+
+    it('đồng thời: xác nhận và đánh dấu thất bại cùng lúc ⇒ chỉ một thắng, trạng thái giao dịch và đơn luôn khớp nhau', async () => {
+      for (let round = 0; round < 3; round++) {
+        const { order } = await bankOrder();
+        const rs = await Promise.all([
+          api('patch', `/admin/payments/${order.payment.id}/confirm`, admin, {
+            transactionCode: tx(`race${round}`),
+          }),
+          api('patch', `/admin/payments/${order.payment.id}/fail`, admin, { reason: 'đua' }),
+          api('patch', `/admin/payments/${order.payment.id}/confirm`, admin),
+        ]);
+        expect(rs.filter((r) => r.status === 200)).toHaveLength(1);
+        expect(rs.every((r) => [200, 409].includes(r.status))).toBe(true);
+        const p = await payRow(order.payment.id);
+        const o = await ordRow(order.id);
+        expect(p.status === 'success' ? 'paid' : 'failed').toBe(o.paymentStatus);
+        expect(
+          await prisma.activityLog.count({
+            where: { targetId: order.id, action: { in: ['order.confirm_payment', 'order.fail_payment'] } },
+          }),
+        ).toBe(1);
+      }
+    });
+
+    it('quyền của đánh dấu thất bại: 401 chưa đăng nhập, 403 khách hàng, 404 không tồn tại, 400 id sai kiểu', async () => {
+      const { u, order } = await bankOrder();
+      expect((await api('patch', `/admin/payments/${order.payment.id}/fail`)).status).toBe(401);
+      expect((await api('patch', `/admin/payments/${order.payment.id}/fail`, u.token)).status).toBe(403);
+      expect((await api('patch', '/admin/payments/999999999/fail', admin)).status).toBe(404);
+      expect((await api('patch', '/admin/payments/abc/fail', admin)).status).toBe(400);
+      expect((await payRow(order.payment.id)).status).toBe('pending');
+    });
+
+    it('GET /admin/payments: cần quyền; trả đủ thông tin, mới nhất trước, lọc status/method/q, phân trang, tham số sai ⇒ 400', async () => {
+      expect((await api('get', '/admin/payments')).status).toBe(401);
+      const a = await bankOrder();
+      const b = await bankOrder();
+      expect((await api('get', '/admin/payments', a.u.token)).status).toBe(403);
+      await api('patch', `/admin/payments/${a.order.payment.id}/confirm`, admin, {
+        transactionCode: tx('list'),
+      });
+
+      const all = await api('get', '/admin/payments?pageSize=100', admin);
+      expect(all.status).toBe(200);
+      expect(all.body.meta.total).toBeGreaterThanOrEqual(2);
+      const items = all.body.data as Array<Record<string, unknown>>;
+      expect(items[0]).toEqual(
+        expect.objectContaining({
+          id: expect.any(Number),
+          orderCode: expect.any(String),
+          customerEmail: expect.any(String),
+          method: expect.any(String),
+          amount: expect.any(Number),
+          status: expect.any(String),
+        }),
+      );
+      const times = items.map((x) => new Date(x.createdAt as string).getTime());
+      expect(times.every((t, i) => i === 0 || times[i - 1] >= t)).toBe(true);
+
+      const pend = await api(
+        'get',
+        '/admin/payments?status=pending&method=bank_transfer&pageSize=100',
+        admin,
+      );
+      expect(
+        (pend.body.data as Array<{ status: string; method: string }>).every(
+          (x) => x.status === 'pending' && x.method === 'bank_transfer',
+        ),
+      ).toBe(true);
+      expect((pend.body.data as Array<{ id: number }>).map((x) => x.id)).toContain(b.order.payment.id);
+      expect((pend.body.data as Array<{ id: number }>).map((x) => x.id)).not.toContain(a.order.payment.id);
+
+      const byCode = await api(
+        'get',
+        `/admin/payments?q=${encodeURIComponent(a.order.orderCode.toLowerCase())}`,
+        admin,
+      );
+      expect((byCode.body.data as Array<{ id: number }>).map((x) => x.id)).toEqual([a.order.payment.id]);
+      expect((byCode.body.data as Array<{ status: string }>)[0].status).toBe('success');
+
+      const p1 = await api('get', '/admin/payments?pageSize=1&page=1', admin);
+      const p2 = await api('get', '/admin/payments?pageSize=1&page=2', admin);
+      expect(p1.body.data).toHaveLength(1);
+      expect(p2.body.data).toHaveLength(1);
+      expect((p1.body.data as Array<{ id: number }>)[0].id).not.toBe(
+        (p2.body.data as Array<{ id: number }>)[0].id,
+      );
+      expect(p1.body.meta.pageSize).toBe(1);
+
+      for (const qs of ['status=hoan-thanh', 'method=paypal']) {
+        const bad = await api('get', `/admin/payments?${qs}`, admin);
+        expect(bad.status).toBe(400);
+      }
+      expect((await api('get', '/admin/payments?q=%25', admin)).status).toBe(200); // ký tự đặc biệt không lỗi
+    });
+  });
 });

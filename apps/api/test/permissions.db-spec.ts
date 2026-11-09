@@ -129,7 +129,15 @@ describe('PermissionsGuard (aurelia_test)', () => {
       ).toBe(403);
       expect((await call('post', '/admin/orders/99999999/cancel').send({ reason: 'x' })).status).toBe(403);
       expect((await call('get', '/admin/returns')).status).toBe(403);
+      // UC-ADM-24: danh sách, xác nhận và đánh dấu thất bại giao dịch đều cần process_orders
+      expect((await call('get', '/admin/payments')).status).toBe(403);
+      expect((await call('patch', '/admin/payments/99999999/confirm')).status).toBe(403);
+      expect((await call('patch', '/admin/payments/99999999/fail')).status).toBe(403);
     });
+    // còn quyền ⇒ qua cổng quyền (danh sách 200; thao tác trên giao dịch không có ⇒ 404, không phải 403)
+    expect((await call('get', '/admin/payments')).status).toBe(200);
+    expect((await call('patch', '/admin/payments/99999999/confirm')).status).toBe(404);
+    expect((await call('patch', '/admin/payments/99999999/fail')).status).toBe(404);
   });
 
   it('route nhận nhiều quyền (media: manage_products HOẶC manage_content): còn một trong hai là đủ', async () => {

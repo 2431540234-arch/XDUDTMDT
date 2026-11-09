@@ -38,6 +38,8 @@ const STATUS_LABEL: Record<string, string> = {
   shipping: 'đang được giao',
   completed: 'đã giao thành công',
 };
+const PAYMENT_STATUSES = ['pending', 'success', 'failed', 'refunded'];
+const PAYMENT_METHODS = ['cod', 'bank_transfer', 'momo', 'vnpay', 'zalopay', 'card'];
 const SORTS: Record<string, keyof Prisma.OrderOrderByWithRelationInput> = {
   createdAt: 'createdAt',
   total: 'total',
@@ -292,34 +294,232 @@ export class AdminOrdersService {
     return this.viewById(o.id);
   }
 
-  async confirmPayment(adminId: number, paymentId: number) {
+  // ------------------------------------------------------------ UC-ADM-24 thanh toán
+
+  /** Danh sách giao dịch (GET /admin/payments?status=&method=&q=&page=&pageSize=): mới nhất trước */
+  async listPayments(q: RawQuery) {
+    const status = qStr(q, 'status');
+    const method = qStr(q, 'method');
+    const search = qStr(q, 'q').trim();
+    const errs = new FieldErrors();
+    if (status && !PAYMENT_STATUSES.includes(status))
+      errs.add('status', 'Trạng thái giao dịch không hợp lệ.');
+    if (method && !PAYMENT_METHODS.includes(method))
+      errs.add('method', 'Phương thức thanh toán không hợp lệ.');
+    errs.throwIfAny();
+    const where: Prisma.PaymentWhereInput = {
+      ...(status ? { status: status as never } : {}),
+      ...(method ? { method: method as never } : {}),
+      ...(search
+        ? {
+            OR: [
+              { transactionCode: { contains: search, mode: 'insensitive' } },
+              { order: { orderCode: { contains: search, mode: 'insensitive' } } },
+              { order: { recipientName: { contains: search, mode: 'insensitive' } } },
+            ],
+          }
+        : {}),
+    };
+    const total = await this.prisma.payment.count({ where });
+    const page = resolvePage(q, total, 10);
+    const rows = await this.prisma.payment.findMany({
+      where,
+      include: {
+        order: {
+          select: { orderCode: true, status: true, paymentStatus: true, recipientName: true, userId: true },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      skip: page.skip,
+      take: page.pageSize,
+    });
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(rows.map((r) => r.order.userId))] } },
+      select: { id: true, fullName: true, email: true },
+    });
+    const byId = new Map(users.map((u) => [u.id, u]));
+    return {
+      items: rows.map((p) => ({
+        id: p.id,
+        orderId: p.orderId,
+        orderCode: p.order.orderCode,
+        orderStatus: p.order.status,
+        orderPaymentStatus: p.order.paymentStatus,
+        customerName: byId.get(p.order.userId)?.fullName ?? p.order.recipientName,
+        customerEmail: byId.get(p.order.userId)?.email ?? null,
+        method: p.method,
+        amount: Number(p.amount),
+        status: p.status,
+        transactionCode: p.transactionCode,
+        paidAt: p.paidAt,
+        createdAt: p.createdAt,
+      })),
+      page: page.page,
+      pageSize: page.pageSize,
+      total,
+    };
+  }
+
+  /**
+   * Điều kiện chung của xác nhận/đánh dấu thất bại thủ công (UC-ADM-24): chỉ giao dịch CHUYỂN KHOẢN đang chờ đối soát.
+   * Giao dịch online do cổng thanh toán quản lý và COD (tự ghi nhận khi giao hàng) không xử lý tay; giao dịch đã thành công,
+   * thất bại hoặc hoàn tiền không bị ghi đè.
+   */
+  private assertManualPending(
+    pay: { method: string; status: string },
+    order: { paymentStatus: string; status: string },
+    lateAfterCancel = false,
+  ) {
+    if (pay.method !== 'bank_transfer') {
+      throw new AppException(
+        ErrorCode.INVALID_STATE,
+        pay.method === 'cod'
+          ? 'Thanh toán khi nhận hàng (COD) được ghi nhận tự động khi giao hàng thành công, không xác nhận thủ công.'
+          : 'Giao dịch online do cổng thanh toán quản lý, không xác nhận thủ công.',
+      );
+    }
+    // Ngoại lệ D-T53 (chỉ khi xác nhận): đơn ĐÃ HỦY thì giao dịch chờ đã bị chuyển failed lúc hủy; tiền về muộn vẫn ghi nhận được
+    const statusOk =
+      pay.status === 'pending' ||
+      (lateAfterCancel && order.status === 'cancelled' && pay.status === 'failed');
+    if (!statusOk || order.paymentStatus === 'paid' || order.paymentStatus === 'refunded') {
+      throw new AppException(
+        ErrorCode.INVALID_STATE,
+        pay.status === 'success' || order.paymentStatus === 'paid'
+          ? 'Đơn hàng đã được thanh toán.'
+          : `Giao dịch ở trạng thái "${pay.status}", chỉ giao dịch đang chờ mới xử lý được.`,
+      );
+    }
+  }
+
+  /**
+   * Xác nhận đã nhận tiền chuyển khoản. Giao dịch ghi success + paidAt (+ transactionCode duy nhất), đơn paid; đơn pending tự sang
+   * confirmed (D-N13/O-04); đơn ĐÃ HỦY vẫn được ghi paid để có thể hoàn tiền thủ công (D-N28, D-T53), giữ nguyên trạng thái hủy
+   * (giao dịch chờ bị chuyển failed lúc hủy đơn nên với đơn hủy cho phép failed → success). Chạy trong một transaction với cập nhật
+   * có điều kiện theo trạng thái đã đọc nên hai yêu cầu đồng thời chỉ một cái thành công.
+   */
+  async confirmPayment(adminId: number, paymentId: number, raw?: unknown) {
+    const body = asBody(raw);
+    const code = str(body.transactionCode).trim();
+    if (code.length > 100)
+      new FieldErrors().add('transactionCode', 'Mã giao dịch tối đa 100 ký tự.').throwIfAny();
     const pay = await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { order: true } });
     if (!pay) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Giao dịch không tồn tại.');
     const o = pay.order;
-    if (o.paymentStatus === 'paid')
-      throw new AppException(ErrorCode.INVALID_STATE, 'Đơn hàng đã được thanh toán.');
-    await this.prisma.$transaction(async (tx) => {
-      await tx.payment.update({ where: { id: pay.id }, data: { status: 'success', paidAt: new Date() } });
-      await this.orders.setActor(tx, adminId, 'Xác nhận đã nhận thanh toán');
-      await tx.order.update({
-        where: { id: o.id },
-        data: { paymentStatus: 'paid', ...(o.status === 'pending' ? { status: 'confirmed' } : {}) },
+    this.assertManualPending(pay, o, true);
+    if (code) {
+      const used = await this.prisma.payment.findFirst({
+        where: { transactionCode: code, id: { not: pay.id } },
+        select: { id: true },
       });
+      if (used)
+        throw new AppException(ErrorCode.CONFLICT, 'Mã giao dịch đã được dùng cho giao dịch khác.', {
+          fields: ['transactionCode'],
+        });
+    }
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        const won = await tx.payment.updateMany({
+          where: { id: pay.id, status: pay.status },
+          data: {
+            status: 'success',
+            paidAt: new Date(),
+            ...(code ? { transactionCode: code } : {}),
+            gatewayResponse: {
+              manual: true,
+              action: 'confirm',
+              confirmedBy: adminId,
+              confirmedAt: new Date().toISOString(),
+            },
+          },
+        });
+        if (won.count !== 1)
+          throw new AppException(ErrorCode.INVALID_STATE, 'Giao dịch đã được xử lý bởi thao tác khác.');
+        await this.orders.setActor(tx, adminId, 'Xác nhận đã nhận thanh toán');
+        const fresh = await tx.order.findUniqueOrThrow({ where: { id: o.id } });
+        await tx.order.update({
+          where: { id: o.id },
+          data: { paymentStatus: 'paid', ...(fresh.status === 'pending' ? { status: 'confirmed' } : {}) },
+        });
+        await this.notifications.notify(
+          tx,
+          o.userId,
+          `Thanh toán đơn ${o.orderCode} đã được xác nhận`,
+          'order',
+          'Chúng tôi đã nhận được thanh toán của bạn.',
+          `/account/orders/${o.orderCode}`,
+        );
+        await this.activity.log(
+          {
+            actorId: adminId,
+            action: 'order.confirm_payment',
+            targetType: 'order',
+            targetId: o.id,
+            changes: {
+              orderCode: o.orderCode,
+              paymentId: pay.id,
+              transactionCode: code || null,
+              orderStatus: fresh.status,
+            },
+          },
+          tx,
+        );
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002')
+        throw new AppException(ErrorCode.CONFLICT, 'Mã giao dịch đã được dùng cho giao dịch khác.', {
+          fields: ['transactionCode'],
+        });
+      throw e;
+    }
+    return this.viewById(o.id);
+  }
+
+  /**
+   * Đánh dấu giao dịch chuyển khoản THẤT BẠI (không nhận được tiền/sai số tiền): Payment.failed, Order.paymentStatus = failed.
+   * Chỉ áp dụng khi giao dịch đang chờ; không ghi đè giao dịch đã thanh toán hoặc đã hoàn tiền. Đơn giữ nguyên trạng thái.
+   */
+  async failPayment(adminId: number, paymentId: number, raw?: unknown) {
+    const reason = str(asBody(raw).reason).trim();
+    if (reason.length > 255) new FieldErrors().add('reason', 'Lý do tối đa 255 ký tự.').throwIfAny();
+    const pay = await this.prisma.payment.findUnique({ where: { id: paymentId }, include: { order: true } });
+    if (!pay) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Giao dịch không tồn tại.');
+    const o = pay.order;
+    this.assertManualPending(pay, o);
+    await this.prisma.$transaction(async (tx) => {
+      const won = await tx.payment.updateMany({
+        where: { id: pay.id, status: 'pending' },
+        data: {
+          status: 'failed',
+          gatewayResponse: {
+            manual: true,
+            action: 'fail',
+            failedBy: adminId,
+            failedAt: new Date().toISOString(),
+            reason: reason || null,
+          },
+        },
+      });
+      if (won.count !== 1)
+        throw new AppException(ErrorCode.INVALID_STATE, 'Giao dịch đã được xử lý bởi thao tác khác.');
+      await this.orders.setActor(tx, adminId, 'Đánh dấu thanh toán thất bại');
+      await tx.order.update({ where: { id: o.id }, data: { paymentStatus: 'failed' } });
       await this.notifications.notify(
         tx,
         o.userId,
-        `Thanh toán đơn ${o.orderCode} đã được xác nhận`,
+        `Thanh toán đơn ${o.orderCode} chưa được xác nhận`,
         'order',
-        'Chúng tôi đã nhận được thanh toán của bạn.',
+        reason ||
+          'Chúng tôi chưa nhận được khoản thanh toán cho đơn hàng. Vui lòng kiểm tra lại hoặc thanh toán lại.',
         `/account/orders/${o.orderCode}`,
       );
       await this.activity.log(
         {
           actorId: adminId,
-          action: 'order.confirm_payment',
+          action: 'order.fail_payment',
           targetType: 'order',
           targetId: o.id,
-          changes: { orderCode: o.orderCode },
+          changes: { orderCode: o.orderCode, paymentId: pay.id, reason: reason || null },
         },
         tx,
       );
