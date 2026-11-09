@@ -42,12 +42,12 @@ Hiện trạng cũ (viết tay, 5 file) so với schema Prisma (44 bảng, 18 en
 | 5 | Thừa/nhạy cảm | - | `passwordHash` tồn tại trong bảng, không được lộ ra FE | Sinh có chủ đích loại bỏ |
 | 6 | Sai kiểu   | `Cart.userId: string`, `Cart.id` | `Int`; `carts.user_id` unique; item nằm ở `CartItem` (`variantId`, không phải `productId`; giá lấy từ biến thể, không lưu `price` trong item) | Entity `Cart`, `CartItem` sinh |
 | 7 | Sai/thiếu  | `Cart.items[{productId, quantity, price}]` | `CartItem{cartId, variantId, quantity, ...}` | Bỏ kiểu lồng; DTO giỏ hàng định nghĩa khi làm module cart |
-| 8 | Sai kiểu   | `Product.id: string`, `price` trực tiếp | `Int`; giá nằm ở `ProductVariant`; có `slug`, `status`, `has3dModel`, `hasAr`... | Entity sinh |
+| 8 | Sai kiểu   | `Product.id: string`, `price` trực tiếp | `Int`; giá nằm ở `ProductVariant`; có `slug`, `status`, `has3dModel`... | Entity sinh |
 | 9 | Sai/thiếu  | `Product.images: string[]`, `model3dUrl?` | Ảnh qua `ProductImage` → `Media`; mô hình 3D là bảng riêng `Product3DModel` + `ModelFile` | Entity sinh |
 | 10 | Sai kiểu  | `Space.id: string`, `panoramaUrl`, `hotspots[{position{x,y,z}}]` | `Space`/`SpaceScene`/`SpaceHotspot` dùng `yaw`/`pitch` (Decimal) chứ không phải x,y,z; ảnh qua `Media` | Entity sinh |
 | 11 | Thiếu     | `AuthTokens` chỉ có token | Đúng hình dạng nhưng thiếu người dùng đăng nhập | `AuthTokens` giữ, thêm `AuthUser` |
 | 12 | Thiếu     | Không có | 18 enum (`UserStatus`, `OrderStatus`, `PaymentStatus`...) | `enums.generated.ts` |
-| 13 | Thiếu     | Không có | 39 bảng còn lại (Order, Coupon, Review, ArSession...) | Entity sinh (44 bảng) |
+| 13 | Thiếu     | Không có | 39 bảng còn lại (Order, Coupon, Review...) | Entity sinh (42 bảng; đã bỏ 2 bảng AR ở D-P16) |
 | 14 | Thiếu     | Không có kiểu response/lỗi/phân trang | Quy ước ở API_CONVENTIONS.md | `api.ts`, `error-codes.ts` |
 | 15 | Hạ tầng   | Thiếu `package.json`, `tsconfig.json`; `apps/*` không khai báo phụ thuộc | - | Thêm package `@aurelia-living/shared-types` (build ra `dist`), `apps/api` và `apps/web` khai báo `"@aurelia-living/shared-types": "*"` |
 

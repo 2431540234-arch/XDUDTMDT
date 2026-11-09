@@ -1,4 +1,4 @@
-// E2E (supertest) UC-ADM-25 / O-03 / D-T54: máy trạng thái vận đơn theo DAC_TA §10.4, thông báo failed/returned đúng một lần,
+// E2E (supertest) UC-ADM-25 / O-03 / D-N34: máy trạng thái vận đơn theo DAC_TA §10.4, thông báo failed/returned đúng một lần,
 // hủy đơn "Đang giao" khi vận đơn đã hoàn về, hoàn tiền một lần. Chạy trên aurelia_test.
 // Ghi chú: hệ thống KHÔNG có endpoint webhook của đơn vị vận chuyển (vận đơn nhập tay, webhook là hướng phát triển – DAC_TA mục 13)
 // nên tính idempotent được kiểm trên PATCH /admin/shipments/:id (lặp lại cùng trạng thái, yêu cầu đồng thời).
@@ -264,7 +264,7 @@ describe('Trạng thái vận đơn, hủy đơn khi hoàn hàng, hoàn tiền (
     expect(rs.filter((r) => r.status === 200).length).toBeGreaterThanOrEqual(1);
   });
 
-  describe('hủy đơn khi vận đơn đã hoàn về (ngoại lệ D-T54) và hoàn tiền', () => {
+  describe('hủy đơn khi vận đơn đã hoàn về (ngoại lệ D-N34) và hoàn tiền', () => {
     it('đơn "Đang giao" chỉ hủy được khi MỌI vận đơn đã returned; khách tự hủy vẫn bị chặn', async () => {
       const o = await place();
       const id = await toShipping(o);

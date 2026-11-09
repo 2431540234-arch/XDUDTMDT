@@ -1,5 +1,5 @@
 // Danh sách module nghiệp vụ (M01–M14). Ánh xạ: docs/MODULE_ENV_REPORT.md mục 3.
-// Module ai: NGOÀI phạm vi đồ án. AR đã bị loại bỏ hoàn toàn (D-T50). Module jobs: không dùng trong phạm vi đồ án (docs/DECISIONS.md).
+// Module ai: NGOÀI phạm vi đồ án. AR đã bị loại bỏ hoàn toàn (D-P16). Module jobs: không dùng trong phạm vi đồ án (docs/DECISIONS.md).
 import { SettingsModule } from './settings/settings.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { AuthModule } from './auth/auth.module';

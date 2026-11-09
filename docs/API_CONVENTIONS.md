@@ -149,7 +149,7 @@ async list(@Query() q: ProductQueryDto) {
 
 Module nghiệp vụ chỉ inject `STORAGE_SERVICE` (`upload`, `download`, `delete`, `head`, `getUrl`, `presignPut`, `presignGet`); driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev), `s3` (production, cùng lớp S3-compatible, chỉ khác biến môi trường: bỏ `S3_ENDPOINT`, đặt `S3_REGION`, `S3_FORCE_PATH_STYLE=false`, bỏ khóa nếu dùng IAM role), `local` (dự phòng).
 
-- Hai bucket: **`aurelia-public`** (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh) và **`aurelia-private`** (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập qua presigned GET).
+- Hai bucket: **`aurelia-public`** (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh) và **`aurelia-private`** (tệp gốc chờ xử lý; chỉ truy cập qua presigned GET).
 - `media.file_path` lưu **object key** (ví dụ `images/2026/10/<uuid>.png`), không lưu URL. URL công khai = `STORAGE_PUBLIC_URL` + `/` + key (`storage.getUrl(key)`).
 - Driver `local` không hỗ trợ presigned URL (lưu trong `<STORAGE_LOCAL_DIR>/public` và `/private`).
 
@@ -172,7 +172,7 @@ Kiểu dùng chung: `PresignUploadRequest`, `PresignedUpload`, `ConfirmUploadReq
 ### 8.3. Hàng đợi (BullMQ + Redis)
 
 - Có 4 queue: `model-processing`, `image-processing`, `mail`, `notification`. Đẩy job qua `JobsService` (`enqueueModel`, `enqueueImage`, `enqueueMail`, `enqueueNotification`); không dùng BullMQ trực tiếp ở module nghiệp vụ.
-- Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. AR nằm ngoài phạm vi (D-P11), hệ thống chỉ hỗ trợ tệp GLB; tải tệp USDZ bị từ chối 415 UNSUPPORTED_MEDIA_TYPE.
+- Queue `model-processing`: kiểm tra GLB, đo số đa giác/kích thước texture, sinh LOD high/medium/low, nén Meshopt, SHA-256 → ghi `model_files`, đặt `Product3DModel.status` = `ready`/`failed`. AR đã bị loại bỏ (D-P16).
 - Queue `image-processing`: tạo `<key>.webp` và `<key>_thumb.webp` bằng `sharp`.
 - Queue `mail`: gửi email thật qua SMTP (`SmtpMailService`). Queue `notification`: khung, hiện chỉ ghi log; theo D-T47 chỉ dành cho việc nền chậm (ví dụ email thông báo), còn bản ghi `notifications` do Service tạo trực tiếp trong transaction nghiệp vụ (D-N19).
 - Mỗi job thử lại 3 lần, backoff mũ; tệp hỏng không thử lại; job thất bại được giữ để xem tại **Bull Board** `/admin/queues` (chỉ admin: header `Authorization: Bearer`, cookie `bq_token`, hoặc `?token=` lần đầu).

@@ -1,5 +1,5 @@
 // E2E (supertest) UC-ADM-10 (biến thể) và UC-ADM-11 (ảnh sản phẩm) trên aurelia_test.
-// Thiết kế API gộp: biến thể và ảnh nằm trong body của POST/PATCH /admin/products (không có route riêng, xem DECISIONS D-T52).
+// Thiết kế API gộp: biến thể và ảnh nằm trong body của POST/PATCH /admin/products (không có route riêng, xem DECISIONS D-N32).
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';

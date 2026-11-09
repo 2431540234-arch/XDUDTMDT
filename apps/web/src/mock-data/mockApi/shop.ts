@@ -399,7 +399,7 @@ export function cancelOrderCore(
   const o = db.orders.find((x) => x.id === orderId)!;
   const allowed: OrderStatus[] = byAdmin ? ['pending', 'confirmed', 'processing'] : ['pending', 'confirmed'];
   if (byAdmin && o.status === 'shipping') {
-    // D-T54: đơn đang giao chỉ hủy được khi mọi vận đơn đã hoàn về (returned)
+    // D-N34: đơn đang giao chỉ hủy được khi mọi vận đơn đã hoàn về (returned)
     const ships = db.shipments.filter((x) => x.orderId === orderId);
     if (!ships.length || !ships.every((x) => x.status === 'returned'))
       throw new ApiFail('INVALID_STATE', 'Đơn đang giao chỉ hủy được khi vận đơn đã hoàn về (returned).');

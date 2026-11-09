@@ -194,7 +194,7 @@ OTP 6 số ngẫu nhiên (hash bcrypt/sha256), hết hạn 5 phút, tối đa 5 
 - Mật khẩu **bcryptjs** (đã có dependency) cost 10; JWT access (`JWT_ACCESS_EXPIRES_IN`) + refresh xoay vòng lưu **hash** trong `user_sessions`; FE chỉ dùng Bearer.
 - `@Roles('admin')` cho mọi `/admin/*` (controller riêng `admin-*`); khách chỉ truy cập tài nguyên của mình (kiểm tra `userId`, trả `404` thay vì `403` khi không phải của mình – giống mock).
 - Validate DTO toàn bộ; `helmet`; CORS `http://localhost:3000`; rate limit (`@AuthThrottle()` có sẵn) cho login/register/OTP/đặt hàng.
-- Upload: ảnh ≤ 5MB (jpeg/png/webp), GLB/USDZ ≤ 50MB, frame 360 ≤ 2MB; kiểm tra MIME bằng magic bytes; tên file sinh mới (uuid) ⇒ chống path traversal.
+- Upload: ảnh ≤ 5MB (jpeg/png/webp), GLB ≤ 100MB (USDZ không nhận), frame 360 ≤ 2MB; kiểm tra MIME bằng magic bytes; tên file sinh mới (uuid) ⇒ chống path traversal.
 
 ## 6. Upload & lưu trữ
 `StorageService` (đã có, driver `local|minio|s3` bằng env). Dev mặc định: `STORAGE_DRIVER=local` (`apps/api/uploads`, phục vụ `/uploads`) nếu MinIO chưa chạy; production đổi env sang S3. Contract FE gửi ảnh dạng URL/data-URL trong body ⇒ BE có `MediaIngestService`: nếu chuỗi là data-URL ⇒ giải mã, kiểm tra, lưu vào storage, tạo `media`; nếu là URL nội bộ ⇒ dùng lại.

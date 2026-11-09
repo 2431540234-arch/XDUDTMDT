@@ -385,7 +385,7 @@ export class AdminOrdersService {
           : 'Giao dịch online do cổng thanh toán quản lý, không xác nhận thủ công.',
       );
     }
-    // Ngoại lệ D-T53 (chỉ khi xác nhận): đơn ĐÃ HỦY thì giao dịch chờ đã bị chuyển failed lúc hủy; tiền về muộn vẫn ghi nhận được
+    // Ngoại lệ D-N33 (chỉ khi xác nhận): đơn ĐÃ HỦY thì giao dịch chờ đã bị chuyển failed lúc hủy; tiền về muộn vẫn ghi nhận được
     const statusOk =
       pay.status === 'pending' ||
       (lateAfterCancel && order.status === 'cancelled' && pay.status === 'failed');
@@ -401,7 +401,7 @@ export class AdminOrdersService {
 
   /**
    * Xác nhận đã nhận tiền chuyển khoản. Giao dịch ghi success + paidAt (+ transactionCode duy nhất), đơn paid; đơn pending tự sang
-   * confirmed (D-N13/O-04); đơn ĐÃ HỦY vẫn được ghi paid để có thể hoàn tiền thủ công (D-N28, D-T53), giữ nguyên trạng thái hủy
+   * confirmed (D-N13/O-04); đơn ĐÃ HỦY vẫn được ghi paid để có thể hoàn tiền thủ công (D-N28, D-N33), giữ nguyên trạng thái hủy
    * (giao dịch chờ bị chuyển failed lúc hủy đơn nên với đơn hủy cho phép failed → success). Chạy trong một transaction với cập nhật
    * có điều kiện theo trạng thái đã đọc nên hai yêu cầu đồng thời chỉ một cái thành công.
    */

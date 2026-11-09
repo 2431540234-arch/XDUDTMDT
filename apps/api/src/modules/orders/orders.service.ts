@@ -394,7 +394,7 @@ export class OrdersService {
   }
 
   /**
-   * Hủy đơn: khách hủy được ở pending|confirmed; admin thêm processing, và shipping khi vận đơn đã returned (D-T54). Cộng lại tồn kho
+   * Hủy đơn: khách hủy được ở pending|confirmed; admin thêm processing, và shipping khi vận đơn đã returned (D-N34). Cộng lại tồn kho
    * (movement "return") và lượt dùng coupon.
    */
   async cancelCore(orderId: number, actorId: number | null, reason: string, byAdmin: boolean) {
@@ -407,7 +407,7 @@ export class OrdersService {
         ? ['pending', 'confirmed', 'processing']
         : ['pending', 'confirmed'];
       if (byAdmin && o.status === 'shipping') {
-        // Ngoại lệ D-T54: đơn đang giao CHỈ hủy được khi mọi vận đơn của đơn đã hoàn về (returned) – hàng đã về kho nên hoàn tồn kho
+        // Ngoại lệ D-N34: đơn đang giao CHỈ hủy được khi mọi vận đơn của đơn đã hoàn về (returned) – hàng đã về kho nên hoàn tồn kho
         // và (nếu đã thanh toán) hoàn tiền thủ công sau đó. Vận đơn đang chạy/giao lại (failed) thì chưa hủy được.
         const ships = await tx.shipment.findMany({ where: { orderId }, select: { status: true } });
         if (!ships.length || !ships.every((s) => s.status === 'returned')) {

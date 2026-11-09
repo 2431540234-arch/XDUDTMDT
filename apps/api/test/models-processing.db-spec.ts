@@ -327,7 +327,7 @@ describe('Xử lý nền mô hình 3D (UC-ADM-13) – cần Redis', () => {
     await waitStatus(g.body.data.modelId, 'ready');
     const prod = await prisma.product.findUniqueOrThrow({ where: { id: p.id } });
     expect(prod.has3dModel).toBe(true);
-    expect(prod).not.toHaveProperty('hasAr'); // AR đã bị loại bỏ khỏi mô hình dữ liệu (D-T50)
+    expect(prod).not.toHaveProperty('hasAr'); // AR đã bị loại bỏ khỏi mô hình dữ liệu (D-P16)
     expect((await api('get', `/products/${p.slug}/model`)).body.data).not.toHaveProperty('usdzUrl');
     expect(await prisma.modelFile.count({ where: { modelId: g.body.data.modelId, format: 'usdz' } })).toBe(0);
   }, 90_000);

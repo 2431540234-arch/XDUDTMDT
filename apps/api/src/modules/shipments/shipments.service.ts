@@ -3,7 +3,7 @@
 // delivered và returned là trạng thái cuối; failed KHÔNG phải trạng thái cuối. Đánh dấu delivered ⇒ trong CÙNG transaction gọi
 // OrdersService.completeOrder (đơn shipping → completed, sold_count, COD đã thanh toán, ghi chú "Giao hàng thành công").
 // failed/returned: đơn giữ nguyên shipping; khách được thông báo (đúng một lần, gửi SAU khi giao dịch cơ sở dữ liệu hoàn tất nên
-// lỗi gửi thông báo không làm hỏng việc đổi trạng thái); với returned admin được hủy đơn (D-T54, OrdersService.cancelCore) rồi hoàn
+// lỗi gửi thông báo không làm hỏng việc đổi trạng thái); với returned admin được hủy đơn (D-N34, OrdersService.cancelCore) rồi hoàn
 // tiền nếu đã thanh toán. Cập nhật lặp lại cùng một trạng thái là thao tác rỗng (không ghi gì, không gửi lại thông báo).
 // Mọi thao tác ghi kèm activity_logs trong cùng transaction (D-T52).
 import { Injectable, Logger } from '@nestjs/common';

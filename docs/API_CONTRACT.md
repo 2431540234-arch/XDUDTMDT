@@ -130,7 +130,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | POST | `/addresses` | user | `auth.create` |  | { recipientName, phone, province, district, ward, addressLine, label?, isDefault? } |  |
 | PATCH | `/addresses/:id/default` | user | `auth.setDefault` |  |  |  |
 | PATCH | `/addresses/:id` | user | `auth.update` |  | Partial của body tạo địa chỉ |  |
-| DELETE | `/addresses/:id` | user | `auth.remove` |  |  | `INVALID_STATE` |
+| DELETE | `/addresses/:id` | user | `auth.remove` |  |  | `RESOURCE_NOT_FOUND` |
 
 ### 4. `categories`
 
@@ -148,7 +148,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
-| GET | `/products` | public | `product.list` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort`, `page`, `pageSize` |  |  |
+| GET | `/products` | public | `product.list` | `q` (1 ký tự ⇒ rỗng), `category` (không tồn tại/không hoạt động ⇒ 404), `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort` (`trường:asc\|desc`), `page`, `pageSize` (≤ 100) |  | `RESOURCE_NOT_FOUND` (danh mục) |
 | GET | `/products/search` | public | `product.search` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort`, `page`, `pageSize` |  |  |
 | GET | `/products/facets` | public | `product.facets` | `q`, `category`, `brand`, `minPrice`, `maxPrice`, `color`, `material`, `style`, `has3d`, `featured`, `sort`, `page`, `pageSize` |  |  |
 | GET | `/products/:slug` | public | `product.detail` |  |  |  |
@@ -180,10 +180,10 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
-| GET | `/spaces` | public | `space.` | `bookmarked`, `q`, `roomType`, `sort`, `style` |  |  |
+| GET | `/spaces` | public | `space.` | `bookmarked` (danh sách đã lưu của người đăng nhập; khách ⇒ rỗng), `q`, `roomType`, `sort`, `style`, `page`, `pageSize` |  |  |
 | GET | `/spaces/facets` | public | `space.facets` |  |  |  |
 | GET | `/spaces/:slug` | public | `space.detail` |  |  |  |
-| PUT | `/spaces/:slug/bookmark` | user | `space.bookmark` |  |  |  |
+| PUT | `/spaces/:slug/bookmark` | user | `space.bookmark` |  |  | `RESOURCE_NOT_FOUND` (không gian chưa đăng/không có) |
 | DELETE | `/spaces/:slug/bookmark` | user | `space.unbookmark` |  |  |  |
 | GET | `/spaces/:slug/placements/:placementId/alternatives` | public | `space.alternatives` |  |  | Đổi món (UC-SPACE-05): `[{ id, name, slug, price, salePrice, thumbnailUrl, variantId, model }]` sản phẩm cùng danh mục, đã đăng bán, có mô hình chính ready (≤ 12). Không ghi DB. Không gian/vị trí không có ⇒ `404`. `model` = `{ id, lengthMm, widthMm, heightMm, files:[{ lod, url, fileSize }], materialVariants[] }` |
 
@@ -336,7 +336,9 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
-| PATCH | `/admin/payments/:id/confirm` | admin | `admin.confirmPayment` |  |  | `INVALID_STATE` |
+| GET | `/admin/payments` | admin (`process_orders`) | — | `status` (pending\|success\|failed\|refunded), `method`, `q` (mã đơn/mã giao dịch/tên người nhận), `page`, `pageSize` |  | `VALIDATION_FAILED` (status/method sai) |
+| PATCH | `/admin/payments/:id/confirm` | admin (`process_orders`) | `admin.confirmPayment` |  | { transactionCode? } (≤ 100, duy nhất) | `INVALID_STATE` (không phải chuyển khoản đang chờ / đã xử lý), `CONFLICT` (mã giao dịch trùng) |
+| PATCH | `/admin/payments/:id/fail` | admin (`process_orders`) | `admin.failPayment` |  | { reason? } (≤ 255) | `INVALID_STATE` |
 
 ### 4. `admin/returns`
 
@@ -1117,8 +1119,8 @@ export interface Product360AdminData {
 `POST` multipart (trường `file`, `kind` = image|frame|panorama, `altText?`): ảnh ≤ 5 MB (frame 2 MB, panorama 20 MB); quá cỡ `413`, sai loại hoặc chữ ký tệp không khớp `415`. `GET` (phân trang; q không dấu, type, usage=unused) → `{ id, fileName, url, mimeType, fileSize, altText, uploadedByName, usage:{ required, optional } }`; `PATCH /:id { altText ≤ 255 }`; `DELETE /:id` (tham chiếu bắt buộc ⇒ `409`; tham chiếu tùy chọn tự gỡ). Upload ghi nhật ký cùng transaction và đẩy job tạo webp + thumbnail.
 
 ### Vận chuyển (UC-ADM-25, D-N14)
-- `POST /admin/orders/:id/shipments { carrier: ghn|ghtk|viettel_post|other, trackingCode?, fee? }` ⇒ `201 { shipment, order, warnings }`. Chỉ khi đơn `processing`/`shipping` và chưa có vận đơn đang hoạt động (≠ failed/returned), sai ⇒ `409`. Mã trùng ở đơn vị khác chỉ cảnh báo (`warnings`).
-- `PATCH /admin/shipments/:id { status?, carrier?, trackingCode?, fee? }`: `pending → picked_up → in_transit → delivered` (hoặc `failed`/`returned` từ picked_up/in_transit); bỏ bước ⇒ `409`; `picked_up` đặt `shippedAt`, `delivered` đặt `deliveredAt`. `delivered` ⇒ cùng transaction `OrdersService.completeOrder`: đơn `shipping → completed`, tăng `sold_count`, COD ⇒ Payment `success` + `paymentStatus = paid`, `status_note = "Giao hàng thành công"`, thông báo khách; đơn không ở `shipping` ⇒ `409` và hoàn tác. `failed`/`returned`: đơn giữ nguyên `shipping` (điểm mở O-03).
+- `POST /admin/orders/:id/shipments { carrier: ghn|ghtk|viettel_post|other, trackingCode?, fee? }` ⇒ `201 { shipment, order, warnings }`. Chỉ khi đơn `processing`/`shipping` và chưa có vận đơn đang hoạt động (≠ returned; `failed` vẫn là đang hoạt động vì còn giao lại được), sai ⇒ `409`. Mã trùng ở đơn vị khác chỉ cảnh báo (`warnings`).
+- `PATCH /admin/shipments/:id { status?, carrier?, trackingCode?, fee?, reason? }` theo DAC_TA §10.4 (D-N34): `pending → picked_up → in_transit → delivered \| failed \| returned`; `failed → in_transit \| returned`; bước không hợp lệ ⇒ `409`; lặp lại cùng trạng thái ⇒ `200` thao tác rỗng; `delivered`/`returned` là trạng thái cuối; `picked_up` đặt `shippedAt`, `delivered` đặt `deliveredAt`. `delivered` ⇒ cùng transaction `OrdersService.completeOrder`: đơn `shipping → completed`, tăng `sold_count`, COD ⇒ Payment `success` + `paymentStatus = paid`, `status_note = "Giao hàng thành công"`, thông báo khách; đơn không ở `shipping` ⇒ `409` và hoàn tác. `failed`/`returned`: đơn giữ nguyên `shipping`, khách được thông báo một lần (gửi sau khi lưu). Khi mọi vận đơn của đơn `shipping` đã `returned`, `POST /admin/orders/:id/cancel` hủy được đơn (hoàn tồn kho), sau đó `POST /admin/orders/:id/refund` hoàn tiền một lần nếu đã thanh toán.
 - `PATCH /admin/orders/:id/status`: `completed` ⇒ `409` "Hoàn tất khi vận đơn được đánh dấu đã giao."; `shipping` khi chưa có vận đơn hoạt động ⇒ `400`; không còn tự tạo vận đơn. Chi tiết đơn có thêm `shipments[]` (cũ → mới), `shipment` là vận đơn mới nhất. Route cũ `PATCH /admin/orders/:id/shipment` đã bỏ.
 
 ### Khác

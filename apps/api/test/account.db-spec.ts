@@ -1,6 +1,6 @@
 // E2E (supertest) trên aurelia_test: UC-ACC-04 sổ địa chỉ, UC-ACC-01 cập nhật hồ sơ, UC-ACC-06 yêu thích, UC-SPACE-04 lưu không gian,
 // UC-ADM-24 xác nhận thanh toán chuyển khoản. Mỗi test tự đăng ký khách riêng (đúng luồng thật) nên không phụ thuộc dữ liệu seed.
-// Số thứ tự UC theo docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md. Chỗ mã KHÁC đặc tả được ghi bằng it.todo ở cuối tệp.
+// Số thứ tự UC theo docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md. Các quyết định của chủ dự án (D-N30, D-N31, D-N33) đã được triển khai và kiểm ở đây.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';

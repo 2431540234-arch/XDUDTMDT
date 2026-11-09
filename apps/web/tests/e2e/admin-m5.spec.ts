@@ -359,7 +359,7 @@ test('vận chuyển: xác nhận → xử lý → tạo vận đơn → giao h�
   await expect(row.getByRole('button')).toHaveCount(0, { timeout: 30_000 }); // returned là trạng thái cuối
   await expect(row).toContainText('Hoàn hàng');
   expect(await orderStatus(code)).toBe('shipping');
-  // hàng đã hoàn về: admin được hủy đơn (D-T54) và tạo được vận đơn mới
+  // hàng đã hoàn về: admin được hủy đơn (D-N34) và tạo được vận đơn mới
   await expect(page.getByRole('button', { name: 'Hủy đơn' })).toBeVisible();
   await page.getByLabel('Tạo vận đơn').getByRole('button', { name: 'Tạo vận đơn' }).click();
   await expect(page.getByTestId('shipment-row')).toHaveCount(2, { timeout: 30_000 });

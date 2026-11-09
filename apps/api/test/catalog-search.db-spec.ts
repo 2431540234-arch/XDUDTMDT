@@ -1,6 +1,6 @@
 // E2E (supertest) UC-CAT-02 (duyệt/lọc/sắp xếp/phân trang), UC-CAT-03 (tìm kiếm), UC-CAT-06 (tìm không dấu) trên aurelia_test.
 // Viết theo HÀNH VI THẬT của mã (ProductsService.list/search: chỉ mục trong bộ nhớ + foldVi), đối chiếu số liệu với CSDL.
-// Quyết định chủ dự án 2026-11-09 (D-T51): danh mục không có/không hoạt động ⇒ 404; từ khóa 1 ký tự ⇒ rỗng; còn lại giữ cơ chế hiện tại.
+// Quyết định chủ dự án 2026-11-09 (D-N29): danh mục không có/không hoạt động ⇒ 404; từ khóa 1 ký tự ⇒ rỗng; còn lại giữ cơ chế hiện tại.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -551,7 +551,7 @@ describe('Duyệt, lọc, tìm kiếm sản phẩm (aurelia_test)', () => {
     });
   });
 
-  // ------------------------------------------------------------------ Quyết định đã chốt: giữ cơ chế hiện tại (ghi ở DECISIONS D-T51)
+  // ------------------------------------------------------------------ Quyết định đã chốt: giữ cơ chế hiện tại (ghi ở DECISIONS D-N29)
   // - tham số sai (sort lạ, page < 1) ⇒ lùi về mặc định, không 400; sort theo quy ước field:dir; pageSize ≤ 100
   // - tìm kiếm lọc trong bộ nhớ bằng foldVi (không dùng $queryRaw/trigram)
 });

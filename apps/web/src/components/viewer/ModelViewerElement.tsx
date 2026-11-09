@@ -5,7 +5,7 @@
 import { useEffect, useState } from 'react';
 
 export interface ModelViewerElementProps {
-  /** URL tệp GLB (hệ thống chỉ hỗ trợ GLB; AR ngoài phạm vi, D-P11) */
+  /** URL tệp GLB (hệ thống chỉ hỗ trợ GLB; AR đã bị loại bỏ, D-P16) */
   src: string;
   alt: string;
   poster?: string;

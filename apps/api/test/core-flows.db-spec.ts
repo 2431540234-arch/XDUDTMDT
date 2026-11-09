@@ -140,6 +140,39 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
     });
   });
 
+  describe('đăng ký đồng thời (toàn vẹn dữ liệu)', () => {
+    it('8 yêu cầu đăng ký cùng một email cùng lúc ⇒ đúng một tài khoản được tạo, các yêu cầu còn lại 409, không lỗi 5xx', async () => {
+      const email = `race-${tag}@test.local`;
+      const rs = await Promise.all(
+        Array.from({ length: 8 }, () =>
+          api('post', '/auth/register', undefined, {
+            fullName: 'Khách đua',
+            email,
+            phone: '0911222333',
+            password: PASSWORD,
+          }),
+        ),
+      );
+      expect(rs.every((r) => r.status < 500)).toBe(true);
+      expect(rs.filter((r) => r.status === 201)).toHaveLength(1);
+      expect(rs.filter((r) => r.status === 409)).toHaveLength(7);
+      expect(await prisma.user.count({ where: { email } })).toBe(1);
+      const u = await prisma.user.findFirstOrThrow({ where: { email } });
+      expect(await prisma.cart.count({ where: { userId: u.id } })).toBe(1);
+      // email viết khác hoa thường cũng coi là trùng
+      expect(
+        (
+          await api('post', '/auth/register', undefined, {
+            fullName: 'Khách đua',
+            email: email.toUpperCase(),
+            phone: '0911222333',
+            password: PASSWORD,
+          })
+        ).status,
+      ).toBe(409);
+    });
+  });
+
   // ------------------------------------------------------------------ UC-ACC-02 đổi mật khẩu
   describe('UC-ACC-02 đổi mật khẩu', () => {
     const change = (token: string | undefined, body: object) =>

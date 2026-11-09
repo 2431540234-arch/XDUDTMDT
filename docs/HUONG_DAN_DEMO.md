@@ -68,7 +68,7 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 
 ## 5. Chưa làm (nói rõ khi trình bày)
 
-- **AR (xem sản phẩm trong phòng thật) nằm NGOÀI phạm vi đồ án** (D-P11, hướng phát triển; cùng 7 use case liên quan). Web chỉ có trình xem 3D và xem 360°; hệ thống chỉ hỗ trợ tệp mô hình GLB.
+- **AR (xem sản phẩm trong phòng thật) đã bị LOẠI BỎ hoàn toàn** (D-P16; 6 use case AR, UC-ADM-29 còn phần phễu không gian). Trang mới `/account/saved-spaces` (Không gian đã lưu) và chi tiết đơn admin có ô mã giao dịch / nút "Đánh dấu thất bại" / hủy đơn khi hàng hoàn về. Web chỉ có trình xem 3D và xem 360°; hệ thống chỉ hỗ trợ tệp mô hình GLB.
 - **Ứng dụng Android** (`apps/mobile`): tạm hoãn (D-P09).
 - **VNPAY thật**: đã làm URL có chữ ký, Return URL, IPN, thanh toán lại và đã kiểm bằng khóa giả; chưa có khóa sandbox nên demo dùng chế độ **giả lập**. MoMo/ZaloPay chỉ giả lập.
 - Giá combo của không gian không áp dụng (đặc tả không có); `loyalty_points`, `carts.coupon_id` giữ nguyên cột theo chuẩn DB nhưng chưa có chức năng điểm tích lũy.

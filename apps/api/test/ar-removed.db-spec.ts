@@ -1,4 +1,4 @@
-// E2E (supertest) D-T50: AR đã bị loại bỏ hoàn toàn khỏi CSDL và API; 3D/360°/không gian mẫu vẫn hoạt động. Chạy trên aurelia_test.
+// E2E (supertest) D-P16: AR đã bị loại bỏ hoàn toàn khỏi CSDL và API; 3D/360°/không gian mẫu vẫn hoạt động. Chạy trên aurelia_test.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -6,7 +6,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 
-describe('Loại bỏ AR (D-T50) và giữ nguyên 3D/360° (aurelia_test)', () => {
+describe('Loại bỏ AR (D-P16) và giữ nguyên 3D/360° (aurelia_test)', () => {
   let app: INestApplication;
   let http: ReturnType<typeof request>;
   const prisma = new PrismaClient();

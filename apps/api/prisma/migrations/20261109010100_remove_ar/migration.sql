@@ -1,4 +1,4 @@
--- D-P11 / D-T50: bỏ hoàn toàn AR (không còn bảng, cột, chỉ mục hay trigger chỉ phục vụ AR).
+-- D-P11 / D-P16 / D-T59: bỏ hoàn toàn AR (không còn bảng, cột, chỉ mục hay trigger chỉ phục vụ AR).
 -- GIỮ NGUYÊN: mô hình 3D (product_3d_models, model_files), xem 360°, không gian mẫu, media.
 -- GIỮ giá trị 'usdz' của enum model_file_format: đó là dữ liệu tệp 3D sẵn có, không xóa dữ liệu dùng chung;
 -- hệ thống không nhận/xử lý USDZ (chỉ GLB, mã 415 ở tầng ứng dụng).

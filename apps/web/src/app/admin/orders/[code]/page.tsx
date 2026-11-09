@@ -176,7 +176,7 @@ export default function AdminOrderDetailPage() {
   const next = NEXT[o.status];
   // vận đơn đang hoạt động = chưa hoàn về (failed còn giao lại được); chỉ khi vận đơn đã returned mới tạo vận đơn mới
   const hasActiveShip = o.shipments.some((x) => x.status !== 'returned');
-  // đơn đang giao mà mọi vận đơn đã hoàn về ⇒ admin được hủy đơn (D-T54), sau đó hoàn tiền nếu đã thanh toán
+  // đơn đang giao mà mọi vận đơn đã hoàn về ⇒ admin được hủy đơn (D-N34), sau đó hoàn tiền nếu đã thanh toán
   const allReturned = o.shipments.length > 0 && o.shipments.every((x) => x.status === 'returned');
   const canCreateShip = ['processing', 'shipping'].includes(o.status) && !hasActiveShip;
   const times: Partial<Record<OrderStatus, string>> = {};
@@ -185,7 +185,7 @@ export default function AdminOrderDetailPage() {
     ['pending', 'confirmed', 'processing'].includes(o.status) || (o.status === 'shipping' && allReturned);
   const canRefund = o.status === 'completed' || (o.status === 'cancelled' && o.paymentStatus === 'paid');
   // Chỉ giao dịch CHUYỂN KHOẢN đang chờ đối soát xác nhận/đánh dấu thất bại thủ công (online do cổng quản lý, COD tự ghi nhận).
-  // Đơn đã hủy: giao dịch chờ đã bị chuyển "thất bại" lúc hủy; tiền về muộn vẫn xác nhận được để hoàn tiền (D-T53).
+  // Đơn đã hủy: giao dịch chờ đã bị chuyển "thất bại" lúc hủy; tiền về muộn vẫn xác nhận được để hoàn tiền (D-N33).
   const manualBank =
     o.payment?.method === 'bank_transfer' && o.paymentStatus !== 'paid' && o.paymentStatus !== 'refunded';
   const canConfirmPay =

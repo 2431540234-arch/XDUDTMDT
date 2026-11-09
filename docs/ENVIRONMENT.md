@@ -73,7 +73,8 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `HTTP_ERROR_LOG_FILE` | Tùy chọn | không | app.setup | Nếu đặt, ghi mọi response ≥ 400 (method, đường dẫn, status, mã lỗi) ra tệp. `scripts/e2e-real.mjs` bật để điều tra test fail (`.e2e-logs/api-errors.log`) |
 | `UPLOAD_MAX_IMAGE_MB` | Tùy chọn | `5` | M05 | Ảnh thường |
 | `UPLOAD_MAX_PANORAMA_MB` | Tùy chọn | `20` | M05, M13 | |
-| `UPLOAD_MAX_MODEL_MB` | Tùy chọn | `100` | M12 | GLB (USDZ bị từ chối 415 theo D-P11) |
+| `UPLOAD_MAX_MODEL_MB` | Tùy chọn | `100` | M12 | GLB (USDZ bị từ chối 415, AR đã loại bỏ theo D-P16) |
+| `PG_HOST` | Tùy chọn | `localhost` | Script | Chỉ cho `scripts/db-reset.mjs` và `scripts/e2e-real.mjs`. Đặt `PG_HOST=127.0.0.1` khi `localhost` phân giải sang IPv6 (`::1`) mà cổng Postgres của Docker chỉ nhận IPv4 (gặp trên Windows khi `wslrelay.exe` chiếm `::1:55432`: Prisma báo "Can't reach database server"). Với Jest dùng thêm `E2E_DATABASE_URL=…@127.0.0.1:55432/aurelia_test` và `REDIS_HOST=127.0.0.1` |
 | `MODEL_SERVE_MAX_MB` | Tùy chọn | `5` | M12 (job `model-processing`) | Ngưỡng cho mỗi tệp LOD dùng cho web (NFR02, D-N21, D-P10); vượt thì mô hình `failed`, ghi `activity_logs` và gửi thông báo admin. Đã có logic kiểm tra |
 
 ## 6. Email

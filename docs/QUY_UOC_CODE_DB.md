@@ -91,7 +91,7 @@ Quy tắc: **tính bằng `Prisma.Decimal`, trả ra bằng `number`**. Không d
 
 ## 4. Xóa mềm
 
-- **User**: chỉ xóa mềm bằng `deletedAt = now()` **và** `status = 'banned'`. Xóa cứng bị DB chặn khi user còn đơn hàng hoặc lượt dùng mã (`RESTRICT`), và nếu xóa được thì kéo theo giỏ, địa chỉ, đánh giá, ảnh AR...
+- **User**: chỉ xóa mềm bằng `deletedAt = now()` **và** `status = 'banned'`. Xóa cứng bị DB chặn khi user còn đơn hàng hoặc lượt dùng mã (`RESTRICT`), và nếu xóa được thì kéo theo giỏ, địa chỉ, đánh giá...
 - **Product** (bảng có `deletedAt` còn lại): cũng xóa mềm bằng `deletedAt = now()`. Nên đặt thêm `status = 'archived'` để ẩn ở mọi nơi lọc theo trạng thái.
 - **Mọi truy vấn danh sách / tìm kiếm / đếm** trên bảng có `deletedAt` phải lọc `deletedAt: null`, kể cả `include`/`_count`/quan hệ lồng nhau.
 
@@ -222,7 +222,7 @@ Code lặp lại sẽ ghi đè hoặc gây sai lệch/đua dữ liệu.
 | --- | --- | --- |
 | `updated_at` | `trg_<bảng>_set_updated_at` (mọi bảng có `updated_at`) | tự gán `updatedAt: new Date()` |
 | `Product.ratingAvg`, `ratingCount` | `trg_reviews_refresh_rating` (chỉ review `approved`) | tính/ghi lại trung bình khi duyệt review |
-| `Product.has3dModel`, `hasAr` | `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags` | bật/tắt cờ khi thêm model/file |
+| `Product.has3dModel` | `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags` | bật/tắt cờ khi thêm model/file |
 | `Space.viewCount` | `trg_space_views_increase_count` | `viewCount: { increment: 1 }` |
 | `OrderStatusHistory` | `trg_orders_log_status_insert/update` (kể cả lúc tạo đơn) | `orderStatusHistory.create(...)` khi đổi trạng thái |
 | Vai trò `user` khi đăng ký | `trg_users_assign_default_role` (deferred, chạy lúc commit) | `userRole.create` cho user thường |
@@ -255,7 +255,7 @@ await prisma.user.create({ data: { fullName, email, passwordHash } });
 
 Ngoại lệ có chủ ý: tạo **admin** thì tạo user và `userRole` (`admin`) trong **cùng** `$transaction`; trigger deferred thấy đã có vai trò nên không gán thêm `user` (xem `prisma/seed.ts`).
 
-`Product.has3dModel`/`hasAr`/`ratingAvg`/`ratingCount` và `Space.viewCount` do DB quản lý: coi như **chỉ đọc** trong code.
+`Product.has3dModel`/`ratingAvg`/`ratingCount` và `Space.viewCount` do DB quản lý: coi như **chỉ đọc** trong code.
 
 ## 7. Thêm migration có CHECK / partial index / trigger
 
@@ -288,8 +288,8 @@ Hệ thống chỉ có **2 vai trò trong CSDL**: `admin` và `user` (bảng `ro
 
 | Đối tượng | Được gọi |
 | --- | --- |
-| Khách vãng lai (không token) | Chỉ API **đọc công khai** (sản phẩm `published` chưa xóa mềm, 3D/AR, không gian mẫu, trang tĩnh, review `approved`, ảnh AR `isPublic`, danh mục, thương hiệu, cấu hình công khai) và API **xác thực**: đăng ký, đăng nhập, quên/đặt lại mật khẩu, làm mới token. Được ghi thống kê ẩn danh `ArSession`/`SpaceView` kèm `visitorId` (UUID do client tạo, `userId = null`) |
-| `user` | Dữ liệu **của chính mình**: giỏ hàng, đặt hàng, áp coupon, đánh giá, yêu thích, sổ địa chỉ, ảnh AR, bookmark không gian mẫu, thông báo, hồ sơ |
+| Khách vãng lai (không token) | Chỉ API **đọc công khai** (sản phẩm `published` chưa xóa mềm, 3D/360°, không gian mẫu, trang tĩnh, review `approved`, danh mục, thương hiệu, cấu hình công khai) và API **xác thực**: đăng ký, đăng nhập, quên/đặt lại mật khẩu, làm mới token. Được ghi thống kê ẩn danh `ArSession`/`SpaceView` kèm `visitorId` (UUID do client tạo, `userId = null`) |
+| `user` | Dữ liệu **của chính mình**: giỏ hàng, đặt hàng, áp coupon, đánh giá, yêu thích, sổ địa chỉ, bookmark không gian mẫu, thông báo, hồ sơ |
 | `admin` | Toàn bộ quản trị, kiểm tra thêm quyền chi tiết (`manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`) |
 
 ```ts

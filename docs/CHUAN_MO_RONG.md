@@ -111,7 +111,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 3 | Xử lý nền mô hình 3D (`model-processing`) | **Đã làm (D-P10)** và nay tải lên theo đúng UC-ADM-13: presigned PUT vào bucket private (khi driver minio/s3) rồi confirm; driver local vẫn multipart làm dự phòng | — |
 | 4 | `PermissionsGuard` / vai trò-quyền chi tiết (UC-ADM-02) | Chỉ phân biệt khách/admin | Mốc 5 |
 | 5 | `ActivityLogInterceptor` | Nhật ký ghi trực tiếp trong service (`activity_logs`) | Chuyển sang interceptor |
-| 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), thống kê (AR đã chuyển sang NGOÀI phạm vi, xem mục 27; quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, vai trò/phân quyền **đã làm**, D-P15, mục 35) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển và 5 UC Mở rộng nhẹ đã làm) | Mốc 5 |
+| 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), thống kê (AR đã LOẠI BỎ hoàn toàn, xem mục 27; quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, vai trò/phân quyền **đã làm**, D-P15, mục 35) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển và 5 UC Mở rộng nhẹ đã làm) | Mốc 5 |
 | 7 | VNPAY khóa thật | Đã làm URL/chữ ký/Return URL/IPN/thanh toán lại và kiểm bằng khóa giả; chưa có khóa sandbox thật nên chưa thử qua cổng thật | Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` khi có tài khoản |
 | 8 | Android (`apps/mobile`) | Không đụng tới | Mốc 6 |
 | 9 | `users.loyalty_points` | Giữ nguyên cột, chưa có logic cộng/dùng điểm (ngoài đặc tả) | Quyết định khi có yêu cầu |
@@ -129,7 +129,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 24 | Mô hình 3D: tham số `createNew`, dòng "mô hình chưa có tệp" (`fileId = null`, `id = -modelId`), `DELETE /admin/models/model/:modelId` | Ngoài đặc tả, thêm để có thể tạo mô hình thứ hai cho một sản phẩm (để "Đặt làm mô hình chính" có ý nghĩa) và để hiện/xóa được mô hình đang xử lý hoặc lỗi | — |
 | 25 | Bộ giải nén Meshopt của `<model-viewer>` | Phục vụ tại chỗ `apps/web/public/vendor/meshopt_decoder.js` (bản sao `meshoptimizer` 0.18, MIT) thay vì CDN; loại khỏi eslint/prettier | Bỏ khi có bộ giải nén tự host trong bản build |
 | 26 | (bỏ) USDZ mẫu của seed | Đã bỏ cùng AR (D-P11): seed không tạo USDZ nữa | — |
-| 27 | Bảng/cột AR giữ theo chuẩn nhưng KHÔNG dùng (D-P11) | `ar_sessions`, `ar_snapshots`, cột `products.has_ar` (luôn `false`), enum `model_file_format` có `usdz`, trigger `refresh_product_3d_flags` (tính `has_ar` khi có đủ GLB + USDZ) giữ nguyên đúng `CAU_TRUC_DB.md`; không viết migration xoá. Code chỉ nhận GLB nên `has_ar` không bao giờ bật. Các module `ar-*` trong `apps/api/src/modules` chỉ là khung rỗng, không có route | Dùng lại khi AR được đưa vào (hướng phát triển) |
+| 27 | ~~Bảng/cột AR giữ theo chuẩn nhưng KHÔNG dùng (D-P11)~~ **Đã loại bỏ hoàn toàn (D-P16, D-T59, 2026-11-09)** | Migration `remove_ar` xóa `ar_sessions`, `ar_snapshots`, `ar_mode`, `products.has_ar`; module `ar-*` bị xóa. Còn giữ: giá trị `usdz` của enum `model_file_format` (không xóa dữ liệu dùng chung; hệ thống chỉ nhận GLB), cột `placement`/`allow_scaling` (quản trị mô hình 3D) | — |
 | 28 | **Bảng route → quyền (PermissionsGuard, D-P12)** | Route theo đặc tả lấy đúng quyền ở "Tác nhân chính" của UC. Route NGOÀI đặc tả dùng quyền gần nhất (cột "Ghi chú"). Route nhiều quyền là "một trong". Test quét metadata: route admin nào chưa gắn quyền sẽ làm test fail. Xem bảng "Route → quyền" ngay sau bảng này | — |
 | 29 | Cache quyền trong bộ nhớ | `PermissionsService` giữ quyền theo tổ hợp vai trò tối đa **10 giây** trong bộ nhớ tiến trình (không Redis, cache Redis vẫn hoãn). Đổi `role_permissions` có hiệu lực sau tối đa 10 giây; test gọi `clearCache()` | Bỏ hoặc chuyển Redis khi làm cache |
 | 30 | Nhật ký tự động của interceptor | Dòng do `ActivityLogInterceptor` ghi có `changes = { auto: true, method, route }`, `action = <tài nguyên>.<hành động theo route>` (vd. `orders.cancel`), `target_type` = tài nguyên, `target_id` = tham số `:id` nếu có. Không thay các log trong service | — |
@@ -169,7 +169,6 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | `payments` | `process_orders` | UC-ADM-24 |
 | `orders/:id/shipments`, `shipments/:id` | `process_orders` | UC-ADM-25 |
 | `stats/overview` | `view_orders` | UC-ADM-28 |
-| `ar-snapshots` | `manage_content` | UC-ADM-30 (khung rỗng, AR ngoài phạm vi) |
 | `returns` | `process_orders` | **Ngoài đặc tả**: đổi trả → hoàn tiền gần UC-ADM-23 |
 | `questions` | `manage_content` | **Ngoài đặc tả**: duyệt hỏi đáp gần UC-ADM-18 |
 | `banners`, `posts`, `faq`, `contact-messages` | `manage_content` | **Ngoài đặc tả**: nội dung gần UC-ADM-07 |
