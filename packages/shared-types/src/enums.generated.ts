@@ -1,12 +1,6 @@
 // FILE SINH TỰ ĐỘNG từ apps/api/prisma/schema.prisma bằng scripts/generate-shared-types.mjs
 // KHÔNG SỬA TAY. Sửa schema.prisma rồi chạy: npm run types:generate
 
-export const ArMode = {
-  view_3d: 'view_3d',
-  ar: 'ar',
-} as const;
-export type ArMode = (typeof ArMode)[keyof typeof ArMode];
-
 export const ContentStatus = {
   draft: 'draft',
   published: 'published',

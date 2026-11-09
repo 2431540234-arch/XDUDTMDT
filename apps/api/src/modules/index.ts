@@ -1,5 +1,5 @@
 // Danh sách module nghiệp vụ (M01–M14). Ánh xạ: docs/MODULE_ENV_REPORT.md mục 3.
-// Module ai, ar-overlay: NGOÀI phạm vi đồ án. Module jobs: không dùng trong phạm vi đồ án (docs/DECISIONS.md).
+// Module ai: NGOÀI phạm vi đồ án. AR đã bị loại bỏ hoàn toàn (D-T50). Module jobs: không dùng trong phạm vi đồ án (docs/DECISIONS.md).
 import { SettingsModule } from './settings/settings.module';
 import { ActivityLogsModule } from './activity-logs/activity-logs.module';
 import { AuthModule } from './auth/auth.module';
@@ -25,8 +25,6 @@ import { PaymentsModule } from './payments/payments.module';
 import { ShipmentsModule } from './shipments/shipments.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { ProductModelsModule } from './product-models/product-models.module';
-import { ArSnapshotsModule } from './ar-snapshots/ar-snapshots.module';
-import { ArSessionsModule } from './ar-sessions/ar-sessions.module';
 import { SpacesModule } from './spaces/spaces.module';
 import { PanoramasModule } from './panoramas/panoramas.module';
 import { HotspotsModule } from './hotspots/hotspots.module';
@@ -61,8 +59,6 @@ export const FEATURE_MODULES = [
   ShipmentsModule,
   ReviewsModule,
   ProductModelsModule,
-  ArSnapshotsModule,
-  ArSessionsModule,
   SpacesModule,
   PanoramasModule,
   HotspotsModule,

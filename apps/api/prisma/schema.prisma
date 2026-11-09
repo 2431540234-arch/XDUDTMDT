@@ -11,7 +11,7 @@
 //   - Index biểu thức / GIN trigram (spaces.title không dấu, products.name)
 //   - Generated column (order_items.line_total)
 //   - UNIQUE NULLS NOT DISTINCT (reviews), khóa ngoại SET NULL (cột) (space_product_placements.variant_id)
-//   - Hàm và trigger PL/pgSQL (updated_at, rating, has_3d_model/has_ar, view_count, order_status_history, vai trò mặc định)
+//   - Hàm và trigger PL/pgSQL (updated_at, rating, has_3d_model, view_count, order_status_history, vai trò mặc định)
 // => Khi `migrate dev` sinh migration mới, LUÔN đọc lại SQL; với CHECK/trigger dùng `--create-only` rồi sửa file.
 //
 // Quy ước: model PascalCase số ít (@@map về tên bảng), field camelCase (@map về tên cột),
@@ -67,59 +67,6 @@ model Address {
 
   @@index([userId], map: "idx_addresses_user_id")
   @@map("addresses")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model ArSession {
-  id              Int             @id(map: "pk_ar_sessions") @default(autoincrement())
-  uuid            String          @unique(map: "uq_ar_sessions_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId          Int?            @map("user_id")
-  visitorId       String?         @map("visitor_id") @db.Uuid
-  productId       Int             @map("product_id")
-  modelId         Int?            @map("model_id")
-  device          String?         @db.VarChar(150)
-  os              String?         @db.VarChar(50)
-  arPlatform      String?         @map("ar_platform") @db.VarChar(50)
-  mode            ArMode
-  durationSeconds Int             @default(0) @map("duration_seconds")
-  placed          Boolean         @default(false)
-  captured        Boolean         @default(false)
-  addedToCart     Boolean         @default(false) @map("added_to_cart")
-  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
-  model           Product3DModel? @relation(fields: [modelId], references: [id], onUpdate: NoAction, map: "fk_ar_sessions_model_id")
-  product         Product         @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_sessions_product_id")
-  user            User?           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_sessions_user_id")
-  arSnapshots     ArSnapshot[]
-
-  @@index([modelId], map: "idx_ar_sessions_model_id")
-  @@index([productId, createdAt], map: "idx_ar_sessions_product_id")
-  @@index([userId], map: "idx_ar_sessions_user_id")
-  @@index([visitorId], map: "idx_ar_sessions_visitor_id")
-  @@map("ar_sessions")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model ArSnapshot {
-  id          Int        @id(map: "pk_ar_snapshots") @default(autoincrement())
-  userId      Int        @map("user_id")
-  productId   Int        @map("product_id")
-  arSessionId Int?       @map("ar_session_id")
-  mediaId     Int        @map("media_id")
-  isPublic    Boolean    @default(false) @map("is_public")
-  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime   @default(now()) @map("updated_at") @db.Timestamptz(6)
-  arSession   ArSession? @relation(fields: [arSessionId], references: [id], onUpdate: NoAction, map: "fk_ar_snapshots_ar_session_id")
-  media       Media      @relation(fields: [mediaId], references: [id], onUpdate: NoAction, map: "fk_ar_snapshots_media_id")
-  product     Product    @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_snapshots_product_id")
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_ar_snapshots_user_id")
-
-  @@index([arSessionId], map: "idx_ar_snapshots_ar_session_id")
-  @@index([mediaId], map: "idx_ar_snapshots_media_id")
-  @@index([productId], map: "idx_ar_snapshots_product_id")
-  @@index([userId], map: "idx_ar_snapshots_user_id")
-  @@map("ar_snapshots")
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
@@ -305,7 +252,6 @@ model Media {
   uploadedBy          Int?                 @map("uploaded_by")
   createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
-  arSnapshots         ArSnapshot[]
   brands              Brand[]
   categories          Category[]
   uploadedByUser      User?                @relation("MediaUploadedByUser", fields: [uploadedBy], references: [id], onUpdate: NoAction, map: "fk_media_uploaded_by")
@@ -327,7 +273,7 @@ model Media {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-/// Trigger cập nhật Product.has3dModel / hasAr khi thêm/sửa/xóa file.
+/// Trigger cập nhật Product.has3dModel khi thêm/sửa/xóa file.
 model ModelFile {
   id                Int             @id(map: "pk_model_files") @default(autoincrement())
   modelId           Int             @map("model_id")
@@ -533,7 +479,7 @@ model Permission {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// Partial unique index uq_product_3d_models_primary ON (product_id) WHERE is_primary: tối đa một mô hình chính/sản phẩm.
-/// Trigger cập nhật Product.has3dModel / hasAr khi model hoặc ModelFile thay đổi.
+/// Trigger cập nhật Product.has3dModel khi model hoặc ModelFile thay đổi.
 model Product3DModel {
   id                     Int                     @id(map: "pk_product_3d_models") @default(autoincrement())
   uuid                   String                  @unique(map: "uq_product_3d_models_uuid") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -551,7 +497,6 @@ model Product3DModel {
   isPrimary              Boolean                 @default(false) @map("is_primary")
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
-  arSessions             ArSession[]
   modelFiles             ModelFile[]
   modelMaterialVariants  ModelMaterialVariant[]
   posterMedia            Media?                  @relation(fields: [posterMediaId], references: [id], onUpdate: NoAction, map: "fk_product_3d_models_poster_media_id")
@@ -625,7 +570,7 @@ model ProductVariant {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// Index GIN trigram idx_products_name_trgm (tìm gần đúng theo tên) không có trong schema này: dùng $queryRaw.
-/// ratingAvg, ratingCount, has3dModel, hasAr do trigger cập nhật: KHÔNG ghi từ app.
+/// ratingAvg, ratingCount, has3dModel do trigger cập nhật: KHÔNG ghi từ app.
 model Product {
   id                     Int                     @id(map: "pk_products") @default(autoincrement())
   name                   String                  @db.VarChar(255)
@@ -640,7 +585,6 @@ model Product {
   ratingCount            Int                     @default(0) @map("rating_count")
   soldCount              Int                     @default(0) @map("sold_count")
   has3dModel             Boolean                 @default(false) @map("has_3d_model")
-  hasAr                  Boolean                 @default(false) @map("has_ar")
   style                  String?                 @db.VarChar(50)
   features               Json                    @default("[]")
   metaTitle              String?                 @map("meta_title") @db.VarChar(255)
@@ -648,8 +592,6 @@ model Product {
   deletedAt              DateTime?               @map("deleted_at") @db.Timestamptz(6)
   createdAt              DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime                @default(now()) @map("updated_at") @db.Timestamptz(6)
-  arSessions             ArSession[]
-  arSnapshots            ArSnapshot[]
   product3dModels        Product3DModel[]
   productImages          ProductImage[]
   productVariants        ProductVariant[]
@@ -961,8 +903,6 @@ model User {
   updatedAt             DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
   activityLogs          ActivityLog[]
   addresses             Address[]
-  arSessions            ArSession[]
-  arSnapshots           ArSnapshot[]
   cart                  Cart?
   couponUsages          CouponUsage[]
   inventoryMovements    InventoryMovement[]
@@ -1014,13 +954,6 @@ model Wishlist {
   @@unique([userId, productId], map: "uq_wishlists_user_product")
   @@index([productId], map: "idx_wishlists_product_id")
   @@map("wishlists")
-}
-
-enum ArMode {
-  view_3d
-  ar
-
-  @@map("ar_mode")
 }
 
 enum ContentStatus {

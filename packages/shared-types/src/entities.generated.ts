@@ -1,7 +1,7 @@
 // FILE SINH TỰ ĐỘNG từ apps/api/prisma/schema.prisma bằng scripts/generate-shared-types.mjs
 // KHÔNG SỬA TAY. Sửa schema.prisma rồi chạy: npm run types:generate
 
-import type { ArMode, BannerPosition, ContentStatus, CouponType, ExpenseCategory, HotspotType, InventoryMovementType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, QuestionStatus, ReturnReason, ReturnStatus, ReturnType, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, StockReceiptStatus, StockReceiptType, UserStatus } from './enums.generated';
+import type { BannerPosition, ContentStatus, CouponType, ExpenseCategory, HotspotType, InventoryMovementType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, QuestionStatus, ReturnReason, ReturnStatus, ReturnType, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, StockReceiptStatus, StockReceiptType, UserStatus } from './enums.generated';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -27,36 +27,6 @@ export interface Address {
   addressLine: string;
   isDefault: boolean;
   label?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ArSession {
-  id: number;
-  uuid: string;
-  userId: number | null;
-  visitorId: string | null;
-  productId: number;
-  modelId: number | null;
-  device: string | null;
-  os: string | null;
-  arPlatform: string | null;
-  mode: ArMode;
-  durationSeconds: number;
-  placed: boolean;
-  captured: boolean;
-  addedToCart: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ArSnapshot {
-  id: number;
-  userId: number;
-  productId: number;
-  arSessionId: number | null;
-  mediaId: number;
-  isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -362,7 +332,6 @@ export interface Product {
   ratingCount: number;
   soldCount: number;
   has3dModel: boolean;
-  hasAr: boolean;
   style?: string | null;
   features?: JsonValue;
   metaTitle: string | null;

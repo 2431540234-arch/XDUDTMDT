@@ -123,7 +123,6 @@ productSpecs.forEach((s, idx) => {
     ratingCount: 0,
     soldCount: 0, // tính lại từ order_items khi khởi tạo db
     has3dModel: false,
-    hasAr: false,
     metaTitle: `${s.name} | Aurelia Living`,
     metaDescription: `Mua ${s.name.toLowerCase()} chính hãng, xem 3D/AR trước khi đặt hàng.`,
     deletedAt: null,
@@ -300,7 +299,6 @@ productSpecs.forEach((s, idx) => {
     if (status === 'ready') {
       const p = products[products.length - 1];
       p.has3dModel = true;
-      p.hasAr = false; // AR ngoài phạm vi (D-P11)
     }
   }
 });

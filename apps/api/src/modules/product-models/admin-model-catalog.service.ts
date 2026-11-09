@@ -518,7 +518,7 @@ export class AdminModelCatalogService {
       .productId;
     await this.prisma.$transaction(async (tx) => {
       await tx.modelFile.delete({ where: { id: fileId } });
-      // tệp cuối cùng ⇒ xóa luôn mô hình (trigger đặt has_3d_model/has_ar = false)
+      // tệp cuối cùng ⇒ xóa luôn mô hình (trigger đặt has_3d_model = false)
       if (!(await tx.modelFile.count({ where: { modelId: f.modelId } }))) {
         await tx.modelMaterialVariant.deleteMany({ where: { modelId: f.modelId } });
         await tx.product3DModel.delete({ where: { id: f.modelId } });

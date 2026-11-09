@@ -182,8 +182,7 @@ export class MediaService {
       c.product360Frames +
       c.reviewImages +
       c.returnRequestImages +
-      c.product3dModels +
-      c.arSnapshots;
+      c.product3dModels;
     const optional = c.brands + c.categories + c.spaces + c.usersAsAvatarMedia;
     return {
       id: m.id,
@@ -319,7 +318,6 @@ const MEDIA_INCLUDE = {
       reviewImages: true,
       returnRequestImages: true,
       product3dModels: true,
-      arSnapshots: true,
       brands: true,
       categories: true,
       spaces: true,

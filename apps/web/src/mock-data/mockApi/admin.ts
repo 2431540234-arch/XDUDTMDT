@@ -1185,7 +1185,6 @@ export function createProduct(ctx: Ctx): Result {
     ratingCount: 0,
     soldCount: 0,
     has3dModel: false,
-    hasAr: false,
     metaTitle: null,
     metaDescription: null,
     deletedAt: null,
@@ -1563,7 +1562,6 @@ export function uploadModel(ctx: Ctx): Result {
   };
   db.modelFiles.push(f);
   p!.has3dModel = true;
-  p!.hasAr = false; // AR ngoài phạm vi (D-P11)
   log(ctx, 'model.upload', 'product3dmodel', m.id, { fileName: b.fileName });
   return created(modelRows(db).find((r) => r.id === f.id));
 }
@@ -1609,7 +1607,6 @@ export function deleteModel(ctx: Ctx): Result {
       const p = db.products.find((x) => x.id === m.productId);
       if (p) {
         p.has3dModel = false;
-        p.hasAr = false;
       }
     }
   }

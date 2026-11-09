@@ -275,7 +275,7 @@ async function seedSample() {
     }
   }
 
-  // Mô hình 3D sofa (chỉ GLB; AR/USDZ ngoài phạm vi, D-P11 => trigger bật has_3d_model, has_ar luôn false)
+  // Mô hình 3D sofa (chỉ GLB; AR/USDZ ngoài phạm vi, D-P11 => trigger bật has_3d_model)
   let model = await prisma.product3DModel.findFirst({ where: { productId: sofa.id, isPrimary: true } });
   if (!model) {
     const poster = await media(
@@ -622,48 +622,7 @@ async function seedSample() {
     create: { userId: u1.id, spaceId: space.id },
   });
 
-  // Thống kê AR + lượt xem space: chỉ tạo một lần (nhật ký, không có khóa tự nhiên)
-  if (
-    !(await prisma.arSession.findFirst({ where: { OR: [{ userId: u1.id }, { visitorId: VISITOR_ID }] } }))
-  ) {
-    const s = await prisma.arSession.create({
-      data: {
-        userId: u1.id,
-        productId: sofa.id,
-        modelId: model.id,
-        device: 'iPhone 15',
-        os: 'iOS 18',
-        arPlatform: 'quick_look',
-        mode: 'ar',
-        durationSeconds: 95,
-        placed: true,
-        captured: true,
-        addedToCart: true,
-      },
-    });
-    await prisma.arSession.create({
-      data: {
-        visitorId: VISITOR_ID,
-        productId: sofa.id,
-        modelId: model.id,
-        device: 'Pixel 8',
-        os: 'Android 15',
-        arPlatform: 'scene_viewer',
-        mode: 'view_3d',
-        durationSeconds: 30,
-      },
-    });
-    const snap = await media(
-      admin.id,
-      'ar-snapshot-1.jpg',
-      'image/jpeg',
-      520000,
-      'Sofa đặt trong phòng khách',
-    );
-    await prisma.arSnapshot.create({
-      data: { userId: u1.id, productId: sofa.id, arSessionId: s.id, mediaId: snap.id, isPublic: true },
-    });
-  }
+  // Lượt xem space: chỉ tạo một lần (nhật ký, không có khóa tự nhiên)
   if (!(await prisma.spaceView.findFirst({ where: { spaceId: space.id } }))) {
     // Khách vãng lai: userId NULL + visitorId; trigger tăng spaces.view_count
     await prisma.spaceView.create({
