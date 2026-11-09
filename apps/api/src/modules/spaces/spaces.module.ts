@@ -1,7 +1,7 @@
 // M13 – Không gian mẫu 360°. Không gian mẫu 360°
 // Module – UC-SPACE-01..06; UC-ADM-15, 17
 // Bảng: spaces, space_bookmarks, space_views, space_product_placements
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { SpacesController } from './spaces.controller';
 import { AdminSpacesController } from './admin-spaces.controller';

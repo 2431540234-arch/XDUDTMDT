@@ -1,7 +1,7 @@
 // M14 – Thông báo và thống kê quản trị. Thống kê tổng quan, AR và phễu không gian mẫu
 // Module – UC-ADM-28, 29
 // Bảng: orders, ar_sessions, space_views (tổng hợp)
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { OrdersModule } from '../orders/orders.module';
 import { AdminMiscController } from './admin-misc.controller';

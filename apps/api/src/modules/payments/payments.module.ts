@@ -1,7 +1,7 @@
 // M10 – Thanh toán và vận chuyển. Thanh toán (VNPay sandbox), IPN, xác nhận chuyển khoản, hoàn tiền thủ công
 // Module – UC-PAY-01, 02, 03; UC-ADM-23, 24
 // Bảng: payments
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { PaymentsController } from './payments.controller';
 import { AdminPaymentsController } from './admin-payments.controller';

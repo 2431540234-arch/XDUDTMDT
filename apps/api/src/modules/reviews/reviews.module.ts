@@ -1,7 +1,7 @@
 // M11 – Đánh giá sản phẩm. Đánh giá sản phẩm
 // Module – UC-REV-01, 02, 03; UC-ADM-18
 // Bảng: reviews
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { ReviewsController } from './reviews.controller';
 import { AdminReviewsController } from './admin-reviews.controller';

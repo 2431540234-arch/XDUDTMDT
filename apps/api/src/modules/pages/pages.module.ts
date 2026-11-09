@@ -1,7 +1,7 @@
 // M06 – Danh mục, thương hiệu, thuộc tính, trang tĩnh. Trang tĩnh
 // Module – UC-CAT-05; UC-ADM-07
 // Bảng: pages
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { PagesController } from './pages.controller';
 import { AdminPagesController } from './admin-pages.controller';

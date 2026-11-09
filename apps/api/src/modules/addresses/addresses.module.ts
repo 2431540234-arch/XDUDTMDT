@@ -1,7 +1,7 @@
 // M03 – Tài khoản cá nhân. Sổ địa chỉ giao hàng
 // Module – UC-ACC-04
 // Bảng: addresses
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { AddressesController } from './addresses.controller';
 import { AddressesService } from './addresses.service';
