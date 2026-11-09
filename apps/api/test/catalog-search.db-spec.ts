@@ -25,6 +25,8 @@ interface Item {
   isFeatured: boolean;
   createdAt: string;
   colors: Array<{ name: string }>;
+  category?: { name: string } | null;
+  shortDescription?: string | null;
 }
 
 describe('Duyệt, lọc, tìm kiếm sản phẩm (aurelia_test)', () => {
@@ -359,8 +361,12 @@ describe('Duyệt, lọc, tìm kiếm sản phẩm (aurelia_test)', () => {
         '<script>',
       ]) {
         const r = await search(q);
-        expect(r.items).toEqual([]); // không khớp mọi thứ (không phải wildcard/regex)
-        expect(r.meta.total).toBe(0);
+        // Không phải ký tự đại diện/regex: kết quả (nếu có) phải chứa ĐÚNG ký tự đó dạng chữ, và không khớp mọi thứ.
+        // (Các spec khác có thể để lại dữ liệu có ký tự như "(" trong tên danh mục, nên không đòi rỗng tuyệt đối.)
+        const text = (x: Item) => foldVi([x.name, x.category?.name, x.shortDescription ?? ''].join(' '));
+        const terms = foldVi(q).split(/\s+/).filter(Boolean);
+        expect(r.items.every((x) => terms.every((t) => text(x).includes(t)))).toBe(true);
+        expect(r.meta.total).toBeLessThan(all.length);
       }
       // bảng sản phẩm vẫn nguyên
       expect(await prisma.product.count({ where: { status: 'published', deletedAt: null } })).toBe(
