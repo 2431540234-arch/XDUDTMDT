@@ -467,3 +467,17 @@ Không đổi schema (partial unique `uq_users_email_active` và `user_sessions`
 - **Lỗi thật được phát hiện và sửa nhờ test:** lần dựng chỉ mục catalog ĐẦU TIÊN sau mỗi lần xóa cache (khởi động API, sau khi admin sửa dữ liệu) sắp xếp "mới nhất" sai vì so sánh `String(Date)` thay vì thời điểm (`products.service.ts`; cùng lỗi ở danh sách quản trị sản phẩm và không gian). Đọc lại từ cache thì đúng nên khó thấy.
 - **Chú thích cũ:** dòng "TRẠNG THÁI: khung rỗng" ở 20 tệp `*.module.ts` đã có controller/route thật được đổi thành "đã cài đặt"; các khung thật sự rỗng (ar-sessions, ar-snapshots, hotspots, product-images, variants và các controller/service rỗng) giữ nguyên.
 - **Ghi nhận để chủ dự án quyết định:** xem `DOI_CHIEU_UC.md` mục 4 và DECISIONS O-07. Mã nguồn không bị đổi theo các điểm đó.
+
+## Đợt hoàn thiện sau kiểm toán (2026-11-09 → 10) ✅
+
+Thực hiện các quyết định của chủ dự án (DECISIONS D-P16, D-T59, D-T60, D-N29..D-N34, D-D08). Chi tiết từng UC xem `DOI_CHIEU_UC.md`.
+
+- **Loại bỏ AR (D-P16, D-T59):** migration `20261109010100_remove_ar` (bỏ `ar_sessions`, `ar_snapshots`, `ar_mode`, `products.has_ar`, hàm trigger chỉ còn `has_3d_model`); xóa module `ar-sessions`/`ar-snapshots`/`ar-overlay`, `hasAr` ở API/kiểu dùng chung/mock, thuộc tính AR của `<model-viewer>`, seed AR. Giữ 3D/360°/không gian mẫu. **Chưa áp migration cho `aurelia_dev`** (dữ liệu của chủ dự án; sẽ xóa 2 phiên AR, 1 ảnh AR). Test `ar-removed.db-spec.ts`.
+- **CAT-02/03/06 (D-N29):** danh mục không có/không hoạt động ⇒ 404; `q` 1 ký tự ⇒ rỗng; giữ tìm trong bộ nhớ. +6 test (cache, kết hợp lọc/sắp/phân trang).
+- **ACC-04 (D-N30):** xóa địa chỉ mặc định ⇒ mới nhất; xóa được địa chỉ cuối; khóa dòng user chống race; +5 test (kể cả song song, đặt hàng khi chưa có địa chỉ).
+- **SPACE-04 (D-N31):** trang `/account/saved-spaces` (+ test đơn vị 6, e2e); chỉ lưu không gian published (404).
+- **ADM-10/11 (D-N32):** ảnh đồng bộ theo `mediaId`, giữ liên kết biến thể, một ảnh đại diện, không xóa media; lưu sản phẩm khóa dòng; chi tiết công khai không trả biến thể ngừng bán (lỗi cũ). `admin-product-media.db-spec.ts` (15 test).
+- **ADM-24 (D-N33):** `GET /admin/payments`, xác nhận kèm `transactionCode` duy nhất, `PATCH /admin/payments/:id/fail`, chỉ chuyển khoản đang chờ, xử lý đồng thời; ngoại lệ đơn đã hủy. +12 test, giao diện chi tiết đơn.
+- **O-03/O-07 (D-N34):** máy trạng thái vận đơn §10.4, thông báo một lần sau khi lưu, hủy đơn `shipping` khi mọi vận đơn `returned`, hoàn tiền khóa dòng (sửa lỗi hoàn trùng khi song song). `shipment-states.db-spec.ts` (11 test) + 2 e2e.
+- **Lỗi khác tìm ra nhờ test và đã sửa:** đăng xuất thu hồi theo refresh token của bất kỳ ai; đổi mật khẩu "đăng xuất thiết bị khác" cũng đăng xuất phiên hiện tại; xem giỏ tạo bản ghi giỏ; danh sách không gian "mới nhất" so sánh chuỗi `Date`. `core-flows.db-spec.ts` (26 test: AUTH-04, ACC-02, CART-02/04, CAT-01, đăng ký đồng thời).
+- **Còn chờ chủ dự án:** chính sách mật khẩu (DAC: chữ hoa/thường/số; mã: ≥ 8 ký tự), trang `/admin/payments` riêng. Xem `DOI_CHIEU_UC.md` mục 4.
