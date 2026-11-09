@@ -558,12 +558,12 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
     it('không gian mới nhất: chỉ không gian đã đăng, giới hạn pageSize, sắp mới nhất trước', async () => {
       const r = await api('get', '/spaces?pageSize=4&sort=newest');
       expect(r.status).toBe(200);
-      const items = r.body.data as Array<{ id: number; publishedAt: string | null }>;
+      const items = r.body.data as Array<{ id: number; publishedAt: string | null; createdAt: string }>;
       expect(items.length).toBeGreaterThan(0);
       expect(items.length).toBeLessThanOrEqual(4);
       const rows = await prisma.space.findMany({ where: { id: { in: items.map((s) => s.id) } } });
       expect(rows.every((s) => s.status === 'published')).toBe(true);
-      const times = items.map((s) => new Date(s.publishedAt ?? 0).getTime());
+      const times = items.map((s) => new Date(s.publishedAt ?? s.createdAt).getTime());
       expect(times.every((t, i) => i === 0 || times[i - 1] >= t)).toBe(true);
     });
   });

@@ -110,8 +110,9 @@ export class SpacesService {
     else if (sort === 'title') items.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
     else {
       // mới nhất trước theo THỜI ĐIỂM đăng (không so sánh chuỗi của Date: "Sat Sep…" sắp theo chữ cái, sai thứ tự)
-      const at = (x: { publishedAt: unknown }) =>
-        x.publishedAt ? new Date(x.publishedAt as string | Date).getTime() : 0;
+      // không gian chưa có ngày đăng (admin tạo ở trạng thái đăng ngay) tính theo ngày tạo, không bị đẩy xuống cuối
+      const at = (x: { publishedAt: unknown; createdAt: unknown }) =>
+        new Date((x.publishedAt ?? x.createdAt) as string | Date).getTime();
       items.sort((a, b) => at(b) - at(a));
     }
     const page = resolvePage(q, items.length, 12);

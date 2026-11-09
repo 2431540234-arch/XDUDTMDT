@@ -726,7 +726,9 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
         ).toBe(200);
       const r0 = await report();
       jest.useFakeTimers({
-        now: new Date(`${today}T00:30:00+07:00`),
+        // không giả lập một thời điểm TƯƠNG LAI so với đồng hồ thật (chạy lúc 00:00–00:30 giờ VN): khi đó dùng chính giờ thật,
+        // vì đã ở sau 00:00 giờ VN nên ngày UTC vẫn là hôm trước
+        now: new Date(Math.min(Date.now(), Date.parse(`${today}T00:30:00+07:00`))),
         doNotFake: [
           'hrtime',
           'nextTick',

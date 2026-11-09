@@ -75,7 +75,8 @@ test('danh sách không gian → mở chi tiết: viewer 360°, hotspot, ảnh/g
   page,
 }) => {
   const errors = watch(page);
-  await page.goto('/spaces');
+  // tìm theo tên để không phụ thuộc thứ tự trang (danh sách sắp mới nhất theo thời điểm đăng, 8 mục/trang)
+  await page.goto(`/spaces?q=${encodeURIComponent('làm việc tối giản')}`);
   await expect(page.getByRole('heading', { name: /không gian/i }).first()).toBeVisible({ timeout: 30_000 });
   await page.locator(`a[href="/spaces/${SLUG}"]`).first().click();
   await waitViewer(page);
@@ -213,7 +214,7 @@ test.describe('mobile 390px', () => {
   });
 
   test('danh sách không gian trên mobile không tràn ngang', async ({ page }) => {
-    await page.goto('/spaces');
+    await page.goto(`/spaces?q=${encodeURIComponent('làm việc tối giản')}`);
     await expect(page.locator(`a[href="/spaces/${SLUG}"]`).first()).toBeVisible({ timeout: 30_000 });
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
