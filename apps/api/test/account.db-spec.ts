@@ -129,7 +129,7 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       await bad({ recipientName: '   ' }, 'recipientName');
       await bad({ phone: '12345' }, 'phone');
       await bad({ phone: 'abcdefghij' }, 'phone');
-      await bad({ phone: '09123456789' }, 'phone'); // 11 số: mã hiện chỉ nhận 10 (xem it.todo cuối tệp)
+      await bad({ phone: '09123456789' }, 'phone'); // chỉ nhận đúng 10 chữ số, bắt đầu bằng 0 (quyết định 2026-11-09)
       await bad({ province: '' }, 'province');
       await bad({ district: '  ' }, 'district');
       await bad({ ward: undefined }, 'ward');
@@ -214,7 +214,7 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       expect(await prisma.address.count({ where: { userId: u.id, isDefault: true } })).toBe(1);
     });
 
-    it('xóa: địa chỉ thường; xóa mặc định ⇒ một địa chỉ còn lại thành mặc định; không xóa địa chỉ cuối cùng; của người khác/không có ⇒ 404', async () => {
+    it('xóa: địa chỉ thường; xóa mặc định ⇒ một địa chỉ còn lại thành mặc định; xóa được cả địa chỉ cuối cùng; của người khác/không có ⇒ 404', async () => {
       const u = await customer('addr-del');
       const other = await customer('addr-del-o');
       const a = (await api('post', '/addresses', u.token, addrBody())).body.data;
@@ -237,11 +237,89 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       expect((await prisma.address.findUniqueOrThrow({ where: { id: b.id } })).isDefault).toBe(true);
       expect(await prisma.address.count({ where: { userId: u.id, isDefault: true } })).toBe(1);
 
-      // địa chỉ cuối cùng được giữ lại (409)
+      // địa chỉ cuối cùng XÓA ĐƯỢC (quyết định 2026-11-09): sổ địa chỉ rỗng là hợp lệ
       const last = await api('delete', `/addresses/${b.id}`, u.token);
-      expect(last.status).toBe(409);
-      expect(last.body.error.code).toBe('INVALID_STATE');
-      expect(await prisma.address.count({ where: { id: b.id } })).toBe(1);
+      expect(last.status).toBe(200);
+      expect(await prisma.address.count({ where: { userId: u.id } })).toBe(0);
+      const empty = await api('get', '/addresses', u.token);
+      expect(empty.status).toBe(200);
+      expect(empty.body.data).toEqual([]);
+    });
+
+    it('xóa địa chỉ mặc định ⇒ địa chỉ MỚI NHẤT còn lại (id lớn nhất) thành mặc định, không phải địa chỉ cũ nhất', async () => {
+      const u = await customer('addr-newest');
+      const a = (await api('post', '/addresses', u.token, addrBody({ addressLine: 'A cũ nhất' }))).body.data;
+      const b = (await api('post', '/addresses', u.token, addrBody({ addressLine: 'B' }))).body.data;
+      const c = (await api('post', '/addresses', u.token, addrBody({ addressLine: 'C' }))).body.data;
+      const d = (await api('post', '/addresses', u.token, addrBody({ addressLine: 'D mới nhất' }))).body.data;
+      expect(a.isDefault).toBe(true);
+      expect([b.isDefault, c.isDefault, d.isDefault]).toEqual([false, false, false]);
+      expect((await api('delete', `/addresses/${a.id}`, u.token)).status).toBe(200);
+      const rows = await prisma.address.findMany({ where: { userId: u.id }, orderBy: { id: 'asc' } });
+      expect(rows.map((r) => r.isDefault)).toEqual([false, false, true]);
+      expect(rows[2].id).toBe(d.id);
+      // xóa tiếp mặc định mới ⇒ lại chọn mới nhất trong số còn lại (c)
+      expect((await api('delete', `/addresses/${d.id}`, u.token)).status).toBe(200);
+      expect((await prisma.address.findUniqueOrThrow({ where: { id: c.id } })).isDefault).toBe(true);
+      expect(await prisma.address.count({ where: { userId: u.id, isDefault: true } })).toBe(1);
+    });
+
+    it('xóa hết địa chỉ rồi thêm lại: địa chỉ đầu tiên mới tự là mặc định; trạng thái tài khoản vẫn hợp lệ; số 11 chữ số vẫn bị từ chối', async () => {
+      const u = await customer('addr-reset');
+      const a = (await api('post', '/addresses', u.token, addrBody())).body.data;
+      expect((await api('delete', `/addresses/${a.id}`, u.token)).status).toBe(200);
+      expect((await api('get', '/users/me', u.token)).status).toBe(200); // tài khoản không bị ảnh hưởng
+      const again = await api('post', '/addresses', u.token, addrBody({ addressLine: 'Mới sau khi rỗng' }));
+      expect(again.status).toBe(201);
+      expect(again.body.data.isDefault).toBe(true);
+      expect(await prisma.address.count({ where: { userId: u.id, isDefault: true } })).toBe(1);
+      expect((await api('post', '/addresses', u.token, addrBody({ phone: '09123456789' }))).status).toBe(400);
+    });
+
+    it('đặt hàng khi KHÔNG có địa chỉ ⇒ 400 lỗi theo trường addressId (không phải lỗi hệ thống), không tạo đơn', async () => {
+      const u = await customer('addr-nocheckout');
+      const before = await prisma.order.count({ where: { userId: u.id } });
+      const r = await api('post', '/orders', u.token, { paymentMethod: 'cod' });
+      expect(r.status).toBe(400);
+      expect(r.body.error.code).toBe('VALIDATION_FAILED');
+      expect(JSON.stringify(r.body.error.details ?? r.body.error)).toContain('addressId');
+      expect(await prisma.order.count({ where: { userId: u.id } })).toBe(before);
+      // cũng sai khi dùng địa chỉ của người khác
+      const other = await customer('addr-nocheckout-o');
+      const foreign = (await api('post', '/addresses', other.token, addrBody())).body.data;
+      const r2 = await api('post', '/orders', u.token, { addressId: foreign.id, paymentMethod: 'cod' });
+      expect(r2.status).toBe(400);
+    });
+
+    it('đồng thời: nhiều thao tác địa chỉ chạy song song vẫn luôn còn đúng một mặc định và không lỗi 5xx', async () => {
+      const u = await customer('addr-race');
+      const seed = (await api('post', '/addresses', u.token, addrBody({ addressLine: 'gốc' }))).body.data;
+      // 1. 12 yêu cầu tạo địa chỉ mặc định cùng lúc
+      const created = await Promise.all(
+        Array.from({ length: 12 }, (_, i) =>
+          api('post', '/addresses', u.token, addrBody({ addressLine: `song song ${i}`, isDefault: true })),
+        ),
+      );
+      expect(created.every((r) => r.status === 201)).toBe(true);
+      expect(await prisma.address.count({ where: { userId: u.id } })).toBe(13);
+      expect(await prisma.address.count({ where: { userId: u.id, isDefault: true } })).toBe(1);
+
+      // 2. đặt mặc định và xóa song song trên nhiều địa chỉ
+      const ids = created.map((r) => r.body.data.id as number);
+      const mixed = await Promise.all([
+        ...ids.slice(0, 4).map((id) => api('patch', `/addresses/${id}/default`, u.token)),
+        ...ids.slice(4, 8).map((id) => api('delete', `/addresses/${id}`, u.token)),
+        api('delete', `/addresses/${seed.id}`, u.token),
+      ]);
+      expect(mixed.every((r) => r.status < 500)).toBe(true);
+      expect(mixed.every((r) => [200, 201, 404].includes(r.status))).toBe(true);
+      expect(await prisma.address.count({ where: { userId: u.id, isDefault: true } })).toBe(1);
+
+      // 3. xóa song song toàn bộ: kết thúc rỗng, không lỗi 5xx, không còn mặc định mồ côi
+      const left = await prisma.address.findMany({ where: { userId: u.id } });
+      const dels = await Promise.all(left.map((a) => api('delete', `/addresses/${a.id}`, u.token)));
+      expect(dels.every((r) => r.status === 200)).toBe(true);
+      expect(await prisma.address.count({ where: { userId: u.id } })).toBe(0);
     });
 
     it('mỗi người chỉ thấy địa chỉ của mình; sửa/xóa địa chỉ không ảnh hưởng đơn đã đặt (đơn lưu bản chụp)', async () => {
@@ -546,15 +624,6 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
   });
 
   // ------------------------------------------------------------------ Điểm lệch so với DAC_TA (chờ chủ dự án quyết định)
-  it.todo(
-    'DAC_TA UC-ACC-04: phone 10–11 chữ số (mã hiện chỉ nhận đúng 10 chữ số, PHONE_RE ở common/utils/validate.ts)',
-  );
-  it.todo(
-    'DAC_TA UC-ACC-04 [ĐỀ XUẤT]: xóa địa chỉ mặc định ⇒ địa chỉ MỚI NHẤT thành mặc định (mã chọn địa chỉ CŨ nhất còn lại; test chỉ kiểm có đúng một mặc định)',
-  );
-  it.todo(
-    'Mã chặn xóa địa chỉ cuối cùng (409) – DAC_TA UC-ACC-04 không nêu quy tắc này; chờ chủ dự án xác nhận',
-  );
   it.todo(
     'DAC_TA UC-SPACE-04 3a: lưu không gian chưa đăng bán/đã ẩn ⇒ 404 (mã SpacesService.bookmark tìm theo slug, không kiểm status nên lưu được cả không gian nháp)',
   );

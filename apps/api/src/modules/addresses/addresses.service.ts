@@ -1,5 +1,6 @@
-// M03 – Sổ địa chỉ giao hàng: mỗi khách có đúng 1 địa chỉ mặc định (nếu có địa chỉ).
+// M03 – Sổ địa chỉ giao hàng: mỗi khách có tối đa 1 địa chỉ mặc định (đúng 1 nếu còn địa chỉ). Cho phép xóa hết địa chỉ.
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { FieldErrors, PHONE_RE, asBody, str } from '../../common/utils/validate';
@@ -27,6 +28,14 @@ export class AddressesService {
     });
   }
 
+  /**
+   * Khóa dòng user trong transaction: mọi thao tác sổ địa chỉ của CÙNG một user chạy tuần tự (chống race làm có hai mặc định,
+   * vi phạm uq_addresses_user_default, hoặc không còn mặc định dù còn địa chỉ). User khác nhau không chặn nhau.
+   */
+  private lockUser(tx: Prisma.TransactionClient, userId: number) {
+    return tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
+  }
+
   private async own(userId: number, id: number) {
     const a = await this.prisma.address.findFirst({ where: { id, userId } });
     if (!a) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Địa chỉ không tồn tại.');
@@ -37,6 +46,7 @@ export class AddressesService {
     const b = asBody(raw);
     this.validate(b);
     return this.prisma.$transaction(async (tx) => {
+      await this.lockUser(tx, userId);
       const count = await tx.address.count({ where: { userId } });
       const isDefault = count === 0 || Boolean(b.isDefault);
       if (isDefault) await tx.address.updateMany({ where: { userId }, data: { isDefault: false } });
@@ -62,6 +72,9 @@ export class AddressesService {
     this.validate(b);
     const body = asBody(raw);
     return this.prisma.$transaction(async (tx) => {
+      await this.lockUser(tx, userId);
+      if (!(await tx.address.findFirst({ where: { id, userId }, select: { id: true } })))
+        throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Địa chỉ không tồn tại.');
       if (body.isDefault) await tx.address.updateMany({ where: { userId }, data: { isDefault: false } });
       return tx.address.update({
         where: { id },
@@ -79,16 +92,17 @@ export class AddressesService {
     });
   }
 
+  /** Xóa địa chỉ (được xóa cả địa chỉ cuối cùng). Xóa địa chỉ mặc định ⇒ địa chỉ MỚI NHẤT còn lại thành mặc định */
   async remove(userId: number, id: number) {
-    const a = await this.own(userId, id);
+    await this.own(userId, id);
     return this.prisma.$transaction(async (tx) => {
-      if ((await tx.address.count({ where: { userId } })) <= 1) {
-        throw new AppException(ErrorCode.INVALID_STATE, 'Bạn cần giữ lại ít nhất một địa chỉ giao hàng.');
-      }
+      await this.lockUser(tx, userId);
+      const a = await tx.address.findFirst({ where: { id, userId } });
+      if (!a) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Địa chỉ không tồn tại.');
       await tx.address.delete({ where: { id } });
       if (a.isDefault) {
-        const first = await tx.address.findFirst({ where: { userId }, orderBy: { id: 'asc' } });
-        if (first) await tx.address.update({ where: { id: first.id }, data: { isDefault: true } });
+        const newest = await tx.address.findFirst({ where: { userId }, orderBy: { id: 'desc' } });
+        if (newest) await tx.address.update({ where: { id: newest.id }, data: { isDefault: true } });
       }
       return null;
     });
@@ -97,6 +111,9 @@ export class AddressesService {
   async setDefault(userId: number, id: number) {
     await this.own(userId, id);
     return this.prisma.$transaction(async (tx) => {
+      await this.lockUser(tx, userId);
+      if (!(await tx.address.findFirst({ where: { id, userId }, select: { id: true } })))
+        throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Địa chỉ không tồn tại.');
       await tx.address.updateMany({ where: { userId }, data: { isDefault: false } });
       return tx.address.update({ where: { id }, data: { isDefault: true } });
     });

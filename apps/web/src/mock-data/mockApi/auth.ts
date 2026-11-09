@@ -279,12 +279,15 @@ export function updateAddress(ctx: Ctx): Result {
 
 export function deleteAddress(ctx: Ctx): Result {
   const a = ownAddress(ctx);
-  if (ctx.db.addresses.filter((x) => x.userId === a.userId).length <= 1)
-    throw new ApiFail('INVALID_STATE', 'Bạn cần giữ lại ít nhất một địa chỉ giao hàng.');
   ctx.db.addresses.splice(ctx.db.addresses.indexOf(a), 1);
   if (a.isDefault) {
-    const first = ctx.db.addresses.find((x) => x.userId === a.userId);
-    if (first) first.isDefault = true;
+    // xóa địa chỉ mặc định ⇒ địa chỉ MỚI NHẤT còn lại (id lớn nhất) thành mặc định; xóa hết cũng hợp lệ
+    const rest = ctx.db.addresses.filter((x) => x.userId === a.userId);
+    const newest = rest.reduce<(typeof rest)[number] | undefined>(
+      (m, x) => (!m || x.id > m.id ? x : m),
+      undefined,
+    );
+    if (newest) newest.isDefault = true;
   }
   return done();
 }
