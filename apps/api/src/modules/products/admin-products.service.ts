@@ -82,7 +82,7 @@ export class AdminProductsService {
           ? (x.item.salePrice ?? x.item.price)
           : f === 'stockQuantity'
             ? x.item.stockQuantity
-            : String(x.item.createdAt);
+            : new Date(x.item.createdAt as unknown as string | Date).getTime();
     const mul = dir === 'asc' ? 1 : -1;
     list.sort((a, b) => (get(a) === get(b) ? 0 : get(a) < get(b) ? -1 : 1) * mul);
     const page = resolvePage(q, list.length, 10);

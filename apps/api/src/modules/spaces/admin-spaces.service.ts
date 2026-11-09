@@ -73,7 +73,11 @@ export class AdminSpacesService {
     const f = SORTS.includes(field) ? field : 'createdAt';
     const mul = dir === 'asc' ? 1 : -1;
     const get = (s: (typeof list)[number]): string | number =>
-      f === 'title' ? s.title : f === 'viewCount' ? s.viewCount : String(s.createdAt);
+      f === 'title'
+        ? s.title
+        : f === 'viewCount'
+          ? s.viewCount
+          : new Date(s.createdAt as unknown as string | Date).getTime();
     list.sort((a, b) => (get(a) === get(b) ? 0 : get(a) < get(b) ? -1 : 1) * mul);
     const page = resolvePage(q, list.length, 10);
     return {

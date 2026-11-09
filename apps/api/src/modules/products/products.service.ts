@@ -139,7 +139,8 @@ export class ProductsService {
     } else {
       const [field, dir] = sort.split(':');
       const get: Record<string, (x: ListItem) => string | number> = {
-        createdAt: (x) => String(x.createdAt),
+        // createdAt có thể là Date (lần dựng chỉ mục đầu tiên) hoặc chuỗi ISO (đọc lại từ cache): so sánh theo thời điểm, không theo chuỗi
+        createdAt: (x) => new Date(x.createdAt as unknown as string | Date).getTime(),
         price: (x) => x.salePrice ?? x.price,
         soldCount: (x) => x.soldCount,
         ratingAvg: (x) => Number(x.ratingAvg),
