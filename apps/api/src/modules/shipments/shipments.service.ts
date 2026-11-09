@@ -1,8 +1,12 @@
-// UC-ADM-25 – Quản lý vận chuyển (admin nhập tay): tạo vận đơn, cập nhật trạng thái pending → picked_up → in_transit →
-// delivered (hoặc failed/returned). Đánh dấu delivered ⇒ trong CÙNG transaction gọi OrdersService.completeOrder (đơn shipping →
-// completed, sold_count, COD đã thanh toán, ghi chú "Giao hàng thành công"). failed/returned: đơn giữ nguyên shipping, chỉ ghi
-// trạng thái vận đơn (điểm mở O-03). Mọi thao tác ghi kèm activity_logs trong cùng transaction (D-T52).
-import { Injectable } from '@nestjs/common';
+// UC-ADM-25 – Quản lý vận chuyển (admin nhập tay): tạo vận đơn, cập nhật trạng thái theo DAC_TA §10.4:
+//   pending → picked_up → in_transit → delivered | failed | returned;  failed → in_transit (giao lại) | returned.
+// delivered và returned là trạng thái cuối; failed KHÔNG phải trạng thái cuối. Đánh dấu delivered ⇒ trong CÙNG transaction gọi
+// OrdersService.completeOrder (đơn shipping → completed, sold_count, COD đã thanh toán, ghi chú "Giao hàng thành công").
+// failed/returned: đơn giữ nguyên shipping; khách được thông báo (đúng một lần, gửi SAU khi giao dịch cơ sở dữ liệu hoàn tất nên
+// lỗi gửi thông báo không làm hỏng việc đổi trạng thái); với returned admin được hủy đơn (D-T54, OrdersService.cancelCore) rồi hoàn
+// tiền nếu đã thanh toán. Cập nhật lặp lại cùng một trạng thái là thao tác rỗng (không ghi gì, không gửi lại thông báo).
+// Mọi thao tác ghi kèm activity_logs trong cùng transaction (D-T52).
+import { Injectable, Logger } from '@nestjs/common';
 import { Prisma, ShipmentCarrier, ShipmentStatus } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
@@ -17,24 +21,39 @@ import { OrdersService } from '../orders/orders.service';
 
 const CARRIERS: ShipmentCarrier[] = ['ghn', 'ghtk', 'viettel_post', 'other'];
 
-/** Bước chuyển hợp lệ của vận đơn; delivered/failed/returned là trạng thái cuối */
+/** Bước chuyển hợp lệ của vận đơn (DAC_TA §10.4); chỉ delivered và returned là trạng thái cuối */
 export const SHIPMENT_NEXT: Record<ShipmentStatus, ShipmentStatus[]> = {
   pending: ['picked_up'],
-  picked_up: ['in_transit', 'delivered', 'failed', 'returned'],
+  picked_up: ['in_transit'],
   in_transit: ['delivered', 'failed', 'returned'],
+  failed: ['in_transit', 'returned'],
   delivered: [],
-  failed: [],
   returned: [],
 };
 export const canShipmentTransition = (from: ShipmentStatus, to: ShipmentStatus) =>
   SHIPMENT_NEXT[from].includes(to);
 
-const MILESTONE: Partial<Record<ShipmentStatus, string>> = {
-  picked_up: 'đã được bàn giao cho đơn vị vận chuyển',
+/** Thông báo cho khách khi vận đơn đổi sang trạng thái này (title theo mã đơn, nội dung) */
+const NOTICE: Partial<Record<ShipmentStatus, { title: (code: string) => string; content: string }>> = {
+  picked_up: {
+    title: (c) => `Đơn ${c} đã được bàn giao cho đơn vị vận chuyển`,
+    content: 'Đơn hàng của bạn đã được bàn giao cho đơn vị vận chuyển.',
+  },
+  failed: {
+    title: (c) => `Đơn ${c} giao hàng không thành công`,
+    content: 'Đơn vị vận chuyển chưa giao được đơn hàng của bạn. Chúng tôi sẽ liên hệ để sắp xếp giao lại.',
+  },
+  returned: {
+    title: (c) => `Đơn ${c} đã được hoàn về cửa hàng`,
+    content:
+      'Đơn hàng không giao được và đã hoàn về cửa hàng. Chúng tôi sẽ liên hệ với bạn để xử lý đơn hàng.',
+  },
 };
 
 @Injectable()
 export class ShipmentsService {
+  private readonly log = new Logger(ShipmentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
@@ -61,6 +80,7 @@ export class ShipmentsService {
   private check(b: Record<string, unknown>, create: boolean) {
     const errs = new FieldErrors();
     const out: { carrier?: ShipmentCarrier; trackingCode?: string | null; fee?: number } = {};
+    if (str(b.reason).trim().length > 255) errs.add('reason', 'Lý do tối đa 255 ký tự.');
     if (create || b.carrier !== undefined) {
       if (!CARRIERS.includes(str(b.carrier) as ShipmentCarrier))
         errs.add('carrier', 'Đơn vị vận chuyển không hợp lệ.');
@@ -113,8 +133,9 @@ export class ShipmentsService {
           'Chỉ tạo vận đơn cho đơn đang "Đang xử lý" hoặc "Đang giao".',
         );
       }
+      // failed chưa kết thúc (còn giao lại được) nên vẫn là vận đơn đang hoạt động; chỉ returned mới cho tạo vận đơn mới
       const active = await tx.shipment.count({
-        where: { orderId: o.id, status: { notIn: ['failed', 'returned'] } },
+        where: { orderId: o.id, status: { not: 'returned' } },
       });
       if (active) throw new AppException(ErrorCode.INVALID_STATE, 'Đơn hàng đã có vận đơn đang hoạt động.');
       const s = await tx.shipment.create({
@@ -145,24 +166,16 @@ export class ShipmentsService {
     };
   }
 
-  /** PATCH /admin/shipments/:id – { status?, carrier?, trackingCode?, fee? } */
+  /** PATCH /admin/shipments/:id – { status?, carrier?, trackingCode?, fee?, reason? } */
   async update(adminId: number, id: number, raw: unknown) {
     const cur = await this.prisma.shipment.findUnique({ where: { id }, include: { order: true } });
     if (!cur) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Vận đơn không tồn tại.');
     const b = asBody(raw);
     const d = this.check(b, false);
+    const reason = str(b.reason).trim() || null;
     const to = b.status === undefined ? null : (str(b.status) as ShipmentStatus);
     if (to !== null && !Object.keys(SHIPMENT_NEXT).includes(to)) {
       new FieldErrors().add('status', 'Trạng thái vận đơn không hợp lệ.').throwIfAny();
-    }
-    const final = SHIPMENT_NEXT[cur.status].length === 0;
-    if (final && (to !== null || Object.keys(d).length))
-      throw new AppException(ErrorCode.INVALID_STATE, 'Vận đơn đã kết thúc, không thể cập nhật.');
-    if (to !== null && to !== cur.status && !canShipmentTransition(cur.status, to)) {
-      throw new AppException(
-        ErrorCode.INVALID_STATE,
-        `Không thể chuyển vận đơn từ "${cur.status}" sang "${to}".`,
-      );
     }
     const warnings = await this.trackingWarning(
       d.trackingCode ?? cur.trackingCode,
@@ -170,10 +183,27 @@ export class ShipmentsService {
       id,
     );
 
-    const orderId = await this.prisma.$transaction(async (tx) => {
+    const outcome = await this.prisma.$transaction(async (tx) => {
+      // Khóa dòng vận đơn: hai yêu cầu đồng thời cho cùng vận đơn chạy tuần tự và luôn kiểm trên trạng thái MỚI NHẤT
+      const [locked] = await tx.$queryRaw<
+        Array<{ status: ShipmentStatus }>
+      >`SELECT status FROM shipments WHERE id = ${id} FOR UPDATE`;
+      const from = locked.status;
+      const changed = to !== null && to !== from;
+      const edits = Object.keys(d).length > 0;
+      if (SHIPMENT_NEXT[from].length === 0 && (changed || edits))
+        throw new AppException(ErrorCode.INVALID_STATE, 'Vận đơn đã kết thúc, không thể cập nhật.');
+      if (changed && !canShipmentTransition(from, to)) {
+        throw new AppException(
+          ErrorCode.INVALID_STATE,
+          `Không thể chuyển vận đơn từ "${from}" sang "${to}".`,
+        );
+      }
+      if (!changed && !edits) return { changed: false as const, from }; // lặp lại cùng trạng thái: không ghi gì
+
       const now = new Date();
       const data: Prisma.ShipmentUpdateInput = { ...d };
-      if (to && to !== cur.status) {
+      if (changed) {
         data.status = to;
         if (to === 'picked_up') data.shippedAt = now;
         if (to === 'delivered') {
@@ -181,37 +211,51 @@ export class ShipmentsService {
           if (!cur.shippedAt) data.shippedAt = now; // thỏa ck_shipments_dates
         }
       }
-      if (to === 'delivered' && cur.status !== 'delivered') {
+      if (changed && to === 'delivered') {
         // hoàn tất đơn trong CÙNG transaction; đơn không ở "Đang giao" ⇒ 409 và hoàn tác cả việc đổi vận đơn
         await this.orders.completeOrder(tx, adminId, cur.orderId, now);
       }
       await tx.shipment.update({ where: { id }, data });
-      if (to && MILESTONE[to]) {
-        await this.notifications.notify(
-          tx,
-          cur.order.userId,
-          `Đơn ${cur.order.orderCode} ${MILESTONE[to]}`,
-          'order',
-          `Vận đơn của đơn ${cur.order.orderCode} ${MILESTONE[to]}.`,
-          `/account/orders/${cur.order.orderCode}`,
-        );
-      }
       await this.activity.log(
         {
           actorId: adminId,
-          action: to && to !== cur.status ? 'shipment.update_status' : 'shipment.update',
+          action: changed ? 'shipment.update_status' : 'shipment.update',
           targetType: 'shipment',
           targetId: id,
-          changes: { orderCode: cur.order.orderCode, from: cur.status, to: to ?? cur.status, ...d },
+          changes: {
+            orderCode: cur.order.orderCode,
+            from,
+            to: changed ? to : from,
+            ...(reason ? { reason } : {}),
+            ...d,
+          },
         },
         tx,
       );
-      return cur.orderId;
+      return { changed, from };
     });
-    if (to === 'delivered') await this.cache.invalidateProducts(); // đơn hoàn tất ⇒ sold_count đổi
+
+    // Thông báo SAU khi đã lưu: chỉ yêu cầu thực sự đổi trạng thái (đã khóa dòng) mới gửi nên không bao giờ trùng; lỗi gửi
+    // thông báo chỉ được ghi nhận, không làm hỏng việc cập nhật vận đơn đã hoàn tất.
+    const notice = outcome.changed && to ? NOTICE[to] : undefined;
+    if (notice) {
+      try {
+        await this.notifications.notify(
+          this.prisma,
+          cur.order.userId,
+          notice.title(cur.order.orderCode),
+          'order',
+          notice.content,
+          `/account/orders/${cur.order.orderCode}`,
+        );
+      } catch (e) {
+        this.log.error(`Không gửi được thông báo vận đơn #${id}: ${(e as Error).message}`);
+      }
+    }
+    if (outcome.changed && to === 'delivered') await this.cache.invalidateProducts(); // đơn hoàn tất ⇒ sold_count đổi
     return {
       shipment: serialize(await this.prisma.shipment.findUniqueOrThrow({ where: { id } })),
-      order: await this.viewOrder(orderId),
+      order: await this.viewOrder(cur.orderId),
       warnings,
     };
   }

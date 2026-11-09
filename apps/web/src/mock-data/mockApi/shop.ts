@@ -398,7 +398,12 @@ export function cancelOrderCore(
 ) {
   const o = db.orders.find((x) => x.id === orderId)!;
   const allowed: OrderStatus[] = byAdmin ? ['pending', 'confirmed', 'processing'] : ['pending', 'confirmed'];
-  if (!allowed.includes(o.status))
+  if (byAdmin && o.status === 'shipping') {
+    // D-T54: đơn đang giao chỉ hủy được khi mọi vận đơn đã hoàn về (returned)
+    const ships = db.shipments.filter((x) => x.orderId === orderId);
+    if (!ships.length || !ships.every((x) => x.status === 'returned'))
+      throw new ApiFail('INVALID_STATE', 'Đơn đang giao chỉ hủy được khi vận đơn đã hoàn về (returned).');
+  } else if (!allowed.includes(o.status))
     throw new ApiFail('INVALID_STATE', 'Không thể hủy đơn hàng ở trạng thái hiện tại.');
   const from = o.status;
   o.status = 'cancelled';

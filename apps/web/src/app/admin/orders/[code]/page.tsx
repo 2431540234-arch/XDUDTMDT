@@ -25,18 +25,17 @@ const NEXT: Partial<Record<OrderStatus, { to: OrderStatus; label: string }>> = {
   confirmed: { to: 'processing', label: 'Chuyển sang “Đang xử lý”' },
   processing: { to: 'shipping', label: 'Chuyển sang “Đang giao”' },
 };
-/** Bước kế tiếp của vận đơn (UC-ADM-25); đánh dấu "Đã giao" sẽ tự hoàn tất đơn */
+/** Bước kế tiếp của vận đơn (DAC_TA §10.4, UC-ADM-25); đánh dấu "Đã giao" sẽ tự hoàn tất đơn; "Giao thất bại" có thể giao lại */
 const SHIP_ACTIONS: Record<string, Array<{ to: string; label: string; danger?: boolean }>> = {
   pending: [{ to: 'picked_up', label: 'Đã lấy hàng' }],
-  picked_up: [
-    { to: 'in_transit', label: 'Đang vận chuyển' },
+  picked_up: [{ to: 'in_transit', label: 'Đang vận chuyển' }],
+  in_transit: [
     { to: 'delivered', label: 'Đánh dấu đã giao' },
     { to: 'failed', label: 'Giao thất bại', danger: true },
     { to: 'returned', label: 'Hoàn hàng', danger: true },
   ],
-  in_transit: [
-    { to: 'delivered', label: 'Đánh dấu đã giao' },
-    { to: 'failed', label: 'Giao thất bại', danger: true },
+  failed: [
+    { to: 'in_transit', label: 'Giao lại' },
     { to: 'returned', label: 'Hoàn hàng', danger: true },
   ],
 };
@@ -175,11 +174,15 @@ export default function AdminOrderDetailPage() {
     );
   if (!o) return null;
   const next = NEXT[o.status];
-  const hasActiveShip = o.shipments.some((x) => !['failed', 'returned'].includes(x.status));
+  // vận đơn đang hoạt động = chưa hoàn về (failed còn giao lại được); chỉ khi vận đơn đã returned mới tạo vận đơn mới
+  const hasActiveShip = o.shipments.some((x) => x.status !== 'returned');
+  // đơn đang giao mà mọi vận đơn đã hoàn về ⇒ admin được hủy đơn (D-T54), sau đó hoàn tiền nếu đã thanh toán
+  const allReturned = o.shipments.length > 0 && o.shipments.every((x) => x.status === 'returned');
   const canCreateShip = ['processing', 'shipping'].includes(o.status) && !hasActiveShip;
   const times: Partial<Record<OrderStatus, string>> = {};
   o.history.forEach((h) => (times[h.toStatus] = h.createdAt));
-  const canCancel = ['pending', 'confirmed', 'processing'].includes(o.status);
+  const canCancel =
+    ['pending', 'confirmed', 'processing'].includes(o.status) || (o.status === 'shipping' && allReturned);
   const canRefund = o.status === 'completed' || (o.status === 'cancelled' && o.paymentStatus === 'paid');
   // Chỉ giao dịch CHUYỂN KHOẢN đang chờ đối soát xác nhận/đánh dấu thất bại thủ công (online do cổng quản lý, COD tự ghi nhận).
   // Đơn đã hủy: giao dịch chờ đã bị chuyển "thất bại" lúc hủy; tiền về muộn vẫn xác nhận được để hoàn tiền (D-T53).
@@ -423,9 +426,18 @@ export default function AdminOrderDetailPage() {
                           Đơn hàng đã tự hoàn tất khi vận đơn được giao.
                         </p>
                       )}
-                      {(sh.status === 'failed' || sh.status === 'returned') && (
+                      {sh.status === 'failed' && (
                         <p className="mt-2 text-xs text-muted">
-                          Đơn vẫn ở trạng thái hiện tại; có thể tạo vận đơn mới để giao lại.
+                          Giao không thành công: chọn “Giao lại” hoặc “Hoàn hàng”. Khách đã được thông báo.
+                        </p>
+                      )}
+                      {sh.status === 'returned' && (
+                        <p className="mt-2 text-xs text-muted">
+                          Hàng đã hoàn về. Có thể tạo vận đơn mới để giao lại
+                          {o.status === 'shipping'
+                            ? ', hoặc hủy đơn (rồi hoàn tiền nếu khách đã thanh toán)'
+                            : ''}
+                          .
                         </p>
                       )}
                     </li>

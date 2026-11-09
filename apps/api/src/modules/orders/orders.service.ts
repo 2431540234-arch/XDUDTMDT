@@ -394,7 +394,8 @@ export class OrdersService {
   }
 
   /**
-   * Hủy đơn: khách hủy được ở pending|confirmed; admin thêm processing. Cộng lại tồn kho (movement "return") và lượt dùng coupon.
+   * Hủy đơn: khách hủy được ở pending|confirmed; admin thêm processing, và shipping khi vận đơn đã returned (D-T54). Cộng lại tồn kho
+   * (movement "return") và lượt dùng coupon.
    */
   async cancelCore(orderId: number, actorId: number | null, reason: string, byAdmin: boolean) {
     await this.prisma.$transaction(async (tx) => {
@@ -405,7 +406,17 @@ export class OrdersService {
       const allowed: OrderStatus[] = byAdmin
         ? ['pending', 'confirmed', 'processing']
         : ['pending', 'confirmed'];
-      if (!allowed.includes(o.status)) {
+      if (byAdmin && o.status === 'shipping') {
+        // Ngoại lệ D-T54: đơn đang giao CHỈ hủy được khi mọi vận đơn của đơn đã hoàn về (returned) – hàng đã về kho nên hoàn tồn kho
+        // và (nếu đã thanh toán) hoàn tiền thủ công sau đó. Vận đơn đang chạy/giao lại (failed) thì chưa hủy được.
+        const ships = await tx.shipment.findMany({ where: { orderId }, select: { status: true } });
+        if (!ships.length || !ships.every((s) => s.status === 'returned')) {
+          throw new AppException(
+            ErrorCode.INVALID_STATE,
+            'Đơn đang giao chỉ hủy được khi vận đơn đã hoàn về (returned).',
+          );
+        }
+      } else if (!allowed.includes(o.status)) {
         throw new AppException(ErrorCode.INVALID_STATE, 'Không thể hủy đơn hàng ở trạng thái hiện tại.');
       }
       const items = await tx.orderItem.findMany({ where: { orderId } });

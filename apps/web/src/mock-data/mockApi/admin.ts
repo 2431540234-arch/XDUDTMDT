@@ -626,10 +626,10 @@ export function refundOrder(ctx: Ctx): Result {
 
 const SHIP_NEXT: Record<string, string[]> = {
   pending: ['picked_up'],
-  picked_up: ['in_transit', 'delivered', 'failed', 'returned'],
+  picked_up: ['in_transit'],
   in_transit: ['delivered', 'failed', 'returned'],
+  failed: ['in_transit', 'returned'],
   delivered: [],
-  failed: [],
   returned: [],
 };
 const CARRIERS = ['ghn', 'ghtk', 'viettel_post', 'other'];
@@ -646,7 +646,8 @@ export function createShipment(ctx: Ctx): Result {
   if (Object.keys(errs).length) throw validation(errs);
   if (!['processing', 'shipping'].includes(o.status))
     throw new ApiFail('INVALID_STATE', 'Chỉ tạo vận đơn cho đơn đang "Đang xử lý" hoặc "Đang giao".');
-  if (db.shipments.some((s) => s.orderId === o.id && !['failed', 'returned'].includes(s.status)))
+  // failed còn giao lại được nên vẫn là vận đơn đang hoạt động; chỉ returned mới cho tạo vận đơn mới
+  if (db.shipments.some((s) => s.orderId === o.id && s.status !== 'returned'))
     throw new ApiFail('INVALID_STATE', 'Đơn hàng đã có vận đơn đang hoạt động.');
   const at = nowIso();
   const sh = {
@@ -675,7 +676,11 @@ export function updateShipmentStatus(ctx: Ctx): Result {
   const to = b.status as string | undefined;
   if (to !== undefined && !(to in SHIP_NEXT))
     throw validation({ status: 'Trạng thái vận đơn không hợp lệ.' });
-  if (SHIP_NEXT[sh.status].length === 0)
+  const changing = to !== undefined && to !== sh.status;
+  if (
+    SHIP_NEXT[sh.status].length === 0 &&
+    (changing || b.carrier || b.trackingCode !== undefined || b.fee !== undefined)
+  )
     throw new ApiFail('INVALID_STATE', 'Vận đơn đã kết thúc, không thể cập nhật.');
   if (to && to !== sh.status && !SHIP_NEXT[sh.status].includes(to))
     throw new ApiFail('INVALID_STATE', `Không thể chuyển vận đơn từ "${sh.status}" sang "${to}".`);

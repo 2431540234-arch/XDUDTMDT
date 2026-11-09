@@ -252,13 +252,20 @@ export class AdminOrdersService {
   /** Hoàn tiền thủ công (D-N03): đơn đã giao, hoặc đơn đã hủy nhưng đã thanh toán */
   async refund(adminId: number, key: string) {
     const o = await this.find(key);
-    if (!(o.status === 'completed' || (o.status === 'cancelled' && o.paymentStatus === 'paid'))) {
-      throw new AppException(
+    const refundable = (st: string, pay: string) =>
+      st === 'completed' || (st === 'cancelled' && pay === 'paid');
+    const notRefundable = () =>
+      new AppException(
         ErrorCode.INVALID_STATE,
         'Chỉ hoàn tiền cho đơn đã giao hoặc đơn đã hủy đã thanh toán.',
       );
-    }
+    if (!refundable(o.status, o.paymentStatus)) throw notRefundable();
     await this.prisma.$transaction(async (tx) => {
+      // Khóa dòng đơn và kiểm lại trạng thái: các yêu cầu hoàn tiền đồng thời chỉ một cái thành công (không ghi trùng phiếu chi)
+      const [locked] = await tx.$queryRaw<
+        Array<{ status: string; payment_status: string }>
+      >`SELECT status, payment_status FROM orders WHERE id = ${o.id} FOR UPDATE`;
+      if (!refundable(locked.status, locked.payment_status)) throw notRefundable();
       await this.orders.setActor(tx, adminId, 'Hoàn tiền thủ công');
       await tx.order.update({ where: { id: o.id }, data: { status: 'refunded', paymentStatus: 'refunded' } });
       await tx.payment.updateMany({ where: { orderId: o.id }, data: { status: 'refunded' } });
