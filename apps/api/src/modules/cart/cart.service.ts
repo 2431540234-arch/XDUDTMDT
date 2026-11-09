@@ -81,8 +81,20 @@ export class CartService {
 
   /** CartView theo contract. itemIds: chỉ tính các dòng được chọn (mua ngay); addressId: tính phí ship theo tỉnh */
   async view(userId: number, opts: { itemIds?: number[]; addressId?: number | null } = {}) {
-    await this.ensure(userId);
-    const cart = await this.prisma.cart.findUniqueOrThrow({ where: { userId }, include: CART_INCLUDE });
+    const cart = await this.prisma.cart.findUnique({ where: { userId }, include: CART_INCLUDE });
+    // Chưa có giỏ ⇒ trả giỏ rỗng, KHÔNG tạo bản ghi (DAC_TA UC-CART-02 3a); giỏ chỉ được tạo khi thêm hàng/áp mã
+    if (!cart)
+      return {
+        id: 0,
+        userId,
+        items: [],
+        itemCount: 0,
+        subtotal: 0,
+        discountAmount: 0,
+        shippingFee: 0,
+        total: 0,
+        coupon: null,
+      };
     const all = cart.cartItems;
     const items = opts.itemIds?.length ? all.filter((i) => opts.itemIds!.includes(i.id)) : all;
     const isSubset = items.length !== all.length;

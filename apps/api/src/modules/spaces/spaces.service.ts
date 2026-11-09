@@ -108,7 +108,12 @@ export class SpacesService {
     const sort = qStr(q, 'sort') || 'newest';
     if (sort === 'popular') items.sort((a, b) => b.viewCount - a.viewCount);
     else if (sort === 'title') items.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
-    else items.sort((a, b) => String(b.publishedAt ?? '').localeCompare(String(a.publishedAt ?? '')));
+    else {
+      // mới nhất trước theo THỜI ĐIỂM đăng (không so sánh chuỗi của Date: "Sat Sep…" sắp theo chữ cái, sai thứ tự)
+      const at = (x: { publishedAt: unknown }) =>
+        x.publishedAt ? new Date(x.publishedAt as string | Date).getTime() : 0;
+      items.sort((a, b) => at(b) - at(a));
+    }
     const page = resolvePage(q, items.length, 12);
     return {
       items: items.slice(page.skip, page.skip + page.pageSize),

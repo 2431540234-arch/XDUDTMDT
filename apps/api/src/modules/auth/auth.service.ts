@@ -226,8 +226,10 @@ export class AuthService {
   async logout(userId: number | undefined, raw: unknown) {
     const token = str(asBody(raw).refreshToken);
     if (token) {
+      // Chỉ thu hồi phiên của CHÍNH người đăng xuất (userId lấy từ access token): refresh token của người khác không bị thu hồi.
+      // Không kèm access token (hết hạn…) thì thu hồi theo refresh token như trước (idempotent, không báo lỗi nếu không thấy).
       await this.prisma.userSession.updateMany({
-        where: { refreshTokenHash: this.refreshHash(token), revokedAt: null },
+        where: { refreshTokenHash: this.refreshHash(token), revokedAt: null, ...(userId ? { userId } : {}) },
         data: { revokedAt: new Date() },
       });
     } else if (userId) {

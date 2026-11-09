@@ -170,7 +170,7 @@ export class UsersService {
     return null;
   }
 
-  async changePassword(userId: number, raw: unknown) {
+  async changePassword(userId: number, raw: unknown, currentSessionId?: number) {
     const b = asBody(raw);
     const current = str(b.currentPassword);
     const next = str(b.newPassword);
@@ -187,11 +187,15 @@ export class UsersService {
         where: { id: userId },
         data: { passwordHash: await hash(next, BCRYPT_COST) },
       }),
-      // đổi mật khẩu: thu hồi các phiên khác nếu khách chọn "đăng xuất thiết bị khác"
+      // đổi mật khẩu: thu hồi các phiên KHÁC (trừ phiên hiện tại) nếu khách chọn "đăng xuất thiết bị khác" (DAC_TA UC-ACC-02)
       ...(b.logoutOthers
         ? [
             this.prisma.userSession.updateMany({
-              where: { userId, revokedAt: null },
+              where: {
+                userId,
+                revokedAt: null,
+                ...(currentSessionId ? { id: { not: currentSessionId } } : {}),
+              },
               data: { revokedAt: new Date() },
             }),
           ]

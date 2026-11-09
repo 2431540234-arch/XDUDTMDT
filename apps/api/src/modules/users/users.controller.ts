@@ -49,7 +49,11 @@ export class UsersController {
   @Post('me/change-password')
   @HttpCode(200)
   @ApiOperation({ summary: 'Đổi mật khẩu: { currentPassword, newPassword, logoutOthers? }' })
-  changePassword(@CurrentUser('id') id: number, @Body() body: unknown) {
-    return this.users.changePassword(id, body);
+  changePassword(
+    @CurrentUser('id') id: number,
+    @CurrentUser('sessionId') sessionId: number | undefined,
+    @Body() body: unknown,
+  ) {
+    return this.users.changePassword(id, body, sessionId);
   }
 }
