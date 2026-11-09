@@ -16,7 +16,8 @@ if (!ALLOWED.includes(name)) {
 const container = process.env.PG_CONTAINER ?? 'xdudtmdt-postgres-1';
 const hostPort = process.env.POSTGRES_PORT ?? '55432';
 const apiDir = resolve(import.meta.dirname, '../apps/api');
-const url = `postgresql://aurelia:aurelia@localhost:${hostPort}/${name}?schema=public`;
+const pgHost = process.env.PG_HOST ?? 'localhost'; // đặt PG_HOST=127.0.0.1 nếu 'localhost' phân giải sang IPv6 không tới được container
+const url = `postgresql://aurelia:aurelia@${pgHost}:${hostPort}/${name}?schema=public`;
 const port = process.env.API_PORT ?? '4000';
 
 const psql = (db, sql) =>

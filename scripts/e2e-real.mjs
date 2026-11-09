@@ -187,7 +187,7 @@ async function main() {
     if (b.status !== 0) throw new Error('Build API thất bại');
   }
 
-  const dbUrl = `postgresql://aurelia:aurelia@localhost:${PG_PORT}/${DB}?schema=public`;
+  const dbUrl = `postgresql://aurelia:aurelia@${process.env.PG_HOST ?? 'localhost'}:${PG_PORT}/${DB}?schema=public`;
   const apiEnv = {
     ...process.env,
     DATABASE_URL: dbUrl,
