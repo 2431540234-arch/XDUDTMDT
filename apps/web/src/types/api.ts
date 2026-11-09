@@ -98,6 +98,8 @@ export interface VariantView extends ProductVariant {
 
 export interface ProductImageView {
   id: number;
+  /** id bản ghi media (ổn định); gửi lại khi lưu sản phẩm để giữ nguyên ảnh và liên kết biến thể */
+  mediaId?: number;
   url: string;
   isPrimary: boolean;
   sortOrder: number;

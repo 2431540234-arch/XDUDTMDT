@@ -208,7 +208,12 @@ export class ProductsService {
 
   async detail(slug: string, userId: number | null) {
     // chi tiết công khai cache 1 phút (404 không được cache); isWishlisted gắn sau, theo từng người dùng
-    const d = await this.cache.product(slug, async () => this.views.detail(await this.bySlug(slug)));
+    const d = await this.cache.product(slug, async () => {
+      const row = await this.bySlug(slug);
+      // Công khai chỉ thấy biến thể ĐANG BÁN: biến thể đã ngừng bán (isActive=false) vẫn nằm trong CSDL để giữ lịch sử đơn/kho
+      // nhưng không hiển thị và không chọn được. Quản trị (AdminProductsService) vẫn nhận đủ.
+      return this.views.detail({ ...row, productVariants: row.productVariants.filter((v) => v.isActive) });
+    });
     const [withWish] = await this.views.withWishlist([d], userId);
     return withWish;
   }

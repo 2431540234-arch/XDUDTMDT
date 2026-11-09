@@ -209,6 +209,7 @@ export class CatalogViews {
       ...base,
       images: p.productImages.map((i) => ({
         id: i.id,
+        mediaId: i.mediaId,
         url: this.url(i.media.filePath) ?? '',
         isPrimary: i.isPrimary,
         sortOrder: i.sortOrder,

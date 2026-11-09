@@ -280,38 +280,93 @@ export class AdminProductsService {
     await tx.cartItem.deleteMany({ where: { variant: { productId, isActive: false } } });
   }
 
+  /**
+   * Đồng bộ ảnh sản phẩm theo mediaId (UC-ADM-11), KHÔNG xóa rồi tạo lại toàn bộ:
+   * - mỗi ảnh gửi lên là { mediaId } (ảnh đã có trong kho) hoặc { url } (URL kho / data-URL / đường dẫn); thứ tự mảng = thứ tự hiển thị
+   * - ảnh đã có (cùng mediaId) giữ nguyên dòng và id, chỉ cập nhật thứ tự; variantId giữ nguyên nếu không gửi, null để gỡ liên kết,
+   *   số để gắn với biến thể (phải thuộc sản phẩm này, nếu không 400)
+   * - ảnh không còn trong danh sách: xóa DÒNG liên kết product_images; tệp media và tệp vật lý KHÔNG bị xóa (có thể đang được
+   *   sản phẩm/mô hình khác dùng; việc dọn tệp thuộc UC-ADM-04)
+   * - luôn đúng một ảnh đại diện (ảnh được đánh dấu đầu tiên, nếu không thì ảnh đại diện cũ còn lại, nếu không thì ảnh đầu)
+   */
   private async saveImages(
     tx: Tx,
     productId: number,
     adminId: number,
     slug: string,
-    images: Array<{ url: string; isPrimary?: boolean }>,
+    images: Array<{ url?: string; mediaId?: unknown; variantId?: unknown; isPrimary?: boolean }>,
   ) {
-    const existing = await tx.productImage.findMany({ where: { productId } });
-    const variantOfMedia = new Map(existing.filter((e) => e.variantId).map((e) => [e.mediaId, e.variantId]));
-    await tx.productImage.deleteMany({ where: { productId } });
-    const anyPrimary = images.some((x) => x.isPrimary);
-    let hasPrimary = false;
+    const existing = await tx.productImage.findMany({ where: { productId }, orderBy: { id: 'asc' } });
+    const prevByMedia = new Map<number, (typeof existing)[number]>();
+    for (const e of existing) if (!prevByMedia.has(e.mediaId)) prevByMedia.set(e.mediaId, e);
+    const variantIds = new Set(
+      (await tx.productVariant.findMany({ where: { productId }, select: { id: true } })).map((v) => v.id),
+    );
+    const errs = new FieldErrors();
+    const desired: Array<{
+      mediaId: number;
+      variantId: number | null;
+      wantPrimary: boolean;
+      prev?: (typeof existing)[number];
+    }> = [];
+    const seen = new Set<number>();
     for (let i = 0; i < images.length; i++) {
-      const mediaId = await this.ingest.ingestImage(str(images[i].url), {
-        userId: adminId,
-        folder: `products/${slug}`,
-      });
-      const isPrimary: boolean = !hasPrimary && (Boolean(images[i].isPrimary) || (!anyPrimary && i === 0));
-      if (isPrimary) hasPrimary = true;
-      await tx.productImage.create({
-        data: {
-          productId,
-          mediaId,
-          variantId: variantOfMedia.get(mediaId) ?? null,
-          sortOrder: i + 1,
-          isPrimary,
-        },
-      });
+      const x = images[i] ?? {};
+      let mediaId = 0;
+      if (x.mediaId !== undefined && x.mediaId !== null && x.mediaId !== '') {
+        const id = toId(x.mediaId);
+        const m = id ? await tx.media.findUnique({ where: { id }, select: { id: true } }) : null;
+        if (!m) {
+          errs.add(`images.${i}.mediaId`, 'Ảnh không tồn tại.');
+          continue;
+        }
+        mediaId = m.id;
+      } else if (str(x.url).trim()) {
+        mediaId = await this.ingest.ingestImage(str(x.url), { userId: adminId, folder: `products/${slug}` });
+      } else {
+        errs.add(`images.${i}.url`, 'Vui lòng chọn ảnh.');
+        continue;
+      }
+      if (seen.has(mediaId)) continue; // cùng một ảnh gửi hai lần ⇒ giữ lần đầu
+      seen.add(mediaId);
+      const prev = prevByMedia.get(mediaId);
+      let variantId: number | null;
+      if (x.variantId === undefined) variantId = prev?.variantId ?? null;
+      else if (x.variantId === null || x.variantId === '') variantId = null;
+      else {
+        const vid = toId(x.variantId);
+        if (!vid || !variantIds.has(vid)) {
+          errs.add(`images.${i}.variantId`, 'Biến thể không thuộc sản phẩm này.');
+          continue;
+        }
+        variantId = vid;
+      }
+      desired.push({ mediaId, variantId, wantPrimary: Boolean(x.isPrimary), prev });
+    }
+    errs.throwIfAny();
+
+    const usedRowIds = new Set(desired.flatMap((d) => (d.prev ? [d.prev.id] : [])));
+    const stale = existing.filter((e) => !usedRowIds.has(e.id)).map((e) => e.id); // đã gỡ khỏi danh sách (và dòng trùng mediaId cũ)
+    if (stale.length) await tx.productImage.deleteMany({ where: { id: { in: stale } } });
+    // bỏ cờ đại diện trước khi đặt lại (partial unique uq_product_images_primary: tối đa một ảnh đại diện)
+    await tx.productImage.updateMany({ where: { productId, isPrimary: true }, data: { isPrimary: false } });
+    const primaryIdx = (() => {
+      const flagged = desired.findIndex((d) => d.wantPrimary);
+      if (flagged >= 0) return flagged;
+      const kept = desired.findIndex((d) => d.prev?.isPrimary);
+      return kept >= 0 ? kept : desired.length ? 0 : -1;
+    })();
+    for (let i = 0; i < desired.length; i++) {
+      const d = desired[i];
+      const data = { sortOrder: i + 1, variantId: d.variantId, isPrimary: i === primaryIdx };
+      if (d.prev) await tx.productImage.update({ where: { id: d.prev.id }, data });
+      else await tx.productImage.create({ data: { productId, mediaId: d.mediaId, ...data } });
     }
   }
 
   private async apply(tx: Tx, adminId: number, id: number, b: Record<string, unknown>, slug: string) {
+    // các lần lưu đồng thời CÙNG một sản phẩm chạy tuần tự (biến thể, ảnh, thông số luôn nhất quán với nhau)
+    await tx.$queryRaw`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
     const category = await tx.category.findUnique({ where: { id: toId(b.categoryId) } });
     if (!category) new FieldErrors().add('categoryId', 'Danh mục không tồn tại.').throwIfAny();
     await tx.product.update({
@@ -333,7 +388,7 @@ export class AdminProductsService {
     });
     await this.saveVariants(tx, adminId, id, b);
     if (Array.isArray(b.images))
-      await this.saveImages(tx, id, adminId, slug, b.images as Array<{ url: string; isPrimary?: boolean }>);
+      await this.saveImages(tx, id, adminId, slug, b.images as Array<Record<string, unknown>>);
     if (Array.isArray(b.specs)) {
       await tx.productSpec.deleteMany({ where: { productId: id } });
       const specs = (b.specs as Array<{ label: string; value: string }>).filter(
