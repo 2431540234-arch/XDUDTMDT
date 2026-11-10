@@ -21,7 +21,9 @@ Nguồn mô tả nghiệp vụ: [CAU_TRUC_DB.md](CAU_TRUC_DB.md). Quy ước khi
 
 > Các dòng Hàm, Trigger, Index, Khóa ngoại/CHECK ở trên là số liệu của bộ SQL chuẩn 42 bảng (`database/`, **chưa tính lại** cho 17 bảng mở rộng và các migration sau `0_init`): **Cần xác minh** bằng `prisma migrate diff`/truy vấn `pg_catalog` nếu cần số chính xác. Cấu trúc cột/quan hệ của cả 59 bảng lấy từ `apps/api/prisma/schema.prisma` (xem các mục nhóm 8 và 5.9–5.10).
 
-| File | Nội dung |
+> **Các tệp SQL dưới đây đã được gỡ khỏi `database/` ngày 2026-11-11** (lỗi thời: 44 bảng, còn AR; không script nào dùng). Bảng chỉ còn giá trị lịch sử; xem lại bằng `git log --diff-filter=D -- database/` rồi `git show <commit-trước-khi-gỡ>:database/<tệp>`. Nguồn chuẩn: `schema.prisma` và migration.
+
+| File | Nội dung (lịch sử) |
 | --- | --- |
 | `00_reset.sql` | Xóa toàn bộ bảng, hàm, ENUM. **Chỉ dùng khi dev** |
 | `01_extensions.sql` | `citext`, `pg_trgm`, `unaccent`, `pgcrypto` + hàm `immutable_unaccent()` |
@@ -42,7 +44,7 @@ npx prisma db seed             # vai trò, quyền, settings, admin + dữ liệ
 npx prisma migrate reset       # dev: xóa và dựng lại toàn bộ
 ```
 
-Dựng bản SQL thuần để đối chiếu: `psql -d <db> -v ON_ERROR_STOP=1 -f database/run_all.sql`.
+(Đã gỡ) Trước đây dựng bản SQL thuần để đối chiếu bằng `psql -f database/run_all.sql`; nay dùng `npm run db:deploy` (xem [database/README.md](../database/README.md)).
 
 Tài khoản mẫu (mật khẩu băm bcrypt bằng `crypt()`): `admin@aurelia.vn` / `Admin@123456`; `nguyenvana@example.com` và `tranthib@example.com` / `User@123456`. **Đổi mật khẩu admin trước khi triển khai thật.**
 

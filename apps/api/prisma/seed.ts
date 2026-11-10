@@ -1,6 +1,6 @@
 // Seed dữ liệu cho cơ sở dữ liệu (idempotent: chạy nhiều lần không lỗi, không nhân đôi dữ liệu).
 //   - Phần BẮT BUỘC: 2 vai trò, 6 quyền, role_permissions, settings, tài khoản admin
-//   - Phần MẪU (dev/test): giống database/07_sample_data.sql; tắt bằng SEED_SAMPLE=false
+//   - Phần MẪU (dev/test): bộ dữ liệu mẫu cũ (SEED_SOURCE=legacy) hoặc từ mock-data (mặc định); tắt bằng SEED_SAMPLE=false
 // Admin: email/mật khẩu lấy từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (mặc định chỉ cho dev, ĐỔI khi triển khai thật).
 // User mẫu (chỉ khi SEED_SAMPLE != false) dùng SEED_SAMPLE_USER_PASSWORD.
 import { PrismaClient } from '@prisma/client';

@@ -56,5 +56,5 @@
 | --- | --- |
 | [../README.md](../README.md) | Cài đặt, chạy dev, build, test, script npm |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Quy trình làm việc nhóm, quy ước commit |
-| [../database/README.md](../database/README.md) | Thư mục `database/` (SQL tham khảo, **lỗi thời**: 44 bảng, còn AR; xem [KNOWN_ISSUES.md](KNOWN_ISSUES.md)) |
+| [../database/README.md](../database/README.md) | Hướng dẫn dựng DB, seed và quy trình migration (SQL tham khảo cũ đã gỡ 2026-11-11) |
 | `apps/web/src/mock-data/README.md` | Dữ liệu giả của giao diện (chưa rà) |

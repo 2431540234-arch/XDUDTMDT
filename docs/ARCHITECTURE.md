@@ -15,7 +15,7 @@ Monorepo npm workspaces + Turborepo (`package.json`, `turbo.json`):
 | `packages/shared-types` | Kiểu dùng chung FE/BE (entity, enum, mã lỗi) | Sinh từ `schema.prisma` bằng `npm run types:generate` ([SHARED_TYPES_SYNC.md](SHARED_TYPES_SYNC.md)) |
 | `infra/docker`, `docker-compose.yml` | Hạ tầng dev (postgres, redis, minio, mailpit) và Dockerfile | |
 | `scripts/` | `db-reset.mjs`, `e2e-real.mjs`, `demo.mjs`, `generate-shared-types.mjs`, `minio-sync-uploads.mjs`, `mobile-build.mjs` | |
-| `database/` | SQL thuần tham khảo (đã lỗi thời, **không** phải nguồn chuẩn; xem [KNOWN_ISSUES.md](KNOWN_ISSUES.md)) | |
+| `database/` | Chỉ còn [README.md](../database/README.md) (cách dựng, seed, migration); SQL tham khảo cũ đã gỡ 2026-11-11 | |
 
 Nguồn chuẩn CSDL: `apps/api/prisma/schema.prisma` + `migrations/` (59 model, 25 enum, 16 migration).
 
