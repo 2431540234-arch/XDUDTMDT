@@ -1,3 +1,5 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # Quy ước API
 
 Áp dụng cho mọi endpoint của `apps/api`. Mã thực thi nằm ở `apps/api/src/common/` và kiểu dùng chung ở `packages/shared-types` (`api.ts`, `error-codes.ts`).
@@ -53,7 +55,9 @@ Danh sách có phân trang thêm `meta`:
 - `message`: tiếng Việt cho người dùng.
 - `details` (tùy chọn):
   - `VALIDATION_FAILED`: `{ "<đường.dẫn.trường>": ["thông báo", ...] }`, trường lồng nhau dùng dấu chấm (`items.0.quantity`).
-  - Lỗi khác: dữ liệu ngữ cảnh, ví dụ `CONFLICT` kèm `{ "fields": ["slug"] }`, `OUT_OF_STOCK` kèm `{ "variantId": 7, "available": 2 }`.
+  - `CONFLICT` (409) có **hai dạng** `details`: (1) trùng giá trị duy nhất do Prisma `P2002` ⇒ `{ "fields": ["slug"] }`; (2) trùng slug/mã/tên do service kiểm tra trước (`conflictError()` ở `apps/api/src/common/utils/validate.ts`) ⇒ **lỗi theo trường** `{ "slug": ["Slug đã tồn tại."] }`, giống `VALIDATION_FAILED` để FE hiện dưới ô nhập.
+  - `CONFLICT` kèm danh sách món không xử lý được: `{ "unavailable": [{ "productId": 7, "variantId": 12, "name": "…", "reason": "…", "available": 0 }] }` ở `POST /orders` (dòng giỏ không còn bán) và `POST /spaces/:slug/add-to-cart` (hết hàng/quá tồn; **tất cả-hoặc-không**: giỏ không đổi). FE không coi `unavailable` là lỗi ô nhập.
+  - `OUT_OF_STOCK` kèm `{ "variantId": 7, "available": 2 }`.
 - Lỗi 5xx **không bao giờ** lộ nội dung lỗi nội bộ (stack, SQL); chi tiết chỉ ghi vào log máy chủ.
 - Kiểu TypeScript: `ApiError`, `ApiErrorBody`, `ValidationDetails`.
 
@@ -102,6 +106,7 @@ Thêm mã lỗi mới: sửa `packages/shared-types/src/error-codes.ts` (cả `E
 | `AppException`                             | Đúng mã/HTTP/`message`/`details` đã ném                    |
 | Validation (`ValidationPipe` toàn cục)     | 400 `VALIDATION_FAILED`, `details` theo trường             |
 | Prisma `P2002` (trùng unique)              | 409 `CONFLICT`, `details.fields`                           |
+| Service kiểm tra trùng slug/mã/tên         | 409 `CONFLICT`, `details` theo trường (`conflictError`)       |
 | Prisma `P2025` / `P2001` (không thấy)      | 404 `RESOURCE_NOT_FOUND`                                   |
 | Prisma `P2003` (khóa ngoại)                | 409 `RESOURCE_IN_USE`                                      |
 | Prisma khởi tạo/kết nối thất bại           | 503 `SERVICE_UNAVAILABLE`                                  |

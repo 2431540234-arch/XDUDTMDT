@@ -1,7 +1,9 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # API CONTRACT – Aurelia Living (Frontend ⇄ Backend)
 
 > **Nguồn sự thật:** lớp mock API của Frontend (`apps/web/src/mock-data/mockApi/*`) và lớp service (`apps/web/src/services/*.api.ts`). Tài liệu này được **trích xuất tự động** từ hai nơi đó (bảng endpoint ở mục 4) và từ `apps/web/src/types/api.ts` (kiểu response, Phụ lục A). Backend phải khớp: path, method, query, body, hình dạng response, mã lỗi. Lệch ⇒ sửa Backend, không sửa giao diện.
-> Cập nhật: 2026-11-06 (Giai đoạn 4). Bản cuối sẽ được đối chiếu với code ở Giai đoạn 12.
+> Cập nhật: 2026-11-06 (Giai đoạn 4). **Bảng endpoint ở mục 4 đã được đối chiếu lại với code ngày 2026-11-11** (210 route khớp 210 dòng `Mapped {…}` khi API khởi động; spec sinh từ code ở [api/openapi.json](api/openapi.json), cách xuất lại ở [api/README.md](api/README.md)). Phần Phụ lục A (kiểu response) vẫn trích từ FE và có thể lệch: khi lệch, **code và spec OpenAPI là nguồn đúng**.
 
 ## 1. Quy ước chung
 
@@ -97,7 +99,7 @@
 | `admin/*` | Admin Panel: Tổng quan, Sản phẩm (6 tab + Ảnh 360°), Danh mục, Đơn hàng, Đổi trả, Khách hàng, Đánh giá, Hỏi đáp, Mô hình 3D, Khuyến mãi, Không gian mẫu, Nội dung, Cài đặt, Kho, Thu chi |
 
 
-## 4. Danh sách endpoint (139)
+## 4. Danh sách endpoint (210)
 
 Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer token khách hoặc admin) · `admin` (role admin). **Query** = tham số FE gửi. **Lỗi** = mã lỗi mock đang ném (ngoài `VALIDATION_FAILED`, `AUTH_*`, `FORBIDDEN`, `RESOURCE_NOT_FOUND` áp dụng chung). Phân trang: `page`, `pageSize`, `sort=truong:asc|desc` ở mọi danh sách.
 
@@ -112,7 +114,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | POST | `/auth/reset-password` | public | `auth.` |  | { token, newPassword (bí danh `password`), confirmPassword } | `BAD_REQUEST` (token), 400 theo trường (chính sách mật khẩu) |
 | POST | `/auth/verify-email` | public | `auth.` |  | { token } | `BAD_REQUEST` |
 | POST | `/auth/resend-verification` | user | `auth.` |  |  | `RATE_LIMITED` |
-| POST | `/auth/google` | public | `auth.googleLogin` |  |  |  |
+| POST | `/auth/google` | public | `auth.googleLogin` |  |  | **Chưa triển khai (đã hoãn):** luôn `503 SERVICE_UNAVAILABLE` ("chưa được cấu hình"/"đang được hoàn thiện"); xem `apps/api/src/modules/auth/auth.service.ts` (`google()`) |
 
 ### 4. `users`
 
@@ -186,6 +188,8 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | PUT | `/spaces/:slug/bookmark` | user | `space.bookmark` |  |  | `RESOURCE_NOT_FOUND` (không gian chưa đăng/không có) |
 | DELETE | `/spaces/:slug/bookmark` | user | `space.unbookmark` |  |  |  |
 | GET | `/spaces/:slug/placements/:placementId/alternatives` | public | `space.alternatives` |  |  | Đổi món (UC-SPACE-05): `[{ id, name, slug, price, salePrice, thumbnailUrl, variantId, model }]` sản phẩm cùng danh mục, đã đăng bán, có mô hình chính ready (≤ 12). Không ghi DB. Không gian/vị trí không có ⇒ `404`. `model` = `{ id, lengthMm, widthMm, heightMm, files:[{ lod, url, fileSize }], materialVariants[] }` |
+| POST | `/spaces/:slug/views` | public | — |  | Ghi MỘT lượt xem khi rời trang (sendBeacon): { visitorId, sourceProductId? (id hoặc slug), hotspotClickCount?, addedToCart?, accessToken? } ⇒ 204 |  |
+| POST | `/spaces/:slug/add-to-cart` | user | — |  | { productIds?: number[] } (tùy chọn: chọn một phần các món của không gian; mặc định tất cả) | **Tất cả-hoặc-không** (một transaction): có món ngừng bán/hết hàng/quá tồn ⇒ `409 CONFLICT` kèm `details.unavailable: [{ productId, variantId, name, reason, available? }]`, giỏ KHÔNG đổi; `productIds` không thuộc không gian hoặc rỗng ⇒ `400 VALIDATION_FAILED` (`productIds`); không gian không có/nháp ⇒ `404`. Thành công `200 { added: [{ productId, name, variantId }], unavailable: [], cart }` |
 
 ### 4. `cart`
 
@@ -251,6 +255,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | GET | `/posts` | public | `content.posts` |  |  |  |
+| GET | `/posts/:slug` | public | — |  |  |  |
 
 ### 4. `pages`
 
@@ -329,8 +334,9 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | PATCH | `/admin/orders/:id/status` | admin | `admin.` |  | { status, note? } | `INVALID_STATE` |
 | POST | `/admin/orders/:id/cancel` | admin | `admin.cancel` |  | { reason } |  |
 | POST | `/admin/orders/:id/refund` | admin | `admin.refund` |  |  | `INVALID_STATE` |
-| PATCH | `/admin/orders/:id/shipment` | admin | `admin.` |  | { carrier, trackingCode } |  |
 | PATCH | `/admin/orders/:id/note` | admin | `admin.saveNote` |  | { note } |  |
+| GET | `/admin/orders/:code/invoice` | admin (view_orders) | — |  | Dữ liệu in hóa đơn (cửa hàng + đơn) |  |
+| POST | `/admin/orders/:id/shipments` | admin (process_orders) | — |  | Tạo vận đơn { carrier: ghn\|ghtk\|viettel_post\|other, trackingCode?, fee? } – chỉ khi đơn đang processing/shipping và chưa có vận đơn đang hoạt động |  |
 
 ### 4. `admin/payments`
 
@@ -390,6 +396,8 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/models/:id/material-variants` | admin | `admin.listMaterialVariants` |  |  | `[{ id, modelId, variantId, materialName, config, updatedAt }]` |
 | PUT | `/admin/models/:id/material-variants/:variantId` | admin | `admin.setMaterialVariant` |  | { materialName, config: { baseColor?: "#RRGGBB", roughness?: 0–1, metalness?: 0–1 } } | Tạo hoặc thay thế (UNIQUE model+variant) ⇒ `200`. Biến thể không thuộc sản phẩm của mô hình, config sai, khóa lạ ⇒ `400`; mô hình không có ⇒ `404`. Ghi `model.material_create` / `model.material_update` |
 | DELETE | `/admin/models/:id/material-variants/:variantId` | admin | `admin.removeMaterialVariant` |  |  | `200`; chưa có cấu hình ⇒ `404`. Ghi `model.material_delete` |
+| POST | `/admin/models/:id/files/presign` | admin (manage_products) | — |  |  |  |
+| POST | `/admin/models/:id/files/confirm` | admin (manage_products) | — |  |  |  |
 
 ### 4. `admin/coupons`
 
@@ -431,6 +439,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | POST | `/admin/banners` | admin | `admin.` |  |  |  |
 | PATCH | `/admin/banners/:id` | admin | `admin.` |  |  |  |
 | DELETE | `/admin/banners/:id` | admin | `admin.removeBanner` |  |  |  |
+| PATCH | `/admin/banners/reorder` | admin (manage_content) | — |  | Lưu thứ tự kéo thả: { ids: [id theo thứ tự mới] } |  |
 
 ### 4. `admin/posts`
 
@@ -447,6 +456,8 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 |---|---|---|---|---|---|---|
 | GET | `/admin/pages` | admin |  |  |  |  |
 | PATCH | `/admin/pages/:id` | admin | `admin.` |  |  |  |
+| POST | `/admin/pages` | admin (manage_content) | — |  |  |  |
+| DELETE | `/admin/pages/:id` | admin (manage_content) | — |  |  |  |
 
 ### 4. `admin/settings`
 
@@ -455,7 +466,6 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/settings` | admin | `admin.get` |  |  |  |
 | PUT | `/admin/settings/store` | admin | `admin.save` |  | Partial<StoreSettings> |  |
 | PUT | `/admin/settings/:key` | admin |  |  | { value } | `VALIDATION_FAILED` |
-| POST | `/admin/settings/reset-mock` | admin | `admin.resetMock` |  |  |  |
 
 ### 4. `admin/inventory`
 
@@ -478,6 +488,57 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/expenses` | admin |  | `category`, `from`, `to`, `page` |  |  |
 | POST | `/admin/expenses` | admin | `admin.create` |  | { category, amount, note, date } |  |
 | DELETE | `/admin/expenses/:id` | admin |  |  |  | `INVALID_STATE` |
+
+### 4. `admin/attributes`
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| GET | `/admin/attributes` | admin (manage_products) | — |  | Danh sách thuộc tính kèm giá trị và số biến thể đang dùng |  |
+| POST | `/admin/attributes` | admin (manage_products) | — |  | Thêm thuộc tính { code (chữ thường ≤ 50), name (≤ 100) } – trùng ⇒ 409 |  |
+| PATCH | `/admin/attributes/:id` | admin (manage_products) | — |  |  |  |
+| DELETE | `/admin/attributes/:id` | admin (manage_products) | — |  | Xóa thuộc tính (không xóa thuộc tính hệ thống hoặc có giá trị đang dùng ⇒ 409) |  |
+| POST | `/admin/attributes/:id/values` | admin (manage_products) | — |  | Thêm giá trị { value (≤ 150), colorHex? (#RRGGBB, chỉ màu sắc) } – trùng ⇒ 409 |  |
+| PATCH | `/admin/attributes/:id/values/:valueId` | admin (manage_products) | — |  |  |  |
+| DELETE | `/admin/attributes/:id/values/:valueId` | admin (manage_products) | — |  | Xóa giá trị; đang được biến thể dùng ⇒ 409 |  |
+
+### 4. `admin/brands`
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| GET | `/admin/brands/:id` | admin (manage_products) | — |  |  |  |
+| POST | `/admin/brands` | admin (manage_products) | — |  | Thêm { name, slug?, logoUrl?, isActive? } – slug trùng ⇒ 409 |  |
+| PATCH | `/admin/brands/:id` | admin (manage_products) | — |  |  |  |
+| DELETE | `/admin/brands/:id` | admin (manage_products) | — |  | Xóa; sản phẩm đang dùng chuyển brandId = NULL. Trả { id, productsDetached } |  |
+
+### 4. `admin/media`
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| POST | `/admin/media/presign` | admin (manage_products,manage_content) | — |  |  |  |
+| POST | `/admin/media/confirm` | admin (manage_products,manage_content) | — |  |  |  |
+| GET | `/admin/media` | admin (manage_products,manage_content) | — |  | Thư viện media (phân trang; q, type=image\|other, usage=unused) |  |
+| PATCH | `/admin/media/:id` | admin (manage_products,manage_content) | — |  | Sửa mô tả ảnh { altText } (≤ 255 ký tự) |  |
+| DELETE | `/admin/media/:id` | admin (manage_products,manage_content) | — |  | Xóa tệp; đang được sử dụng (khóa ngoại RESTRICT) ⇒ 409 |  |
+
+### 4. `admin/faq`
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| GET | `/admin/faq` | admin (manage_content) | — |  |  |  |
+| PUT | `/admin/faq` | admin (manage_content) | — |  | Thay toàn bộ FAQ: { topics: [{ key?, label, items: [{ question, answer }] }] } |  |
+
+### 4. `admin/contact-messages`
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| GET | `/admin/contact-messages` | admin (manage_content) | — |  | Tin nhắn liên hệ (handled=true\|false, phân trang) |  |
+| PATCH | `/admin/contact-messages/:id/handled` | admin (manage_content) | — |  |  |  |
+
+### 4. `admin/shipments`
+
+| Method | Path | Quyền | Service FE | Query | Body | Lỗi |
+|---|---|---|---|---|---|---|
+| PATCH | `/admin/shipments/:id` | admin (process_orders) | — |  | Cập nhật vận đơn { status?: picked_up\|in_transit\|delivered\|failed\|returned, carrier?, trackingCode?, fee? }. delivered ⇒ đơn tự hoàn tất |  |
 
 ## 5. Endpoint Backend cần có thêm (không nằm trong mock)
 
@@ -514,6 +575,14 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
   - **Cách tải theo driver kho (D-P13)**: `local` ⇒ multipart/JSON qua API (như trên, dự phòng); `minio`/`s3` ⇒ ảnh ≤ 5 MB multipart qua API vào bucket public, **panorama ≤ 20 MB** `POST /admin/media/presign` ⇒ PUT vào bucket public ⇒ `POST /admin/media/confirm` (201, tạo media + job ảnh), **mô hình GLB ≤ 100 MB** `POST /admin/models/presign` ⇒ PUT vào bucket PRIVATE ⇒ `POST /admin/models/:id/files/confirm` (202) ⇒ job đọc từ private, ghi LOD vào public. URL ký cả `Content-Type` và `Content-Length` (PUT sai ⇒ kho trả 403) và hết hạn sau `PRESIGN_EXPIRES_SECONDS` (mặc định 900). Hai route `presign`/`confirm` không ghi log trong service nên `ActivityLogInterceptor` ghi dòng tự động (`media.presign`, `media.confirm`, `models.presign`).
 - **Liên hệ**: `POST /contact` giới hạn 5 lần/phút/IP (`429`).
 - Cổng API mặc định **4000** (`NEXT_PUBLIC_API_URL=http://localhost:4000`).
+
+### 5c. Thay đổi hợp đồng đợt 2026-11-10/11 (kiểm toán và sửa P0/P1)
+
+- **`POST /spaces/:slug/add-to-cart` giờ là tất cả-hoặc-không** (`apps/api/src/modules/spaces/spaces.service.ts` `addAllToCart`, `cart/cart.service.ts` `addItems`): một request, một transaction. Có món ngừng bán/hết hàng/quá tồn ⇒ `409 CONFLICT` kèm `details.unavailable[]` và **không món nào được thêm** (trước đây thêm các món còn hàng và trả danh sách món hết). Body tùy chọn `{ productIds }` (tập con các món của không gian; sai/rỗng ⇒ `400` ở trường `productIds`). FE (`/spaces/[slug]`) gọi endpoint này một lần.
+- **`409 CONFLICT` kèm lỗi theo trường** (`details: { <trường>: ["thông báo"] }`) cho slug/mã/tên trùng (danh mục, thương hiệu, mã giảm giá, sản phẩm, trang, không gian): `conflictError()` ở `apps/api/src/common/utils/validate.ts`. Khác với `409 CONFLICT` do Prisma `P2002` (`details.fields`). `409` của đặt hàng có `details.unavailable[]` (dòng giỏ không còn bán).
+- `POST /orders` nhận thêm `couponCode` (ưu tiên hơn mã đang gắn ở giỏ; sai ⇒ `400`); địa chỉ của người khác hoặc không tồn tại ⇒ `404`.
+- `/admin/payments` (danh sách, xác nhận, đánh dấu thất bại), `POST /admin/inventory/movements` (điều chỉnh tồn), `POST|DELETE /admin/pages` (tạo/xóa trang; trang hệ thống `about`, các `chinh-sach-*`, `dieu-khoan-su-dung` không xóa được ⇒ `409 RESOURCE_IN_USE`) đều có FE gọi từ 2026-11-10/11.
+- `POST /auth/google`: chưa triển khai, luôn `503` (đã hoãn sang giai đoạn sau).
 
 ## 6. Ghi chú đối chiếu FE ⇄ shared-types
 
