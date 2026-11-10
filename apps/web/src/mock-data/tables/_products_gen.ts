@@ -20,14 +20,14 @@ const rng = makeRng(303);
 
 export interface ProductExtra {
   productId: number;
-  style: string; // TODO: chưa có trong DB
-  costPrice: number; // TODO: chưa có trong DB (giá vốn của biến thể chuẩn)
-  dims: [number, number, number]; // D×R×C (mm) của kích thước chuẩn – TODO: chưa có trong DB
-  sizeDimMult: Record<string, number>; // nhãn kích thước → hệ số kích thước – TODO: chưa có trong DB
-  costRatio: number; // TODO: chưa có trong DB (giá vốn / giá bán, dùng cho mọi biến thể)
-  minStock: number; // TODO: chưa có trong DB
-  features: string[]; // TODO: chưa có trong DB
-  specs: Array<{ label: string; value: string }>; // TODO: chưa có trong DB
+  style: string;
+  costPrice: number; // giá vốn của biến thể chuẩn
+  dims: [number, number, number]; // D×R×C (mm) của kích thước chuẩn
+  sizeDimMult: Record<string, number>; // nhãn kích thước → hệ số kích thước (tham số sinh dữ liệu giả, không có cột DB)
+  costRatio: number; // tham số sinh dữ liệu giả: giá vốn / giá bán, dùng cho mọi biến thể (không có cột DB)
+  minStock: number;
+  features: string[];
+  specs: Array<{ label: string; value: string }>;
   type: ProductSpec['type'];
   modelKey: ProductSpec['model'];
 }

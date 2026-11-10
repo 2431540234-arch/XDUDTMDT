@@ -1,2 +1,2 @@
-// Ảnh + chip tiêu chí của đánh giá – TODO: chưa có trong DB
+// Ảnh + chip tiêu chí của đánh giá
 export { reviewExtras } from './_social_gen';

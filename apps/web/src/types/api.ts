@@ -1,5 +1,6 @@
 // Kiểu dữ liệu mà API trả về cho giao diện = entity khớp 100% schema.prisma (shared-types) + quan hệ mở rộng.
-// Trường nào KHÔNG có trong DB được đánh dấu "TODO: chưa có trong DB" (xem docs/PROJECT_ANALYSIS.md mục 7).
+// Trường/bảng CHƯA có ở BE hoặc DB được đánh dấu "TODO: chưa có trong BE/DB". Đối chiếu ngày 2026-11-11 với schema.prisma và docs/api/openapi.json:
+// chỉ còn `Supplier` (không có bảng riêng, đã gộp thành cột chữ stock_receipts.supplier_name).
 import type {
   ActivityLog,
   Address,
@@ -63,8 +64,8 @@ export interface CategoryNode extends Category {
   productCount: number;
   parentName: string | null;
   children: CategoryNode[];
-  description?: string | null; // TODO: chưa có trong DB
-  isFeatured?: boolean; // TODO: chưa có trong DB
+  description?: string | null;
+  isFeatured?: boolean;
 }
 
 // ---------- Sản phẩm ----------
@@ -82,10 +83,10 @@ export interface ProductListItem extends Product {
   colors: ColorOption[];
   sizes: string[];
   material: string | null; // thuộc tính "material" của biến thể
-  style: string | null; // TODO: chưa có trong DB
+  style: string | null;
   sku: string;
   isWishlisted: boolean;
-  /** Sản phẩm có ảnh xoay 360° – TODO: cần thêm vào DB/API */
+  /** Sản phẩm có ảnh xoay 360° (product_360_configs.enabled) */
   has360: boolean;
 }
 
@@ -147,8 +148,8 @@ export interface Model3DView extends Product3DModel {
 export interface ProductDetail extends ProductListItem {
   images: ProductImageView[];
   variants: VariantView[];
-  specs: Array<{ label: string; value: string }>; // TODO: chưa có trong DB (dựng từ thuộc tính + kích thước mô hình)
-  features: string[]; // TODO: chưa có trong DB
+  specs: Array<{ label: string; value: string }>; // dựng từ thuộc tính + kích thước mô hình
+  features: string[];
   model: Model3DView | null;
   ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number>;
   questionCount: number;
@@ -172,26 +173,26 @@ export interface ReviewView extends Review {
   variantLabel: string | null;
   orderCode: string | null;
   purchasedAt: string | null;
-  images: string[]; // TODO: chưa có trong DB
-  tags: string[]; // TODO: chưa có trong DB (chip tiêu chí)
+  images: string[];
+  tags: string[]; // chip tiêu chí
 }
 
 // ---------- Người dùng ----------
 export interface UserView extends User {
   roles: RoleCode[];
   avatarUrl: string | null;
-  gender: 'male' | 'female' | 'other' | null; // TODO: chưa có trong DB
-  birthday: string | null; // TODO: chưa có trong DB
-  customerGroup: 'new' | 'loyal'; // TODO: chưa có trong DB (suy ra từ số đơn/chi tiêu)
-  loyaltyPoints: number; // TODO: chưa có trong DB
-  adminNote: string | null; // TODO: chưa có trong DB
+  gender: 'male' | 'female' | 'other' | null;
+  birthday: string | null;
+  customerGroup: 'new' | 'loyal'; // suy ra từ số đơn/chi tiêu
+  loyaltyPoints: number;
+  adminNote: string | null;
   totalOrders: number;
   totalSpent: number;
   lastOrderAt: string | null;
 }
 
 export interface AddressView extends Address {
-  label: string; // TODO: chưa có trong DB ("Nhà riêng", "Văn phòng")
+  label: string; // "Nhà riêng", "Văn phòng"
 }
 
 // ---------- Giỏ hàng ----------
@@ -251,25 +252,25 @@ export interface OrderView extends Order {
     totalOrders: number;
     customerGroup: 'new' | 'loyal';
   } | null;
-  internalNote: string | null; // TODO: chưa có trong DB
+  internalNote: string | null;
   deliveredAt: string | null;
   canReturnUntil: string | null;
 }
 
 // ---------- Coupon ----------
 export interface CouponView extends Coupon {
-  name: string; // TODO: chưa có trong DB
-  description: string | null; // TODO: chưa có trong DB
-  appliesTo: 'all' | 'category' | 'product' | 'space'; // TODO: chưa có trong DB
-  appliesToLabel: string; // TODO: chưa có trong DB
-  kind: 'percent' | 'fixed' | 'freeship'; // 'freeship' TODO: CouponType DB chỉ có percent|fixed
+  name: string;
+  description: string | null;
+  appliesTo: 'all' | 'category' | 'product' | 'space';
+  appliesToLabel: string;
+  kind: 'percent' | 'fixed' | 'freeship'; // 'freeship' = coupon_type freeship (mã giảm phí vận chuyển)
 }
 
 export interface UserCouponView {
   id: number;
   couponId: number;
   userId: number;
-  status: 'unused' | 'used' | 'expired'; // TODO: chưa có bảng user_coupons
+  status: 'unused' | 'used' | 'expired';
   savedAt: string;
   coupon: CouponView;
 }
@@ -395,7 +396,6 @@ export interface Model3DAdminRow extends Model3DView {
 // ---------- Thực thể CHƯA có trong DB (mock tự đặt tên theo WIREFRAME.md mục 5) ----------
 export type ReturnStatus = 'pending' | 'picking' | 'inspecting' | 'refunded' | 'exchanged' | 'rejected';
 export interface ReturnRequest {
-  // TODO: chưa có trong DB
   id: number;
   code: string; // "RT0012"
   orderId: number;
@@ -422,7 +422,6 @@ export interface ReturnRequest {
 }
 
 export interface ProductQuestion {
-  // TODO: chưa có trong DB
   id: number;
   productId: number;
   productName: string;
@@ -440,7 +439,6 @@ export interface ProductQuestion {
 }
 
 export interface Banner {
-  // TODO: chưa có trong DB
   id: number;
   title: string;
   subtitle: string | null;
@@ -454,7 +452,6 @@ export interface Banner {
 }
 
 export interface Post {
-  // TODO: chưa có trong DB
   id: number;
   title: string;
   slug: string;
@@ -478,7 +475,6 @@ export interface Supplier {
 }
 
 export interface StockReceipt {
-  // TODO: chưa có trong DB
   id: number;
   code: string; // "PN0012" | "PX0012"
   type: 'in' | 'out';
@@ -499,10 +495,10 @@ export interface InventoryRow {
   imageUrl: string | null;
   sku: string;
   categoryName: string;
-  costPrice: number; // TODO: chưa có trong DB
+  costPrice: number;
   stockQuantity: number;
   available: number;
-  minStock: number; // TODO: chưa có trong DB
+  minStock: number;
   state: 'in_stock' | 'low' | 'out';
 }
 
@@ -570,7 +566,6 @@ export interface ShipmentResult {
 }
 
 export interface Expense {
-  // TODO: chưa có trong DB
   id: number;
   code: string; // "CH-0001"
   category: 'cogs' | 'shipping' | 'marketing' | 'payment_fee' | 'refund' | 'other';
@@ -580,7 +575,6 @@ export interface Expense {
 }
 
 export interface ContactMessage {
-  // TODO: chưa có trong DB
   id: number;
   fullName: string;
   phone: string;
@@ -647,7 +641,7 @@ export interface FinanceReport {
   topProducts: DashboardStats['topProducts'];
 }
 
-// ---------- Xem 360° (TODO: cần thêm vào DB/API) ----------
+// ---------- Xem 360° (product_360_configs, product_360_frames) ----------
 export interface Product360Color {
   colorId: number;
   name: string;

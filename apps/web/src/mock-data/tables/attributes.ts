@@ -46,7 +46,7 @@ export const SIZES = [
 export const MATERIALS = ['Vải', 'Da', 'Nỉ', 'Gỗ', 'Kim loại', 'Đá', 'Kính'];
 
 export const attributeValues: AttributeValue[] = [];
-/** attributeValueId của màu → mã hex  // TODO: chưa có trong DB */
+/** attributeValueId của màu → mã hex (attribute_values.color_hex) */
 export const colorHexByValueId: Record<number, string> = {};
 
 const push = (attributeId: number, value: string) => {

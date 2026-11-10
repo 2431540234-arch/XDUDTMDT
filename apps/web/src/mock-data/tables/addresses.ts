@@ -7,7 +7,7 @@ import { users } from './users';
 const rng = makeRng(202);
 export const addresses: Address[] = [];
 /** label ("Nhà riêng"/"Văn phòng") chưa có cột trong DB */
-export const addressLabels: Record<number, string> = {}; // TODO: chưa có trong DB
+export const addressLabels: Record<number, string> = {};
 const labels = ['Nhà riêng', 'Văn phòng', 'Nhà bố mẹ'];
 
 for (const u of users) {

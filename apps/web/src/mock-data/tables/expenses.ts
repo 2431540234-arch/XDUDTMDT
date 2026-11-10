@@ -1,2 +1,2 @@
-// Phiếu chi – TODO: chưa có trong DB
+// Phiếu chi
 export { expenses } from './_content_gen';

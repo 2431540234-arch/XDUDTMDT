@@ -76,7 +76,7 @@ export const adminApi = {
     update: (id: number, body: Record<string, unknown>) =>
       http.patch<ProductDetail>(`/admin/products/${id}`, body),
     remove: (id: number) => http.delete(`/admin/products/${id}`),
-    /** Ảnh 360° – TODO: chưa có trong BE */
+    /** Ảnh 360° */
     get360: (id: number) => http.get<Product360AdminData>(`/admin/products/${id}/360`),
     save360: (
       id: number,
@@ -92,7 +92,7 @@ export const adminApi = {
   },
   orders: {
     list: (q: Query) => http.list<OrderView>('/admin/orders', q),
-    counts: () => http.get<Record<string, number>>('/admin/orders/counts'), // TODO: chưa có trong BE
+    counts: () => http.get<Record<string, number>>('/admin/orders/counts'),
     create: (body: {
       userId: number;
       paymentMethod: string;
@@ -116,10 +116,10 @@ export const adminApi = {
     /** UC-ADM-24: đánh dấu giao dịch chuyển khoản thất bại */
     failPayment: (id: number, body?: { reason?: string }) =>
       http.patch<OrderView>(`/admin/payments/${id}/fail`, body),
-    saveNote: (id: number, note: string) => http.patch<OrderView>(`/admin/orders/${id}/note`, { note }), // TODO: chưa có trong BE
+    saveNote: (id: number, note: string) => http.patch<OrderView>(`/admin/orders/${id}/note`, { note }),
   },
   returns: {
-    list: (q: Query) => http.list<ReturnRequest>('/admin/returns', q), // TODO: chưa có trong BE
+    list: (q: Query) => http.list<ReturnRequest>('/admin/returns', q),
     update: (id: number, body: { status: ReturnRequest['status']; adminNote?: string }) =>
       http.patch<ReturnRequest>(`/admin/returns/${id}`, body),
   },
@@ -147,7 +147,7 @@ export const adminApi = {
       http.patch<ReviewView>(`/admin/reviews/${id}/status`, { status }),
   },
   questions: {
-    list: (q: Query) => http.list<ProductQuestion>('/admin/questions', q), // TODO: chưa có trong BE
+    list: (q: Query) => http.list<ProductQuestion>('/admin/questions', q),
     answer: (id: number, body: { answer: string; isPublic: boolean }) =>
       http.patch<ProductQuestion>(`/admin/questions/${id}`, body),
     hide: (id: number) => http.patch<ProductQuestion>(`/admin/questions/${id}`, { status: 'hidden' }),
@@ -249,13 +249,13 @@ export const adminApi = {
       http.delete(`/admin/panoramas/${panoramaId}/placements/${id}`),
   },
   content: {
-    banners: () => http.get<Banner[]>('/admin/banners'), // TODO: chưa có trong BE
+    banners: () => http.get<Banner[]>('/admin/banners'),
     saveBanner: (body: Partial<Banner>) =>
       body.id
         ? http.patch<Banner>(`/admin/banners/${body.id}`, body)
         : http.post<Banner>('/admin/banners', body),
     removeBanner: (id: number) => http.delete(`/admin/banners/${id}`),
-    posts: () => http.get<Post[]>('/admin/posts'), // TODO: chưa có trong BE
+    posts: () => http.get<Post[]>('/admin/posts'),
     savePost: (body: Partial<Post>) =>
       body.id ? http.patch<Post>(`/admin/posts/${body.id}`, body) : http.post<Post>('/admin/posts', body),
     removePost: (id: number) => http.delete(`/admin/posts/${id}`),
@@ -378,5 +378,5 @@ export const adminApi = {
     http.get<Array<{ type: 'product' | 'order' | 'customer'; label: string; href: string }>>(
       '/admin/search',
       { q },
-    ), // TODO: chưa có trong BE
+    ),
 };

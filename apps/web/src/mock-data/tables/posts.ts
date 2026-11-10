@@ -1,2 +1,2 @@
-// Bài viết/blog – TODO: chưa có trong DB
+// Bài viết/blog
 export { posts } from './_content_gen';

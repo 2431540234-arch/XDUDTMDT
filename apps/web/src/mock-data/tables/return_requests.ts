@@ -1,2 +1,2 @@
-// Yêu cầu đổi trả – TODO: chưa có trong DB
+// Yêu cầu đổi trả
 export { returnRequests } from './_social_gen';

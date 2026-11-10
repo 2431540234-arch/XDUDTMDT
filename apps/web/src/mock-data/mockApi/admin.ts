@@ -1279,7 +1279,7 @@ export function deleteProduct(ctx: Ctx): Result {
   return done();
 }
 
-// ===================== Ảnh 360° của sản phẩm (TODO: cần thêm vào DB/API) =====================
+// ===================== Ảnh 360° của sản phẩm =====================
 export function adminProduct360(ctx: Ctx): Result {
   const p = ctx.db.products.find((x) => x.id === Number(ctx.params.id) && !x.deletedAt);
   if (!p) throw notFound('Sản phẩm');

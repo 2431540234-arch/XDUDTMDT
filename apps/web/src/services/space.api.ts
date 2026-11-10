@@ -32,7 +32,7 @@ export interface SpaceFacets {
 export const spaceApi = {
   list: (q: SpaceQuery = {}) =>
     http.list<SpaceListItem>('/spaces', q as Record<string, string | number | boolean>),
-  facets: () => http.get<SpaceFacets>('/spaces/facets'), // TODO: chưa có trong BE
+  facets: () => http.get<SpaceFacets>('/spaces/facets'),
   detail: (slug: string) => http.get<SpaceDetail>(`/spaces/${slug}`),
   /** UC-SPACE-05: chỉ để xem thử, không lưu */
   alternatives: (slug: string, placementId: number) =>

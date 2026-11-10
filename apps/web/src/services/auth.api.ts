@@ -30,7 +30,7 @@ export const authApi = {
   /** Gửi lại email xác thực cho tài khoản đang đăng nhập (cách nhau 60 giây) */
   resendVerification: () =>
     http.post<{ sent: boolean; verified: boolean; devVerifyLink?: string }>('/auth/resend-verification'),
-  googleLogin: () => http.post<AuthResult>('/auth/google'), // TODO: chưa có trong BE – giả lập
+  googleLogin: () => http.post<AuthResult>('/auth/google'), // TODO: Google login đã hoãn (D-P17): BE luôn trả 503
 };
 
 export const userApi = {
