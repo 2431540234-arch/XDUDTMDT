@@ -192,6 +192,7 @@ npm run dev -w @aurelia-living/web                          # http://localhost:3
 ```
 
 - Tắt mock: đặt `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL` (không phải sửa code giao diện).
+- **Build production (`next build`) thất bại nếu `NEXT_PUBLIC_USE_MOCK=true`** (`apps/web/next.config.js`); mock chỉ dùng cho `next dev` và test giao diện.
 - Tài khoản: khách `khachhang@aurelia.vn` / `123456`; doanh nghiệp (admin) `admin@aurelia.vn` / `admin123` (đăng nhập tại `/admin/login`); quên mật khẩu bằng liên kết gửi qua email (mock in ra màn hình/Mailpit).
 - Khôi phục dữ liệu mẫu: mở URL kèm `?resetMock=1` hoặc Admin → Cài đặt → Dữ liệu giả lập.
 - Trang nên xem trước: `/`, `/products/sofa-nordic`, `/products/sofa-nordic/3d`, `/spaces`, `/cart`, `/admin`.

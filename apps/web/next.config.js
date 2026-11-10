@@ -1,5 +1,6 @@
 const path = require('node:path');
 const { loadEnvConfig } = require('@next/env');
+const { PHASE_PRODUCTION_BUILD } = require('next/constants');
 
 // Dùng MỘT file .env duy nhất ở gốc monorepo (Next mặc định chỉ đọc apps/web/.env)
 loadEnvConfig(path.resolve(__dirname, '../..'), process.env.NODE_ENV !== 'production', console, true);
@@ -20,4 +21,13 @@ const nextConfig = {
   transpilePackages: ['@aurelia-living/shared-types'],
 };
 
-module.exports = nextConfig;
+// Bản build production (next build) KHÔNG được nhúng chế độ dữ liệu giả: NEXT_PUBLIC_USE_MOCK được cố định vào mã lúc build,
+// build với =true sẽ phát hành một giao diện không gọi API thật. Dev (next dev) và e2e vẫn dùng mock được.
+module.exports = (phase) => {
+  if (phase === PHASE_PRODUCTION_BUILD && process.env.NEXT_PUBLIC_USE_MOCK === 'true') {
+    throw new Error(
+      '[web] NEXT_PUBLIC_USE_MOCK=true bị CẤM khi build production (next build). Đặt NEXT_PUBLIC_USE_MOCK=false và NEXT_PUBLIC_API_URL.',
+    );
+  }
+  return nextConfig;
+};
