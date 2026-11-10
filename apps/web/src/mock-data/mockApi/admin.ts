@@ -2480,6 +2480,40 @@ export function inventoryRows(db: Db): InventoryRow[] {
     });
 }
 
+/** Mock của POST /admin/inventory/movements (giống BE: số nguyên khác 0, giảm quá tồn ⇒ 409, không đổi gì) */
+export function recordMovement(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  const db = ctx.db;
+  const errs: Record<string, string> = {};
+  const v = db.productVariants.find((x) => x.id === Number(b.variantId));
+  if (!v) errs.variantId = 'Vui lòng chọn biến thể.';
+  const type = String(b.type ?? '');
+  if (!['import', 'adjustment', 'return'].includes(type))
+    errs.type = 'Loại biến động phải là import, adjustment hoặc return.';
+  const qty = Number(b.quantityChange);
+  if (!Number.isInteger(qty) || qty === 0)
+    errs.quantityChange = 'Số lượng thay đổi phải là số nguyên khác 0.';
+  else if (type !== 'adjustment' && qty < 0)
+    errs.quantityChange = 'Nhập kho/hàng trả phải có số lượng dương.';
+  const reason = String(b.reason ?? '').trim();
+  if (reason.length > 255) errs.reason = 'Lý do tối đa 255 ký tự.';
+  if (Object.keys(errs).length) throw validation(errs);
+  if (v!.stockQuantity + qty < 0)
+    throw new ApiFail('CONFLICT', `Không thể giảm quá số đang tồn (${v!.stockQuantity}).`);
+  v!.stockQuantity += qty;
+  db.inventoryMovements.push({
+    id: nextId(db.inventoryMovements),
+    variantId: v!.id,
+    type: type as 'import' | 'adjustment' | 'return',
+    quantityChange: qty,
+    reason: reason || null,
+    referenceCode: null,
+    performedBy: ADMIN_ID,
+    createdAt: nowIso(),
+  } as never);
+  return created({ variantId: v!.id, stockQuantity: v!.stockQuantity });
+}
+
 export function adminInventory(ctx: Ctx): Result {
   const q = ctx.query;
   const search = fold(qStr(q, 'q'));

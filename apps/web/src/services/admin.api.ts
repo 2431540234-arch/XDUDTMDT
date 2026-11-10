@@ -290,6 +290,12 @@ export const adminApi = {
   },
   inventory: {
     rows: (q: Query) => http.list<InventoryRow>('/admin/inventory', q),
+    /** Điều chỉnh tồn trực tiếp (UC-ADM-12): quantityChange ± khác 0; giảm quá tồn ⇒ 409, không đổi gì */
+    adjust: (body: { variantId: number; quantityChange: number; reason: string }) =>
+      http.post<{ variantId: number; stockQuantity: number }>('/admin/inventory/movements', {
+        ...body,
+        type: 'adjustment',
+      }),
     summary: () =>
       http.get<{ totalStock: number; stockValue: number; lowCount: number; outCount: number }>(
         '/admin/inventory/summary',

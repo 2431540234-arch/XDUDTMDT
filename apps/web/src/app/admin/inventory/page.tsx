@@ -2,7 +2,7 @@
 
 // Kho hàng (WIREFRAME 7.27): KPI tồn kho, bảng tồn kho, phiếu nhập/xuất
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import DataTable, { type Column } from '@/components/admin/DataTable';
 import FilterBar, { PageHeader } from '@/components/admin/FilterBar';
 import KpiCard from '@/components/admin/KpiCard';
@@ -16,6 +16,7 @@ import { useDebounced, useListState } from '@/hooks/useListState';
 import { downloadCsv } from '@/lib/csv';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { errorMessage } from '@/lib/validators';
+import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
 import type { InventoryRow, StockMovement, StockReceipt } from '@/types/api';
@@ -203,10 +204,101 @@ function ReceiptModal({ type, onClose }: { type: 'in' | 'out' | null; onClose: (
   );
 }
 
+/** Điều chỉnh tồn kho trực tiếp cho MỘT biến thể (kiểm kê, hao hụt…): số lượng thay đổi (+/−) và lý do bắt buộc */
+function AdjustModal({ row, onClose }: { row: InventoryRow | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [qty, setQty] = useState('');
+  const [reason, setReason] = useState('');
+  const [errs, setErrs] = useState<Record<string, string>>({});
+  useEffect(() => {
+    setQty('');
+    setReason('');
+    setErrs({});
+  }, [row?.variantId]);
+  const n = Number(qty);
+  const valid = qty.trim() !== '' && Number.isInteger(n) && n !== 0;
+  const after = row && valid ? row.stockQuantity + n : null;
+  const save = useMutation({
+    mutationFn: () =>
+      adminApi.inventory.adjust({ variantId: row!.variantId, quantityChange: n, reason: reason.trim() }),
+    onSuccess: (r) => {
+      toast.success(`Đã điều chỉnh tồn kho: ${r.stockQuantity} sản phẩm.`);
+      qc.invalidateQueries({ queryKey: ['admin', 'inventory'] });
+      onClose();
+    },
+    onError: (e) => {
+      const fe = e instanceof ApiClientError ? e.fieldErrors() : {};
+      if (Object.keys(fe).length) setErrs(fe);
+      else setErrs({ quantityChange: errorMessage(e) }); // ví dụ 409: giảm quá số đang tồn
+    },
+  });
+  const submit = () => {
+    const e: Record<string, string> = {};
+    if (!valid) e.quantityChange = 'Nhập số nguyên khác 0 (âm để giảm tồn).';
+    else if (after !== null && after < 0)
+      e.quantityChange = `Không thể giảm quá số đang tồn (${row!.stockQuantity}).`;
+    if (!reason.trim()) e.reason = 'Vui lòng nhập lý do điều chỉnh.';
+    else if (reason.trim().length > 255) e.reason = 'Lý do tối đa 255 ký tự.';
+    setErrs(e);
+    if (!Object.keys(e).length) save.mutate();
+  };
+  return (
+    <Modal
+      open={Boolean(row)}
+      onClose={onClose}
+      title="Điều chỉnh tồn kho"
+      width={460}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button loading={save.isPending} onClick={submit}>
+            Lưu điều chỉnh
+          </Button>
+        </>
+      }
+    >
+      {row && (
+        <div className="space-y-4">
+          <p className="text-sm">
+            <b>{row.productName}</b> · <code className="text-xs">{row.sku}</code>
+            <br />
+            Tồn hiện tại: <b>{row.stockQuantity}</b>
+          </p>
+          <Input
+            label="Số lượng thay đổi (+ tăng, − giảm)"
+            inputMode="numeric"
+            placeholder="Ví dụ: 5 hoặc -3"
+            value={qty}
+            error={errs.quantityChange}
+            hint={after !== null ? `Tồn sau điều chỉnh: ${after}` : undefined}
+            onChange={(e) => {
+              setQty(e.target.value);
+              setErrs((x) => ({ ...x, quantityChange: '' })); // sửa lại thì bỏ lỗi cũ (để hiện gợi ý tồn sau điều chỉnh)
+            }}
+          />
+          <Input
+            label="Lý do"
+            placeholder="Kiểm kê, hao hụt, hàng hỏng…"
+            value={reason}
+            error={errs.reason}
+            onChange={(e) => {
+              setReason(e.target.value);
+              setErrs((x) => ({ ...x, reason: '' }));
+            }}
+          />
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 export default function AdminInventoryPage() {
   const [st, patch] = useListState({ q: '', page: 1, sort: 'available:asc', category: '', state: '' });
   const q = useDebounced(st.q);
   const [receipt, setReceipt] = useState<'in' | 'out' | null>(null);
+  const [adjust, setAdjust] = useState<InventoryRow | null>(null);
   const cats = useCategories();
   const summary = useQuery({
     queryKey: ['admin', 'inventory', 'summary'],
@@ -354,7 +446,9 @@ export default function AdminInventoryPage() {
         total={list.data?.meta.total}
         onPage={(p) => patch({ page: p })}
         unit="biến thể"
+        actions={[{ label: 'Điều chỉnh tồn', onClick: setAdjust }]}
       />
+      <AdjustModal row={adjust} onClose={() => setAdjust(null)} />
       <section className="card p-5">
         <h2 className="mb-3 font-bold">Phiếu nhập / xuất gần đây</h2>
         <div className="overflow-x-auto">

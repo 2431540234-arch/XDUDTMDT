@@ -192,6 +192,7 @@ const routes: Route[] = [
   ['POST', '/admin/inventory/receipts/:id/confirm', 'admin', admin.confirmReceipt],
   ['POST', '/admin/inventory/receipts/:id/cancel', 'admin', admin.cancelReceipt],
   ['GET', '/admin/inventory/movements', 'admin', admin.stockMovements],
+  ['POST', '/admin/inventory/movements', 'admin', admin.recordMovement],
   ['POST', '/admin/expenses', 'admin', admin.createExpense],
 ];
 

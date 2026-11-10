@@ -256,3 +256,61 @@ test('thanh toán: phương thức bị tắt trong Cài đặt không còn ở 
     await request.put(`${api}/api/admin/settings/store`, { headers: adminH, data: { payments: original } });
   }
 });
+
+test('UC-ADM-12 điều chỉnh tồn kho trực tiếp: thiếu lý do/số lượng 0/giảm quá tồn báo lỗi; tăng và giảm hợp lệ cập nhật tồn và lịch sử', async ({
+  page,
+}) => {
+  await adminLogin(page);
+  await page.goto('/admin/inventory');
+  await expect(page.getByRole('heading', { name: 'Kho hàng' })).toBeVisible({ timeout: 30_000 });
+  const firstRow = page.getByRole('row').nth(1);
+  await expect(firstRow.locator('code')).toBeVisible({ timeout: 30_000 });
+  const sku = (await firstRow.locator('code').innerText()).trim();
+
+  // lọc theo SKU để có đúng một dòng (ô tìm kiếm trễ 300 ms nên chờ kết quả đã lọc)
+  await page.getByPlaceholder(/Tìm theo tên sản phẩm, SKU/).fill(sku);
+  await expect(page.getByText('trong tổng 1 biến thể')).toBeVisible({ timeout: 30_000 });
+  const row = page.getByRole('row').nth(1);
+  const before = Number((await row.locator('td').nth(3).innerText()).trim());
+
+  await row.getByRole('button', { name: 'Thao tác' }).click();
+  await page.getByRole('button', { name: 'Điều chỉnh tồn' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByText(`Tồn hiện tại: ${before}`)).toBeVisible();
+
+  // thiếu số lượng và lý do
+  await dlg.getByRole('button', { name: 'Lưu điều chỉnh' }).click();
+  await expect(dlg.getByText('Nhập số nguyên khác 0 (âm để giảm tồn).')).toBeVisible();
+  await expect(dlg.getByText('Vui lòng nhập lý do điều chỉnh.')).toBeVisible();
+  // số lượng 0 và giảm quá tồn
+  await dlg.getByLabel(/Số lượng thay đổi/).fill('0');
+  await dlg.getByLabel('Lý do').fill('Kiểm kê');
+  await dlg.getByRole('button', { name: 'Lưu điều chỉnh' }).click();
+  await expect(dlg.getByText('Nhập số nguyên khác 0 (âm để giảm tồn).')).toBeVisible();
+  await dlg.getByLabel(/Số lượng thay đổi/).fill(String(-(before + 1)));
+  await dlg.getByRole('button', { name: 'Lưu điều chỉnh' }).click();
+  await expect(dlg.getByText(/Không thể giảm quá số đang tồn/)).toBeVisible();
+
+  // tăng 5 với lý do ⇒ tồn = before + 5
+  await dlg.getByLabel(/Số lượng thay đổi/).fill('5');
+  await expect(dlg.getByText(`Tồn sau điều chỉnh: ${before + 5}`)).toBeVisible();
+  await dlg.getByRole('button', { name: 'Lưu điều chỉnh' }).click();
+  await expect(page.getByText(`Đã điều chỉnh tồn kho: ${before + 5} sản phẩm.`)).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByRole('row').nth(1).locator('td').nth(3)).toHaveText(String(before + 5), {
+    timeout: 30_000,
+  });
+
+  // giảm 5 trả về tồn ban đầu
+  await page.getByRole('row').nth(1).getByRole('button', { name: 'Thao tác' }).click();
+  await page.getByRole('button', { name: 'Điều chỉnh tồn' }).click();
+  await dlg.getByLabel(/Số lượng thay đổi/).fill('-5');
+  await dlg.getByLabel('Lý do').fill('Hoàn tác kiểm thử');
+  await dlg.getByRole('button', { name: 'Lưu điều chỉnh' }).click();
+  await expect(page.getByRole('row').nth(1).locator('td').nth(3)).toHaveText(String(before), {
+    timeout: 30_000,
+  });
+  // lịch sử biến động có dòng điều chỉnh với lý do
+  await expect(page.getByText('Hoàn tác kiểm thử').first()).toBeVisible({ timeout: 30_000 });
+});
