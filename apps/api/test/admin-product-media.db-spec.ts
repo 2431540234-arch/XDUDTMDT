@@ -266,8 +266,18 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         p.images[1].mediaId,
       ]);
 
-      const empty = await api('patch', `/admin/products/${p.id}`, admin, {
+      // đang đăng (published) mà gỡ hết ảnh ⇒ 400 theo trường images, ảnh giữ nguyên (DAC_TA UC-ADM-09 9a)
+      const refused = await api('patch', `/admin/products/${p.id}`, admin, {
         ...baseBody('rong'),
+        variants: v,
+        images: [],
+      });
+      expect(refused.status).toBe(400);
+      expect(Object.keys(refused.body.error.details)).toContain('images');
+      expect(await prisma.productImage.count({ where: { productId: p.id } })).toBe(2);
+      // chuyển về bản nháp thì gỡ hết ảnh được
+      const empty = await api('patch', `/admin/products/${p.id}`, admin, {
+        ...baseBody('rong', { status: 'draft' }),
         variants: v,
         images: [],
       });
@@ -326,6 +336,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
   describe('UC-ADM-10 biến thể sản phẩm', () => {
     it('tạo biến thể: SKU, giá, tồn ban đầu ghi movement import; thuộc tính (màu, kích thước, chất liệu) được gắn', async () => {
       const p = await create('bt', {
+        images: [{ url: PNG }],
         variants: [
           variantBody(`VAR-${tag}-1A`, { salePrice: 1_200_000, stockQuantity: 7 }),
           variantBody(`VAR-${tag}-1B`, { color: { name: 'Đen', hex: '#2B2B2B' }, stockQuantity: 0 }),
@@ -373,7 +384,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
       await bad({ stockQuantity: -1 }, 'variants.0.stockQuantity');
       expect(await prisma.product.count()).toBe(productsBefore);
 
-      const exist = await create('trung', { variants: [variantBody(`DUP-${tag}`)] });
+      const exist = await create('trung', { images: [{ url: PNG }], variants: [variantBody(`DUP-${tag}`)] });
       expect(exist.variants).toHaveLength(1);
       const dupOther = await api(
         'post',
@@ -399,7 +410,10 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
     });
 
     it('sửa tồn kho qua biến thể ghi movement adjustment đúng chênh lệch; sửa giá/khuyến mãi lưu đúng', async () => {
-      const p = await create('ton', { variants: [variantBody(`TON-${tag}`, { stockQuantity: 10 })] });
+      const p = await create('ton', {
+        images: [{ url: PNG }],
+        variants: [variantBody(`TON-${tag}`, { stockQuantity: 10 })],
+      });
       const id = p.variants[0].id;
       const r = await api('patch', `/admin/products/${p.id}`, admin, {
         ...baseBody('ton'),
@@ -424,6 +438,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
 
     it('bỏ biến thể khỏi danh sách ⇒ isActive=false (không xóa); giữ lịch sử kho và dòng đơn hàng; xóa khỏi giỏ; gửi lại id thì bán lại', async () => {
       const p = await create('lichsu', {
+        images: [{ url: PNG }],
         variants: [
           variantBody(`HIS-${tag}-A`, { stockQuantity: 30 }),
           variantBody(`HIS-${tag}-B`, { color: { name: 'Đen', hex: '#000000' }, stockQuantity: 30 }),

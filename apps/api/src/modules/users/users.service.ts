@@ -8,7 +8,7 @@ import { describeDevice } from '../../common/utils/device';
 import {
   FieldErrors,
   PASSWORD_CONFIRM_MESSAGE,
-  PHONE_RE,
+  REGISTER_PHONE_RE,
   asBody,
   passwordPolicyError,
   str,
@@ -91,9 +91,14 @@ export class UsersService {
   async updateMe(userId: number, raw: unknown) {
     const b = asBody(raw);
     const errs = new FieldErrors();
-    if (b.fullName !== undefined && str(b.fullName).trim().length < 2)
-      errs.add('fullName', 'Vui lòng nhập họ và tên.');
-    if (b.phone && !PHONE_RE.test(str(b.phone))) errs.add('phone', 'Số điện thoại phải gồm 10 chữ số.');
+    // DAC_TA UC-ACC-01: fullName 2–150 ký tự, phone 10–11 chữ số bắt đầu bằng 0
+    if (
+      b.fullName !== undefined &&
+      (str(b.fullName).trim().length < 2 || str(b.fullName).trim().length > 150)
+    )
+      errs.add('fullName', 'Họ và tên từ 2 đến 150 ký tự.');
+    if (b.phone && !REGISTER_PHONE_RE.test(str(b.phone)))
+      errs.add('phone', 'Số điện thoại phải gồm 10–11 chữ số, bắt đầu bằng 0.');
     errs.throwIfAny();
 
     const data: Prisma.UserUpdateInput = {};

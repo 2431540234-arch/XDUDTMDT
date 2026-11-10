@@ -9,7 +9,7 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { nextOrderCode } from '../../common/utils/code-generator';
 import { qList, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, asBody, cancelReasonError, str, toId } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -117,6 +117,7 @@ export class OrdersService {
     if (!METHODS.includes(b.paymentMethod as PaymentMethod)) {
       errs.add('paymentMethod', 'Vui lòng chọn phương thức thanh toán.');
     }
+    if (str(b.note).length > 500) errs.add('note', 'Ghi chú tối đa 500 ký tự.');
     errs.throwIfAny();
     await assertPaymentMethodEnabled(this.prisma, b.paymentMethod as string);
 
@@ -129,6 +130,7 @@ export class OrdersService {
       note: b.note ? str(b.note) : null,
       itemIds,
       useCartCoupon: true,
+      couponCode: b.couponCode ? str(b.couponCode).trim() : null,
       historyNote: 'Khách hàng đặt hàng',
     });
     return this.orderViews.toView(order);
@@ -156,6 +158,8 @@ export class OrdersService {
     itemIds?: number[];
     lines?: Array<{ variantId: number; quantity: number }>;
     useCartCoupon?: boolean;
+    /** Mã gửi kèm khi đặt (DAC_TA UC-ORD-01): hợp lệ thì áp, sai ⇒ 400; không gửi thì dùng mã đang áp ở giỏ */
+    couponCode?: string | null;
     historyNote: string;
   }): Promise<OrderRow> {
     // xác định các dòng cần đặt
@@ -214,25 +218,30 @@ export class OrdersService {
         // mã giảm giá trong giỏ (chỉ khi đặt cả giỏ) – kiểm tra lại trong transaction, khóa dòng coupon chống vượt lượt
         let couponId: number | null = null;
         let discount = 0;
-        if (p.useCartCoupon && wholeCart) {
-          const cart = await tx.cart.findUnique({ where: { userId: p.userId }, include: { coupon: true } });
-          if (cart?.coupon) {
-            await tx.$queryRaw`SELECT id FROM coupons WHERE id = ${cart.coupon.id} FOR UPDATE`;
-            const r = await this.coupons.evaluate(
-              cart.coupon.code,
-              p.userId,
-              lines.map((l) => ({
-                productId: l.pr.id,
-                categoryId: l.pr.categoryId,
-                lineTotal: l.unit * l.w.quantity,
-              })),
-              subtotal,
-              shippingFee,
-              tx,
-            );
-            couponId = r.coupon.id;
-            discount = r.discount;
+        const cartForCoupon =
+          p.useCartCoupon && wholeCart
+            ? await tx.cart.findUnique({ where: { userId: p.userId }, include: { coupon: true } })
+            : null;
+        const codeToUse = p.couponCode || cartForCoupon?.coupon?.code || null;
+        if (p.useCartCoupon && codeToUse) {
+          const found = await tx.coupon.findFirst({ where: { code: codeToUse }, select: { id: true } });
+          if (found) {
+            await tx.$queryRaw`SELECT id FROM coupons WHERE id = ${found.id} FOR UPDATE`;
           }
+          const r = await this.coupons.evaluate(
+            codeToUse,
+            p.userId,
+            lines.map((l) => ({
+              productId: l.pr.id,
+              categoryId: l.pr.categoryId,
+              lineTotal: l.unit * l.w.quantity,
+            })),
+            subtotal,
+            shippingFee,
+            tx,
+          );
+          couponId = r.coupon.id;
+          discount = r.discount;
         }
         const total = subtotal - discount + shippingFee;
         const now = new Date();
@@ -388,7 +397,9 @@ export class OrdersService {
   async cancel(userId: number, id: number, raw: unknown) {
     const o = await this.prisma.order.findFirst({ where: { id, userId } });
     if (!o) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Đơn hàng không tồn tại.');
-    const reason = str(asBody(raw).reason).trim() || 'Khách hàng yêu cầu hủy đơn';
+    const reason = str(asBody(raw).reason).trim();
+    const reasonErr = cancelReasonError(reason);
+    if (reasonErr) new FieldErrors().add('reason', reasonErr).throwIfAny();
     await this.cancelCore(o.id, userId, reason, false);
     return this.orderViews.toView(await this.byId(o.id));
   }

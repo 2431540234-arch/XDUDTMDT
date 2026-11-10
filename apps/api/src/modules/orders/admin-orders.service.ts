@@ -12,7 +12,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qList, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, asBody, cancelReasonError, str, toId } from '../../common/utils/validate';
 import { vnDbDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -183,6 +183,7 @@ export class AdminOrdersService {
     const b = asBody(raw);
     const to = str(b.status) as OrderStatus;
     const cur = await this.find(key);
+    if (str(b.note).length > 500) new FieldErrors().add('note', 'Ghi chú tối đa 500 ký tự.').throwIfAny();
     if (to === 'cancelled') return this.cancel(adminId, key, { reason: b.note });
     // UC-ADM-21 (D-N14): admin KHÔNG đặt đơn completed trực tiếp; đơn tự hoàn tất khi vận đơn được đánh dấu đã giao
     if (to === 'completed') {
@@ -237,7 +238,9 @@ export class AdminOrdersService {
   async cancel(adminId: number, key: string, raw: unknown) {
     const o = await this.find(key);
     const b = asBody(raw);
-    const reason = str(b.reason ?? b.note).trim() || 'Doanh nghiệp hủy đơn hàng';
+    const reason = str(b.reason ?? b.note).trim();
+    const reasonErr = cancelReasonError(reason);
+    if (reasonErr) new FieldErrors().add('reason', reasonErr).throwIfAny();
     await this.orders.cancelCore(o.id, adminId, reason, true);
     await this.activity.log({
       actorId: adminId,

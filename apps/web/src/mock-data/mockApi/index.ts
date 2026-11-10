@@ -123,6 +123,7 @@ const routes: Route[] = [
   ['PATCH', '/admin/orders/:id/note', 'admin', admin.saveOrderNote],
   ['PATCH', '/admin/payments/:id/confirm', 'admin', admin.confirmPayment],
   ['PATCH', '/admin/payments/:id/fail', 'admin', admin.failPayment],
+  ['GET', '/admin/payments', 'admin', admin.adminPayments],
   ['GET', '/admin/returns', 'admin', admin.adminReturns],
   ['PATCH', '/admin/returns/:id', 'admin', admin.updateReturn],
   ['GET', '/admin/users', 'admin', admin.adminCustomers],

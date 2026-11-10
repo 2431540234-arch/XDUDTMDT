@@ -308,6 +308,9 @@ test('admin: sửa không gian (đổi tên, bỏ một sản phẩm) rồi xóa
   await row2.getByRole('button', { name: 'Thao tác' }).click();
   await page.getByRole('button', { name: 'Xóa', exact: true }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Xóa', exact: true }).click();
+  // Chờ KẾT QUẢ xóa (thông báo hiện sau khi máy chủ đã xóa xong). Không dùng `toHaveCount(0)` của hàng làm điều kiện chờ: khi hộp thoại
+  // mở, nền bị aria-hidden nên hàng "biến mất" khỏi cây truy cập ngay lập tức, trước khi yêu cầu xóa kịp hoàn tất (nguyên nhân flake cũ).
+  await expect(page.getByText('Đã xóa không gian mẫu.')).toBeVisible({ timeout: 30_000 });
   await expect(row2).toHaveCount(0, { timeout: 30_000 });
   expect((await request.get(`${api}/api/spaces/${slug}`)).status()).toBe(404);
 });

@@ -387,7 +387,13 @@ test('UC-ADM-24 chuyển khoản trên trang đơn: mã giao dịch trùng báo 
   const mk = async (label: string, paymentMethod: string) => {
     const email = `pay-${label}-${stamp}@test.local`;
     await request.post(`${api}/api/auth/register`, {
-      data: { fullName: `Khách ${label}`, email, phone: '0911222333', password: 'Matkhau-12345' },
+      data: {
+        fullName: `Khách ${label}`,
+        email,
+        phone: '0911222333',
+        password: 'Matkhau-12345',
+        confirmPassword: 'Matkhau-12345',
+      },
     });
     const t = (
       await (
@@ -472,7 +478,13 @@ test('hoàn hàng → hủy đơn đang giao → hoàn tiền (đơn đã thanh 
   const stamp = Date.now();
   const email = `ret-${stamp}@test.local`;
   await request.post(`${api}/api/auth/register`, {
-    data: { fullName: 'Khách hoàn hàng', email, phone: '0911222333', password: 'Matkhau-12345' },
+    data: {
+      fullName: 'Khách hoàn hàng',
+      email,
+      phone: '0911222333',
+      password: 'Matkhau-12345',
+      confirmPassword: 'Matkhau-12345',
+    },
   });
   const t = (
     await (await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-12345' } })).json()
@@ -562,4 +574,151 @@ test('hoàn hàng → hủy đơn đang giao → hoàn tiền (đơn đã thanh 
   const final = await (await request.get(`${api}/api/admin/orders/${code}`, { headers: ah })).json();
   expect(final.data.status).toBe('refunded');
   expect(final.data.paymentStatus).toBe('refunded');
+});
+
+test('UC-ADM-24 trang /admin/payments: dữ liệu thật, lọc, tìm kiếm, xác nhận (mã trùng báo lỗi), đánh dấu thất bại; COD/online không có thao tác', async ({
+  page,
+  request,
+}) => {
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const stamp = Date.now();
+  const mk = async (label: string, paymentMethod: string) => {
+    const email = `pgpay-${label}-${stamp}@test.local`;
+    await request.post(`${api}/api/auth/register`, {
+      data: {
+        fullName: `Khách ${label}`,
+        email,
+        phone: '0911222333',
+        password: 'Matkhau-12345',
+        confirmPassword: 'Matkhau-12345',
+      },
+    });
+    const t = (
+      await (
+        await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-12345' } })
+      ).json()
+    ).data.tokens.accessToken as string;
+    const h = { Authorization: `Bearer ${t}` };
+    const addr = (
+      await (
+        await request.post(`${api}/api/addresses`, {
+          headers: h,
+          data: {
+            recipientName: 'Nguyễn Văn A',
+            phone: '0912345678',
+            province: 'TP. Hồ Chí Minh',
+            district: 'Quận 1',
+            ward: 'Phường Bến Nghé',
+            addressLine: '12 Lê Lợi',
+          },
+        })
+      ).json()
+    ).data.id;
+    const list = (await (await request.get(`${api}/api/products?pageSize=1`)).json()).data[0];
+    const detail = (await (await request.get(`${api}/api/products/${list.slug}`)).json()).data;
+    await request.post(`${api}/api/cart/items`, {
+      headers: h,
+      data: { variantId: detail.variants[0].id, quantity: 1 },
+    });
+    const o = (
+      await (
+        await request.post(`${api}/api/orders`, { headers: h, data: { addressId: addr, paymentMethod } })
+      ).json()
+    ).data;
+    return { code: o.orderCode as string, email, token: t };
+  };
+  const a = await mk('a', 'bank_transfer');
+  const b = await mk('b', 'bank_transfer');
+  const c = await mk('c', 'bank_transfer');
+  const cod = await mk('cod', 'cod');
+  const txn = `PG-${stamp}`;
+
+  // khách hàng không vào được trang quản trị
+  await page.goto('/admin/payments');
+  await expect(page).toHaveURL(/\/admin\/login/);
+
+  await adminLogin(page);
+  await page.getByRole('link', { name: 'Thanh toán', exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/payments/);
+  await expect(page.getByRole('heading', { name: 'Thanh toán' })).toBeVisible({ timeout: 30_000 });
+
+  // tìm theo mã đơn: đúng một dòng, dữ liệu khớp API (phương thức, số tiền, trạng thái)
+  const apiRow = async (code: string) => {
+    const t = (
+      await (
+        await request.post(`${api}/api/auth/login`, {
+          data: { email: 'admin@aurelia.vn', password: 'admin123', adminOnly: true },
+        })
+      ).json()
+    ).data.tokens.accessToken as string;
+    const r = await (
+      await request.get(`${api}/api/admin/payments?q=${code}`, { headers: { Authorization: `Bearer ${t}` } })
+    ).json();
+    return r.data[0] as { id: number; amount: number; status: string; transactionCode: string | null };
+  };
+  const search = page.getByPlaceholder(/Tìm theo mã đơn/);
+  await search.fill(a.code);
+  const rowA = page.getByRole('row', { name: new RegExp(a.code) });
+  await expect(rowA).toHaveCount(1, { timeout: 30_000 });
+  const dataA = await apiRow(a.code);
+  await expect(rowA).toContainText('Chờ đối soát');
+  await expect(rowA).toContainText('Chuyển khoản');
+  await expect(rowA).toContainText(dataA.amount.toLocaleString('vi-VN'));
+
+  // xác nhận kèm mã giao dịch
+  await rowA.getByRole('button', { name: 'Thao tác' }).click();
+  await page.getByRole('button', { name: 'Xác nhận đã nhận tiền' }).click();
+  await page.getByRole('dialog').getByLabel('Mã giao dịch').fill(txn);
+  await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận', exact: true }).click();
+  await expect(page.getByText('Đã xác nhận thanh toán.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('row', { name: new RegExp(a.code) })).toContainText('Thành công', {
+    timeout: 30_000,
+  });
+  await expect(page.getByRole('row', { name: new RegExp(a.code) })).toContainText(txn);
+
+  // dùng lại mã ⇒ lỗi, giao dịch vẫn chờ
+  await search.fill(b.code);
+  const rowB = page.getByRole('row', { name: new RegExp(b.code) });
+  await expect(rowB).toHaveCount(1, { timeout: 30_000 });
+  await rowB.getByRole('button', { name: 'Thao tác' }).click();
+  await page.getByRole('button', { name: 'Xác nhận đã nhận tiền' }).click();
+  await page.getByRole('dialog').getByLabel('Mã giao dịch').fill(txn);
+  await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận', exact: true }).click();
+  await expect(page.getByText(/Mã giao dịch đã được dùng/).first()).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('dialog').getByRole('button', { name: 'Đóng' }).click();
+  expect((await apiRow(b.code)).status).toBe('pending');
+
+  // đánh dấu thất bại
+  await search.fill(c.code);
+  const rowC = page.getByRole('row', { name: new RegExp(c.code) });
+  await expect(rowC).toHaveCount(1, { timeout: 30_000 });
+  await rowC.getByRole('button', { name: 'Thao tác' }).click();
+  await page.getByRole('button', { name: 'Đánh dấu thất bại' }).click();
+  await page.getByRole('dialog').getByLabel('Lý do (tùy chọn)').fill('Không thấy tiền về');
+  await page.getByRole('dialog').getByRole('button', { name: 'Đánh dấu thất bại' }).click();
+  await expect(page.getByText('Đã đánh dấu giao dịch thất bại.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('row', { name: new RegExp(c.code) })).toContainText('Thất bại', {
+    timeout: 30_000,
+  });
+  expect((await apiRow(c.code)).status).toBe('failed');
+
+  // COD: chỉ có "Xem đơn hàng", không có thao tác xử lý tay
+  await search.fill(cod.code);
+  const rowCod = page.getByRole('row', { name: new RegExp(cod.code) });
+  await expect(rowCod).toHaveCount(1, { timeout: 30_000 });
+  await rowCod.getByRole('button', { name: 'Thao tác' }).click();
+  await expect(page.getByRole('button', { name: 'Xem đơn hàng' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Xác nhận đã nhận tiền' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Đánh dấu thất bại' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  // bộ lọc trạng thái + phương thức: mọi dòng hiển thị khớp bộ lọc
+  await search.fill('');
+  await page.getByRole('tab', { name: 'Thất bại' }).click();
+  await expect(page.getByRole('row', { name: new RegExp(c.code) })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('row', { name: new RegExp(a.code) })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Tất cả' }).click();
+  await page.getByRole('combobox').selectOption('cod');
+  await expect(page.getByRole('row', { name: new RegExp(cod.code) })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('row', { name: new RegExp(c.code) })).toHaveCount(0);
 });

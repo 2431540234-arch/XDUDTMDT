@@ -14,7 +14,7 @@ import StatusBadge from '@/components/ui/StatusBadge';
 import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { formatCurrency, formatDate, formatDateTime, initials } from '@/lib/format';
 import { orderStatusInfo, paymentMethodLabel, paymentStatusInfo, shipmentStatusInfo } from '@/lib/status';
-import { errorMessage } from '@/lib/validators';
+import { cancelReasonError, errorMessage } from '@/lib/validators';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
@@ -57,6 +57,7 @@ export default function AdminOrderDetailPage() {
   const [fee, setFee] = useState('');
   const [cancel, setCancel] = useState(false);
   const [reason, setReason] = useState('');
+  const [reasonErr, setReasonErr] = useState('');
   const [refund, setRefund] = useState(false);
 
   useEffect(() => {
@@ -81,7 +82,7 @@ export default function AdminOrderDetailPage() {
     onError,
   });
   const doCancel = useMutation({
-    mutationFn: () => adminApi.orders.cancel(o!.id, reason.trim() || 'Doanh nghiệp hủy đơn hàng'),
+    mutationFn: () => adminApi.orders.cancel(o!.id, reason.trim()),
     onSuccess: (d) => {
       refresh(d);
       setCancel(false);
@@ -542,7 +543,15 @@ export default function AdminOrderDetailPage() {
             <Button variant="ghost" onClick={() => setCancel(false)}>
               Đóng
             </Button>
-            <Button variant="danger" loading={doCancel.isPending} onClick={() => doCancel.mutate()}>
+            <Button
+              variant="danger"
+              loading={doCancel.isPending}
+              onClick={() => {
+                const err = cancelReasonError(reason);
+                setReasonErr(err);
+                if (!err) doCancel.mutate();
+              }}
+            >
               Xác nhận hủy
             </Button>
           </>
@@ -551,7 +560,17 @@ export default function AdminOrderDetailPage() {
         <p className="mb-3 text-sm text-muted">
           Hủy đơn <b>#{o.orderCode}</b>: tồn kho và lượt dùng mã giảm giá sẽ được hoàn lại.
         </p>
-        <Textarea label="Lý do hủy" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Textarea
+          label="Lý do hủy (5–500 ký tự)"
+          rows={3}
+          maxLength={500}
+          value={reason}
+          error={reasonErr}
+          onChange={(e) => {
+            setReason(e.target.value);
+            setReasonErr('');
+          }}
+        />
       </Modal>
       <Modal
         open={failOpen}

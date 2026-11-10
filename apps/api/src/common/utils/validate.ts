@@ -25,6 +25,17 @@ export function validationError(fields: Record<string, string>): AppException {
   );
 }
 
+/** 409 CONFLICT kèm details theo trường (dạng { truong: ["thông báo"] }) để form vẫn hiện lỗi dưới ô nhập */
+export function conflictError(field: string, message: string): AppException {
+  return new AppException(ErrorCode.CONFLICT, message, { [field]: [message] });
+}
+
+/** Lý do hủy đơn (DAC_TA UC-ORD-03, UC-ADM-22): bắt buộc, 5–500 ký tự; trả thông báo lỗi hoặc null */
+export function cancelReasonError(reason: string): string | null {
+  const n = reason.trim().length;
+  return n >= 5 && n <= 500 ? null : 'Lý do hủy đơn từ 5 đến 500 ký tự.';
+}
+
 /** Thu thập lỗi rồi ném một lần nếu có */
 export class FieldErrors {
   private readonly errs: Record<string, string> = {};

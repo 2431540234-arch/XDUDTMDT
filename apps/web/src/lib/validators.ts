@@ -86,7 +86,9 @@ export function passwordChecks(pw: string, old = '') {
 
 /** Gắn lỗi VALIDATION_FAILED của API vào form react-hook-form; trả về true nếu đã xử lý */
 export function applyApiErrors<T extends FieldValues>(e: unknown, setError: UseFormSetError<T>): boolean {
-  if (e instanceof ApiClientError && e.code === 'VALIDATION_FAILED') {
+  // 409 CONFLICT (slug/mã trùng) cũng kèm details theo trường nên hiện lỗi dưới ô nhập
+  if (e instanceof ApiClientError && (e.code === 'VALIDATION_FAILED' || e.code === 'CONFLICT')) {
+    if (Object.keys(e.fieldErrors()).length === 0) return false;
     for (const [k, msg] of Object.entries(e.fieldErrors())) setError(k as Path<T>, { message: msg });
     return true;
   }
@@ -95,4 +97,10 @@ export function applyApiErrors<T extends FieldValues>(e: unknown, setError: UseF
 
 export function errorMessage(e: unknown, fallback = 'Đã có lỗi xảy ra, vui lòng thử lại.'): string {
   return e instanceof ApiClientError ? e.message : fallback;
+}
+
+/** Lý do hủy đơn (DAC_TA UC-ORD-03, UC-ADM-22): bắt buộc 5–500 ký tự; trả thông báo lỗi hoặc '' */
+export function cancelReasonError(reason: string): string {
+  const n = reason.trim().length;
+  return n >= 5 && n <= 500 ? '' : 'Lý do hủy đơn từ 5 đến 500 ký tự.';
 }

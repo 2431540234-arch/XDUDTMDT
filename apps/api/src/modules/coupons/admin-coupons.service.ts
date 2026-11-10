@@ -7,7 +7,7 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, conflictError, asBody, str, toId } from '../../common/utils/validate';
 import { parseVnDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -90,11 +90,12 @@ export class AdminCouponsService {
     const errs = new FieldErrors();
     if (str(b.name).trim().length < 2) errs.add('name', 'Vui lòng nhập tên chương trình.');
     const code = str(b.code).trim().toUpperCase();
+    let duplicate = false;
     if (!/^[A-Z0-9_-]{4,20}$/.test(code)) errs.add('code', 'Mã gồm 4–20 ký tự chữ in hoa hoặc số.');
     else if (
       await this.prisma.coupon.findFirst({ where: { code, ...(selfId ? { id: { not: selfId } } : {}) } })
     ) {
-      errs.add('code', 'Mã khuyến mãi đã tồn tại.');
+      duplicate = true; // 409 sau khi các lỗi dữ liệu khác đã được kiểm (DAC_TA UC-ADM-19 4a)
     }
     const kind = str(b.kind);
     if (!['percent', 'fixed', 'freeship'].includes(kind)) errs.add('kind', 'Vui lòng chọn loại giảm giá.');
@@ -108,15 +109,17 @@ export class AdminCouponsService {
     if (b.maxDiscount && Number(b.maxDiscount) < 0) errs.add('maxDiscount', 'Giảm tối đa không hợp lệ.');
     if (b.minOrderValue && Number(b.minOrderValue) < 0)
       errs.add('minOrderValue', 'Đơn tối thiểu không hợp lệ.');
-    if (b.usageLimit) {
+    const given = (v: unknown) => v !== undefined && v !== null && v !== '';
+    if (given(b.usageLimit)) {
       const lim = Number(b.usageLimit);
       if (!(lim >= 1)) errs.add('usageLimit', 'Giới hạn lượt phải từ 1 trở lên.');
       else if (lim < usedCount)
         errs.add('usageLimit', `Giới hạn lượt không được nhỏ hơn số lượt đã dùng (${usedCount}).`);
     }
-    if (b.perUserLimit && !(Number(b.perUserLimit) >= 1))
+    if (given(b.perUserLimit) && !(Number(b.perUserLimit) >= 1))
       errs.add('perUserLimit', 'Giới hạn lượt mỗi khách phải từ 1 trở lên.');
     errs.throwIfAny();
+    if (duplicate) throw conflictError('code', 'Mã khuyến mãi đã tồn tại.');
     return code;
   }
 
@@ -164,8 +167,14 @@ export class AdminCouponsService {
       value: kind === 'freeship' ? 0 : Number(b.value),
       maxDiscount: b.maxDiscount ? Number(b.maxDiscount) : null,
       minOrderValue: Number(b.minOrderValue) || 0,
-      usageLimit: b.usageLimit ? Number(b.usageLimit) : null,
-      perUserLimit: b.perUserLimit ? Number(b.perUserLimit) : null,
+      usageLimit:
+        b.usageLimit !== undefined && b.usageLimit !== null && b.usageLimit !== ''
+          ? Number(b.usageLimit)
+          : null,
+      perUserLimit:
+        b.perUserLimit !== undefined && b.perUserLimit !== null && b.perUserLimit !== ''
+          ? Number(b.perUserLimit)
+          : null,
       // chỉ gửi ngày (YYYY-MM-DD) ⇒ ngày giờ Việt Nam: bắt đầu từ 00:00, hết hạn lúc 23:59:59 của ngày đó
       startsAt: parseVnDate(str(b.startsAt), 'start'),
       endsAt: parseVnDate(str(b.endsAt), 'end'),

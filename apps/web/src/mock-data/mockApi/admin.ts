@@ -582,7 +582,9 @@ export function setOrderStatus(ctx: Ctx): Result {
 
 export function cancelOrder(ctx: Ctx): Result {
   const o = orderFrom(ctx);
-  const reason = String(ctx.body?.reason ?? ctx.body?.note ?? '').trim() || 'Doanh nghiệp hủy đơn hàng';
+  const reason = String(ctx.body?.reason ?? ctx.body?.note ?? '').trim();
+  if (reason.length < 5 || reason.length > 500)
+    throw validation({ reason: 'Lý do hủy đơn từ 5 đến 500 ký tự.' });
   cancelOrderCore(ctx.db, o.id, ADMIN_ID, reason, true);
   log(ctx, 'order.cancel', 'order', o.id, { orderCode: o.orderCode });
   return ok(orderView(ctx.db, o, { customer: true }));
@@ -784,6 +786,41 @@ export function createExpense(ctx: Ctx): Result {
 }
 
 // ===================== Đổi trả =====================
+export function adminPayments(ctx: Ctx): Result {
+  const { db, query: q } = ctx;
+  const status = qStr(q, 'status');
+  const method = qStr(q, 'method');
+  const search = fold(qStr(q, 'q'));
+  const list = db.payments
+    .map((p) => {
+      const o = db.orders.find((x) => x.id === p.orderId)!;
+      const u = db.users.find((x) => x.id === o.userId);
+      return {
+        id: p.id,
+        orderId: o.id,
+        orderCode: o.orderCode,
+        orderStatus: o.status,
+        orderPaymentStatus: o.paymentStatus,
+        customerName: u?.fullName ?? o.recipientName,
+        customerEmail: u?.email ?? null,
+        method: p.method,
+        amount: Number(p.amount),
+        status: p.status,
+        transactionCode: p.transactionCode,
+        paidAt: p.paidAt,
+        createdAt: p.createdAt,
+      };
+    })
+    .filter(
+      (p) =>
+        (!status || p.status === status) &&
+        (!method || p.method === method) &&
+        (!search || fold(`${p.orderCode} ${p.transactionCode ?? ''}`).includes(search)),
+    )
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
+  return paginate(list, q, 10);
+}
+
 export function adminReturns(ctx: Ctx): Result {
   const q = ctx.query;
   const status = qStr(q, 'status');

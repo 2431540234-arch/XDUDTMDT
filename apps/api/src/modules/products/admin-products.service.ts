@@ -8,7 +8,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { toSlug } from '../../common/utils/slug';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, asBody, conflictError, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews, PRODUCT_INCLUDE, type ProductRow } from '../../common/views/catalog-views.service';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
@@ -116,6 +116,9 @@ export class AdminProductsService {
   private validate(b: Record<string, unknown>, creating: boolean) {
     const errs = new FieldErrors();
     if (str(b.name).trim().length < 2) errs.add('name', 'Vui lòng nhập tên sản phẩm.');
+    else if (str(b.name).trim().length > 255) errs.add('name', 'Tên sản phẩm tối đa 255 ký tự.');
+    if (str(b.slug).trim().length > 280) errs.add('slug', 'Slug tối đa 280 ký tự.');
+    if (str(b.shortDescription).length > 500) errs.add('shortDescription', 'Mô tả ngắn tối đa 500 ký tự.');
     if (creating && !str(b.sku).trim() && !(Array.isArray(b.variants) && b.variants.length))
       errs.add('sku', 'Vui lòng nhập SKU.');
     if (!b.categoryId) errs.add('categoryId', 'Vui lòng chọn danh mục.');
@@ -369,6 +372,8 @@ export class AdminProductsService {
     await tx.$queryRaw`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
     const category = await tx.category.findUnique({ where: { id: toId(b.categoryId) } });
     if (!category) new FieldErrors().add('categoryId', 'Danh mục không tồn tại.').throwIfAny();
+    if (b.brandId && !(await tx.brand.findUnique({ where: { id: toId(b.brandId) }, select: { id: true } })))
+      new FieldErrors().add('brandId', 'Thương hiệu không tồn tại.').throwIfAny();
     await tx.product.update({
       where: { id },
       data: {
@@ -389,6 +394,17 @@ export class AdminProductsService {
     await this.saveVariants(tx, adminId, id, b);
     if (Array.isArray(b.images))
       await this.saveImages(tx, id, adminId, slug, b.images as Array<Record<string, unknown>>);
+    // DAC_TA UC-ADM-09 9a: chỉ ĐĂNG (published) khi có biến thể đang bán và có ảnh đại diện; sai ⇒ 400 và hoàn tác cả lần lưu
+    if ((str(b.status) || 'published') === 'published') {
+      const [activeVariants, primaryImages] = await Promise.all([
+        tx.productVariant.count({ where: { productId: id, isActive: true } }),
+        tx.productImage.count({ where: { productId: id, isPrimary: true } }),
+      ]);
+      const errs = new FieldErrors();
+      if (!activeVariants) errs.add('variants', 'Cần ít nhất một biến thể đang bán để đăng sản phẩm.');
+      if (!primaryImages) errs.add('images', 'Cần có ảnh đại diện để đăng sản phẩm.');
+      errs.throwIfAny();
+    }
     if (Array.isArray(b.specs)) {
       await tx.productSpec.deleteMany({ where: { productId: id } });
       const specs = (b.specs as Array<{ label: string; value: string }>).filter(
@@ -412,6 +428,8 @@ export class AdminProductsService {
     const name = str(b.name).trim();
     let slug = toSlug(str(b.slug) || name);
     if (!slug) new FieldErrors().add('slug', 'Slug không hợp lệ.').throwIfAny();
+    if (str(b.slug).trim() && (await this.prisma.product.findUnique({ where: { slug } })))
+      throw conflictError('slug', 'Slug đã tồn tại.');
     for (let n = 2; await this.prisma.product.findUnique({ where: { slug } }); n++)
       slug = `${toSlug(str(b.slug) || name)}-${n}`;
     const id = await this.prisma.$transaction(

@@ -441,7 +441,9 @@ export function cancelOrderCore(
 export function cancelOrder(ctx: Ctx): Result {
   const o = ctx.db.orders.find((x) => x.id === Number(ctx.params.id) && x.userId === ctx.user!.id);
   if (!o) throw notFound('Đơn hàng');
-  const reason = String(ctx.body?.reason ?? '').trim() || 'Khách hàng yêu cầu hủy đơn';
+  const reason = String(ctx.body?.reason ?? '').trim();
+  if (reason.length < 5 || reason.length > 500)
+    throw validation({ reason: 'Lý do hủy đơn từ 5 đến 500 ký tự.' });
   cancelOrderCore(ctx.db, o.id, ctx.user!.id, reason, false);
   return ok(orderView(ctx.db, o));
 }

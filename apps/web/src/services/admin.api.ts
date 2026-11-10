@@ -42,7 +42,28 @@ import type { PresignedUpload } from '@aurelia-living/shared-types';
 import { USE_MOCK, http, type Query } from './api-client';
 import { getUploadMode, putToStorage } from './direct-upload';
 
+/** Một giao dịch trong danh sách GET /admin/payments (UC-ADM-24) */
+export interface AdminPayment {
+  id: number;
+  orderId: number;
+  orderCode: string;
+  orderStatus: string;
+  orderPaymentStatus: string;
+  customerName: string;
+  customerEmail: string | null;
+  method: 'cod' | 'bank_transfer' | 'momo' | 'vnpay' | 'zalopay' | 'card';
+  amount: number;
+  status: 'pending' | 'success' | 'failed' | 'refunded';
+  transactionCode: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
 export const adminApi = {
+  payments: {
+    list: (q: Record<string, string | number | boolean | undefined>) =>
+      http.list<AdminPayment>('/admin/payments', q as Record<string, string | number | boolean>),
+  },
   stats: (q: { from?: string; to?: string }) => http.get<DashboardStats>('/admin/stats/overview', q),
   finance: (q: { from?: string; to?: string }) => http.get<FinanceReport>('/admin/stats/finance', q),
   /** Phễu không gian mẫu (cần quyền manage_content) */

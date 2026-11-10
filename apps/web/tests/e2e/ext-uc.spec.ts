@@ -34,7 +34,7 @@ async function newCustomer(request: APIRequestContext, label: string) {
   const email = `${label}-${uniq()}@test.local`;
   const password = 'Matkhau-12345';
   const reg = await request.post(`${API}/api/auth/register`, {
-    data: { fullName: `Khách ${label}`, email, phone: '0911222333', password },
+    data: { fullName: `Khách ${label}`, email, phone: '0911222333', password, confirmPassword: password },
   });
   expect(reg.status()).toBe(201);
   const login = await request.post(`${API}/api/auth/login`, { data: { email, password } });

@@ -105,14 +105,27 @@ export class AdminUsersService {
   }
 
   async setStatus(adminId: number, id: number, raw: unknown) {
+    // DAC_TA UC-ADM-01 5a: không khóa chính mình hoặc tài khoản quản trị (409); chỉ khách hàng mới đổi trạng thái được
+    const staff = await this.prisma.user.findFirst({
+      where: { id, userRoles: { some: { role: { code: 'admin' } } } },
+      select: { id: true },
+    });
+    if (staff)
+      throw new AppException(ErrorCode.CONFLICT, 'Không thể khóa tài khoản quản trị (kể cả chính mình).');
     const u = await this.customer(id);
-    const status = str(asBody(raw).status);
-    if (!['active', 'suspended'].includes(status))
+    const body = asBody(raw);
+    const status = str(body.status);
+    if (!['active', 'suspended', 'banned'].includes(status))
       new FieldErrors().add('status', 'Trạng thái không hợp lệ.').throwIfAny();
+    if (str(body.reason).length > 500)
+      new FieldErrors().add('reason', 'Lý do tối đa 500 ký tự.').throwIfAny();
     await this.prisma.$transaction(async (tx) => {
-      await tx.user.update({ where: { id: u.id }, data: { status: status as 'active' | 'suspended' } });
+      await tx.user.update({
+        where: { id: u.id },
+        data: { status: status as 'active' | 'suspended' | 'banned' },
+      });
       // khóa ⇒ thu hồi mọi refresh token; access token còn hạn bị JwtAuthGuard chặn ngay vì kiểm tra trạng thái mỗi request
-      if (status === 'suspended')
+      if (status !== 'active')
         await tx.userSession.updateMany({
           where: { userId: u.id, revokedAt: null },
           data: { revokedAt: new Date() },
@@ -123,7 +136,7 @@ export class AdminUsersService {
           action: 'user.update_status',
           targetType: 'user',
           targetId: u.id,
-          changes: { status },
+          changes: { status, ...(str(body.reason) ? { reason: str(body.reason) } : {}) },
         },
         tx,
       );

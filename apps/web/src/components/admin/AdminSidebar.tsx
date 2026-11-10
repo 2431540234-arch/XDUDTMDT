@@ -33,6 +33,7 @@ export const adminMenu: Item[] = [
   { href: '/admin/attributes', label: 'Thuộc tính', icon: 'list' },
   { href: '/admin/media', label: 'Thư viện media', icon: 'image' },
   { href: '/admin/orders', label: 'Đơn hàng', icon: 'receipt' },
+  { href: '/admin/payments', label: 'Thanh toán', icon: 'receipt' },
   { href: '/admin/returns', label: 'Đổi trả', icon: 'refresh' },
   { href: '/admin/customers', label: 'Khách hàng', icon: 'users' },
   { href: '/admin/reviews', label: 'Đánh giá', icon: 'star' },

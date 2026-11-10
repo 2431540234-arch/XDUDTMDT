@@ -205,8 +205,12 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
     });
 
     it('khách không hủy được đơn đang giao; admin cũng không', async () => {
-      expect((await api('post', `/orders/${orderId}/cancel`, cust, {})).status).toBe(409);
-      expect((await api('post', `/admin/orders/${orderId}/cancel`, admin, { reason: 'x' })).status).toBe(409);
+      expect((await api('post', `/orders/${orderId}/cancel`, cust, { reason: 'Không cần nữa' })).status).toBe(
+        409,
+      );
+      expect(
+        (await api('post', `/admin/orders/${orderId}/cancel`, admin, { reason: 'Doanh nghiệp hủy' })).status,
+      ).toBe(409);
     });
 
     it('admin KHÔNG đặt đơn completed trực tiếp (409); đơn tự hoàn tất khi vận đơn delivered: sold_count, COD đã thanh toán, lịch sử, thông báo', async () => {
@@ -271,7 +275,9 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       const o = await api('post', '/orders', cust, { addressId, paymentMethod: 'cod' });
       await api('patch', `/admin/orders/${o.body.data.id}/status`, admin, { status: 'confirmed' });
       await api('patch', `/admin/orders/${o.body.data.id}/status`, admin, { status: 'processing' });
-      expect((await api('post', `/orders/${o.body.data.id}/cancel`, cust, {})).status).toBe(409);
+      expect(
+        (await api('post', `/orders/${o.body.data.id}/cancel`, cust, { reason: 'Không cần nữa' })).status,
+      ).toBe(409);
       expect(
         (await api('post', `/admin/orders/${o.body.data.id}/cancel`, admin, { reason: 'hết hàng' })).status,
       ).toBe(200);
@@ -827,7 +833,7 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(paid.body.data.status).toBe('processing'); // đơn đã processing thì giữ nguyên (chỉ pending → confirmed)
       expect((await api('patch', `/admin/payments/${o.payment.id}/confirm`, admin)).status).toBe(409);
       // hoàn tiền đơn đã hủy đã thanh toán ⇒ phiếu chi + trạng thái refunded
-      await api('post', `/admin/orders/${o.id}/cancel`, admin, { reason: 'test' });
+      await api('post', `/admin/orders/${o.id}/cancel`, admin, { reason: 'Hủy để hoàn tiền' });
       const rf = await api('post', `/admin/orders/${o.id}/refund`, admin);
       expect(rf.body.data.status).toBe('refunded');
       expect(await prisma.expense.count({ where: { orderId: o.id, category: 'refund' } })).toBe(1);

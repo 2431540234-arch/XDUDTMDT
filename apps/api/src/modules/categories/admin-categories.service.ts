@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, conflictError, asBody, str, toId } from '../../common/utils/validate';
 import { toSlug } from '../../common/utils/slug';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -33,13 +33,15 @@ export class AdminCategoriesService {
   /** Kiểm tra dữ liệu, trả về slug đã chuẩn hóa */
   private async validate(b: Record<string, unknown>, selfId?: number) {
     const errs = new FieldErrors();
-    if (str(b.name).trim().length < 2) errs.add('name', 'Vui lòng nhập tên danh mục.');
+    if (str(b.name).trim().length < 2 || str(b.name).trim().length > 150)
+      errs.add('name', 'Tên danh mục từ 2 đến 150 ký tự.');
     const slug = toSlug(str(b.slug) || str(b.name));
-    if (!slug) errs.add('slug', 'Slug không hợp lệ.');
+    let duplicate = false;
+    if (!slug || slug.length > 180) errs.add('slug', 'Slug không hợp lệ (tối đa 180 ký tự).');
     else if (
       await this.prisma.category.findFirst({ where: { slug, ...(selfId ? { id: { not: selfId } } : {}) } })
     ) {
-      errs.add('slug', 'Slug đã tồn tại.');
+      duplicate = true; // 409 sau khi các lỗi dữ liệu khác đã được kiểm (DAC_TA UC-ADM-05 5a)
     }
     const parentId = toId(b.parentId);
     if (b.parentId) {
@@ -49,6 +51,7 @@ export class AdminCategoriesService {
       else if (selfId && parentId === selfId) errs.add('parentId', 'Danh mục cha không hợp lệ.');
     }
     errs.throwIfAny();
+    if (duplicate) throw conflictError('slug', 'Slug đã tồn tại.');
     return slug;
   }
 

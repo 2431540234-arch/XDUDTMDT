@@ -419,7 +419,9 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
         [{ fullName: 'A' }, 'fullName'],
         [{ fullName: '   ' }, 'fullName'],
         [{ phone: '123' }, 'phone'],
-        [{ phone: '09123456789' }, 'phone'],
+        [{ phone: '091234567890' }, 'phone'], // 12 số (DAC_TA UC-ACC-01: 10–11 chữ số)
+        [{ phone: '1912345678' }, 'phone'],
+        [{ fullName: 'A'.repeat(151) }, 'fullName'],
         [{ phone: 'abcdefghij' }, 'phone'],
       ] as const) {
         const r = await api('patch', '/users/me', u.token, body);

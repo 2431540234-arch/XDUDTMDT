@@ -17,7 +17,7 @@ import { queryKeys } from '@/hooks/useCart';
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/format';
 import { orderStatusInfo, paymentMethodLabel, paymentStatusInfo, shipmentStatusInfo } from '@/lib/status';
 import { navigateTo } from '@/lib/navigation';
-import { errorMessage } from '@/lib/validators';
+import { cancelReasonError, errorMessage } from '@/lib/validators';
 import { ApiClientError } from '@/services/api-client';
 import { cartApi, orderApi } from '@/services/cart.api';
 import { toast } from '@/store/uiStore';
@@ -30,10 +30,11 @@ export default function OrderDetailPage() {
   const q = useQuery({ queryKey: ['order', code], queryFn: () => orderApi.detail(code) });
   const [cancelOpen, setCancelOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [reasonErr, setReasonErr] = useState('');
   const [review, setReview] = useState(false);
 
   const cancel = useMutation({
-    mutationFn: () => orderApi.cancel(q.data!.id, reason.trim() || undefined),
+    mutationFn: () => orderApi.cancel(q.data!.id, reason.trim()),
     onSuccess: () => {
       toast.success('Đã hủy đơn hàng.');
       setCancelOpen(false);
@@ -259,7 +260,15 @@ export default function OrderDetailPage() {
             <Button variant="ghost" onClick={() => setCancelOpen(false)}>
               Không hủy
             </Button>
-            <Button variant="danger" loading={cancel.isPending} onClick={() => cancel.mutate()}>
+            <Button
+              variant="danger"
+              loading={cancel.isPending}
+              onClick={() => {
+                const err = cancelReasonError(reason);
+                setReasonErr(err);
+                if (!err) cancel.mutate();
+              }}
+            >
               Xác nhận hủy
             </Button>
           </>
@@ -269,10 +278,15 @@ export default function OrderDetailPage() {
           Bạn chắc chắn muốn hủy đơn <b>#{o.orderCode}</b>? Tồn kho và mã giảm giá (nếu có) sẽ được hoàn lại.
         </p>
         <Textarea
-          label="Lý do hủy (không bắt buộc)"
+          label="Lý do hủy (5–500 ký tự)"
           rows={3}
+          maxLength={500}
           value={reason}
-          onChange={(e) => setReason(e.target.value)}
+          error={reasonErr}
+          onChange={(e) => {
+            setReason(e.target.value);
+            setReasonErr('');
+          }}
         />
       </Modal>
       <ReviewModal open={review} order={o} onClose={() => setReview(false)} />
