@@ -1,3 +1,5 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # THIẾT KẾ BACKEND – Aurelia Living
 
 > Giai đoạn 5 của `docs/PROMPT_AGENT_BE.md`. Trạng thái: **bản thiết kế, chờ người dùng "Đồng ý" ở Giai đoạn 6** trước khi chạy migration.
@@ -254,7 +256,7 @@ Script `prisma/seed/from-mock.ts` đọc `apps/web/src/mock-data/tables/*` (chú
 - **NotificationsService dùng chung** (module Global): `notify(db|tx, userId, title, type, content, link)`; mọi module (đơn hàng, thanh toán, admin đơn, đổi trả, đánh giá, hỏi đáp) gọi cùng một chỗ, ghi trong cùng transaction với thao tác chính. `data = { type: order|promo|system, content, link }`.
 - **Đánh giá**: quy tắc ở `reviewEligibility()` và `averageRating()` (hàm thuần, có unit test); điểm trung bình thực tế do trigger DB `refresh_product_rating` (chỉ `approved`). Duyệt lần đầu ⇒ thông báo; ẩn (`rejected`) và hiện lại (`approved`) đều tính lại điểm.
 - **Đổi trả**: `canReturnTransition()` (pending→picking→inspecting→refunded|exchanged, rejected từ ba bước đầu), `isWithinReturnWindow()` (7 ngày kể từ `shipments.delivered_at`), `returnableQuantity()`. Nhận hàng về (`refunded|exchanged`) ⇒ `stock_quantity += qty` đúng biến thể + `inventory_movements(type=return)`; `refunded` ⇒ `expenses(category=refund)`, và nếu tổng đã hoàn ≥ (tạm tính − giảm giá) của đơn ⇒ `orders.status/payment_status = refunded`, `payments.status = refunded`. Khóa `FOR UPDATE` dòng yêu cầu để hai admin không xử lý trùng.
-- **Upload mô hình 3D**: `validateModelFile()` (đuôi `.glb/.gltf/.usdz`, định dạng khai báo khớp đuôi, MIME, ≤ 50MB, chữ ký `glTF`/`PK`/JSON `asset`, tên tệp làm sạch chống path traversal); khóa lưu trữ do server sinh `models/<productId>/<uuid>.<ext>`.
+- **Upload mô hình 3D**: `validateModelFile()` (`apps/api/src/modules/product-models/model-file-validator.ts`): **chỉ nhận GLB** (đuôi `.glb`, MIME `model/gltf-binary` hoặc `application/octet-stream`, chữ ký `glTF`, dung lượng ≤ `UPLOAD_MAX_MODEL_MB` = 100 MB, định dạng khai báo phải khớp đuôi, tên tệp làm sạch chống path traversal). **USDZ, GLTF và mọi định dạng khác ⇒ `415`** (AR đã loại bỏ, D-P16); quá dung lượng ⇒ `413`. Khóa lưu trữ do server sinh `models/<productId>/<uuid>.<ext>`.
 - **Nội dung**: HTML rich text (bài viết, trang tĩnh, câu trả lời FAQ) lọc bằng `sanitize-html` (danh sách thẻ/thuộc tính cho phép, chỉ `http(s)/mailto`, ảnh chỉ `http(s)`); banner kéo thả lưu `sort_order`; `POST /contact` chống spam bằng throttler (Redis).
 - **Không gian mẫu**: `calcComboTotal(originalTotal, percent)` = tổng giá hiện tại × (100 − %)/100 làm tròn nghìn; `POST /spaces/:slug/add-to-cart` đi qua `CartService.addItem` nên dùng đúng quy tắc tồn khả dụng (tồn − giữ chỗ).
 - **Migration**: thêm `add_contact_handled` (tổng cộng 7 migration, chỉ thêm).

@@ -1,6 +1,8 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # BE_PROGRESS – Tiến độ xây dựng Backend (Aurelia Living)
 
-> Theo dõi `docs/PROMPT_AGENT_BE.md`. Nhánh: `feature/backend` (tách từ `main` @ `2505d25`). Cập nhật: 2026-11-09.
+> Theo dõi `docs/PROMPT_AGENT_BE.md` (tệp làm việc cá nhân, không thuộc repo). Nhánh: `feature/backend` (tách từ `main` @ `2505d25`). Cập nhật: 2026-11-11 (đợt 2026-11-10/11 ở cuối tệp).
 
 ## Tổng quan
 
@@ -481,3 +483,27 @@ Thực hiện các quyết định của chủ dự án (DECISIONS D-P16, D-T59,
 - **O-03/O-07 (D-N34):** máy trạng thái vận đơn §10.4, thông báo một lần sau khi lưu, hủy đơn `shipping` khi mọi vận đơn `returned`, hoàn tiền khóa dòng (sửa lỗi hoàn trùng khi song song). `shipment-states.db-spec.ts` (11 test) + 2 e2e.
 - **Lỗi khác tìm ra nhờ test và đã sửa:** đăng xuất thu hồi theo refresh token của bất kỳ ai; đổi mật khẩu "đăng xuất thiết bị khác" cũng đăng xuất phiên hiện tại; xem giỏ tạo bản ghi giỏ; danh sách không gian "mới nhất" so sánh chuỗi `Date`. `core-flows.db-spec.ts` (26 test: AUTH-04, ACC-02, CART-02/04, CAT-01, đăng ký đồng thời).
 - **Đợt hoàn tất 2026-11-10 (D-N35, D-N36, D-T61):** chính sách mật khẩu hoa/thường/số + `confirmPassword` (đăng ký, đặt lại, đổi), trang `/admin/payments`, căn chỉnh ràng buộc đầu vào theo DAC_TA (bộ `dac-conformance.db-spec.ts`, `password-policy.db-spec.ts`), test hoàn tiền dùng đồng hồ đóng băng, sửa test `admin360`. Không còn điểm chờ chủ dự án. Xem `DOI_CHIEU_UC.md` mục 4 và `FINAL_READY_TO_MERGE_REPORT.md`.
+
+## Đợt 2026-11-10: hoàn tất, kiểm thử và sửa sau đối chiếu
+
+- **Nhánh `feature/backend`, commit `1d6962e`** (đã push): chính sách mật khẩu hoa/thường/số + `confirmPassword` (D-N35), trang `/admin/payments` (ADM-24), căn chỉnh ràng buộc đầu vào theo DAC_TA (D-N36, bộ `dac-conformance.db-spec.ts` và `password-policy.db-spec.ts`), test hoàn tiền dùng đồng hồ đóng băng, sửa test `admin360`, nguyên nhân gốc các test không ổn định (D-T61). Hai lượt kiểm thử đầy đủ liên tiếp xanh: supertest 392/392, Playwright 69/69, MinIO 9/9, không drift migration. Báo cáo: [FINAL_READY_TO_MERGE_REPORT.md](FINAL_READY_TO_MERGE_REPORT.md).
+- **Kiểm toán toàn dự án** ([AUDIT_REPORT.md](AUDIT_REPORT.md)): 210 endpoint, 66 trang FE, 59 bảng; 68/70 UC chạy đủ end-to-end khi audit; danh sách rủi ro và việc P0/P1/P2.
+
+## Đợt 2026-11-11: sửa P0/P1 theo kiểm toán (nhánh `fix/audit-p0-p1`, 8 commit)
+
+| Commit | Việc |
+|---|---|
+| `8b6c01c` | Swagger mặc định tắt ở production, chỉ bật khi `SWAGGER_ENABLED=true` (D-T62) |
+| `1f69fd4` | Seed production bắt buộc `SEED_ADMIN_PASSWORD` và `SEED_SAMPLE=false` (D-T62) |
+| `66f0052` | `next build` thất bại nếu `NEXT_PUBLIC_USE_MOCK=true` (D-T62) |
+| `18fd577` | `POST /spaces/:slug/add-to-cart` tất cả-hoặc-không, `409` kèm `details.unavailable`, `productIds` tùy chọn (D-N37); **đổi hợp đồng API** |
+| `285c55d` | `/admin/models`: xem trước đúng tệp GLB đã chọn, báo lỗi khi không tải được |
+| `c94cd17` | Ẩn nút Google khi chưa bật `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` (Google login hoãn, D-P17) |
+| `5ef2e33` | UC-ADM-07: tạo/xóa trang tĩnh; thêm `about` vào `CORE_PAGES`; `fieldErrors()` nhận `CONFLICT` (D-N38) |
+| `b8599e9` | UC-ADM-12: điều chỉnh tồn kho trực tiếp (D-N38) |
+
+Kiểm thử đợt này (trên `b8599e9`): typecheck+lint 6/6, web unit 40/40, API unit 143/143, supertest 392/392, MinIO 7/7 (+2), Playwright 10/11 nhóm xanh lần đầu; nhóm `khach-hang` đỏ một test do lỗi hydration `Breadcrumb` (xem [KNOWN_ISSUES.md](KNOWN_ISSUES.md)), chạy lại riêng 3/3 xanh.
+
+## Đợt 2026-11-11: đồng bộ tài liệu với code (nhánh `docs/sync-with-code`)
+
+- Lưu trữ 12 tài liệu lỗi thời vào `docs/archive/`; xuất `docs/api/openapi.json` từ API; đối chiếu `API_CONTRACT.md` 210/210 route; DATABASE_SCHEMA 59 bảng + ERD Mermaid; DAC_TA chuyển 6 UC AR sang mục "Đã loại bỏ"; thêm `ARCHITECTURE.md`, `DEPLOYMENT.md`, `KNOWN_ISSUES.md`, `docs/README.md`. Xem [archive/README.md](archive/README.md) và [DECISIONS.md](DECISIONS.md) D-D09.

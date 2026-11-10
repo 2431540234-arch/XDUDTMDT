@@ -1,3 +1,5 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # Đối chiếu công nghệ
 
 Cập nhật 2026-10-09, sau lượt cấu hình môi trường (D-T37) và đợt đồng bộ tài liệu. Phiên bản ghi ở đây là phiên bản **thực cài** (đọc từ `node_modules` và `apps/mobile/gradle/libs.versions.toml`), không phải phiên bản khai báo. Bản kiểm tra gốc ngày 2026-10-08 (trước khi cài môi trường) còn trong lịch sử git (commit `25fc057`).
@@ -98,7 +100,7 @@ Gói ngoài danh sách ban đầu, đã thêm kèm lý do (xem DECISIONS D-T39, 
 | Công nghệ | Phiên bản | Vai trò | Nên đưa vào bảng nộp? |
 | --- | --- | --- | --- |
 | **NestJS** (core, common, platform-express) | 10.4.22 | Framework backend | **Bắt buộc** (đã có trong mục 6) |
-| `@nestjs/swagger` | 7.4.2 | OpenAPI tại `/docs` | Có (mục 6) |
+| `@nestjs/swagger` | 7.4.2 | OpenAPI tại `/docs` (tắt mặc định ở production) | Có (mục 6) |
 | `@nestjs/config` + Zod (API) | 3.3.0 / 3.25.76 | Kiểm tra biến môi trường khi khởi động | Có thể |
 | `@nestjs/jwt`, `bcryptjs` | 10.2.0 / 3.0.3 | Access token JWT, băm mật khẩu (không dùng Passport) | Có thể |
 | `class-validator`, `class-transformer` | 0.14.4 / 0.5.1 | Kiểm tra dữ liệu vào | Có thể |
@@ -163,7 +165,7 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | BullMQ | Hàng đợi xử lý nền | `model-processing`, `image-processing`, `mail`, `notification` | Đã dùng (4 queue chạy, hiện trên Bull Board) |
 | MinIO | Lưu file (dev) | JPG, WebP, PNG, GLB, panorama | Đã dùng |
 | S3 | Object storage production | Ảnh và mô hình sản phẩm (chỉ đổi biến môi trường) | Đã cấu hình (driver `s3`, chưa triển khai thật) |
-| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 144 endpoint | Đã dùng |
+| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 210 endpoint; spec xuất sẵn ở `docs/api/openapi.json` (xem `docs/api/README.md`). **Mặc định tắt ở `NODE_ENV=production`**, bật ở dev/test; chỉ bật ở production khi đặt `SWAGGER_ENABLED=true` rõ ràng | Đã dùng |
 | Jest + Supertest | Kiểm thử | Unit test (29), e2e với PostgreSQL, Redis, MinIO, Mailpit thật (23) | Đã dùng |
 | sharp | Xử lý ảnh | Tạo webp và thumbnail, thu nhỏ texture | Đã dùng |
 | glTF-Transform (+ Meshopt) | Xử lý mô hình 3D | Kiểm tra GLB, đo đa giác, sinh LOD, nén | Đã dùng |
@@ -205,3 +207,9 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | 7 | Bảng nộp | Đồng ý thêm NestJS, Docker Compose, GitHub Actions, Swagger, Jest + Supertest, sharp, gltf-transform, model-viewer, Nodemailer + Mailpit; CÓ nhóm Mobile | D-T34; mục 6 |
 | 8 | Ảnh overlay | Chủ dự án tự chuẩn bị PNG nền trong suốt cho 5-10 sản phẩm; nơi lưu trong CSDL **đang chờ chọn** | D-T36, O-06 |
 | + | Gỡ gói; thư viện web | Gỡ `passport*`, `cookie-parser`; web: `react-hook-form` + `@hookform/resolvers` + `zod` (M02), `recharts` (M14); không Tiptap (trang tĩnh: textarea Markdown); cài đúng đợt | D-T35 |
+
+## 9. Lưu ý vận hành đã biết (2026-11-11)
+
+- **Lỗi vá lockfile của Next.js trong npm workspaces:** `next build`/`next dev` có thể báo `Failed to patch lockfile … reading 'os'`. Cách tránh: đặt `NEXT_IGNORE_INCORRECT_LOCKFILE=1` (Playwright tự đặt, `apps/web/playwright.config.ts`). Nguyên nhân gốc: **Cần xác minh**.
+- **`NEXT_PUBLIC_USE_MOCK`:** biến `NEXT_PUBLIC_*` được nhúng vào mã lúc build; `next build` production **thất bại** nếu `NEXT_PUBLIC_USE_MOCK=true` (`apps/web/next.config.js`).
+- **Swagger:** không đặt `SWAGGER_ENABLED` ⇒ bật ở development/test, tắt ở production (`apps/api/src/config/env.validation.ts`).
