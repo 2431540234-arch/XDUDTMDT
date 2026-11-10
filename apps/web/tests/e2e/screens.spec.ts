@@ -1,33 +1,7 @@
-import { expect, test, type ConsoleMessage, type Page, type Response } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { visit } from './helpers/visit';
 
-// Duyệt lần lượt các màn hình (chạy với dữ liệu giả): không lỗi console, không request lỗi, không ảnh vỡ.
-
-async function visit(page: Page, path: string, expectText?: string | RegExp) {
-  const errors: string[] = [];
-  const onConsole = (m: ConsoleMessage) => m.type() === 'error' && errors.push(`console: ${m.text()}`);
-  const onPage = (e: Error) => errors.push(`pageerror: ${e.message}`);
-  const onResp = (r: Response) => r.status() >= 400 && errors.push(`HTTP ${r.status()} ${r.url()}`);
-  page.on('console', onConsole);
-  page.on('pageerror', onPage);
-  page.on('response', onResp);
-  // dev server có thể reload khi biên dịch route mới → thử lại một lần nếu điều hướng bị hủy
-  await page.goto(path, { waitUntil: 'domcontentloaded' }).catch(async () => {
-    await page.waitForTimeout(1500);
-    await page.goto(path, { waitUntil: 'domcontentloaded' });
-  });
-  errors.length = 0;
-  if (expectText) await expect(page.getByText(expectText).first()).toBeVisible({ timeout: 30_000 });
-  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
-  const broken = await page.evaluate(() =>
-    Array.from(document.images)
-      .filter((i) => i.complete && i.naturalWidth === 0 && i.src)
-      .map((i) => i.src),
-  );
-  page.off('console', onConsole);
-  page.off('pageerror', onPage);
-  page.off('response', onResp);
-  expect([...errors, ...broken.map((b) => `ảnh vỡ: ${b}`)], path).toEqual([]);
-}
+// Duyệt lần lượt các màn hình: không lỗi console (kể cả hydration), không request lỗi, không ảnh vỡ. Hàm visit ở helpers/visit.ts.
 
 test.describe.configure({ mode: 'serial' });
 

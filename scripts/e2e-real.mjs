@@ -32,7 +32,7 @@ const GROUPS = MINIO
   : [
       {
         name: 'khach-hang',
-        files: ['tests/e2e/home.spec.ts', 'tests/e2e/screens.spec.ts'],
+        files: ['tests/e2e/home.spec.ts', 'tests/e2e/screens.spec.ts', 'tests/e2e/hydration.spec.ts'],
       },
       {
         name: 'xem-360',
