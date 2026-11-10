@@ -272,6 +272,16 @@ export const adminApi = {
       >('/admin/pages'),
     savePage: (id: number, body: { title?: string; content?: string; status?: string }) =>
       http.patch(`/admin/pages/${id}`, body),
+    /** Tạo trang tĩnh/chính sách mới (UC-ADM-07); slug trùng ⇒ 409 kèm lỗi theo trường slug */
+    createPage: (body: {
+      title: string;
+      slug?: string;
+      type: 'static' | 'policy';
+      content: string;
+      status: string;
+    }) => http.post<{ id: number; slug: string }>('/admin/pages', body),
+    /** Xóa trang; trang hệ thống (Về chúng tôi, chính sách) ⇒ 409 */
+    removePage: (id: number) => http.delete(`/admin/pages/${id}`),
   },
   settings: {
     get: () => http.get<StoreSettings>('/admin/settings'),

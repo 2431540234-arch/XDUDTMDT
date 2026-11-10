@@ -87,3 +87,19 @@ describe('api-client: tự làm mới access token', () => {
     expect(calls.filter((c) => c.url.endsWith('/auth/refresh'))).toHaveLength(0);
   });
 });
+
+describe('ApiClientError.fieldErrors', () => {
+  it('VALIDATION_FAILED và CONFLICT (slug trùng) trả lỗi theo ô; CONFLICT bỏ qua khóa không phải mảng chuỗi (unavailable)', async () => {
+    const { ApiClientError } = await import('../../src/services/api-client');
+    expect(new ApiClientError('VALIDATION_FAILED', 'm', 400, { title: ['Thiếu'] }).fieldErrors()).toEqual({
+      title: 'Thiếu',
+    });
+    expect(new ApiClientError('CONFLICT', 'm', 409, { slug: ['Slug đã tồn tại.'] }).fieldErrors()).toEqual({
+      slug: 'Slug đã tồn tại.',
+    });
+    expect(new ApiClientError('CONFLICT', 'm', 409, { unavailable: [{ name: 'A' }] }).fieldErrors()).toEqual(
+      {},
+    );
+    expect(new ApiClientError('BAD_REQUEST', 'm', 400, { x: ['y'] }).fieldErrors()).toEqual({});
+  });
+});

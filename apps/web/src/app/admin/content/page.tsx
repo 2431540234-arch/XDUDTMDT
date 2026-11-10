@@ -16,6 +16,7 @@ import { toInputDate } from '@/lib/date';
 import { formatDate } from '@/lib/format';
 import { errorMessage } from '@/lib/validators';
 import { adminApi } from '@/services/admin.api';
+import { ApiClientError } from '@/services/api-client';
 import { toast } from '@/store/uiStore';
 import type { Banner, Post } from '@/types/api';
 
@@ -460,35 +461,92 @@ function Posts() {
   );
 }
 
+/** Trang hệ thống: BE không cho xóa (CORE_PAGES ở admin-content.service.ts) */
+const CORE_PAGE_SLUGS = [
+  'about',
+  've-chung-toi',
+  'chinh-sach-mua-hang',
+  'chinh-sach-doi-tra',
+  'chinh-sach-bao-hanh',
+  'chinh-sach-bao-mat',
+  'dieu-khoan-su-dung',
+  'chinh-sach-van-chuyen',
+];
+
+interface PageForm {
+  id: number | null; // null = tạo mới
+  title: string;
+  slug: string;
+  type: 'static' | 'policy';
+  content: string;
+  status: string;
+}
+
 function Pages() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['admin', 'pages'], queryFn: adminApi.content.pages });
-  const [edit, setEdit] = useState<{ id: number; title: string; content: string; status: string } | null>(
-    null,
-  );
+  const [edit, setEdit] = useState<PageForm | null>(null);
+  const [errs, setErrs] = useState<Record<string, string>>({});
+  const [del, setDel] = useState<{ id: number; title: string } | null>(null);
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['admin', 'pages'] });
+    qc.invalidateQueries({ queryKey: ['page'] });
+  };
   const save = useMutation({
-    mutationFn: () =>
-      adminApi.content.savePage(edit!.id, {
-        title: edit!.title,
-        content: edit!.content,
-        status: edit!.status,
-      }),
-    onSuccess: () => {
-      toast.success('Đã lưu trang.');
+    mutationFn: (f: PageForm) =>
+      f.id
+        ? adminApi.content.savePage(f.id, { title: f.title, content: f.content, status: f.status })
+        : adminApi.content.createPage({
+            title: f.title,
+            slug: f.slug.trim() || undefined,
+            type: f.type,
+            content: f.content,
+            status: f.status,
+          }),
+    onSuccess: (_r, f) => {
+      toast.success(f.id ? 'Đã lưu trang.' : 'Đã tạo trang.');
       setEdit(null);
-      qc.invalidateQueries({ queryKey: ['admin', 'pages'] });
-      qc.invalidateQueries({ queryKey: ['page'] });
+      setErrs({});
+      refresh();
     },
-    onError: (e) => toast.error(errorMessage(e)),
+    onError: (e) => {
+      // lỗi theo trường (400 VALIDATION_FAILED / 409 slug trùng) hiện ngay dưới ô nhập
+      const fe = e instanceof ApiClientError ? e.fieldErrors() : {};
+      if (Object.keys(fe).length) setErrs(fe);
+      else toast.error(errorMessage(e));
+    },
   });
+  const remove = useMutation({
+    mutationFn: (id: number) => adminApi.content.removePage(id),
+    onSuccess: () => {
+      toast.success('Đã xóa trang.');
+      setDel(null);
+      refresh();
+    },
+    onError: (e) => {
+      toast.error(errorMessage(e));
+      setDel(null);
+    },
+  });
+  const openNew = () => {
+    setErrs({});
+    setEdit({ id: null, title: '', slug: '', type: 'static', content: '', status: 'draft' });
+  };
   if (q.isLoading) return <Skeleton className="h-60 w-full" />;
   if (q.isError) return <ErrorState onRetry={() => q.refetch()} />;
+  const where = (p: { slug: string; type?: string }) =>
+    p.slug === 've-chung-toi' || p.slug === 'about' ? '/about' : `/policies/${p.slug}`;
   return (
     <section className="card p-5">
-      <h2 className="mb-1 font-bold">Trang tĩnh</h2>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold">Trang tĩnh</h2>
+        <Button size="sm" onClick={openNew}>
+          <Icon name="plus" size={14} /> Tạo trang
+        </Button>
+      </div>
       <p className="mb-4 text-sm text-muted">
-        Về chúng tôi, các chính sách và điều khoản (hiển thị tại /about và /policies/…). FAQ & liên hệ được cố
-        định theo mẫu.
+        Về chúng tôi, các chính sách và điều khoản (hiển thị tại /about và /policies/…). Trang mới hiển thị
+        tại /policies/&lt;slug&gt; khi đã xuất bản. FAQ & liên hệ được cố định theo mẫu.
       </p>
       <ul className="divide-y divide-line">
         {q.data?.map((p) => (
@@ -496,7 +554,7 @@ function Pages() {
             <div>
               <p className="font-semibold">{p.title}</p>
               <p className="text-xs text-muted">
-                /{p.slug === 'about' ? 'about' : `policies/${p.slug}`} · cập nhật {formatDate(p.updatedAt)}
+                {where(p)} · cập nhật {formatDate(p.updatedAt)}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -507,12 +565,30 @@ function Pages() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() =>
-                  setEdit({ id: p.id, title: p.title, content: p.content ?? '', status: p.status })
-                }
+                onClick={() => {
+                  setErrs({});
+                  setEdit({
+                    id: p.id,
+                    title: p.title,
+                    slug: p.slug,
+                    type: 'static',
+                    content: p.content ?? '',
+                    status: p.status,
+                  });
+                }}
               >
                 Sửa nội dung
               </Button>
+              {!CORE_PAGE_SLUGS.includes(p.slug) && (
+                <button
+                  type="button"
+                  aria-label={`Xóa trang ${p.title}`}
+                  className="p-1.5 text-muted hover:text-danger"
+                  onClick={() => setDel({ id: p.id, title: p.title })}
+                >
+                  <Icon name="trash" size={15} />
+                </button>
+              )}
             </div>
           </li>
         ))}
@@ -520,15 +596,15 @@ function Pages() {
       <Modal
         open={Boolean(edit)}
         onClose={() => setEdit(null)}
-        title="Sửa trang tĩnh"
+        title={edit?.id ? 'Sửa trang tĩnh' : 'Tạo trang tĩnh'}
         width={720}
         footer={
           <>
             <Button variant="ghost" onClick={() => setEdit(null)}>
               Hủy
             </Button>
-            <Button loading={save.isPending} onClick={() => save.mutate()}>
-              Lưu trang
+            <Button loading={save.isPending} onClick={() => edit && save.mutate(edit)}>
+              {edit?.id ? 'Lưu trang' : 'Tạo trang'}
             </Button>
           </>
         }
@@ -538,17 +614,40 @@ function Pages() {
             <Input
               label="Tiêu đề"
               value={edit.title}
+              error={errs.title}
               onChange={(e) => setEdit({ ...edit, title: e.target.value })}
             />
+            {!edit.id && (
+              <>
+                <Input
+                  label="Slug (đường dẫn)"
+                  hint="Để trống để tự sinh từ tiêu đề"
+                  value={edit.slug}
+                  error={errs.slug}
+                  onChange={(e) => setEdit({ ...edit, slug: e.target.value })}
+                />
+                <Select
+                  label="Loại trang"
+                  value={edit.type}
+                  onChange={(e) => setEdit({ ...edit, type: e.target.value as PageForm['type'] })}
+                  options={[
+                    { value: 'static', label: 'Trang tĩnh' },
+                    { value: 'policy', label: 'Chính sách' },
+                  ]}
+                />
+              </>
+            )}
             <Textarea
               label="Nội dung (Markdown đơn giản: “## tiêu đề”, “- gạch đầu dòng”)"
               rows={12}
               value={edit.content}
+              error={errs.content}
               onChange={(e) => setEdit({ ...edit, content: e.target.value })}
             />
             <Select
               label="Trạng thái"
               value={edit.status}
+              error={errs.status}
               onChange={(e) => setEdit({ ...edit, status: e.target.value })}
               options={[
                 { value: 'published', label: 'Đã xuất bản' },
@@ -557,6 +656,27 @@ function Pages() {
             />
           </div>
         )}
+      </Modal>
+      <Modal
+        open={Boolean(del)}
+        onClose={() => setDel(null)}
+        title="Xóa trang"
+        width={440}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDel(null)}>
+              Hủy
+            </Button>
+            <Button variant="danger" loading={remove.isPending} onClick={() => del && remove.mutate(del.id)}>
+              Xóa trang
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm">
+          Bạn có chắc muốn xóa trang <b>{del?.title}</b>? Trang sẽ biến mất khỏi website và không thể khôi
+          phục.
+        </p>
       </Modal>
     </section>
   );

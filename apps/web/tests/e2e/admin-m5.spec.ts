@@ -730,3 +730,55 @@ test('UC-ADM-24 trang /admin/payments: dữ liệu thật, lọc, tìm kiếm, x
   await expect(page.getByRole('row', { name: new RegExp(cod.code) })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole('row', { name: new RegExp(c.code) })).toHaveCount(0);
 });
+
+test('UC-ADM-07 trang tĩnh: tạo (slug trùng báo lỗi), xuất bản hiển thị ở /policies, xóa có hộp thoại xác nhận; trang hệ thống không có nút xóa', async ({
+  page,
+}) => {
+  const stamp = Date.now();
+  const title = `Trang kiểm thử ${stamp}`;
+  const slug = `trang-kiem-thu-${stamp}`;
+  await adminLogin(page);
+  await page.goto('/admin/content');
+  await page.getByRole('tab', { name: 'Trang tĩnh' }).click();
+  await expect(page.getByRole('heading', { name: 'Trang tĩnh' })).toBeVisible({ timeout: 30_000 });
+  // trang hệ thống (Về chúng tôi, chính sách…) không có nút xóa
+  await expect(page.getByRole('button', { name: /^Xóa trang/ })).toHaveCount(0);
+
+  // tạo trang mới: thiếu tiêu đề ⇒ lỗi theo ô
+  await page.getByRole('button', { name: 'Tạo trang' }).first().click();
+  const dlg = page.getByRole('dialog');
+  await dlg.getByRole('button', { name: 'Tạo trang' }).click();
+  await expect(dlg.getByText('Vui lòng nhập tiêu đề trang.')).toBeVisible({ timeout: 30_000 });
+  await dlg.getByLabel('Tiêu đề', { exact: true }).fill(title);
+  await dlg.getByLabel('Slug (đường dẫn)').fill(slug);
+  await dlg.getByLabel(/Nội dung/).fill('## Xin chào\n\nNội dung trang kiểm thử.');
+  await dlg.getByLabel('Trạng thái').selectOption('published');
+  await dlg.getByRole('button', { name: 'Tạo trang' }).click();
+  await expect(page.getByText('Đã tạo trang.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(title)).toBeVisible();
+
+  // slug trùng ⇒ 409 hiện dưới ô Slug, hộp thoại vẫn mở
+  await page.getByRole('button', { name: 'Tạo trang' }).first().click();
+  await dlg.getByLabel('Tiêu đề', { exact: true }).fill(`${title} bản sao`);
+  await dlg.getByLabel('Slug (đường dẫn)').fill(slug);
+  await dlg.getByRole('button', { name: 'Tạo trang' }).click();
+  await expect(dlg.getByText('Slug đã tồn tại.')).toBeVisible({ timeout: 30_000 });
+  await dlg.getByRole('button', { name: 'Hủy' }).click();
+
+  // trang đã xuất bản hiển thị cho khách
+  const pub = await page.context().newPage();
+  await pub.goto(`/policies/${slug}`);
+  await expect(pub.getByText('Nội dung trang kiểm thử.')).toBeVisible({ timeout: 30_000 });
+
+  // xóa: Hủy ⇒ giữ; xác nhận ⇒ xóa
+  await page.getByRole('button', { name: `Xóa trang ${title}` }).click();
+  await expect(dlg.getByText(/Bạn có chắc muốn xóa trang/)).toBeVisible();
+  await dlg.getByRole('button', { name: 'Hủy' }).click();
+  await expect(page.getByText(title)).toBeVisible();
+  await page.getByRole('button', { name: `Xóa trang ${title}` }).click();
+  await dlg.getByRole('button', { name: 'Xóa trang' }).click();
+  await expect(page.getByText('Đã xóa trang.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(title)).toHaveCount(0);
+  await pub.reload();
+  await expect(pub.getByText('Nội dung trang kiểm thử.')).toHaveCount(0);
+});

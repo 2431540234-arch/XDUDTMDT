@@ -17,6 +17,7 @@ const POSITIONS = ['hero-1', 'hero-2', 'hero-3', 'home-left', 'home-right', 'hom
 /** Giá trị DB 'hero-1' ↔ tên enum Prisma hero_1 */
 const toPrismaPosition = (p: string) => p.replace(/-/g, '_') as never;
 const CORE_PAGES = [
+  'about', // slug thật của trang Về chúng tôi (/about); 've-chung-toi' giữ cho dữ liệu cũ
   've-chung-toi',
   'chinh-sach-mua-hang',
   'chinh-sach-doi-tra',

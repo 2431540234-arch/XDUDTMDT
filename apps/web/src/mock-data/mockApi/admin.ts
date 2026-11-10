@@ -2116,6 +2116,51 @@ export function deletePost(ctx: Ctx): Result {
 
 export const adminPages = (ctx: Ctx): Result => ok(ctx.db.pages);
 
+const CORE_PAGE_SLUGS = [
+  'about',
+  've-chung-toi',
+  'chinh-sach-mua-hang',
+  'chinh-sach-doi-tra',
+  'chinh-sach-bao-hanh',
+  'chinh-sach-bao-mat',
+  'dieu-khoan-su-dung',
+  'chinh-sach-van-chuyen',
+];
+
+/** Mock của POST /admin/pages (giống BE: tiêu đề ≥ 2 ký tự, slug tự sinh, trùng ⇒ 409 kèm lỗi trường slug) */
+export function createPage(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  const title = String(b.title ?? '').trim();
+  if (title.length < 2) throw validation({ title: 'Vui lòng nhập tiêu đề trang.' });
+  const slug = slugify(String(b.slug || title));
+  if (!slug) throw validation({ slug: 'Slug không hợp lệ.' });
+  if (ctx.db.pages.some((x) => x.slug === slug))
+    throw new ApiFail('CONFLICT', 'Dữ liệu bị trùng.', { slug: ['Slug đã tồn tại.'] });
+  const status = b.status ? String(b.status) : 'draft';
+  const row = {
+    id: nextId(ctx.db.pages),
+    title,
+    slug,
+    type: b.type === 'policy' ? 'policy' : 'static',
+    content: String(b.content ?? ''),
+    status,
+    publishedAt: status === 'published' ? nowIso() : null,
+    updatedAt: nowIso(),
+  } as unknown as Db['pages'][number];
+  ctx.db.pages.push(row);
+  return created(row);
+}
+
+/** Mock của DELETE /admin/pages/:id: trang hệ thống ⇒ 409 */
+export function deletePage(ctx: Ctx): Result {
+  const i = ctx.db.pages.findIndex((x) => x.id === Number(ctx.params.id));
+  if (i < 0) throw notFound('Trang');
+  if (CORE_PAGE_SLUGS.includes(ctx.db.pages[i].slug))
+    throw new ApiFail('RESOURCE_IN_USE', 'Không thể xóa trang hệ thống (Về chúng tôi, chính sách).');
+  ctx.db.pages.splice(i, 1);
+  return done();
+}
+
 export function savePage(ctx: Ctx): Result {
   const p = ctx.db.pages.find((x) => x.id === Number(ctx.params.id));
   if (!p) throw notFound('Trang');

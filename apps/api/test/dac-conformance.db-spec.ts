@@ -1173,6 +1173,36 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
         .status,
       403,
     );
+    // ADM-07: trang hệ thống (Về chúng tôi = slug about, các chính sách) KHÔNG xóa được; trang tự tạo xóa được
+    for (const sysSlug of ['about', 'chinh-sach-doi-tra']) {
+      const sys = await prisma.page.findUnique({ where: { slug: sysSlug } });
+      if (!sys) {
+        issues.push(`UC-ADM-07: thiếu trang hệ thống ${sysSlug} trong dữ liệu seed`);
+        continue;
+      }
+      expectStatus(
+        'UC-ADM-07',
+        `xóa trang hệ thống ${sysSlug}`,
+        (await api('delete', `/admin/pages/${sys.id}`, admin)).status,
+        409,
+      );
+      if (!(await prisma.page.findUnique({ where: { slug: sysSlug } })))
+        issues.push(`UC-ADM-07: trang hệ thống ${sysSlug} bị xóa`);
+    }
+    const mine = await prisma.page.findUnique({ where: { slug: pslug } });
+    if (mine)
+      expectStatus(
+        'UC-ADM-07',
+        'xóa trang tự tạo',
+        (await api('delete', `/admin/pages/${mine.id}`, admin)).status,
+        200,
+      );
+    expectStatus(
+      'UC-ADM-07',
+      'xóa trang không tồn tại',
+      (await api('delete', '/admin/pages/999999999', admin)).status,
+      404,
+    );
     // ADM-15 không gian
     expectStatus(
       'UC-ADM-15',

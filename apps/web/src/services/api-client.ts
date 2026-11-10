@@ -24,11 +24,21 @@ export class ApiClientError extends Error {
     this.name = 'ApiClientError';
   }
 
-  /** Lỗi theo từng trường (VALIDATION_FAILED) → { field: "thông báo đầu tiên" } */
+  /**
+   * Lỗi theo từng trường → { field: "thông báo đầu tiên" }: VALIDATION_FAILED (400) và CONFLICT (409, slug/mã trùng, D-N36).
+   * Với CONFLICT chỉ lấy các khóa có dạng mảng chuỗi (khóa khác như details.unavailable là dữ liệu, không phải lỗi ô nhập).
+   */
   fieldErrors(): Record<string, string> {
     const out: Record<string, string> = {};
-    if (this.code === 'VALIDATION_FAILED' && this.details) {
-      for (const [k, v] of Object.entries(this.details)) out[k] = Array.isArray(v) ? String(v[0]) : String(v);
+    if ((this.code === 'VALIDATION_FAILED' || this.code === 'CONFLICT') && this.details) {
+      for (const [k, v] of Object.entries(this.details)) {
+        if (
+          this.code === 'CONFLICT' &&
+          !(Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string'))
+        )
+          continue;
+        out[k] = Array.isArray(v) ? String(v[0]) : String(v);
+      }
     }
     return out;
   }
