@@ -29,7 +29,7 @@ export class AdminSettingsController {
   @Put(':key')
   @ApiOperation({
     summary:
-      'Sửa một khóa: { value }. Khóa cho phép: site_name, contact_email, contact_phone, currency, default_shipping_fee, free_shipping_threshold, ar_enabled, maintenance_mode, store, payments, shippingZones',
+      'Sửa một khóa: { value }. Khóa cho phép: site_name, contact_email, contact_phone, currency, default_shipping_fee, free_shipping_threshold, maintenance_mode, store, payments, shippingZones',
   })
   saveKey(@CurrentUser('id') adminId: number, @Param('key') key: string, @Body() body: unknown) {
     return this.settings.saveKey(adminId, key, body);
