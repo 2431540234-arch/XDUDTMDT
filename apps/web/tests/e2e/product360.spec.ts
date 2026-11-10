@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Kiểm tra tính năng "Xem 360°" (docs/PROMPT_360_SAN_PHAM.md, phần 5) với dữ liệu giả.
+// Kiểm tra tính năng "Xem 360°" (docs/archive/PROMPT_360_SAN_PHAM.md, phần 5; hiện trạng: docs/CHUAN_MO_RONG.md mục 15) với dữ liệu giả.
 
 const angle = async (page: Page) => Number(await page.getByRole('slider', { name: 'Góc xoay' }).inputValue());
 const stage = (page: Page) => page.getByRole('application', { name: 'Xem sản phẩm 360 độ' });
