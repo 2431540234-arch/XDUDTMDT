@@ -101,5 +101,9 @@ apps/api/uploads/
 # Prompt làm việc cá nhân, không commit
 docs/PROMPT_AGENT_BE.md
 
+# Không đưa bản sao lưu/dump CSDL vào docs/ (chứa dữ liệu thật hoặc hash mật khẩu); để ở ../aurelia-backups/
+docs/**/*.sql
+docs/**/*.dump
+
 # Bằng chứng khi test e2e thật fail (trace, screenshot, log response >= 400)
 .e2e-logs/

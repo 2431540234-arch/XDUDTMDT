@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: số liệu "Xong BE: 0 / 80 UC" (2026-10-09) không còn đúng; hiện trạng ở DOI_CHIEU_UC.md.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # Tiến độ triển khai
 
 Cập nhật: 2026-10-09 (sau cấu hình môi trường và đồng bộ tài liệu). Nguồn số liệu: `docs/MODULE_ENV_REPORT.md` (14 module backend/web) cộng M15 Mobile theo quyết định D-P06: 15 module, 80 UC, 144 API, 44 bảng, `docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
@@ -129,7 +131,7 @@ Quy ước trạng thái: **Chưa làm** · **Đang làm** · **Xong BE** · **X
 
 ## 5. Môi trường phát triển (cấu hình xong ngày 2026-10-09)
 
-Toàn bộ môi trường đã cấu hình theo DECISIONS D-T37 (báo cáo: [ENV_SETUP_REPORT.md](ENV_SETUP_REPORT.md), biến: [ENVIRONMENT.md](ENVIRONMENT.md)).
+Toàn bộ môi trường đã cấu hình theo DECISIONS D-T37 (báo cáo: [ENV_SETUP_REPORT.md](ENV_SETUP_REPORT.md), biến: [ENVIRONMENT.md](../ENVIRONMENT.md)).
 
 | Hạng mục | Trạng thái |
 | --- | --- |

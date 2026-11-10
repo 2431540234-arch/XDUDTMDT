@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: lệnh giao việc cho agent làm tính năng xem 360° sản phẩm (đã hoàn thành); mô tả hiện trạng ở CHUAN_MO_RONG.md.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # PROMPT CHO AGENT — Tính năng "Xem 360°" cho từng sản phẩm
 
 > Cách dùng: đặt file này vào `docs/`, rồi gõ cho agent:

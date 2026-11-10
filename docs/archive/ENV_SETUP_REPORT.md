@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: báo cáo cấu hình môi trường ngày 2026-10-09 (ảnh chụp thời điểm); hiện trạng ở ENVIRONMENT.md.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # Báo cáo cấu hình môi trường phát triển
 
 > **Cập nhật 2026-10-09, commit `b30fc75`. Báo cáo này ghi kết quả lượt cấu hình môi trường; nội dung cũ được giữ nguyên.** Các điểm đã thay đổi sau đó: `docs/CONG_NGHE.md` đã được viết lại mục 1-5 (mục tham chiếu "3, 4, 6, 7, 8" nay là: 2 bảng đối chiếu, 3 mâu thuẫn đã giải quyết, 4 thư viện, 5 công nghệ ngoài danh sách, 6 bảng nộp, 7 kế hoạch, 8 quyết định); phiên bản TypeScript thực cài là **5.7.2** (các tài liệu cũ ghi 5.9.3). Mọi con số kiểm thử trong báo cáo này (29 unit, 23 e2e API, 3 unit web, 2 e2e web) còn đúng tại commit trên. Việc còn tồn đọng và mâu thuẫn tài liệu: xem [DOC_SYNC_REPORT.md](DOC_SYNC_REPORT.md). Trạng thái từng module: [TIEN_DO.md](TIEN_DO.md).

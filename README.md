@@ -7,7 +7,7 @@ Website thương mại điện tử nội thất, tích hợp xem 3D, AR và kh�
 - `apps/mobile`: Android (Kotlin, Jetpack Compose, CameraX); phạm vi tối thiểu (xem danh mục, camera overlay, chụp ảnh ghép), làm sau M07.
 - `packages/shared-types`: kiểu dùng chung, sinh từ `schema.prisma`.
 
-**Trạng thái:** môi trường phát triển đã cấu hình xong (2026-10-09); nền tảng backend có test; các module nghiệp vụ (144 endpoint theo thiết kế, mới cài 6 route) và giao diện chưa làm, bắt đầu từ M02. Chi tiết: [docs/TIEN_DO.md](docs/TIEN_DO.md).
+**Trạng thái:** môi trường phát triển đã cấu hình xong (2026-10-09); nền tảng backend có test; các module nghiệp vụ (144 endpoint theo thiết kế, mới cài 6 route) và giao diện chưa làm, bắt đầu từ M02. Chi tiết: [docs/TIEN_DO.md](docs/archive/TIEN_DO.md).
 
 ## Chạy từ đầu trên máy mới
 
@@ -168,12 +168,12 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md): bảng biến môi trường (bắt buộc/tùy chọn, mặc định, module dùng)
 - [docs/CONG_NGHE.md](docs/CONG_NGHE.md): đối chiếu công nghệ và bảng công nghệ nộp giảng viên
-- [docs/ENV_SETUP_REPORT.md](docs/ENV_SETUP_REPORT.md): báo cáo cấu hình môi trường phát triển
+- [docs/ENV_SETUP_REPORT.md](docs/archive/ENV_SETUP_REPORT.md): báo cáo cấu hình môi trường phát triển
 - [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
-- [docs/TIEN_DO.md](docs/TIEN_DO.md): tiến độ theo module và theo từng use case
+- [docs/TIEN_DO.md](docs/archive/TIEN_DO.md): tiến độ theo module và theo từng use case
 - [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật (Redis + MinIO + BullMQ, VNPay sandbox, ...)
-- [docs/MODULE_ENV_REPORT.md](docs/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường (báo cáo chụp thời điểm 2026-10-08, đã lỗi thời một phần)
-- [docs/DOC_SYNC_REPORT.md](docs/DOC_SYNC_REPORT.md): đợt đồng bộ tài liệu (mâu thuẫn còn lại, việc tồn đọng)
+- [docs/MODULE_ENV_REPORT.md](docs/archive/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường (báo cáo chụp thời điểm 2026-10-08, đã lỗi thời một phần)
+- [docs/DOC_SYNC_REPORT.md](docs/archive/DOC_SYNC_REPORT.md): đợt đồng bộ tài liệu (mâu thuẫn còn lại, việc tồn đọng)
 - [docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md): kiểu dùng chung FE/BE sinh từ Prisma
 
 ## Tài liệu CSDL

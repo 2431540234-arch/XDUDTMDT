@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: báo cáo đồng bộ tài liệu ngày 2026-10-09 (ảnh chụp thời điểm, trước khi có backend).** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # Báo cáo đồng bộ tài liệu
 
 Ngày: 2026-10-09. Nền: commit `b30fc75` (cấu hình môi trường). Phạm vi: chỉ sửa file `.md`; không sửa code, cấu hình, schema, migration. Quy tắc áp dụng ghi ở `DECISIONS.md` D-T46.

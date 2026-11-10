@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: ghi chú tiếp nhận dự án ngày 2026-11-06 dựa trên 44 bảng và Mốc 3; hiện trạng ở ARCHITECTURE.md, DATABASE_SCHEMA.md, DECISIONS.md.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # ONBOARDING_NOTES – Ghi chú tiếp nhận dự án Aurelia Living
 
 > Do agent tiếp nhận viết ngày 2026-11-06, sau Mốc 3 (commit `c6fcdf7`, `081fbcd` trên `feature/backend`). **Chưa commit.**
@@ -13,10 +15,10 @@ Aurelia Living: website thương mại điện tử nội thất, có xem 3D/AR,
 | Monorepo | npm workspaces + Turborepo | `apps/web`, `apps/api`, `apps/mobile` (Android, **chưa có code nghiệp vụ**), `packages/shared-types` |
 | Web | Next.js 14.2 **App Router**, React 18, Tailwind, TanStack Query 5, Zustand 4, react-hook-form + zod, React Three Fiber/drei, `@google/model-viewer`, recharts | Vitest + Playwright |
 | API | NestJS 10, Prisma 5, PostgreSQL 16, Redis (throttler lưu Redis, BullMQ cho mail), MinIO/S3 hoặc `local` storage, Mailpit (dev) | JWT access + refresh; Swagger `/api/docs` |
-| Kiểu dùng chung | `packages/shared-types`: enum + entity **sinh từ `schema.prisma`** (`npm run types:generate`), `ApiResult`, `ErrorCode` | xem [SHARED_TYPES_SYNC.md](SHARED_TYPES_SYNC.md) |
+| Kiểu dùng chung | `packages/shared-types`: enum + entity **sinh từ `schema.prisma`** (`npm run types:generate`), `ApiResult`, `ErrorCode` | xem [SHARED_TYPES_SYNC.md](../SHARED_TYPES_SYNC.md) |
 | Test | Jest (unit + supertest), Playwright (e2e), Vitest (web unit) | |
 
-Đọc thêm: [CONG_NGHE.md](CONG_NGHE.md) (đối chiếu công nghệ), [BACKEND_DESIGN.md](BACKEND_DESIGN.md) (thiết kế BE + mục 9–11 là các quyết định/cập nhật sau mỗi mốc), [DECISIONS.md](DECISIONS.md) (D-N*, D-T*, D-D*), [BE_PROGRESS.md](BE_PROGRESS.md) (tiến độ Mốc 1–3), [FE_PROGRESS.md](FE_PROGRESS.md) (54 màn hình + 360°), [API_CONTRACT.md](API_CONTRACT.md) (hợp đồng FE–BE, sinh từ mock API).
+Đọc thêm: [CONG_NGHE.md](../CONG_NGHE.md) (đối chiếu công nghệ), [BACKEND_DESIGN.md](../BACKEND_DESIGN.md) (thiết kế BE + mục 9–11 là các quyết định/cập nhật sau mỗi mốc), [DECISIONS.md](../DECISIONS.md) (D-N*, D-T*, D-D*), [BE_PROGRESS.md](../BE_PROGRESS.md) (tiến độ Mốc 1–3), [FE_PROGRESS.md](FE_PROGRESS.md) (54 màn hình + 360°), [API_CONTRACT.md](../API_CONTRACT.md) (hợp đồng FE–BE, sinh từ mock API).
 
 **Cách dự án vận hành:** FE được dựng trước trên một **mock API chạy trong trình duyệt** (`apps/web/src/mock-data/mockApi`); mock API *chính là* hợp đồng. BE được viết sau để `NEXT_PUBLIC_USE_MOCK=false` chạy được không đổi giao diện. Seed của BE đọc thẳng `mock-data` của FE (giữ nguyên id).
 
@@ -212,7 +214,7 @@ erDiagram
 
 ### 4.1 Cấu hình chung (đọc từ code)
 - `apps/api/src/main.ts` + `app.setup.ts`: prefix `/api` (ngoại trừ `/health`, Bull Board `/admin/queues`), `requestId` (header `x-request-id`), `helmet`, body JSON/urlencoded **25 MB** (FE gửi ảnh data-URL), CORS theo `CORS_ORIGINS`, `ValidationPipe`, Swagger `/api/docs` (nếu `SWAGGER_ENABLED`), static `/uploads` khi `STORAGE_DRIVER=local`.
-- `app.module.ts`: guard toàn cục theo thứ tự `ThrottlerGuard` (Redis; nhóm `auth` chỉ cho route `@AuthThrottle()`) → `JwtAuthGuard` → `RolesGuard`; `TransformResponseInterceptor` (envelope `{success,data,meta}`); `AllExceptionsFilter` (`{success:false,error:{code,message,details}}`, thông báo tiếng Việt, mã trong `packages/shared-types/src/error-codes.ts`). Đúng theo [API_CONVENTIONS.md](API_CONVENTIONS.md).
+- `app.module.ts`: guard toàn cục theo thứ tự `ThrottlerGuard` (Redis; nhóm `auth` chỉ cho route `@AuthThrottle()`) → `JwtAuthGuard` → `RolesGuard`; `TransformResponseInterceptor` (envelope `{success,data,meta}`); `AllExceptionsFilter` (`{success:false,error:{code,message,details}}`, thông báo tiếng Việt, mã trong `packages/shared-types/src/error-codes.ts`). Đúng theo [API_CONVENTIONS.md](../API_CONVENTIONS.md).
 - **Xác thực:** JWT access (12h dev) + refresh opaque lưu hash trong `user_sessions` (xoay vòng). `JwtAuthGuard` nhận token **tùy chọn** ở route `@Public()` và kiểm tra `users.status` mỗi request (khoá tài khoản có hiệu lực ngay). `@Roles('admin')` + `RolesGuard` → 401 nếu chưa đăng nhập, 403 nếu không phải admin. Đơn của người khác ⇒ 404 (không lộ tồn tại).
 - **Activity log:** ⚠ **không có interceptor toàn cục**. Mỗi service admin tự gọi `ActivityLogService.log(…, tx)` (hoặc `tx.activityLog.create`) trong cùng transaction — 15 file service có gọi (`grep ActivityLog`). Nghĩa là "mọi route /admin/* ghi log" chỉ đúng nếu từng service nhớ gọi; không có cơ chế chặn quên. Route đọc (GET) không ghi log (hợp lý).
 - **Rate limit:** Throttler Redis mặc định 120 req/60s (`THROTTLE_DEFAULT_*`), nhóm auth 10/60s; riêng `POST /contact` 5 lần/phút/IP, hỏi đáp ≤5 câu/giờ/người dùng (trùng nội dung 24h ⇒ 409).
@@ -222,7 +224,7 @@ erDiagram
 - **Module khung rỗng** (có file nhưng không có route): `admin-notifications`, `admin-roles`, `ai`, `ar-overlay`, `ar-sessions`, `ar-snapshots`, `attributes`, `hotspots`, `inventory`, `jobs`(nền), `panoramas`, `product-images`, `settings`, `shipments`, `variants`, `activity-logs`. (`modules/index.ts` vẫn đăng ký chúng.)
 
 ### 4.2 Bảng endpoint BE (152 route, quét từ `*.controller.ts`)
-Quyền: *công khai* = `@Public()`; *khách* = cần đăng nhập; *admin* = `@Roles('admin')`. Cột cuối: có nằm trong bảng của [API_CONTRACT.md](API_CONTRACT.md) không (*chỉ trong ghi chú* = có mô tả ở mục ghi chú Mốc 2/3 nhưng không có dòng trong bảng). Bảng được sinh tự động từ code nên cột "bảng DB" ở mức module, không chi tiết từng route.
+Quyền: *công khai* = `@Public()`; *khách* = cần đăng nhập; *admin* = `@Roles('admin')`. Cột cuối: có nằm trong bảng của [API_CONTRACT.md](../API_CONTRACT.md) không (*chỉ trong ghi chú* = có mô tả ở mục ghi chú Mốc 2/3 nhưng không có dòng trong bảng). Bảng được sinh tự động từ code nên cột "bảng DB" ở mức module, không chi tiết từng route.
 
 | Module | Endpoint | Quyền | Service chính | Bảng DB | Trong API_CONTRACT.md |
 |---|---|---|---|---|---|
@@ -408,7 +410,7 @@ Khách `POST /returns` → `ReturnsService.create` (`returns.service.ts:115`): c
 Công khai `GET /products/:slug/360` → `Product360Service.view` (`product-360.service.ts:47`): 404 nếu không có cấu hình hoặc `enabled=false`; gom frame theo **màu** (`attribute_value_id`, thứ tự `frame_index`), trả `{productId, slug, enabled, frameCount, defaultColor, autoRotate, rotationSpeed, colors[{colorId,name,hex,frames[],thumbnail}], variants[…dimensionsCm, weightKg], product, policies[4]}` — khớp cấu trúc `Product360Data` mô tả trong `FE_PROGRESS.md`. Admin `GET|PUT /admin/products/:id/360` (`AdminProductsService.get360/save360`, `admin-products.service.ts:435,470`): bật cần ≥1 màu có ≥2 ảnh, frame ≤2MB, giữ thứ tự. **Lệch với PROMPT_360:** tên bảng thực tế `product_360_configs`/`product_360_frames` (tài liệu đề xuất `product_360`); frame **chỉ theo màu**, không theo kích thước (`size_value_id` trong đề xuất không có; ảnh 360° không đổi khi đổi size, kích thước/giá lấy từ biến thể); `products.has_360` không có cột (tính từ bảng cấu hình, `ProductListItem.has360`).
 
 ### 4.4 Chức năng theo vai trò – cái nào đã có BE
-So [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) (80 UC, mục 3) với route thực tế:
+So [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](../DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) (80 UC, mục 3) với route thực tế:
 
 | Trạng thái | UC |
 |---|---|
@@ -489,7 +491,7 @@ Trang FE tổng cộng 54 (bảng ở [FE_PROGRESS.md](FE_PROGRESS.md)); ba tran
   5. Tên field/kiểu: không phát hiện lệch khi chạy 20 test Playwright với API thật, nhưng tôi **không** so từng field của `types/api.ts` với response (chưa rõ). `StoreSettings`, `FinanceReport`, `InventoryRow`, `StockReceipt`, `Supplier`, `Expense` đã có kiểu ở `types/api.ts` — là hợp đồng cho Mốc 4.
 
 ## 6. Các luồng nghiệp vụ chính
-Xem mục 4.3 (A–F). Quy tắc nền đã chốt: mã đơn `ALV-YYYYMMDD-NNNN`; giữ chỗ tồn kho khi tạo đơn, trừ thật khi sang `shipping`, hủy trả giữ chỗ, đổi trả cộng tồn; khách hủy ở `pending|confirmed`, từ `processing` chỉ admin; giữ bước `confirmed`; `completed` = "Đã giao"; đánh giá có kiểm duyệt (`rejected` = "Ẩn"); không gộp giỏ vãng lai; `OTP_FIXED_CODE` bị cấm khi `NODE_ENV=production` (`config/env.validation.ts:95`). Các quyết định gốc nằm ở [DECISIONS.md](DECISIONS.md) và [BACKEND_DESIGN.md](BACKEND_DESIGN.md) mục 4, 9–11.
+Xem mục 4.3 (A–F). Quy tắc nền đã chốt: mã đơn `ALV-YYYYMMDD-NNNN`; giữ chỗ tồn kho khi tạo đơn, trừ thật khi sang `shipping`, hủy trả giữ chỗ, đổi trả cộng tồn; khách hủy ở `pending|confirmed`, từ `processing` chỉ admin; giữ bước `confirmed`; `completed` = "Đã giao"; đánh giá có kiểm duyệt (`rejected` = "Ẩn"); không gộp giỏ vãng lai; `OTP_FIXED_CODE` bị cấm khi `NODE_ENV=production` (`config/env.validation.ts:95`). Các quyết định gốc nằm ở [DECISIONS.md](../DECISIONS.md) và [BACKEND_DESIGN.md](../BACKEND_DESIGN.md) mục 4, 9–11.
 
 ## 7. Kết quả chạy lại test (2026-11-06, chạy bởi agent tiếp nhận) so với báo cáo cũ
 
@@ -514,24 +516,24 @@ Xem mục 4.3 (A–F). Quy tắc nền đã chốt: mã đơn `ALV-YYYYMMDD-NNNN
 
 | File | Mục | Lệch thế nào |
 |---|---|---|
-| [README.md](../README.md) | "Trạng thái" (đầu file) | Ghi "144 endpoint… mới cài 6 route… bắt đầu từ M02"; thực tế 152 route, Mốc 1–3 xong |
+| [README.md](../../README.md) | "Trạng thái" (đầu file) | Ghi "144 endpoint… mới cài 6 route… bắt đầu từ M02"; thực tế 152 route, Mốc 1–3 xong |
 | README.md | mục 4 `npm run db:seed` | Mô tả seed "admin + dữ liệu mẫu, tải MinIO"; thực tế mặc định seed từ mock FE vào kho local và từ chối DB có dữ liệu ngoài mock |
 | README.md | mục 6 | "Jest 29 test"; thực tế 87 unit + 94 supertest DB + 20 Playwright thật. Không nhắc `test:e2e:real`, `test:e2e:db` ở phần này (có ở mục cuối "Backend thật + kiểm thử") |
 | README.md | mục 7 "Tài khoản mẫu" | `admin@aurelia.vn/Admin@123456`, `nguyenvana@example.com`…: chỉ đúng với seed `legacy`; seed mặc định là `admin123` / `khachhang@aurelia.vn/123456` (đúng ở mục cuối README) |
 | README.md | mục 8 `npm run db:reset` | Ghi "xoá sạch DB, dựng lại, seed"; thực tế script **bị vô hiệu hoá** (`apps/api/package.json`), thay bằng `node scripts/db-reset.mjs <aurelia_demo\|aurelia_test>` |
 | README.md | mục 5 cách B, 9 | "`docker compose up` chạy cả API trong Docker, tự `migrate deploy`": service `api` nay nằm trong profile `legacy` (không chạy mặc định) |
 | README.md | mục 1 | Yêu cầu Node 22; máy dev đang Node 24.20 (ghi trong README); `.nvmrc` chưa kiểm |
-| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [CAU_TRUC_DB.md](CAU_TRUC_DB.md) | toàn bộ (mục 1, 4, 5, 8.3) | Chỉ 44 bảng/19 enum; thiếu 20 bảng + 7 enum + cột thêm của `add_backend_extras` và 4 migration sau; tài liệu nói trigger 36 (29 updated_at + 7) — 20 bảng mới không có trigger updated_at; `coupon_type` thiếu `freeship` nếu còn ghi 2 giá trị |
-| [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) | mục 5.x, mục 8 | Không nhắc `reserved_quantity` (giữ chỗ), `code_counters`, bảng mới; mục 5.1 ví dụ trừ tồn khi đặt hàng, còn code thực tế **giữ chỗ khi đặt, trừ khi `shipping`** |
-| [API_CONVENTIONS.md](API_CONVENTIONS.md) | mục cache (`CacheService … Hiện chưa module nghiệp vụ nào gọi`) | Vẫn đúng (không module dùng), nhưng quy ước khoá cache `products:<slug>`… **không được áp dụng**: sản phẩm dùng chỉ mục RAM 15s. Mục thông báo/OTP: không nhắc `OTP_FIXED_CODE` |
-| [API_CONTRACT.md](API_CONTRACT.md) | bảng route | Thiếu 4 route khung cũ (`/admin/media/presign\|confirm`, `/admin/models/:id/files/presign\|confirm`); 16 route Mốc 2–3 chỉ có trong phần ghi chú, không có dòng bảng. Phần ghi chú đầu file vẫn mô tả "139 endpoint" (nay 152) |
-| [BACKEND_DESIGN.md](BACKEND_DESIGN.md) | mục 3.3 (9 migration dự kiến), mục 8 | Dự kiến 9 migration additive, thực tế BE thêm 5 migration (`add_backend_extras` + 4 migration nhỏ); MoMo/ZaloPay "stub sandbox" (mục 4.5) mâu thuẫn DAC_TA D-N20 (ngoài phạm vi) |
-| [BE_PROGRESS.md](BE_PROGRESS.md) | Giai đoạn 2–3 | Phần "Giai đoạn 3 – Backend hiện có" mô tả khung rỗng/29 unit/139 endpoint chưa có logic — **chụp thời điểm trước Mốc 1**, đã thành quá khứ. Mục Mốc 1 ghi "tsc sạch" (chỉ đúng với tsconfig.build). Mục 5 Mốc 2 cũ ghi "7. Còn lệch… 2": nút `reset-mock` đã được chính mục Mốc 3 đính chính |
+| [DATABASE_SCHEMA.md](../DATABASE_SCHEMA.md), [CAU_TRUC_DB.md](../CAU_TRUC_DB.md) | toàn bộ (mục 1, 4, 5, 8.3) | Chỉ 44 bảng/19 enum; thiếu 20 bảng + 7 enum + cột thêm của `add_backend_extras` và 4 migration sau; tài liệu nói trigger 36 (29 updated_at + 7) — 20 bảng mới không có trigger updated_at; `coupon_type` thiếu `freeship` nếu còn ghi 2 giá trị |
+| [QUY_UOC_CODE_DB.md](../QUY_UOC_CODE_DB.md) | mục 5.x, mục 8 | Không nhắc `reserved_quantity` (giữ chỗ), `code_counters`, bảng mới; mục 5.1 ví dụ trừ tồn khi đặt hàng, còn code thực tế **giữ chỗ khi đặt, trừ khi `shipping`** |
+| [API_CONVENTIONS.md](../API_CONVENTIONS.md) | mục cache (`CacheService … Hiện chưa module nghiệp vụ nào gọi`) | Vẫn đúng (không module dùng), nhưng quy ước khoá cache `products:<slug>`… **không được áp dụng**: sản phẩm dùng chỉ mục RAM 15s. Mục thông báo/OTP: không nhắc `OTP_FIXED_CODE` |
+| [API_CONTRACT.md](../API_CONTRACT.md) | bảng route | Thiếu 4 route khung cũ (`/admin/media/presign\|confirm`, `/admin/models/:id/files/presign\|confirm`); 16 route Mốc 2–3 chỉ có trong phần ghi chú, không có dòng bảng. Phần ghi chú đầu file vẫn mô tả "139 endpoint" (nay 152) |
+| [BACKEND_DESIGN.md](../BACKEND_DESIGN.md) | mục 3.3 (9 migration dự kiến), mục 8 | Dự kiến 9 migration additive, thực tế BE thêm 5 migration (`add_backend_extras` + 4 migration nhỏ); MoMo/ZaloPay "stub sandbox" (mục 4.5) mâu thuẫn DAC_TA D-N20 (ngoài phạm vi) |
+| [BE_PROGRESS.md](../BE_PROGRESS.md) | Giai đoạn 2–3 | Phần "Giai đoạn 3 – Backend hiện có" mô tả khung rỗng/29 unit/139 endpoint chưa có logic — **chụp thời điểm trước Mốc 1**, đã thành quá khứ. Mục Mốc 1 ghi "tsc sạch" (chỉ đúng với tsconfig.build). Mục 5 Mốc 2 cũ ghi "7. Còn lệch… 2": nút `reset-mock` đã được chính mục Mốc 3 đính chính |
 | [FE_PROGRESS.md](FE_PROGRESS.md) | "Việc còn tồn đọng", bảng test | "Backend thật mới là khung rỗng" — không còn đúng; "15 unit test" — thực tế 17; ghi chú `TODO: chưa có trong BE` ở code FE còn sót (30 chỗ) |
 | [TIEN_DO.md](TIEN_DO.md), [READINESS_REPORT.md](READINESS_REPORT.md), [MODULE_ENV_REPORT.md](MODULE_ENV_REPORT.md), [ENV_SETUP_REPORT.md](ENV_SETUP_REPORT.md), [DOC_SYNC_REPORT.md](DOC_SYNC_REPORT.md) | toàn bộ | Báo cáo chụp 2026-10-08/09 (trước khi có BE nghiệp vụ). README tự ghi MODULE_ENV_REPORT "đã lỗi thời một phần". Tôi **chỉ lướt**, không đối chiếu từng dòng (chưa rõ) |
-| [ENVIRONMENT.md](ENVIRONMENT.md) | bảng biến | Thiếu `OTP_FIXED_CODE`, `GOOGLE_CLIENT_ID/SECRET`, `PAYMENT_SANDBOX_FAKE`, `THROTTLE_*` đã thêm sau; (`.env.example` có đủ) — chưa đối chiếu hết (chưa rõ) |
+| [ENVIRONMENT.md](../ENVIRONMENT.md) | bảng biến | Thiếu `OTP_FIXED_CODE`, `GOOGLE_CLIENT_ID/SECRET`, `PAYMENT_SANDBOX_FAKE`, `THROTTLE_*` đã thêm sau; (`.env.example` có đủ) — chưa đối chiếu hết (chưa rõ) |
 | [PROMPT_360_SAN_PHAM.md](PROMPT_360_SAN_PHAM.md) | 1.1 | Đề xuất bảng `product_360`, `size_value_id`, `products.has_360`; thực tế `product_360_configs`/`product_360_frames`, chỉ theo màu |
-| [WIREFRAME.md](WIREFRAME.md) | – | Không đối chiếu (không cần cho lượt này) |
+| [WIREFRAME.md](../WIREFRAME.md) | – | Không đối chiếu (không cần cho lượt này) |
 | `docs/aurelia_dev_backup.sql` | – | Là dump UTF-16 của DB **trước** migration `add_backend_extras` (44 bảng + `_prisma_migrations`, không có `return_requests`…). Không dùng để dựng DB hiện tại |
 
 Ngoài ra: **4 file docs đã bị xoá khỏi working tree** (hiện `git status` báo ` D`): `BAI_TAP_TU_HOC_2.md`, `KHAO_SAT_VA_YEU_CAU_KHACH_HANG.md`, `TONG_HOP_USE_CASE_KHACH_HANG.md`, `báo cáo giữa kì 1.md`. Chúng còn tồn tại lúc tôi chạy `ls docs/` đầu phiên; **tôi không xoá** (và không thực hiện lệnh xoá nào); chưa rõ ai xoá. Chưa khôi phục — cần người dùng quyết định (câu hỏi mục 11). Các file còn nhắc tên chúng (có thể thành link hỏng): `DECISIONS.md`, `DOC_SYNC_REPORT.md`, `PROJECT_ANALYSIS.md`, `READINESS_REPORT.md` (kiểm bằng grep, chưa mở từng chỗ).
@@ -570,9 +572,9 @@ Ngoài ra: **4 file docs đã bị xoá khỏi working tree** (hiện `git statu
 **Trang FE chờ:** `/admin/inventory`, `/admin/reports`, `/admin/settings`. Kiểu response có sẵn trong `apps/web/src/types/api.ts`: `InventoryRow`, `StockReceipt`, `Supplier`, `Expense`, `FinanceReport`, `StoreSettings`; hợp đồng gốc ở mock `apps/web/src/mock-data/mockApi/admin.ts`.
 
 **Yêu cầu thuộc Mốc 4 trong tài liệu:**
-- [PROMPT_AGENT_BE.md](PROMPT_AGENT_BE.md) (Giai đoạn 9, dòng ~95-97, 155, 173, 191): kho (tồn, phiếu nhập/xuất, nhà cung cấp, tóm tắt), thu chi + báo cáo `/admin/stats/finance` + xuất CSV, cài đặt (cửa hàng, thanh toán, vận chuyển), **VNPAY sandbox** (tạo URL, return, IPN, kiểm tra chữ ký, idempotent), unit test chữ ký VNPAY, `.env.example` đủ biến.
-- [BACKEND_DESIGN.md](BACKEND_DESIGN.md) 4.5 (VNPAY HMAC-SHA512; MoMo/ZaloPay stub `PaymentGateway`), 4.8 (công thức báo cáo: tổng thu, tổng chi, lợi nhuận, biên; bảng kết quả kinh doanh `gross/discountAndRefund/net/cogs/grossProfit/opex/profitBeforeTax`, `ledger`).
-- [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md): UC-PAY-01/02/03, UC-ADM-03, UC-ADM-12, mục 11.1 (endpoint `GET /api/payments/:gateway/return`, `POST|GET /api/payments/:gateway/ipn`; biến `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `PAYMENT_RETURN_URL`, `PAYMENT_IPN_BASE_URL`…).
+- [PROMPT_AGENT_BE.md](../PROMPT_AGENT_BE.md) (Giai đoạn 9, dòng ~95-97, 155, 173, 191): kho (tồn, phiếu nhập/xuất, nhà cung cấp, tóm tắt), thu chi + báo cáo `/admin/stats/finance` + xuất CSV, cài đặt (cửa hàng, thanh toán, vận chuyển), **VNPAY sandbox** (tạo URL, return, IPN, kiểm tra chữ ký, idempotent), unit test chữ ký VNPAY, `.env.example` đủ biến.
+- [BACKEND_DESIGN.md](../BACKEND_DESIGN.md) 4.5 (VNPAY HMAC-SHA512; MoMo/ZaloPay stub `PaymentGateway`), 4.8 (công thức báo cáo: tổng thu, tổng chi, lợi nhuận, biên; bảng kết quả kinh doanh `gross/discountAndRefund/net/cogs/grossProfit/opex/profitBeforeTax`, `ledger`).
+- [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](../DAC_TA_CHUC_NANG_THEO_VAI_TRO.md): UC-PAY-01/02/03, UC-ADM-03, UC-ADM-12, mục 11.1 (endpoint `GET /api/payments/:gateway/return`, `POST|GET /api/payments/:gateway/ipn`; biến `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `PAYMENT_RETURN_URL`, `PAYMENT_IPN_BASE_URL`…).
 - Hiện `.env.example` / `env.validation.ts` đã có `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET`, `VNPAY_URL`, `VNPAY_RETURN_URL`, `VNPAY_IPN_URL` (tuỳ chọn); chưa có `PAYMENT_*URL` như đặc tả.
 
 **Cần hỏi người dùng trước khi làm:** xem mục 11 (các câu về VNPAY key, MoMo/ZaloPay, hoàn tiền, phạm vi cài đặt, thanh toán giả lập).

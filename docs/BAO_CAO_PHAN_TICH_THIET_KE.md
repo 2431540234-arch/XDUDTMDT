@@ -1,3 +1,5 @@
+> **Báo cáo nộp giảng viên, ảnh chụp tại thời điểm nộp. Chức năng AR đã loại bỏ khỏi hệ thống; xem [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) và [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) cho hiện trạng.**
+
 # Báo cáo phân tích và thiết kế hệ thống
 
 Aurelia Living: website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°.

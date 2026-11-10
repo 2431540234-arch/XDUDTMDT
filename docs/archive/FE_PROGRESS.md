@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: nhật ký giai đoạn dựng giao diện với dữ liệu giả (nhánh feature/fe-wireframe-mock); FE đã nối API thật.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # Tiến độ dựng Frontend theo wireframe (nhánh `feature/fe-wireframe-mock`)
 
 > Mở phiên mới: "Đọc docs/FE_PROGRESS.md và tiếp tục từ bước đang dở theo docs/PROMPT_AGENT_FE.md".

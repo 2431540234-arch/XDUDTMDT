@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: lệnh giao việc cho agent ở giai đoạn dựng frontend, không mô tả hệ thống hiện tại.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # PROMPT CHO AGENT — Phân tích dự án & dựng Frontend theo Wireframe (Aurelia Living)
 
 > Cách dùng: copy toàn bộ phần bên dưới đường kẻ `=====` và dán vào agent (Copilot Agent / Claude Code / Cursor / Cline…) đang mở thư mục gốc của dự án.

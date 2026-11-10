@@ -1,7 +1,9 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: kế hoạch căn chỉnh DB ngày 2026-11-06 (44 bảng, có AR) đã thực hiện xong; thay bằng DATABASE_SCHEMA.md và DECISIONS.md.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # DB_ALIGNMENT_PLAN – Đối chiếu code với bộ tài liệu DB chuẩn và kế hoạch sửa
 
 > Agent tiếp nhận viết ngày 2026-11-06. **Chưa commit. Chưa sửa code, chưa tạo migration, chưa chạm `aurelia_dev`.**
-> Quy tắc áp dụng: [CAU_TRUC_DB.md](CAU_TRUC_DB.md), [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) là **chuẩn**; chỗ code khác chuẩn = *code lệch*. Ba file này không được sửa cho khớp code. Chỗ ba file mâu thuẫn nhau được ghi ở mục 1.D, **không tự chọn bên**.
+> Quy tắc áp dụng: [CAU_TRUC_DB.md](../CAU_TRUC_DB.md), [DATABASE_SCHEMA.md](../DATABASE_SCHEMA.md), [QUY_UOC_CODE_DB.md](../QUY_UOC_CODE_DB.md) là **chuẩn**; chỗ code khác chuẩn = *code lệch*. Ba file này không được sửa cho khớp code. Chỗ ba file mâu thuẫn nhau được ghi ở mục 1.D, **không tự chọn bên**.
 > Đã đọc hết: 3 file DB (đọc từng dòng phần mô tả/quy ước/trigger/nghiệp vụ; phần từ điển dữ liệu 44 bảng đối chiếu **bằng script** với DB thật), `CONG_NGHE.md`, và `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md` (bảng 80 UC, ma trận, vòng đời trạng thái, mục 11–12; phần đặc tả luồng từng UC chỉ đọc các UC liên quan tới lệch).
 > Cách đối chiếu: script đọc từ điển dữ liệu của DATABASE_SCHEMA.md (44 bảng, toàn bộ cột) và so với `information_schema`/`pg_constraint`/`pg_indexes`/`pg_trigger`/`pg_enum` của DB `aurelia_demo` (cùng 7 migration với `aurelia_dev`); nhận diện tên ràng buộc/index với `database/03,04_*.sql`. Số liệu bên dưới là kết quả script, không đoán.
 

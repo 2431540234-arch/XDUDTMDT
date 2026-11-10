@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: phân tích phục vụ dựng FE ngày 2026-11-05 (giai đoạn dữ liệu giả); thay bằng ARCHITECTURE.md và API_CONTRACT.md.** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # Phân tích dự án Aurelia Living (phục vụ dựng Frontend theo wireframe)
 
 > Lập bởi agent FE, nhánh `feature/fe-wireframe-mock`. Mọi khẳng định kèm file nguồn. Tài liệu `docs/` rất lớn (BAO_CAO ~467 KB, DAC_TA ~241 KB, sơ đồ UML): đã đọc **toàn bộ** `WIREFRAME.md`, `API_CONVENTIONS.md`, `DECISIONS.md`, `CAU_TRUC_DB.md`, `PROMPT_AGENT_FE.md`; đọc mục lục + phần liên quan (API, vòng đời trạng thái) của `DAC_TA_…`, `DATABASE_SCHEMA.md`, `BAO_CAO_…`, `CONG_NGHE.md`, `TIEN_DO.md`; các file còn lại (ENVIRONMENT, READINESS, SHARED_TYPES_SYNC, QUY_UOC_CODE_DB, KHAO_SAT…, báo cáo giữa kì, bài tập tự học, sơ đồ `docs/diagrams/**`) chỉ liệt kê và đọc tiêu đề – không ảnh hưởng đến giao diện.

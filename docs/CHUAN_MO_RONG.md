@@ -144,7 +144,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 39 | **Chi tiết đợt hoàn tất (D-N35, D-N36): ngoài đặc tả** | (a) `POST /orders` nhận thêm `couponCode` (ưu tiên hơn mã đang gắn ở giỏ, kiểm trong cùng khóa dòng; sai ⇒ 400); (b) dòng không còn bán ⇒ 409 kèm `details.unavailable` (danh sách dòng); (c) `conflictError` (409 `CONFLICT` kèm `details` theo trường) cho slug/mã/tên trùng; (d) trang `/admin/payments` có lọc theo trạng thái/phương thức và nút xác nhận/đánh dấu thất bại; (e) admin cấp mật khẩu tạm luôn có chữ hoa, thường, số; tài khoản quản trị không đổi trạng thái được (409) |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
-| 18 | `docs/aurelia_dev_backup.sql` đang được git theo dõi; nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
+| 18 | ~~`docs/aurelia_dev_backup.sql` đang được git theo dõi~~ **Đã gỡ khỏi repo ngày 2026-11-11** (chuyển ra `../aurelia-backups/`, `.gitignore` chặn `docs/**/*.sql` và `*.dump`; lịch sử git không xử lý). Nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
 | 19 | Test chập chờn | Đã chạy supertest 10 lần liên tiếp (114/114 mỗi lần) và nhóm `khach-hang` 10 lần liên tiếp: xanh cả 20 lần (kết quả chi tiết trong `BE_PROGRESS.md`). Chạy HAI bộ test cùng lúc trên một `aurelia_test` tái hiện đúng kiểu lỗi cũ (404 ở "Hỏi đáp", sai tồn kho…) ⇒ nguyên nhân khả dĩ nhất là chồng chéo hai lần chạy; đã thêm khóa chặn chạy song song | Theo dõi |
 
 ---

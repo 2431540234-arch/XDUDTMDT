@@ -1,3 +1,5 @@
+> **Đã lưu trữ ngày 2026-11-11 – lý do: báo cáo đối chiếu "chờ duyệt, CHƯA sửa" ngày 2026-11-06; các điểm lệch đã được xử lý (xem DECISIONS.md, CHUAN_MO_RONG.md).** Nội dung bên dưới được giữ nguyên, không còn phản ánh hiện trạng.
+
 # Báo cáo bước 2 – Lệch công nghệ và bảng chức năng (chờ duyệt, CHƯA sửa)
 
 > Đối chiếu theo quy tắc mới: chuẩn = `CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`; phạm vi chức năng chỉ theo `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`. Các con số thống kê trong CONG_NGHE (số route, số test, số migration) đã bỏ qua. Chưa bật container nào, chưa sửa code.
