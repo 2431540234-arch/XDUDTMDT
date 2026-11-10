@@ -858,7 +858,8 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
         fullName: 'Khách Reset',
         email,
         phone: '0987654321',
-        password: 'matkhau-cu-1',
+        password: 'Matkhau-cu-1',
+        confirmPassword: 'Matkhau-cu-1',
       });
       expect(reg.status).toBe(201);
       refresh = reg.body.data.tokens.refreshToken;
@@ -877,21 +878,24 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(again.body.error.code).toBe('RATE_LIMITED');
     });
 
-    it('token sai/ngắn ⇒ 400; mật khẩu mới < 8 ký tự ⇒ 400', async () => {
+    it('token sai/ngắn ⇒ 400; mật khẩu mới không đạt chính sách ⇒ 400', async () => {
       const bad = await api('post', '/auth/reset-password', undefined, {
         token: 'f'.repeat(64),
-        password: 'matkhau-moi-2',
+        newPassword: 'Matkhau-moi-2',
+        confirmPassword: 'Matkhau-moi-2',
       });
       expect(bad.status).toBe(400);
       expect(bad.body.error.message).toMatch(/không đúng hoặc đã hết hạn/);
       const short = await api('post', '/auth/reset-password', undefined, {
         token: 'abc',
-        password: 'matkhau-moi-2',
+        newPassword: 'Matkhau-moi-2',
+        confirmPassword: 'Matkhau-moi-2',
       });
       expect(short.status).toBe(400);
       const weak = await api('post', '/auth/reset-password', undefined, {
         token: firstToken,
-        password: '123',
+        newPassword: '123',
+        confirmPassword: '123',
       });
       expect(weak.status).toBe(400);
     });
@@ -903,7 +907,8 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       });
       const expired = await api('post', '/auth/reset-password', undefined, {
         token: firstToken,
-        password: 'matkhau-moi-2',
+        newPassword: 'Matkhau-moi-2',
+        confirmPassword: 'Matkhau-moi-2',
       });
       expect(expired.status).toBe(400);
       expect((await api('post', '/auth/forgot-password', undefined, { email })).status).toBe(200);
@@ -911,20 +916,22 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
       expect(t2).not.toBe(firstToken);
       const ok = await api('post', '/auth/reset-password', undefined, {
         token: t2,
-        password: 'matkhau-moi-2',
+        newPassword: 'Matkhau-moi-2',
+        confirmPassword: 'Matkhau-moi-2',
       });
       expect(ok.status).toBe(200);
       // mật khẩu mới đăng nhập được, mật khẩu cũ thì không; phiên cũ bị thu hồi; dùng lại token ⇒ 400
-      expect((await api('post', '/auth/login', undefined, { email, password: 'matkhau-moi-2' })).status).toBe(
+      expect((await api('post', '/auth/login', undefined, { email, password: 'Matkhau-moi-2' })).status).toBe(
         200,
       );
-      expect((await api('post', '/auth/login', undefined, { email, password: 'matkhau-cu-1' })).status).toBe(
+      expect((await api('post', '/auth/login', undefined, { email, password: 'Matkhau-cu-1' })).status).toBe(
         401,
       );
       expect((await api('post', '/auth/refresh', undefined, { refreshToken: refresh })).status).toBe(401);
       const reuse = await api('post', '/auth/reset-password', undefined, {
         token: t2,
-        password: 'matkhau-khac-3',
+        newPassword: 'Matkhau-khac-3',
+        confirmPassword: 'Matkhau-khac-3',
       });
       expect(reuse.status).toBe(400);
     });
@@ -948,7 +955,8 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
         fullName: 'Khách Xác Thực',
         email,
         phone: '0911222333',
-        password: 'matkhau-12345',
+        password: 'Matkhau-12345',
+        confirmPassword: 'Matkhau-12345',
       });
       expect(reg.status).toBe(201);
       access = reg.body.data.tokens.accessToken;
@@ -1000,7 +1008,8 @@ describe('Mốc 2 – admin vận hành + đặt hàng (aurelia_test)', () => {
         fullName: 'Khách Đổi Email',
         email: e2,
         phone: '0911222444',
-        password: 'matkhau-12345',
+        password: 'Matkhau-12345',
+        confirmPassword: 'Matkhau-12345',
       });
       const t = linkToken(outbox[outbox.length - 1]);
       await prisma.user.updateMany({ where: { email: e2 }, data: { email: `moi-${e2}` } });

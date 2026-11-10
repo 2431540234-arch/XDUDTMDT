@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import Input from '@/components/ui/Input';
 import { cn } from '@/lib/cn';
-import { errorMessage, passwordStrength } from '@/lib/validators';
+import { PASSWORD_POLICY_MESSAGE, errorMessage, isStrongPassword, passwordStrength } from '@/lib/validators';
 import { authApi } from '@/services/auth.api';
 import { toast } from '@/store/uiStore';
 
@@ -23,7 +23,7 @@ function Form() {
 
   const strength = passwordStrength(pw);
   const reset = useMutation({
-    mutationFn: () => authApi.resetPassword({ token, password: pw }),
+    mutationFn: () => authApi.resetPassword({ token, newPassword: pw, confirmPassword: confirm }),
     onSuccess: () => {
       toast.success('Đặt lại mật khẩu thành công. Vui lòng đăng nhập.');
       router.replace('/login');
@@ -34,7 +34,7 @@ function Form() {
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const x: Record<string, string> = {};
-    if (pw.length < 8) x.password = 'Mật khẩu tối thiểu 8 ký tự.';
+    if (!isStrongPassword(pw)) x.password = PASSWORD_POLICY_MESSAGE;
     if (confirm !== pw) x.confirm = 'Mật khẩu xác nhận không khớp.';
     setErrs(x);
     if (!Object.keys(x).length) reset.mutate();

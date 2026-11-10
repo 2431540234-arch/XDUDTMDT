@@ -96,9 +96,10 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         fullName: 'Khách ảnh',
         email,
         phone: '0911222333',
-        password: 'matkhau-12345',
+        password: 'Matkhau-12345',
+        confirmPassword: 'Matkhau-12345',
       });
-      const l = await api('post', '/auth/login', undefined, { email, password: 'matkhau-12345' });
+      const l = await api('post', '/auth/login', undefined, { email, password: 'Matkhau-12345' });
       const tok = l.body.data.tokens.accessToken as string;
       expect((await api('post', '/admin/products', tok, baseBody('q'))).status).toBe(403);
       expect((await api('patch', '/admin/products/1', tok, baseBody('q'))).status).toBe(403);
@@ -435,9 +436,10 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         fullName: 'Khách lịch sử',
         email,
         phone: '0911222333',
-        password: 'matkhau-12345',
+        password: 'Matkhau-12345',
+        confirmPassword: 'Matkhau-12345',
       });
-      const tok = (await api('post', '/auth/login', undefined, { email, password: 'matkhau-12345' })).body
+      const tok = (await api('post', '/auth/login', undefined, { email, password: 'Matkhau-12345' })).body
         .data.tokens.accessToken as string;
       const addr = (
         await api('post', '/addresses', tok, {

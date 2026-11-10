@@ -36,7 +36,13 @@ export default function RegisterPage() {
   };
   const reg = useMutation({
     mutationFn: (v: Values) =>
-      authApi.register({ fullName: v.fullName, email: v.email, phone: v.phone, password: v.password }),
+      authApi.register({
+        fullName: v.fullName,
+        email: v.email,
+        phone: v.phone || undefined,
+        password: v.password,
+        confirmPassword: v.confirm,
+      }),
     onSuccess: done,
     onError: (e) => {
       if (!applyApiErrors(e, f.setError)) setFormError(errorMessage(e));
@@ -86,8 +92,7 @@ export default function RegisterPage() {
           {...f.register('email')}
         />
         <Input
-          label="Số điện thoại"
-          required
+          label="Số điện thoại (tuỳ chọn)"
           inputMode="tel"
           icon="phone"
           autoComplete="tel"
@@ -101,7 +106,7 @@ export default function RegisterPage() {
           type="password"
           icon="lock"
           autoComplete="new-password"
-          placeholder="Tối thiểu 8 ký tự"
+          placeholder="Tối thiểu 8 ký tự, có chữ hoa, chữ thường, số"
           error={err.password?.message}
           {...f.register('password')}
         />

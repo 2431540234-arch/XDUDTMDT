@@ -143,7 +143,7 @@ export class AdminUsersService {
       throw new AppException(ErrorCode.EMAIL_ALREADY_EXISTS, 'Email này đã tồn tại.');
     }
     // mật khẩu tạm ngẫu nhiên, gửi qua email; khách nên đổi hoặc dùng "Quên mật khẩu"
-    const temp = randomBytes(6).toString('base64url');
+    const temp = `${randomBytes(6).toString('base64url')}Aa1`; // luôn đạt chính sách mật khẩu
     const role = await this.prisma.role.findUniqueOrThrow({ where: { code: 'user' } });
     const created = await this.prisma.user.create({
       data: {

@@ -39,12 +39,13 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
   /** Khách mới đăng ký qua API (đúng luồng thật), trả về thông tin + token */
   const newCustomer = async (label = 'ext') => {
     const email = `${label}-${uniq()}@test.local`;
-    const password = 'matkhau-12345';
+    const password = 'Matkhau-12345';
     const reg = await api('post', '/auth/register', undefined, {
       fullName: `Khách ${label}`,
       email,
       phone: '0911222333',
       password,
+      confirmPassword: password,
     });
     expect(reg.status).toBe(201);
     const t = await login(email, password);
@@ -303,7 +304,8 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       const third = await login(c.email, c.password);
       const pw = await api('post', '/users/me/change-password', c.token, {
         currentPassword: c.password,
-        newPassword: 'matkhau-moi-99',
+        newPassword: 'Matkhau-moi-99',
+        confirmPassword: 'Matkhau-moi-99',
         logoutOthers: true,
       });
       expect(pw.status).toBe(200);
@@ -357,7 +359,8 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
         fullName: 'Khách quay lại',
         email: c.email,
         phone: '0911222333',
-        password: 'matkhau-moi-1',
+        password: 'Matkhau-moi-1',
+        confirmPassword: 'Matkhau-moi-1',
       });
       expect(reg.status).toBe(201);
       const fresh = await prisma.user.findFirstOrThrow({ where: { email: c.email, deletedAt: null } });

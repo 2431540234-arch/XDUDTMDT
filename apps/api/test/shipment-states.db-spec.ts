@@ -44,9 +44,10 @@ describe('Trạng thái vận đơn, hủy đơn khi hoàn hàng, hoàn tiền (
       fullName: 'Khách vận đơn',
       email,
       phone: '0911222333',
-      password: 'matkhau-12345',
+      password: 'Matkhau-12345',
+      confirmPassword: 'Matkhau-12345',
     });
-    const tok = (await api('post', '/auth/login', undefined, { email, password: 'matkhau-12345' })).body.data
+    const tok = (await api('post', '/auth/login', undefined, { email, password: 'Matkhau-12345' })).body.data
       .tokens.accessToken as string;
     const user = await prisma.user.findFirstOrThrow({ where: { email } });
     const addr = (

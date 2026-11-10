@@ -32,7 +32,7 @@ async function adminToken(request: APIRequestContext) {
 
 async function newCustomer(request: APIRequestContext, label: string) {
   const email = `${label}-${uniq()}@test.local`;
-  const password = 'matkhau-12345';
+  const password = 'Matkhau-12345';
   const reg = await request.post(`${API}/api/auth/register`, {
     data: { fullName: `Khách ${label}`, email, phone: '0911222333', password },
   });
@@ -172,7 +172,13 @@ test('xóa tài khoản: nhập mật khẩu, xóa mềm, tự đăng xuất; đ
   });
   expect(relogin.status()).toBeGreaterThanOrEqual(400);
   const again = await request.post(`${API}/api/auth/register`, {
-    data: { fullName: 'Khách quay lại', email: c.email, phone: '0911222333', password: 'matkhau-moi-1' },
+    data: {
+      fullName: 'Khách quay lại',
+      email: c.email,
+      phone: '0911222333',
+      password: 'Matkhau-moi-1',
+      confirmPassword: 'Matkhau-moi-1',
+    },
   });
   expect(again.status()).toBe(201);
 });

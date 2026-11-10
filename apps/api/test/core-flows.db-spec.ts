@@ -16,7 +16,7 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
   let cache: CatalogCache;
   let seq = 0;
   const tag = `${Date.now()}`;
-  const PASSWORD = 'matkhau-12345';
+  const PASSWORD = 'Matkhau-12345';
 
   type Method = 'get' | 'post' | 'put' | 'patch' | 'delete';
   const api = (method: Method, path: string, token?: string, body?: object) => {
@@ -39,6 +39,7 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
       email,
       phone: '0911222333',
       password: PASSWORD,
+      confirmPassword: PASSWORD,
     });
     expect(reg.status).toBe(201);
     const u = await prisma.user.findFirstOrThrow({ where: { email } });
@@ -150,6 +151,7 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
             email,
             phone: '0911222333',
             password: PASSWORD,
+            confirmPassword: PASSWORD,
           }),
         ),
       );
@@ -167,6 +169,7 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
             email: email.toUpperCase(),
             phone: '0911222333',
             password: PASSWORD,
+            confirmPassword: PASSWORD,
           })
         ).status,
       ).toBe(409);
@@ -186,10 +189,10 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
       const c = await customer('pw-bad');
       const before = (await prisma.user.findUniqueOrThrow({ where: { id: c.id } })).passwordHash;
       const cases: Array<[object, string]> = [
-        [{ currentPassword: 'sai-mat-khau', newPassword: 'matkhau-moi-99' }, 'currentPassword'],
+        [{ currentPassword: 'sai-mat-khau', newPassword: 'Matkhau-moi-99' }, 'currentPassword'],
         [{ currentPassword: PASSWORD, newPassword: 'ngan' }, 'newPassword'],
         [{ currentPassword: PASSWORD, newPassword: PASSWORD }, 'newPassword'],
-        [{ newPassword: 'matkhau-moi-99' }, 'currentPassword'],
+        [{ newPassword: 'Matkhau-moi-99' }, 'currentPassword'],
         [{ currentPassword: PASSWORD }, 'newPassword'],
         [{}, 'currentPassword'],
       ];
@@ -206,7 +209,11 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
 
     it('thành công: mật khẩu cũ không đăng nhập được, mới đăng nhập được; băm bcrypt (không lưu rõ); phiên hiện tại còn dùng được', async () => {
       const c = await customer('pw-ok');
-      const r = await change(c.access, { currentPassword: PASSWORD, newPassword: 'MatKhau-Moi-99' });
+      const r = await change(c.access, {
+        currentPassword: PASSWORD,
+        newPassword: 'MatKhau-Moi-99',
+        confirmPassword: 'MatKhau-Moi-99',
+      });
       expect(r.status).toBe(200);
       const row = await prisma.user.findUniqueOrThrow({ where: { id: c.id } });
       expect(row.passwordHash).not.toContain('MatKhau-Moi-99');
@@ -224,7 +231,13 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
       const c = await customer('pw-keep');
       const other = await login(c.email);
       expect(
-        (await change(c.access, { currentPassword: PASSWORD, newPassword: 'matkhau-moi-99' })).status,
+        (
+          await change(c.access, {
+            currentPassword: PASSWORD,
+            newPassword: 'Matkhau-moi-99',
+            confirmPassword: 'Matkhau-moi-99',
+          })
+        ).status,
       ).toBe(200);
       expect((await api('get', '/users/me', other.access)).status).toBe(200);
     });
@@ -235,7 +248,8 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
       const d3 = await login(c.email);
       const r = await change(c.access, {
         currentPassword: PASSWORD,
-        newPassword: 'matkhau-moi-99',
+        newPassword: 'Matkhau-moi-99',
+        confirmPassword: 'Matkhau-moi-99',
         logoutOthers: true,
       });
       expect(r.status).toBe(200);

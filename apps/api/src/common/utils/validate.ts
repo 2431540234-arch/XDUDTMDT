@@ -4,6 +4,17 @@ import { AppException } from '../exceptions/app.exception';
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const PHONE_RE = /^0\d{9}$/;
+/** Số điện thoại khi đăng ký (DAC_TA UC-AUTH-01): 10–11 chữ số, bắt đầu bằng 0 */
+export const REGISTER_PHONE_RE = /^0\d{9,10}$/;
+
+/** Chính sách mật khẩu (DAC_TA UC-AUTH-01/06, UC-ACC-02): ≥ 8 ký tự, có chữ hoa, chữ thường và chữ số */
+export const PASSWORD_POLICY_MESSAGE = 'Mật khẩu tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và chữ số.';
+export function passwordPolicyError(pw: string): string | null {
+  return pw.length >= 8 && /\p{Lu}/u.test(pw) && /\p{Ll}/u.test(pw) && /[0-9]/.test(pw)
+    ? null
+    : PASSWORD_POLICY_MESSAGE;
+}
+export const PASSWORD_CONFIRM_MESSAGE = 'Mật khẩu xác nhận không khớp.';
 
 /** Ném VALIDATION_FAILED với details dạng { truong: ["thông báo"] } */
 export function validationError(fields: Record<string, string>): AppException {

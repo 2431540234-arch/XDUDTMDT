@@ -23,12 +23,13 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
   };
   const customer = async (label = 'acc') => {
     const email = `${label}-${Date.now()}-${++seq}@test.local`;
-    const password = 'matkhau-12345';
+    const password = 'Matkhau-12345';
     const reg = await api('post', '/auth/register', undefined, {
       fullName: `Khách ${label}`,
       email,
       phone: '0911222333',
       password,
+      confirmPassword: password,
     });
     expect(reg.status).toBe(201);
     const login = await api('post', '/auth/login', undefined, { email, password });

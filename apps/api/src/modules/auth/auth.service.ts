@@ -7,7 +7,15 @@ import { compare, hash, hashSync } from 'bcryptjs';
 import { ErrorCode, type RoleCode } from '@aurelia-living/shared-types';
 import { describeDevice } from '../../common/utils/device';
 import { AppException } from '../../common/exceptions/app.exception';
-import { EMAIL_RE, FieldErrors, PHONE_RE, asBody, str } from '../../common/utils/validate';
+import {
+  EMAIL_RE,
+  FieldErrors,
+  PASSWORD_CONFIRM_MESSAGE,
+  REGISTER_PHONE_RE,
+  asBody,
+  passwordPolicyError,
+  str,
+} from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { AppConfig } from '../../config/app-config.service';
 import { MAIL_SERVICE, type MailService } from '../../mail/mail.service';
@@ -128,12 +136,17 @@ export class AuthService {
   }
 
   async register(raw: unknown, meta: RequestMeta) {
-    const { fullName, email, phone, password } = asBody(raw);
+    const { fullName, email, phone, password, confirmPassword } = asBody(raw);
     const errs = new FieldErrors();
-    if (str(fullName).trim().length < 2) errs.add('fullName', 'Vui lòng nhập họ và tên.');
-    if (!EMAIL_RE.test(str(email))) errs.add('email', 'Email không hợp lệ.');
-    if (!PHONE_RE.test(str(phone))) errs.add('phone', 'Số điện thoại phải gồm 10 chữ số.');
-    if (str(password).length < 8) errs.add('password', 'Mật khẩu tối thiểu 8 ký tự.');
+    const name = str(fullName).trim();
+    if (name.length < 2 || name.length > 150) errs.add('fullName', 'Họ và tên từ 2 đến 150 ký tự.');
+    if (!EMAIL_RE.test(str(email)) || str(email).length > 255) errs.add('email', 'Email không hợp lệ.');
+    // số điện thoại tuỳ chọn (DAC_TA UC-AUTH-01): có thì 10–11 chữ số bắt đầu bằng 0
+    if (str(phone).trim() && !REGISTER_PHONE_RE.test(str(phone).trim()))
+      errs.add('phone', 'Số điện thoại phải gồm 10–11 chữ số, bắt đầu bằng 0.');
+    const pwErr = passwordPolicyError(str(password));
+    if (pwErr) errs.add('password', pwErr);
+    if (str(confirmPassword) !== str(password)) errs.add('confirmPassword', PASSWORD_CONFIRM_MESSAGE);
     errs.throwIfAny();
 
     const normalized = str(email).trim().toLowerCase();
@@ -149,7 +162,7 @@ export class AuthService {
           data: {
             fullName: str(fullName).trim(),
             email: normalized,
-            phone: str(phone),
+            phone: str(phone).trim() || null,
             passwordHash,
             lastLoginAt: new Date(),
             userRoles: { create: { roleId: role.id } },
@@ -346,9 +359,14 @@ export class AuthService {
   }
 
   async resetPassword(raw: unknown) {
-    const { token, password } = asBody(raw);
+    const body = asBody(raw);
+    const token = body.token;
+    // DAC_TA UC-AUTH-06: newPassword + confirmPassword (chấp nhận `password` như tên cũ)
+    const password = body.newPassword ?? body.password;
     const errs = new FieldErrors();
-    if (str(password).length < 8) errs.add('password', 'Mật khẩu tối thiểu 8 ký tự.');
+    const pwErr = passwordPolicyError(str(password));
+    if (pwErr) errs.add('newPassword', pwErr);
+    if (str(body.confirmPassword) !== str(password)) errs.add('confirmPassword', PASSWORD_CONFIRM_MESSAGE);
     if (!/^[0-9a-f]{64}$/.test(str(token))) errs.add('token', 'Liên kết không hợp lệ.');
     errs.throwIfAny();
 

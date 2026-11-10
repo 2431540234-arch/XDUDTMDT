@@ -10,10 +10,19 @@ export const phoneSchema = z
   .trim()
   .min(1, 'Vui lòng nhập số điện thoại.')
   .regex(/^0\d{9}$/, 'Số điện thoại phải gồm 10 chữ số.');
+/** Số điện thoại khi đăng ký (DAC_TA UC-AUTH-01): tuỳ chọn, 10–11 chữ số bắt đầu bằng 0 */
+export const registerPhoneSchema = z
+  .string()
+  .trim()
+  .refine((v) => v === '' || /^0\d{9,10}$/.test(v), 'Số điện thoại phải gồm 10–11 chữ số, bắt đầu bằng 0.');
+/** Chính sách mật khẩu (DAC_TA UC-AUTH-01/06, UC-ACC-02): ≥ 8 ký tự, có chữ hoa, chữ thường, chữ số */
+export const PASSWORD_POLICY_MESSAGE = 'Mật khẩu tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và chữ số.';
+export const isStrongPassword = (v: string) =>
+  v.length >= 8 && /\p{Lu}/u.test(v) && /\p{Ll}/u.test(v) && /[0-9]/.test(v);
 export const passwordSchema = z
   .string()
   .min(1, 'Vui lòng nhập mật khẩu.')
-  .min(8, 'Mật khẩu tối thiểu 8 ký tự.');
+  .refine(isStrongPassword, PASSWORD_POLICY_MESSAGE);
 export const requiredText = (label: string, min = 1) =>
   z
     .string()
@@ -30,7 +39,7 @@ export const registerSchema = z
   .object({
     fullName: requiredText('Họ và tên', 2),
     email: emailSchema,
-    phone: phoneSchema,
+    phone: registerPhoneSchema,
     password: passwordSchema,
     confirm: z.string().min(1, 'Vui lòng xác nhận mật khẩu.'),
     agree: z.boolean().refine((v) => v, 'Bạn cần đồng ý với Điều khoản và Chính sách bảo mật.'),
@@ -68,9 +77,9 @@ export function passwordStrength(pw: string): PasswordStrength {
 export function passwordChecks(pw: string, old = '') {
   return [
     { ok: pw.length >= 8, label: 'Tối thiểu 8 ký tự' },
-    { ok: /[A-Z]/.test(pw), label: 'Có ít nhất 1 chữ hoa' },
-    { ok: /\d/.test(pw), label: 'Có ít nhất 1 chữ số' },
-    { ok: /[^A-Za-z0-9]/.test(pw), label: 'Có ít nhất 1 ký tự đặc biệt' },
+    { ok: /\p{Lu}/u.test(pw), label: 'Có ít nhất 1 chữ hoa' },
+    { ok: /\p{Ll}/u.test(pw), label: 'Có ít nhất 1 chữ thường' },
+    { ok: /[0-9]/.test(pw), label: 'Có ít nhất 1 chữ số' },
     { ok: pw.length > 0 && pw !== old, label: 'Khác mật khẩu hiện tại' },
   ];
 }

@@ -16,6 +16,9 @@ import { addressView, mediaPath, userView } from './views';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRe = /^0\d{9}$/;
+const PASSWORD_POLICY_MESSAGE = 'Mật khẩu tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và chữ số.';
+const isStrongPassword = (v: string) =>
+  v.length >= 8 && /\p{Lu}/u.test(v) && /\p{Ll}/u.test(v) && /[0-9]/.test(v);
 
 export function sessionUser(ctx: Ctx, u: DbUser) {
   const roles = ctx.db.userRoles
@@ -59,12 +62,14 @@ export function login(ctx: Ctx): Result {
 }
 
 export function register(ctx: Ctx): Result {
-  const { fullName = '', email = '', phone = '', password = '' } = ctx.body ?? {};
+  const { fullName = '', email = '', phone = '', password = '', confirmPassword = '' } = ctx.body ?? {};
   const errs: Record<string, string> = {};
   if (String(fullName).trim().length < 2) errs.fullName = 'Vui lòng nhập họ và tên.';
   if (!emailRe.test(String(email))) errs.email = 'Email không hợp lệ.';
-  if (!phoneRe.test(String(phone))) errs.phone = 'Số điện thoại phải gồm 10 chữ số.';
-  if (String(password).length < 8) errs.password = 'Mật khẩu tối thiểu 8 ký tự.';
+  if (String(phone).trim() && !/^0\d{9,10}$/.test(String(phone).trim()))
+    errs.phone = 'Số điện thoại phải gồm 10–11 chữ số, bắt đầu bằng 0.';
+  if (!isStrongPassword(String(password))) errs.password = PASSWORD_POLICY_MESSAGE;
+  if (String(confirmPassword) !== String(password)) errs.confirmPassword = 'Mật khẩu xác nhận không khớp.';
   if (Object.keys(errs).length) throw validation(errs);
   if (ctx.db.users.some((u) => u.email.toLowerCase() === String(email).trim().toLowerCase()))
     throw new ApiFail('EMAIL_ALREADY_EXISTS', 'Email này đã được đăng ký.');
@@ -137,9 +142,13 @@ export function forgotPassword(ctx: Ctx): Result {
 }
 
 export function resetPassword(ctx: Ctx): Result {
-  const { token = '', password = '' } = ctx.body ?? {};
+  const body = ctx.body ?? {};
+  const token = body.token ?? '';
+  const password = body.newPassword ?? body.password ?? '';
   const errs: Record<string, string> = {};
-  if (String(password).length < 8) errs.password = 'Mật khẩu tối thiểu 8 ký tự.';
+  if (!isStrongPassword(String(password))) errs.newPassword = PASSWORD_POLICY_MESSAGE;
+  if (String(body.confirmPassword ?? '') !== String(password))
+    errs.confirmPassword = 'Mật khẩu xác nhận không khớp.';
   if (!/^[0-9a-f]{64}$/.test(String(token))) errs.token = 'Liên kết không hợp lệ.';
   if (Object.keys(errs).length) throw validation(errs);
   const rec = ctx.db.resetTokens[String(token)];
@@ -194,12 +203,13 @@ export function updateMe(ctx: Ctx): Result {
 }
 
 export function changePassword(ctx: Ctx): Result {
-  const { currentPassword = '', newPassword = '' } = ctx.body ?? {};
+  const { currentPassword = '', newPassword = '', confirmPassword = '' } = ctx.body ?? {};
   const u = ctx.user!;
   const errs: Record<string, string> = {};
   if (ctx.db.credentials[u.id] !== currentPassword) errs.currentPassword = 'Mật khẩu hiện tại không đúng.';
-  if (String(newPassword).length < 8) errs.newPassword = 'Mật khẩu mới tối thiểu 8 ký tự.';
+  if (!isStrongPassword(String(newPassword))) errs.newPassword = PASSWORD_POLICY_MESSAGE;
   else if (newPassword === currentPassword) errs.newPassword = 'Mật khẩu mới phải khác mật khẩu cũ.';
+  if (String(confirmPassword) !== String(newPassword)) errs.confirmPassword = 'Mật khẩu xác nhận không khớp.';
   if (Object.keys(errs).length) throw validation(errs);
   ctx.db.credentials[u.id] = newPassword;
   return done();

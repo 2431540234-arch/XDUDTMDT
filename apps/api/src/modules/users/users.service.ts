@@ -5,7 +5,14 @@ import { compare, hash } from 'bcryptjs';
 import { ErrorCode, type RoleCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
 import { describeDevice } from '../../common/utils/device';
-import { FieldErrors, PHONE_RE, asBody, str } from '../../common/utils/validate';
+import {
+  FieldErrors,
+  PASSWORD_CONFIRM_MESSAGE,
+  PHONE_RE,
+  asBody,
+  passwordPolicyError,
+  str,
+} from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -179,8 +186,10 @@ export class UsersService {
     const errs = new FieldErrors();
     if (!(await compare(current, u.passwordHash)))
       errs.add('currentPassword', 'Mật khẩu hiện tại không đúng.');
-    if (next.length < 8) errs.add('newPassword', 'Mật khẩu mới tối thiểu 8 ký tự.');
+    const pwErr = passwordPolicyError(next);
+    if (pwErr) errs.add('newPassword', pwErr);
     else if (next === current) errs.add('newPassword', 'Mật khẩu mới phải khác mật khẩu cũ.');
+    if (str(b.confirmPassword) !== next) errs.add('confirmPassword', PASSWORD_CONFIRM_MESSAGE);
     errs.throwIfAny();
     await this.prisma.$transaction([
       this.prisma.user.update({

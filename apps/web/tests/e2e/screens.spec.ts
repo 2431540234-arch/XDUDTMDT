@@ -62,7 +62,13 @@ test('quên mật khẩu bằng liên kết: email (Mailpit) → đặt mật kh
   const mailpit = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
   const email = `reset${Date.now()}@example.com`;
   const reg = await request.post(`${api}/api/auth/register`, {
-    data: { fullName: 'Khách Đặt Lại', email, phone: '0912345678', password: 'matkhau-cu-1' },
+    data: {
+      fullName: 'Khách Đặt Lại',
+      email,
+      phone: '0912345678',
+      password: 'Matkhau-cu-1',
+      confirmPassword: 'Matkhau-cu-1',
+    },
   });
   expect(reg.status()).toBe(201);
 
@@ -88,20 +94,20 @@ test('quên mật khẩu bằng liên kết: email (Mailpit) → đặt mật kh
     .toMatch(/^[0-9a-f]{64}$/);
 
   await page.goto(`/reset-password?token=${token}`);
-  await page.getByLabel(/^Mật khẩu mới/).fill('matkhau-moi-2');
-  await page.getByLabel(/^Xác nhận mật khẩu mới/).fill('matkhau-moi-2');
+  await page.getByLabel(/^Mật khẩu mới/).fill('Matkhau-moi-2');
+  await page.getByLabel(/^Xác nhận mật khẩu mới/).fill('Matkhau-moi-2');
   await page.getByRole('button', { name: 'Đặt lại mật khẩu' }).click();
   await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
 
-  const okLogin = await request.post(`${api}/api/auth/login`, { data: { email, password: 'matkhau-moi-2' } });
+  const okLogin = await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-moi-2' } });
   expect(okLogin.status()).toBe(200);
-  const oldLogin = await request.post(`${api}/api/auth/login`, { data: { email, password: 'matkhau-cu-1' } });
+  const oldLogin = await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-cu-1' } });
   expect(oldLogin.status()).toBe(401);
 
   // dùng lại cùng liên kết ⇒ báo lỗi
   await page.goto(`/reset-password?token=${token}`);
-  await page.getByLabel(/^Mật khẩu mới/).fill('matkhau-khac-3');
-  await page.getByLabel(/^Xác nhận mật khẩu mới/).fill('matkhau-khac-3');
+  await page.getByLabel(/^Mật khẩu mới/).fill('Matkhau-khac-3');
+  await page.getByLabel(/^Xác nhận mật khẩu mới/).fill('Matkhau-khac-3');
   await page.getByRole('button', { name: 'Đặt lại mật khẩu' }).click();
   await expect(page.getByText('không đúng hoặc đã hết hạn')).toBeVisible({ timeout: 30_000 });
 });
@@ -115,7 +121,13 @@ test('xác thực email: đăng ký ⇒ email (Mailpit) ⇒ mở liên kết ⇒
   const mailpit = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
   const email = `verify${Date.now()}@example.com`;
   const reg = await request.post(`${api}/api/auth/register`, {
-    data: { fullName: 'Khách Xác Thực', email, phone: '0912345678', password: 'matkhau-12345' },
+    data: {
+      fullName: 'Khách Xác Thực',
+      email,
+      phone: '0912345678',
+      password: 'Matkhau-12345',
+      confirmPassword: 'Matkhau-12345',
+    },
   });
   expect(reg.status()).toBe(201);
   const access = (await reg.json()).data.tokens.accessToken as string;

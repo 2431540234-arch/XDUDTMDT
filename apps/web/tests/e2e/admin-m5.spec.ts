@@ -387,11 +387,11 @@ test('UC-ADM-24 chuyển khoản trên trang đơn: mã giao dịch trùng báo 
   const mk = async (label: string, paymentMethod: string) => {
     const email = `pay-${label}-${stamp}@test.local`;
     await request.post(`${api}/api/auth/register`, {
-      data: { fullName: `Khách ${label}`, email, phone: '0911222333', password: 'matkhau-12345' },
+      data: { fullName: `Khách ${label}`, email, phone: '0911222333', password: 'Matkhau-12345' },
     });
     const t = (
       await (
-        await request.post(`${api}/api/auth/login`, { data: { email, password: 'matkhau-12345' } })
+        await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-12345' } })
       ).json()
     ).data.tokens.accessToken as string;
     const h = { Authorization: `Bearer ${t}` };
@@ -472,10 +472,10 @@ test('hoàn hàng → hủy đơn đang giao → hoàn tiền (đơn đã thanh 
   const stamp = Date.now();
   const email = `ret-${stamp}@test.local`;
   await request.post(`${api}/api/auth/register`, {
-    data: { fullName: 'Khách hoàn hàng', email, phone: '0911222333', password: 'matkhau-12345' },
+    data: { fullName: 'Khách hoàn hàng', email, phone: '0911222333', password: 'Matkhau-12345' },
   });
   const t = (
-    await (await request.post(`${api}/api/auth/login`, { data: { email, password: 'matkhau-12345' } })).json()
+    await (await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-12345' } })).json()
   ).data.tokens.accessToken as string;
   const h = { Authorization: `Bearer ${t}` };
   const addr = (
