@@ -2,7 +2,7 @@
 
 > Bộ chuẩn (không sửa): `CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`; phạm vi chức năng: `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
 > Khi mâu thuẫn: **4 file chuẩn + đặc tả > quyết định của chủ dự án > code hiện có.** Code lệch chuẩn thì sửa theo chuẩn; thứ gì chuẩn chưa có mà dự án vẫn cần thì ghi **ở đây** (thay cho việc cập nhật `DATABASE_SCHEMA.md` sau mỗi migration).
-> Cập nhật lần cuối: 2026-11-07 (sau Phần A + Mốc 4, nhánh `feature/backend`). Trạng thái DB: **61 bảng** (44 bảng chuẩn + 17 bảng mở rộng bên dưới), **26 ENUM**, **15 migration** (gồm `0_init`; xem `apps/api/prisma/migrations`).
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`. Trạng thái DB: **59 bảng** (42 chuẩn + 17 mở rộng; 2 bảng AR đã bỏ), **25 ENUM**, **16 migration** (đến `20261109010100_remove_ar`); bảng/cột mở rộng xem [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
 
 Mọi bảng/cột mở rộng bên dưới tuân theo `QUY_UOC_CODE_DB.md`: tên `snake_case` số nhiều, khóa chính `id INTEGER GENERATED ALWAYS AS IDENTITY` (trừ `code_counters`), ràng buộc đặt tên `pk_/fk_/uq_/ck_/idx_`, trigger `trg_<bảng>_updated_at` với bảng có `updated_at`, `COMMENT ON` tiếng Việt.
 
@@ -10,54 +10,9 @@ Mọi bảng/cột mở rộng bên dưới tuân theo `QUY_UOC_CODE_DB.md`: tê
 
 ## Phần 1. Cơ sở dữ liệu
 
-### 1.1 Bảng mở rộng (17) – chuẩn không có, FE/nghiệp vụ cần
+### 1.1–1.3 Bảng, ENUM và cột mở rộng (đã chuyển)
 
-| Bảng | Cột chính | Để làm gì | Vì sao giữ |
-|---|---|---|---|
-| `product_specs` | `product_id`, `label`, `value`, `sort_order` | Bảng thông số kỹ thuật của sản phẩm (tab "Thông số", FE màn 17/3) | Gộp vào `products` dạng JSON làm mất khả năng sửa từng dòng |
-| `product_360_configs` | `product_id` (UNIQUE), `enabled`, `auto_rotate`, `rotation_speed`, `default_color_id`, `frame_count`, `created_at`, `updated_at` | Cấu hình xem 360° (xoay ảnh) của sản phẩm | Tính năng "Xem 360°" (`PROMPT_360_SAN_PHAM.md`); chuẩn chỉ nhắc, chưa có bảng |
-| `product_360_frames` | `config_id`, `attribute_value_id` (màu), `frame_index`, `media_id` | Từng ảnh frame theo màu | như trên |
-| `review_images` | `review_id`, `media_id`, `sort_order` | Ảnh đính kèm đánh giá (≤ 5) | Khách đính ảnh khi đánh giá |
-| `product_questions` | `product_id`, `user_id`, `content`, `answer`, `answered_by`, `answered_at`, `is_public`, `status`, `created_at` | Hỏi đáp sản phẩm (FE màn 50) | FE có màn hình, đặc tả chưa có UC |
-| `coupon_scopes` | `coupon_id`, `target_type`, `target_id` | Mã giảm giá theo sản phẩm/danh mục/không gian | `target_id` là khóa đa hình **không có FK** (tránh 3 bảng nối) |
-| `user_coupons` | `user_id`, `coupon_id`, `saved_at` | "Mã đã lưu" của khách (màn 9) | FE có chức năng lưu mã |
-| `code_counters` | `key` (PK), `value` BIGINT | Cấp mã `ALV-YYYYMMDD-NNNN`, `RT…`, phiếu kho, phiếu chi không trùng khi đặt đồng thời | Test 6 đơn đồng thời; thay cho UNIQUE + retry |
-| `return_requests` | `code`, `order_id`, `user_id`, `type` (refund/exchange), `reason`, `description`, `status`, `refund_amount`, `admin_note`, `created_at`, `updated_at` | Yêu cầu đổi/trả hàng (FE màn 35, 45) | Đặc tả chỉ có "hoàn tiền thủ công" (UC-ADM-23) |
-| `return_request_items` | `request_id`, `order_item_id`, `quantity`, `exchange_variant_id` (NULL = đổi cùng biến thể) | Dòng hàng trả/đổi | như trên |
-| `return_request_images` | `request_id`, `media_id` | Ảnh minh chứng | như trên |
-| `stock_receipts` | `code`, `type` (in/out), `supplier_name` (chữ, không FK), `order_code`, `status` (draft/completed/cancelled), `created_by`, `created_at` | **Phiếu** nhập/xuất kho (trang Kho, màn 53). Xác nhận phiếu ⇒ ghi `inventory_movements` (xem 1.3) | Quyết định chủ dự án (phương án b′): giữ phiếu như chứng từ, sổ cái vẫn là `inventory_movements`. Bảng `suppliers` đã **bỏ** |
-| `stock_receipt_items` | `receipt_id`, `variant_id`, `quantity`, `cost_price` | Dòng phiếu kho | như trên |
-| `expenses` | `code`, `category`, `amount`, `note`, `date`, `order_id`, `receipt_id`, `created_at` | Phiếu chi (màn 54): hoàn tiền đổi trả tự sinh `refund` (gắn `order_id`), phiếu nhập kho hoàn tất tự sinh `cogs` (gắn `receipt_id`), còn lại admin nhập tay | Không có chỗ gộp tự nhiên |
-| `banners` | `title`, `subtitle`, `image_media_id`, `link`, `position`, `start_at`, `end_at`, `sort_order`, `is_active`, `created_at` | Banner trang chủ (màn 51) | FE quản lý nội dung |
-| `posts` | `title`, `slug`, `category`, `cover_media_id`, `content` (Markdown), `author_name`, `status`, `views`, `published_at`, `created_at` | Bài viết/blog (màn 51) | `pages` thiếu ảnh bìa, chuyên mục, lượt xem |
-| `contact_messages` | `full_name`, `phone`, `email`, `subject`, `content`, `handled_at`, `handled_by`, `created_at` | Tin nhắn từ form Liên hệ (màn 38) | FE có form, admin có xử lý |
-
-Đã **gộp/bỏ** theo quyết định: FAQ (`faq_topics`, `faq_items`) → lưu JSON trong `settings` khóa `faq`; `suppliers` → cột chữ `stock_receipts.supplier_name`.
-
-### 1.2 ENUM mở rộng (9) và giá trị thêm
-
-`question_status`, `return_type`, `return_reason`, `return_status`, `stock_receipt_type`, `stock_receipt_status`, `expense_category`, `banner_position`, và giá trị `coupon_type = 'freeship'` (mã giảm phí vận chuyển).
-
-### 1.3 Cột thêm trên bảng chuẩn
-
-| Bảng | Cột thêm | Ghi chú |
-|---|---|---|
-| `users` | `birthday`, `gender`, `loyalty_points`, `admin_note` | `loyalty_points` **chưa có logic cộng điểm** (xem Phần 3) |
-| `addresses` | `label` | Nhãn "Nhà riêng/Công ty" |
-| `categories` | `description`, `is_featured` | |
-| `pages` | `type` | Phân loại trang tĩnh / chính sách |
-| `products` | `features` (JSONB), `style` | |
-| `attribute_values` | `color_hex` | Màu swatch + 360° |
-| `product_variants` | `cost_price`, `min_stock`, `length_cm`, `width_cm`, `height_cm` | Giá vốn, cảnh báo tồn thấp, kích thước |
-| `reviews` | `is_anonymous`, `tags` | |
-| `carts` | `coupon_id` | Mã đang áp (chuẩn nói "chỉ xem trước"; giữ cho FE – xem Phần 3) |
-| `coupons` | `name`, `description`, `applies_to`, `applies_to_label` | |
-| `orders` | `internal_note` | Ghi chú nội bộ admin |
-| `order_items` | `cost_price`, `image_media_id`, `variant_label` | Chụp lại giá vốn/ảnh/nhãn lúc bán |
-| `spaces` | `combo_discount_percent` | % giảm khi mua cả bộ (**chỉ hiển thị**, giỏ hàng chưa áp – Phần 3) |
-| `password_resets` | (chuẩn: `token_hash`, `expires_at`, `used_at`) | Đã bỏ cột OTP; dùng liên kết token |
-
-Ràng buộc/index mở rộng đi theo các bảng trên (`ck_*`, `uq_*`, `idx_*` đặt tên theo quy ước).
+**17 bảng mở rộng, 8 ENUM mở rộng (và giá trị `coupon_type = 'freeship'`) và các cột thêm trên bảng chuẩn** nay được mô tả ở **một nơi duy nhất**: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), mục "Nhóm 8 – Mở rộng" (cột chính, lý do giữ, từ điển cột sinh từ `schema.prisma`, ENUM mở rộng, cột thêm trên bảng chuẩn) và ERD ở mục 5.9–5.10. Tóm tắt nghiệp vụ từng bảng: [CAU_TRUC_DB.md](CAU_TRUC_DB.md), nhóm 8. Đã **gộp/bỏ** theo quyết định: FAQ (`faq_topics`, `faq_items`) → lưu JSON trong `settings` khóa `faq`; `suppliers` → cột chữ `stock_receipts.supplier_name`.
 
 ### 1.4 Quy tắc nghiệp vụ trong DB/code đã chốt theo chuẩn
 
@@ -143,7 +98,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 38 | **Phễu không gian mẫu (D-T58): chi tiết ngoài đặc tả** | Chỉ đọc `space_views` (không migration). Định nghĩa các bước phễu, cách gộp theo visitorId và tỉ lệ nằm ở D-T58 và API_CONTRACT. FE: trang `/admin/reports/spaces` (menu "Hiệu quả không gian"). Dữ liệu demo: `prisma/seed-space-views.ts` (≈ 350 lượt xem trong 30 ngày gần nhất, tính từ lúc seed), gọi trong `seed-mock.ts` và lệnh `npm run db:seed-space-views` cho DB demo/test đã có dữ liệu | — |
 | 39 | **Chi tiết đợt hoàn tất (D-N35, D-N36): ngoài đặc tả** | (a) `POST /orders` nhận thêm `couponCode` (ưu tiên hơn mã đang gắn ở giỏ, kiểm trong cùng khóa dòng; sai ⇒ 400); (b) dòng không còn bán ⇒ 409 kèm `details.unavailable` (danh sách dòng); (c) `conflictError` (409 `CONFLICT` kèm `details` theo trường) cho slug/mã/tên trùng; (d) trang `/admin/payments` có lọc theo trạng thái/phương thức và nút xác nhận/đánh dấu thất bại; (e) admin cấp mật khẩu tạm luôn có chữ hoa, thường, số; tài khoản quản trị không đổi trạng thái được (409) |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
-| 17 | ~30 chú thích `TODO: chưa có trong BE` trong FE services | Đã cũ | Dọn khi hoàn tất Mốc 4–5 |
+| 17 | **93** chú thích `TODO: chưa có trong BE/DB` ở `apps/web/src/services/*.api.ts` và `apps/web/src/types/api.ts` | Đã cũ (BE/DB đã có các route/cột này; liệt kê ở `AUDIT_REPORT.md` mục 6–7) | **Chưa dọn** (backlog P2, xem [KNOWN_ISSUES.md](KNOWN_ISSUES.md)) |
 | 18 | ~~`docs/aurelia_dev_backup.sql` đang được git theo dõi~~ **Đã gỡ khỏi repo ngày 2026-11-11** (chuyển ra `../aurelia-backups/`, `.gitignore` chặn `docs/**/*.sql` và `*.dump`; lịch sử git không xử lý). Nhiều tài liệu cũ (README, `BACKEND_DESIGN.md`…) còn nhắc OTP | Cũ | Dọn tài liệu |
 | 19 | Test chập chờn | Đã chạy supertest 10 lần liên tiếp (114/114 mỗi lần) và nhóm `khach-hang` 10 lần liên tiếp: xanh cả 20 lần (kết quả chi tiết trong `BE_PROGRESS.md`). Chạy HAI bộ test cùng lúc trên một `aurelia_test` tái hiện đúng kiểu lỗi cũ (404 ở "Hỏi đáp", sai tồn kho…) ⇒ nguyên nhân khả dĩ nhất là chồng chéo hai lần chạy; đã thêm khóa chặn chạy song song | Theo dõi |
 

@@ -1,3 +1,7 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
+> **Hiện trạng 2026-11-11:** `packages/shared-types` sinh **59 entity và 25 enum** từ `schema.prisma` (`npm run types:generate`; `npm run types:check` báo "Đã đồng bộ: 25 enum, 59 entity"). Các con số 44 entity/18 enum ở bên dưới là của các lượt đồng bộ trước (trước khi bỏ AR và thêm bảng mở rộng), giữ nguyên làm lịch sử.
+
 # Đồng bộ `packages/shared-types` với Prisma
 
 ## 1. Cách làm
@@ -47,7 +51,7 @@ Hiện trạng cũ (viết tay, 5 file) so với schema Prisma (44 bảng, 18 en
 | 10 | Sai kiểu  | `Space.id: string`, `panoramaUrl`, `hotspots[{position{x,y,z}}]` | `Space`/`SpaceScene`/`SpaceHotspot` dùng `yaw`/`pitch` (Decimal) chứ không phải x,y,z; ảnh qua `Media` | Entity sinh |
 | 11 | Thiếu     | `AuthTokens` chỉ có token | Đúng hình dạng nhưng thiếu người dùng đăng nhập | `AuthTokens` giữ, thêm `AuthUser` |
 | 12 | Thiếu     | Không có | 18 enum (`UserStatus`, `OrderStatus`, `PaymentStatus`...) | `enums.generated.ts` |
-| 13 | Thiếu     | Không có | 39 bảng còn lại (Order, Coupon, Review...) | Entity sinh (42 bảng; đã bỏ 2 bảng AR ở D-P16) |
+| 13 | Thiếu     | Không có | 39 bảng còn lại (Order, Coupon, Review...) | Entity sinh (59 bảng: 42 chuẩn + 17 mở rộng; đã bỏ 2 bảng AR ở D-P16) |
 | 14 | Thiếu     | Không có kiểu response/lỗi/phân trang | Quy ước ở API_CONVENTIONS.md | `api.ts`, `error-codes.ts` |
 | 15 | Hạ tầng   | Thiếu `package.json`, `tsconfig.json`; `apps/*` không khai báo phụ thuộc | - | Thêm package `@aurelia-living/shared-types` (build ra `dist`), `apps/api` và `apps/web` khai báo `"@aurelia-living/shared-types": "*"` |
 

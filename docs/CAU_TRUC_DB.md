@@ -1,6 +1,8 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 ## DANH SÁCH BẢNG CƠ SỞ DỮ LIỆU
 
-Hệ thống gồm **42 bảng**, chia thành **7 nhóm** chức năng (số thứ tự 28–29 để trống vì đã loại bỏ AR ngày 2026-11-09, D-P16).
+Hệ thống gồm **59 bảng**: **42 bảng chuẩn** chia thành **7 nhóm** chức năng (số thứ tự 28–29 để trống vì đã loại bỏ AR ngày 2026-11-09, D-P16) và **17 bảng mở rộng** ở nhóm 8 (STT 45–61). Cột chi tiết của từng bảng: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
 
 **Vai trò:** Quản trị viên (admin), Người dùng (user), Khách vãng lai (không cần đăng nhập, chỉ được xem; muốn thêm vào giỏ, mua hàng hay áp mã giảm giá phải đăng ký hoặc đăng nhập).
 
@@ -82,3 +84,27 @@ Luồng tổng quát: một không gian mẫu (spaces) gồm nhiều ảnh 360°
 | 42 | space_product_placements | Đặt mô hình 3D thật của sản phẩm vào ảnh 360° với đúng phối cảnh. Khác với điểm bấm chỉ là ghim 2D, bảng này lưu vị trí đặt trong ảnh, khoảng cách tới máy ảnh để tính kích thước hiển thị đúng tỉ lệ thật, góc xoay và tỉ lệ để mô hình khớp với không gian. Có thể chọn biến thể hoặc mô hình cụ thể; nếu không chọn sẽ dùng mô hình chính của sản phẩm. Cho phép người dùng thử đổi món đồ khác ngay trong phòng mẫu mà không cần thử tại nhà. |
 | 43 | space_bookmarks | Lưu danh sách không gian mẫu yêu thích của từng người dùng để xem lại sau, tương tự danh sách sản phẩm yêu thích. |
 | 44 | space_views | Ghi nhận mỗi lượt xem không gian mẫu để đo hiệu quả. Lưu sản phẩm mà người dùng đã đi từ đó vào không gian mẫu (để biết sản phẩm nào dẫn lượt truy cập tới phòng mẫu), số lần bấm điểm tương tác và có thêm sản phẩm vào giỏ hay không. Dùng để đo hành trình xem phòng → bấm điểm tương tác → thêm vào giỏ, từ đó đánh giá phòng mẫu nào bán hàng tốt. Mỗi lượt xem mới sẽ tự động tăng bộ đếm lượt xem của không gian tương ứng. |
+
+#### 8. Mở rộng (17 bảng)
+
+Bảng ngoài bộ chuẩn nhưng dự án cần và đang dùng (lý do giữ từng bảng ở [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), nhóm 8).
+
+| STT | Tên bảng | Chức năng |
+| --- | --- | --- |
+| 45 | product_specs | Bảng thông số kỹ thuật của sản phẩm (tab "Thông số"). |
+| 46 | product_360_configs | Cấu hình xem 360° (xoay ảnh) của sản phẩm: bật/tắt, tự xoay, tốc độ, số frame. |
+| 47 | product_360_frames | Từng ảnh frame của 360° theo màu. |
+| 48 | review_images | Ảnh đính kèm đánh giá (tối đa 5 ảnh). |
+| 49 | product_questions | Hỏi đáp sản phẩm: khách đặt câu hỏi, quản trị viên trả lời và ẩn/hiện. |
+| 50 | coupon_scopes | Phạm vi áp dụng mã giảm giá theo sản phẩm, danh mục hoặc không gian mẫu. |
+| 51 | user_coupons | "Mã đã lưu" của khách hàng. |
+| 52 | code_counters | Bộ đếm cấp mã đơn/phiếu (`ALV-YYYYMMDD-NNNN`, `RT…`, phiếu kho, phiếu chi) không trùng khi đặt hàng đồng thời. |
+| 53 | return_requests | Yêu cầu đổi/trả hàng và hoàn tiền của khách. |
+| 54 | return_request_items | Các dòng hàng trong yêu cầu đổi/trả (có thể đổi sang biến thể khác). |
+| 55 | return_request_images | Ảnh minh chứng đính kèm yêu cầu đổi/trả. |
+| 56 | stock_receipts | Phiếu nhập/xuất kho (nháp, hoàn tất, đã hủy); hoàn tất phiếu mới ghi biến động tồn. |
+| 57 | stock_receipt_items | Dòng hàng của phiếu kho (biến thể, số lượng, giá vốn). |
+| 58 | expenses | Phiếu chi: hoàn tiền tự sinh khi duyệt đổi trả, giá vốn khi nhập kho hoàn tất, chi phí nhập tay. |
+| 59 | banners | Banner trang chủ (vị trí, thời gian hiển thị, thứ tự). |
+| 60 | posts | Bài viết/blog (Markdown, chuyên mục, ảnh bìa, lượt xem). |
+| 61 | contact_messages | Tin nhắn từ form Liên hệ và trạng thái đã xử lý. |
