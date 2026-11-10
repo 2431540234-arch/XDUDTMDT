@@ -26,7 +26,25 @@ NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_URL=https://api.example.com npm run b
 
 - **`next build` thất bại nếu `NEXT_PUBLIC_USE_MOCK=true`** (`apps/web/next.config.js`, kiểm `PHASE_PRODUCTION_BUILD`). Biến `NEXT_PUBLIC_*` được cố định vào mã lúc build; đổi địa chỉ API phải build lại.
 - Lỗi đã biết trên một số máy (npm workspaces): `Failed to patch lockfile … reading 'os'`. Cách tránh: đặt `NEXT_IGNORE_INCORRECT_LOCKFILE=1` khi build. Nguyên nhân gốc: **Cần xác minh**.
-- Dockerfile có sẵn: `infra/docker/Dockerfile.api` (build nhiều giai đoạn, chạy `prisma migrate deploy` rồi `node dist/main.js`), `Dockerfile.web`, `Dockerfile.worker`. **Cần xác minh:** `Dockerfile.web` không truyền `NEXT_PUBLIC_API_URL` lúc build nên cần bổ sung (`ENV`/`--build-arg`) thì `npm run build` trong container mới qua; chưa kiểm chứng.
+- Dockerfile có sẵn: `infra/docker/Dockerfile.api` (build nhiều giai đoạn, chạy `prisma migrate deploy` rồi `node dist/main.js`), `Dockerfile.web`, `Dockerfile.worker`.
+
+**Build ảnh web bằng Docker** (chạy từ gốc repo). Các biến `NEXT_PUBLIC_*` bị nhúng vào mã lúc build nên PHẢI truyền bằng `--build-arg` (đặt trong `env_file`/`environment` lúc chạy container KHÔNG có tác dụng):
+
+```bash
+docker build -f infra/docker/Dockerfile.web \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.example.com \
+  -t aurelia-web .
+# tùy chọn: --build-arg NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED=false (mặc định false)
+# NEXT_PUBLIC_USE_MOCK mặc định false; truyền true ⇒ build thất bại (cấm ở production)
+```
+
+| Build arg | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `NEXT_PUBLIC_API_URL` | không (BẮT BUỘC) | Thiếu ⇒ build dừng ngay: "LỖI: thiếu --build-arg NEXT_PUBLIC_API_URL…" |
+| `NEXT_PUBLIC_USE_MOCK` | `false` | `true` ⇒ `next build` thất bại ("bị CẤM khi build production") |
+| `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | `false` | Đăng nhập Google chưa làm; nút ẩn |
+
+Dockerfile đặt sẵn `NEXT_IGNORE_INCORRECT_LOCKFILE=1` (tránh lỗi vá lockfile của Next trong npm workspaces). Với `docker compose`, service `web` (profile `later`) lấy các build arg từ biến môi trường/`.env` cùng tên. **Đã kiểm chứng bằng Docker 2026-11-11:** thiếu API URL ⇒ lỗi rõ ràng; có API URL ⇒ build thành công (58/58 trang) và container trả HTTP 200 với địa chỉ API nhúng trong mã; `USE_MOCK=true` ⇒ thất bại đúng như yêu cầu. Ảnh chưa tối ưu dung lượng (giữ devDependencies, chưa dùng `output: standalone`). Lưu ý: service `web` trong `docker-compose.yml` có `depends_on: api` nhưng `api` nằm ở profile `legacy`, nên cần bật cả hai profile (`--profile later --profile legacy`).
 
 ## 3. Biến môi trường bắt buộc ở production
 

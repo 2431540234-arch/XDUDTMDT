@@ -171,6 +171,12 @@ services:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.web
+      # NEXT_PUBLIC_* được NHÚNG vào mã lúc build (env_file/environment lúc chạy KHÔNG có tác dụng): truyền bằng build args.
+      # Thiếu NEXT_PUBLIC_API_URL ⇒ build thất bại với thông báo rõ ràng; NEXT_PUBLIC_USE_MOCK=true bị cấm khi build production.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_USE_MOCK: ${NEXT_PUBLIC_USE_MOCK:-false}
+        NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED: ${NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED:-false}
     restart: unless-stopped
     env_file: .env
     ports:

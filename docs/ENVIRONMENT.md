@@ -119,11 +119,11 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
-| `NEXT_PUBLIC_USE_MOCK` | Tùy chọn | `true` trong `apps/web/.env.example` | web (`src/services/api-client.ts`) | `true` = giao diện dùng dữ liệu giả chạy trong trình duyệt, không cần API. **`next build` (production) THẤT BẠI nếu `true`** (`apps/web/next.config.js`); dùng cho `next dev` và test giao diện. Playwright qua `npm run test:e2e:real` chạy với `false` |
+| `NEXT_PUBLIC_USE_MOCK` | Tùy chọn | `true` trong `apps/web/.env.example`; `false` trong `Dockerfile.web` | web (`src/services/api-client.ts`) | **Biến lúc BUILD** (nhúng vào mã; với Docker truyền bằng `--build-arg`, xem [DEPLOYMENT.md](DEPLOYMENT.md) mục 2). `true` = giao diện dùng dữ liệu giả chạy trong trình duyệt, không cần API. **`next build` (production) THẤT BẠI nếu `true`** (`apps/web/next.config.js`); dùng cho `next dev` và test giao diện. Playwright qua `npm run test:e2e:real` chạy với `false` |
 | `NEXT_IGNORE_INCORRECT_LOCKFILE` | Tùy chọn | không đặt | Next.js | Đặt `1` khi `next build`/`next dev` báo "Failed to patch lockfile … reading 'os'" (lỗi đã biết của Next trong npm workspaces, **cần xác minh** nguyên nhân gốc). `playwright.config.ts` tự đặt `1` cho server test |
 | `NEXT_DIST_DIR` | Tùy chọn | `.next` | `next.config.js` | Thư mục build riêng (e2e dùng `.next-e2e`) để không đè lên server dev |
 | `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | Tùy chọn | không đặt (ẩn) | web (`GoogleButton.tsx`) | Chỉ `true` mới hiện nút "Đăng nhập/Đăng ký với Google". Đăng nhập Google CHƯA làm ở BE (`POST /auth/google` luôn 503) nên mặc định ẩn |
-| `NEXT_PUBLIC_API_URL` | **Có** | không | toàn bộ web (`src/lib/env.ts`, `next.config.js`) | `http://localhost:4000`; thiếu thì web không khởi động |
+| `NEXT_PUBLIC_API_URL` | **Có** | không | toàn bộ web (`src/lib/env.ts`, `next.config.js`) | `http://localhost:4000`; thiếu thì web không khởi động. **Biến lúc BUILD** (nhúng vào mã): với Docker truyền `--build-arg NEXT_PUBLIC_API_URL=…`, thiếu ⇒ `Dockerfile.web` dừng ngay với thông báo rõ ràng |
 
 ## 10. Mobile (thuộc tính Gradle, không phải biến môi trường)
 
