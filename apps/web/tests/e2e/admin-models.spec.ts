@@ -156,3 +156,29 @@ test('đặt làm mô hình chính: mô hình mới ready ⇒ nút Đặt làm m
   // mỗi mô hình có 3 dòng: đúng 3 dòng mang huy hiệu "Mô hình chính"
   await expect(page.getByText('Mô hình chính', { exact: true })).toHaveCount(3);
 });
+
+test('modal tải lên: xem trước đúng tệp GLB đã chọn (blob của tệp, không phải mô hình mẫu cố định); tệp hỏng ⇒ báo lỗi', async ({
+  page,
+}) => {
+  await adminLogin(page);
+  await page.goto('/admin/models');
+  await expect(page.getByRole('heading', { name: 'Mô hình 3D' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Tải lên mô hình' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByText('Chọn tệp GLB để xem trước')).toBeVisible();
+
+  // tệp hợp lệ ⇒ model-viewer nạp URL blob của chính tệp đó
+  await dlg.locator('input[type="file"]').setInputFiles(SPHERE);
+  const viewer = dlg.locator('model-viewer');
+  await expect(viewer).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
+  await expect(viewer).toHaveAttribute('alt', /sphere\.glb/);
+  await expect(dlg.getByRole('alert')).toHaveCount(0);
+
+  // bỏ tệp ⇒ quay về trạng thái chưa chọn; chọn tệp hỏng ⇒ báo lỗi không tải được
+  await dlg.getByRole('button', { name: 'Bỏ tệp' }).click();
+  await expect(dlg.getByText('Chọn tệp GLB để xem trước')).toBeVisible();
+  await dlg.locator('input[type="file"]').setInputFiles(BROKEN);
+  await expect(dlg.getByRole('alert').filter({ hasText: 'Không tải được tệp mô hình' })).toBeVisible({
+    timeout: 30_000,
+  });
+});

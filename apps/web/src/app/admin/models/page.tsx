@@ -24,6 +24,17 @@ import type { Model3DAdminRow } from '@/types/api';
 
 const ModelPreview = dynamic(() => import('@/components/viewer/ModelPreview'), { ssr: false });
 
+/** Xem trước ĐÚNG tệp GLB người dùng đang chọn: dựng URL tạm (blob:) từ File, thu hồi khi đổi tệp/đóng */
+function ChosenFilePreview({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url ? <ModelPreview src={url} alt={`Xem trước ${file.name}`} /> : null;
+}
+
 interface UploadItem {
   id: number;
   name: string;
@@ -185,15 +196,17 @@ function UploadModal({
           <div>
             <p className="mb-1.5 text-sm font-medium">Xem trước 360°</p>
             <div className="h-44 overflow-hidden rounded-btn border border-line bg-surface-muted/50">
-              {files.some((f) => f.format === 'glb') ? (
-                <ModelPreview src="/mock/models/sofa.glb" alt="Xem trước mô hình" />
+              {files.find((f) => f.format === 'glb') ? (
+                <ChosenFilePreview file={files.find((f) => f.format === 'glb')!.file} />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-muted">
                   Chọn tệp GLB để xem trước
                 </div>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted">Bản xem trước mô phỏng (mô hình mẫu).</p>
+            <p className="mt-1 text-xs text-muted">
+              Xem trước trực tiếp từ tệp GLB đang chọn (tệp đầu tiên).
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input
