@@ -112,6 +112,7 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | Tùy chọn | không đặt (ẩn) | web (`GoogleButton.tsx`) | Chỉ `true` mới hiện nút "Đăng nhập/Đăng ký với Google". Đăng nhập Google CHƯA làm ở BE (`POST /auth/google` luôn 503) nên mặc định ẩn |
 | `NEXT_PUBLIC_API_URL` | **Có** | không | toàn bộ web (`src/lib/env.ts`, `next.config.js`) | `http://localhost:4000`; thiếu thì web không khởi động |
 
 ## 10. Mobile (thuộc tính Gradle, không phải biến môi trường)

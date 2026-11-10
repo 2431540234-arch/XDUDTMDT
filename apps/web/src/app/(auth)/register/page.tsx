@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
-import GoogleButton from '@/components/account/GoogleButton';
+import { GoogleSection } from '@/components/account/GoogleButton';
 import AuthLayout from '@/components/layout/AuthLayout';
 import Button from '@/components/ui/Button';
 import Input, { Checkbox } from '@/components/ui/Input';
@@ -140,12 +140,12 @@ export default function RegisterPage() {
           Đăng ký
         </Button>
       </form>
-      <div className="my-5 flex items-center gap-3 text-xs text-muted">
-        <span className="h-px flex-1 bg-line" />
-        hoặc
-        <span className="h-px flex-1 bg-line" />
-      </div>
-      <GoogleButton label="Đăng ký với Google" loading={google.isPending} onClick={() => google.mutate()} />
+      <GoogleSection
+        divider="hoặc"
+        label="Đăng ký với Google"
+        loading={google.isPending}
+        onClick={() => google.mutate()}
+      />
       <p className="mt-6 text-center text-sm text-muted">
         Đã có tài khoản?{' '}
         <Link href="/login" className="font-semibold text-primary hover:underline">
