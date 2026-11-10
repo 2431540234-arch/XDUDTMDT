@@ -1,6 +1,8 @@
 # Aurelia Living
 
-Website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°. Monorepo (npm workspaces + Turborepo) gồm:
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`. Triển khai thật: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Website thương mại điện tử nội thất, tích hợp xem 3D, xoay 360° và không gian mẫu 360° (AR đã loại bỏ hoàn toàn, D-P16). Monorepo (npm workspaces + Turborepo) gồm:
 
 - `apps/web`: Next.js 14, React 18, Tailwind, React Three Fiber, model-viewer.
 - `apps/api`: NestJS 10, Prisma 5 + PostgreSQL 16, Redis (BullMQ 4 hàng đợi, cache, giới hạn tốc độ), MinIO (S3 ở production), Mailpit khi dev.
@@ -166,15 +168,18 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Tài liệu
 
+**Mục lục đầy đủ: [docs/README.md](docs/README.md).** Các tài liệu chính:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): kiến trúc (thư mục, module BE, nhóm trang FE, luồng xác thực, cách FE gọi API, chế độ mock)
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): build, biến bắt buộc ở production, seed production, Swagger
 - [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md): bảng biến môi trường (bắt buộc/tùy chọn, mặc định, module dùng)
-- [docs/CONG_NGHE.md](docs/CONG_NGHE.md): đối chiếu công nghệ và bảng công nghệ nộp giảng viên
-- [docs/ENV_SETUP_REPORT.md](docs/archive/ENV_SETUP_REPORT.md): báo cáo cấu hình môi trường phát triển
-- [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
-- [docs/TIEN_DO.md](docs/archive/TIEN_DO.md): tiến độ theo module và theo từng use case
-- [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật (Redis + MinIO + BullMQ, VNPay sandbox, ...)
-- [docs/MODULE_ENV_REPORT.md](docs/archive/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường (báo cáo chụp thời điểm 2026-10-08, đã lỗi thời một phần)
-- [docs/DOC_SYNC_REPORT.md](docs/archive/DOC_SYNC_REPORT.md): đợt đồng bộ tài liệu (mâu thuẫn còn lại, việc tồn đọng)
+- [docs/API_CONTRACT.md](docs/API_CONTRACT.md), [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) và [docs/api/openapi.json](docs/api/openapi.json) (sinh từ code): hợp đồng API, định dạng response/lỗi, mã lỗi, phân trang, phân quyền
+- [docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) và [docs/DOI_CHIEU_UC.md](docs/DOI_CHIEU_UC.md): đặc tả 80 UC và trạng thái triển khai 70 UC trong phạm vi
+- [docs/CONG_NGHE.md](docs/CONG_NGHE.md): đối chiếu công nghệ
+- [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật
 - [docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md): kiểu dùng chung FE/BE sinh từ Prisma
+- [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md): lỗi đã biết và việc còn tồn đọng
+- Tài liệu cũ đã lưu trữ (không còn đúng hiện trạng): [docs/archive/](docs/archive/README.md)
 
 ## Tài liệu CSDL
 
@@ -206,7 +211,9 @@ npm run dev -w @aurelia-living/web                          # http://localhost:3
 | Tạo/seed DB demo từ mock-data | `node scripts/db-reset.mjs aurelia_demo` (chỉ chấp nhận `aurelia_demo` hoặc `aurelia_test`) |
 | Chạy API (cổng 4000, DB `aurelia_demo`) | `DATABASE_URL=postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public npm run start:dev -w @aurelia-living/api` |
 | FE dùng API thật | `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL=http://localhost:4000` trong `apps/web/.env.development.local` |
-| Swagger | http://localhost:4000/docs |
+| Swagger (bật mặc định ở dev/test, **tắt mặc định ở production**; spec xuất sẵn ở [docs/api/openapi.json](docs/api/openapi.json), cách xuất lại ở [docs/api/README.md](docs/api/README.md)) | http://localhost:4000/docs |
+| **Build web production** (cần `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL`; trên máy gặp lỗi "Failed to patch lockfile … 'os'" thì thêm `NEXT_IGNORE_INCORRECT_LOCKFILE=1`) | `NEXT_IGNORE_INCORRECT_LOCKFILE=1 NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_URL=http://localhost:4000 npm run build -w @aurelia-living/web` |
+| Build API | `npm run build -w @aurelia-living/api` |
 | Email dev (đặt lại mật khẩu, xác thực email) | Mailpit http://localhost:8025 |
 | Unit test API | `npm test -w @aurelia-living/api` |
 | E2E API (supertest, DB `aurelia_test`) | `node scripts/db-reset.mjs aurelia_test && npm run test:e2e:db` |

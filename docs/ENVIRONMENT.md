@@ -1,3 +1,7 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
+> Đã đối chiếu với `apps/api/src/config/env.validation.ts` (49 biến) và `.env.example` ngày 2026-11-11: mọi biến API có trong bảng dưới. Biến mới/đổi của đợt 2026-11-10/11: `SWAGGER_ENABLED` (mặc định tắt ở production), `SEED_ADMIN_PASSWORD` và `SEED_SAMPLE` (ràng buộc production), `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED`, `NEXT_PUBLIC_USE_MOCK` (cấm khi build production). Triển khai thật: xem [DEPLOYMENT.md](DEPLOYMENT.md).
+
 # Biến môi trường
 
 Chỉ có **một** file `.env` ở thư mục gốc (sao chép từ [.env.example](../.env.example); `.env` không bao giờ được commit). API, Prisma CLI, seed, test và web đều đọc file này. Backend kiểm tra biến khi khởi động bằng Zod (`apps/api/src/config/env.validation.ts`) và dừng với thông báo rõ nếu thiếu hoặc sai.
@@ -34,6 +38,7 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `JWT_REFRESH_SECRET` | **Có** (≥ 16 ký tự) | không | M02 | như trên |
 | `JWT_ACCESS_EXPIRES_IN` | Tùy chọn | `15m` | Auth | Thời hạn access token. FE tự refresh khi 401. Với `NODE_ENV=production` tối đa `15m` (vượt thì API không khởi động) |
 | `JWT_REFRESH_EXPIRES_IN` | Tùy chọn | `7d` | Auth | Refresh token xoay vòng (dùng một lần) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Tùy chọn | trống | `AuthService.google()` | **Đăng nhập Google chưa triển khai (đã hoãn):** `POST /auth/google` luôn trả `503` kể cả khi hai biến này có giá trị (`apps/api/src/modules/auth/auth.service.ts`). Chỉ giữ chỗ cho giai đoạn sau |
 
 ## 4. Redis, hàng đợi, giới hạn tốc độ, cache
 
@@ -103,15 +108,20 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
-| `SEED_SAMPLE` | Tùy chọn | `true` | `prisma/seed.ts` | `false` = chỉ dữ liệu bắt buộc |
+| `SEED_SAMPLE` | Tùy chọn (production: **phải** `false`) | `true` | `prisma/seed.ts` | `false` = chỉ dữ liệu bắt buộc. Ở `NODE_ENV=production` seed **dừng và báo lỗi** nếu không đặt `false` (dữ liệu mẫu có tài khoản mật khẩu công khai) |
 | `SEED_ADMIN_EMAIL` | Tùy chọn | `admin@aurelia.vn` | seed | |
-| `SEED_ADMIN_PASSWORD` | Production: **Có** | `Admin@123456` (dev) | seed | Production bắt buộc tự đặt |
-| `SEED_SAMPLE_USER_PASSWORD` | Tùy chọn | `User@123456` | seed | |
+| `SEED_ADMIN_PASSWORD` | Production: **Có** | `Admin@123456` (**chỉ dev**) | seed | Ở `NODE_ENV=production` thiếu/rỗng ⇒ seed **dừng, không dùng mật khẩu mặc định** (`apps/api/prisma/seed.ts`, hàm `main`) |
+| `SEED_SAMPLE_USER_PASSWORD` | Tùy chọn | `User@123456` | seed | Chỉ khi nạp dữ liệu mẫu (không dùng ở production) |
+| `SEED_SOURCE` | Tùy chọn | `mock` | seed | `mock` = seed từ dữ liệu giả của FE (giao diện giống hệt chế độ mock, admin `admin@aurelia.vn` / `admin123`); `legacy` = bộ mẫu cũ |
+| `SEED_SKIP_MODEL_PROCESSING` | Tùy chọn | không đặt | seed | `true` = bỏ bước xử lý nền mô hình 3D mẫu (đủ 3 LOD, checksum) |
 
 ## 9. Web
 
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
+| `NEXT_PUBLIC_USE_MOCK` | Tùy chọn | `true` trong `apps/web/.env.example` | web (`src/services/api-client.ts`) | `true` = giao diện dùng dữ liệu giả chạy trong trình duyệt, không cần API. **`next build` (production) THẤT BẠI nếu `true`** (`apps/web/next.config.js`); dùng cho `next dev` và test giao diện. Playwright qua `npm run test:e2e:real` chạy với `false` |
+| `NEXT_IGNORE_INCORRECT_LOCKFILE` | Tùy chọn | không đặt | Next.js | Đặt `1` khi `next build`/`next dev` báo "Failed to patch lockfile … reading 'os'" (lỗi đã biết của Next trong npm workspaces, **cần xác minh** nguyên nhân gốc). `playwright.config.ts` tự đặt `1` cho server test |
+| `NEXT_DIST_DIR` | Tùy chọn | `.next` | `next.config.js` | Thư mục build riêng (e2e dùng `.next-e2e`) để không đè lên server dev |
 | `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | Tùy chọn | không đặt (ẩn) | web (`GoogleButton.tsx`) | Chỉ `true` mới hiện nút "Đăng nhập/Đăng ký với Google". Đăng nhập Google CHƯA làm ở BE (`POST /auth/google` luôn 503) nên mặc định ẩn |
 | `NEXT_PUBLIC_API_URL` | **Có** | không | toàn bộ web (`src/lib/env.ts`, `next.config.js`) | `http://localhost:4000`; thiếu thì web không khởi động |
 

@@ -1,3 +1,5 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # Hướng dẫn demo Aurelia Living (web)
 
 Dành cho người trình bày. Chạy bằng **API thật + DB `aurelia_demo`** (đã nạp dữ liệu mẫu). Không dùng `aurelia_dev` (dữ liệu của bạn) và không chạy seed/reset trên đó.
@@ -50,11 +52,11 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 
 1. **Tổng quan** (`/admin`): doanh thu, đơn, biểu đồ theo ngày, sản phẩm bán chạy, hoạt động gần đây.
 2. **Duyệt đơn và vận chuyển** (`/admin/orders`): tab "Chờ xác nhận" → mở đơn → *Xác nhận đơn hàng → Chuyển sang "Đang xử lý"*. Nút "Chuyển sang Đang giao" bị khóa cho tới khi **tạo vận đơn** (khối "Vận đơn" bên phải: chọn đơn vị, mã vận đơn, phí → *Tạo vận đơn*). Rồi: *Chuyển sang "Đang giao"* → ở vận đơn bấm *Đã lấy hàng → Đang vận chuyển → Đánh dấu đã giao*: đơn **tự hoàn tất** (COD tự đã thanh toán, tăng số đã bán, khách nhận thông báo). Không còn nút "Hoàn tất" thủ công. *Giao thất bại / Hoàn hàng*: đơn giữ "Đang giao", tạo vận đơn mới để giao lại. Có thể hủy đơn khi chưa giao.
-3. **Kho** (`/admin/inventory`): KPI tồn, lọc "Sắp hết/Hết hàng"; **Tạo phiếu nhập** (nhà cung cấp, sản phẩm, số lượng, giá vốn) → *Lưu nháp* (chưa đổi tồn) rồi **Xác nhận** trong bảng phiếu ⇒ tồn tăng, ghi dòng trong "Lịch sử biến động tồn kho" và sinh phiếu chi giá vốn; **Tạo phiếu xuất** (xuất quá tồn bị từ chối); hủy phiếu nháp.
+3. **Kho** (`/admin/inventory`): KPI tồn, lọc "Sắp hết/Hết hàng"; **Tạo phiếu nhập** (nhà cung cấp, sản phẩm, số lượng, giá vốn) → *Lưu nháp* (chưa đổi tồn) rồi **Xác nhận** trong bảng phiếu ⇒ tồn tăng, ghi dòng trong "Lịch sử biến động tồn kho" và sinh phiếu chi giá vốn; **Tạo phiếu xuất** (xuất quá tồn bị từ chối); hủy phiếu nháp. **Điều chỉnh tồn trực tiếp:** ở mỗi dòng biến thể bấm "⋯" → **Điều chỉnh tồn**, nhập số lượng thay đổi (dương để tăng, âm để giảm) và **lý do** (bắt buộc); hộp thoại hiện "Tồn sau điều chỉnh"; giảm quá số đang tồn bị từ chối; thành công ⇒ ghi dòng loại "Điều chỉnh" trong lịch sử biến động.
 4. **Thu chi** (`/admin/reports`): chọn khoảng ngày; xem doanh thu, chi phí, lợi nhuận, biểu đồ, cơ cấu chi, sổ thu chi, công nợ phải trả (phiếu nhập nháp). **Thêm phiếu chi** (marketing, vận chuyển…) → số liệu và sổ cập nhật. Quy ước: doanh thu = đơn đã giao thành công theo ngày giao; giá vốn = phiếu nhập; hoàn tiền tự sinh phiếu chi (chi tiết trong `docs/CHUAN_MO_RONG.md`).
 5. **Đánh giá** (`/admin/reviews`): duyệt/ẩn đánh giá vừa tạo ở bước 3.7. **Hỏi đáp** (`/admin/questions`): trả lời câu hỏi.
 6. **Đổi trả** (`/admin/returns`): mở yêu cầu "Chờ duyệt" → duyệt → lấy hàng → kiểm tra → hoàn tiền/đổi hàng (tồn kho và phiếu chi tự cập nhật; đổi hàng thiếu hàng sẽ báo lỗi).
-7. **Banner & nội dung** (`/admin/content`): thêm/sửa banner trang chủ, bài viết, trang tĩnh (soạn bằng Markdown).
+7. **Banner & nội dung** (`/admin/content`): thêm/sửa banner trang chủ, bài viết, trang tĩnh (soạn bằng Markdown). Tab **Trang tĩnh**: nút **Tạo trang** (tiêu đề, slug tự sinh nếu để trống, loại, nội dung, trạng thái; slug trùng báo lỗi ngay dưới ô), **Sửa nội dung**, và biểu tượng thùng rác **Xóa trang** (hộp thoại xác nhận). Trang hệ thống (Về chúng tôi, chính sách, điều khoản) không có nút xóa. Trang mới đã xuất bản hiển thị tại `/policies/<slug>`.
 8. **Không gian mẫu** (`/admin/spaces`): *Thêm không gian mẫu* — 5 tab: thông tin, **ảnh 360°** (tải ảnh tỉ lệ 2:1), **điểm tương tác** (bấm lên ảnh để đặt hotspot: sản phẩm / điều hướng / thông tin), sản phẩm gợi ý, hiển thị → lưu → mở trang khách để xem. Ô **slug** chỉ đổi khi bạn sửa trực tiếp.
 9. **Sản phẩm** (`/admin/products`): sửa sản phẩm → tab **Ảnh 360°** (bật 360°, tải nhiều frame theo màu, đổi thứ tự, xem trước xoay, tối đa 2 MB/ảnh); tab **Biến thể** chọn màu/kích thước từ danh sách thuộc tính; ô **Thương hiệu** lấy từ trang Thương hiệu.
 10. **Danh mục, Thương hiệu, Thuộc tính, Thư viện media**: `/admin/categories`; `/admin/brands` (thêm/sửa/tắt, slug trùng báo lỗi, xóa có cảnh báo số sản phẩm bị gỡ thương hiệu); `/admin/attributes` (Màu sắc/Kích thước/Chất liệu và giá trị; giá trị đang được biến thể dùng không xóa được); `/admin/media` (tải ảnh ≤ 5 MB, sửa mô tả, xóa tệp chưa dùng).
@@ -69,6 +71,7 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 
 ## 5. Chưa làm (nói rõ khi trình bày)
 
+- **Đăng nhập Google: ĐÃ HOÃN.** Nút "Đăng nhập/Đăng ký với Google" **ẩn** mặc định (chỉ hiện khi đặt `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED=true`, và API vẫn trả 503 vì chưa làm OAuth). Không bấm/nhắc nút này khi demo.
 - **AR (xem sản phẩm trong phòng thật) đã bị LOẠI BỎ hoàn toàn** (D-P16; 6 use case AR, UC-ADM-29 còn phần phễu không gian). Trang mới `/account/saved-spaces` (Không gian đã lưu) và chi tiết đơn admin có ô mã giao dịch / nút "Đánh dấu thất bại" / hủy đơn khi hàng hoàn về. Web chỉ có trình xem 3D và xem 360°; hệ thống chỉ hỗ trợ tệp mô hình GLB.
 - **Ứng dụng Android** (`apps/mobile`): tạm hoãn (D-P09).
 - **VNPAY thật**: đã làm URL có chữ ký, Return URL, IPN, thanh toán lại và đã kiểm bằng khóa giả; chưa có khóa sandbox nên demo dùng chế độ **giả lập**. MoMo/ZaloPay chỉ giả lập.
