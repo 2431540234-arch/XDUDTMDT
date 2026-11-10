@@ -704,69 +704,86 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       expect(r1.income.discountAndRefund).toBeGreaterThanOrEqual(refund);
     });
 
-    it('hoàn tiền lúc 00:30 giờ VN (ngày UTC còn là hôm qua) vẫn ghi phiếu chi đúng NGÀY VN và vào báo cáo ngày đó', async () => {
-      // Chỉ giả lập đồng hồ (Date) trong lúc duyệt hoàn tiền; mốc 00:30 giờ VN của `today` ⇒ UTC là 17:30 của hôm trước.
-      const o = await deliveredOrder();
-      const item = await prisma.orderItem.findFirstOrThrow({ where: { orderId: o.id } });
-      const png =
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-      const ret = await api('post', '/returns', cust, {
-        orderId: o.id,
-        type: 'refund',
-        reason: 'defect',
-        description: 'Sản phẩm bị lỗi khi nhận hàng',
-        images: [png],
-        items: [{ orderItemId: item.id, quantity: item.quantity }],
-      });
-      expect(ret.status).toBe(201);
-      for (const st of ['picking', 'inspecting'])
-        expect(
-          (await api('patch', `/admin/returns/${ret.body.data.id}`, admin, { status: st, adminNote: 'ok' }))
-            .status,
-        ).toBe(200);
-      const r0 = await report();
-      jest.useFakeTimers({
-        // không giả lập một thời điểm TƯƠNG LAI so với đồng hồ thật (chạy lúc 00:00–00:30 giờ VN): khi đó dùng chính giờ thật,
-        // vì đã ở sau 00:00 giờ VN nên ngày UTC vẫn là hôm trước
-        now: new Date(Math.min(Date.now(), Date.parse(`${today}T00:30:00+07:00`))),
-        doNotFake: [
-          'hrtime',
-          'nextTick',
-          'performance',
-          'queueMicrotask',
-          'requestAnimationFrame',
-          'cancelAnimationFrame',
-          'requestIdleCallback',
-          'cancelIdleCallback',
-          'setImmediate',
-          'clearImmediate',
-          'setInterval',
-          'clearInterval',
-          'setTimeout',
-          'clearTimeout',
-        ],
-      });
-      try {
-        expect(
-          (
-            await api('patch', `/admin/returns/${ret.body.data.id}`, admin, {
-              status: 'refunded',
-              adminNote: 'ok',
-            })
-          ).status,
-        ).toBe(200);
-      } finally {
-        jest.useRealTimers();
-      }
-      const exp = await prisma.expense.findFirstOrThrow({ where: { orderId: o.id, category: 'refund' } });
-      expect(exp.date.toISOString().slice(0, 10)).toBe(today); // trước khi sửa: ngày UTC (hôm qua)
-      const list = await api('get', `/admin/expenses?category=refund&from=${today}&to=${today}`, admin);
-      expect(list.body.data.map((e: { code: string }) => e.code)).toContain(exp.code);
-      const r1 = await report();
-      const refundOf = (r: { expenseBreakdown: Array<{ category: string; amount: number }> }) =>
-        r.expenseBreakdown.find((c) => c.category === 'refund')?.amount ?? 0;
-      expect(refundOf(r1)).toBe(refundOf(r0) + Number(exp.amount));
-    });
+    // Đồng hồ ĐƯỢC ĐÓNG BĂNG (jest fake timers) ở các mốc biên giờ Việt Nam của ngày `today`: kết quả không phụ thuộc giờ máy thật.
+    // 00:00:01, 00:30 và 06:59:59 giờ VN ⇒ ngày UTC còn là hôm trước (phiếu chi phải ghi NGÀY VN); 07:00:01 ⇒ cùng ngày UTC.
+    it.each([
+      ['00:00:01', 'T00:00:01+07:00'],
+      ['00:30:00', 'T00:30:00+07:00'],
+      ['06:59:59', 'T06:59:59+07:00'],
+      ['07:00:01', 'T07:00:01+07:00'],
+    ])(
+      'hoàn tiền lúc %s giờ VN (đồng hồ đóng băng) ghi phiếu chi đúng NGÀY VN và vào báo cáo ngày đó',
+      async (_label, suffix) => {
+        const o = await deliveredOrder();
+        const item = await prisma.orderItem.findFirstOrThrow({ where: { orderId: o.id } });
+        const png =
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        const ret = await api('post', '/returns', cust, {
+          orderId: o.id,
+          type: 'refund',
+          reason: 'defect',
+          description: 'Sản phẩm bị lỗi khi nhận hàng',
+          images: [png],
+          items: [{ orderItemId: item.id, quantity: item.quantity }],
+        });
+        expect(ret.status).toBe(201);
+        for (const st of ['picking', 'inspecting'])
+          expect(
+            (await api('patch', `/admin/returns/${ret.body.data.id}`, admin, { status: st, adminNote: 'ok' }))
+              .status,
+          ).toBe(200);
+        const r0 = await report();
+        jest.useFakeTimers({
+          now: new Date(`${today}${suffix}`),
+          doNotFake: [
+            'hrtime',
+            'nextTick',
+            'performance',
+            'queueMicrotask',
+            'requestAnimationFrame',
+            'cancelAnimationFrame',
+            'requestIdleCallback',
+            'cancelIdleCallback',
+            'setImmediate',
+            'clearImmediate',
+            'setInterval',
+            'clearInterval',
+            'setTimeout',
+            'clearTimeout',
+          ],
+        });
+        try {
+          // Nguyên nhân lỗi cũ (đã tái hiện bằng đồng hồ +18 phút): access token admin sống 15 phút, cấp lúc bắt đầu tệp test; đồng hồ giả
+          // 00:30 giờ VN nằm SAU hạn token khi tệp chạy trước ~00:15 giờ VN ⇒ 401. Đăng nhập lại NGAY TRONG đồng hồ giả để token được cấp
+          // và kiểm tra trên cùng một dòng thời gian.
+          const fresh = await api('post', '/auth/login', undefined, {
+            email: 'admin@aurelia.vn',
+            password: 'admin123',
+            adminOnly: true,
+          });
+          expect(fresh.status).toBe(200);
+          const frozenAdmin = fresh.body.data.tokens.accessToken as string;
+          expect(
+            (
+              await api('patch', `/admin/returns/${ret.body.data.id}`, frozenAdmin, {
+                status: 'refunded',
+                adminNote: 'ok',
+              })
+            ).status,
+          ).toBe(200);
+        } finally {
+          jest.useRealTimers();
+        }
+        const exp = await prisma.expense.findFirstOrThrow({ where: { orderId: o.id, category: 'refund' } });
+        expect(exp.date.toISOString().slice(0, 10)).toBe(today); // NGÀY VN, không phải ngày UTC
+        const list = await api('get', `/admin/expenses?category=refund&from=${today}&to=${today}`, admin);
+        expect(list.body.data.map((e: { code: string }) => e.code)).toContain(exp.code);
+        const r1 = await report();
+        const refundOf = (r: { expenseBreakdown: Array<{ category: string; amount: number }> }) =>
+          r.expenseBreakdown.find((c) => c.category === 'refund')?.amount ?? 0;
+        expect(refundOf(r1)).toBe(refundOf(r0) + Number(exp.amount));
+      },
+    );
 
     it('giá vốn chỉ trừ MỘT lần: phiếu nhập 10 × 1.200.000 = 12.000.000 làm giá vốn +12.000.000; đơn giao thành công không trừ thêm giá vốn', async () => {
       const r0 = await report();
