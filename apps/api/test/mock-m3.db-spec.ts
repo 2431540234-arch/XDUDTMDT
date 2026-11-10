@@ -957,7 +957,7 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
         description: 'ngắn',
       });
       expect(short.body.error.details.title[0]).toBe('Vui lòng nhập tên không gian.');
-      expect(short.body.error.details.description[0]).toBe('Mô tả tối thiểu 10 ký tự.');
+      expect(short.body.error.details.description).toBeUndefined(); // mô tả là tuỳ chọn (DAC_TA UC-ADM-15)
     });
 
     it('lượt xem: mở chi tiết KHÔNG tăng view_count; POST /views ghi space_views và trigger tăng view_count', async () => {
@@ -1131,10 +1131,10 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       expect(keep.body.data.slug).toBe(slug); // giữ nguyên
       expect((await api('get', `/spaces/${slug}`)).status).toBe(200);
 
-      // slug đã dùng bởi không gian khác ⇒ 400 trường slug
+      // slug đã dùng bởi không gian khác ⇒ 409 CONFLICT kèm lỗi theo trường slug (DAC_TA UC-ADM-15 2a)
       const other = (await prisma.space.findFirstOrThrow({ where: { id: { not: spaceId } } })).slug;
       const dup = await api('patch', `/admin/spaces/${spaceId}`, admin, { slug: other });
-      expect(dup.status).toBe(400);
+      expect(dup.status).toBe(409);
       expect(JSON.stringify(dup.body.error)).toContain('slug');
       // slug không hợp lệ (toàn ký tự đặc biệt)
       expect((await api('patch', `/admin/spaces/${spaceId}`, admin, { slug: '!!!' })).status).toBe(400);

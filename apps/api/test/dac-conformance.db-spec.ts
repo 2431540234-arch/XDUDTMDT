@@ -1134,4 +1134,194 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
     expectStatus('UC-CAT-05', 'trang không tồn tại', (await api('get', '/pages/khong-co-trang')).status, 404);
     flush();
   });
+
+  it('nhóm 4: UC-ADM-07/15/16/26/27/28, UC-SPACE-06', async () => {
+    // ADM-07 trang tĩnh
+    const pslug = `trang-dac-${tag}`;
+    const page = (over: Record<string, unknown> = {}) => ({
+      title: `Trang DAC ${tag}`,
+      slug: pslug,
+      content: 'Nội dung',
+      status: 'published',
+      type: 'policy',
+      ...over,
+    });
+    expectStatus('UC-ADM-07', 'tạo trang', (await api('post', '/admin/pages', admin, page())).status, 201);
+    expectStatus('UC-ADM-07', 'slug trùng', (await api('post', '/admin/pages', admin, page())).status, 409);
+    expectStatus(
+      'UC-ADM-07',
+      'title 256 ký tự',
+      (await api('post', '/admin/pages', admin, page({ slug: `${pslug}-2`, title: 'x'.repeat(256) }))).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-07',
+      'thiếu title',
+      (await api('post', '/admin/pages', admin, page({ slug: `${pslug}-3`, title: '' }))).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-07',
+      'status ngoài enum',
+      (await api('post', '/admin/pages', admin, page({ slug: `${pslug}-4`, status: 'khong-co' }))).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-07',
+      'khách ghi trang',
+      (await api('post', '/admin/pages', (await customer('adm07')).token, page({ slug: `${pslug}-5` })))
+        .status,
+      403,
+    );
+    // ADM-15 không gian
+    expectStatus(
+      'UC-ADM-15',
+      'thiếu title',
+      (await api('post', '/admin/spaces', admin, { roomType: 'living_room', status: 'draft' })).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-15',
+      'title 256 ký tự',
+      (
+        await api('post', '/admin/spaces', admin, {
+          title: 'x'.repeat(256),
+          roomType: 'living_room',
+          status: 'draft',
+        })
+      ).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-15',
+      'roomType ngoài enum',
+      (
+        await api('post', '/admin/spaces', admin, {
+          title: `Không gian DAC ${tag}`,
+          roomType: 'khong-co',
+          status: 'draft',
+        })
+      ).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-15',
+      'đăng khi chưa có ảnh 360°',
+      (
+        await api('post', '/admin/spaces', admin, {
+          title: `Không gian DAC ${tag}`,
+          roomType: 'living_room',
+          status: 'published',
+        })
+      ).status,
+      400,
+    );
+    const sp = await api('post', '/admin/spaces', admin, {
+      title: `Không gian DAC ${tag}`,
+      slug: `kg-dac-${tag}`,
+      roomType: 'living_room',
+      status: 'draft',
+    });
+    expectStatus('UC-ADM-15', 'tạo không gian nháp', sp.status, 201);
+    expectStatus(
+      'UC-ADM-15',
+      'slug trùng',
+      (
+        await api('post', '/admin/spaces', admin, {
+          title: 'Khác',
+          slug: `kg-dac-${tag}`,
+          roomType: 'living_room',
+          status: 'draft',
+        })
+      ).status,
+      409,
+    );
+    expectStatus(
+      'UC-ADM-15',
+      'không gian không tồn tại',
+      (await api('get', '/admin/spaces/999999999', admin)).status,
+      404,
+    );
+    // SPACE-06: ghi lượt xem không gian chưa đăng / không có
+    expectStatus(
+      'UC-SPACE-06',
+      'không gian không tồn tại',
+      (
+        await api('post', '/spaces/khong-co-khong-gian/views', undefined, {
+          visitorId: '8a1c1f3e-0b1e-4c8c-9d3b-2f6f7c9a1b11',
+        })
+      ).status,
+      404,
+    );
+    expectStatus(
+      'UC-SPACE-06',
+      'không gian nháp',
+      (
+        await api('post', `/spaces/kg-dac-${tag}/views`, undefined, {
+          visitorId: '8a1c1f3e-0b1e-4c8c-9d3b-2f6f7c9a1b11',
+        })
+      ).status,
+      404,
+    );
+    // ADM-26 thông báo
+    const u = await customer('adm26');
+    expectStatus(
+      'UC-ADM-26',
+      'thiếu tiêu đề',
+      (await api('post', '/admin/notifications', admin, { content: 'x', userIds: [u.id] })).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-26',
+      'thiếu nội dung',
+      (await api('post', '/admin/notifications', admin, { title: 'x', userIds: [u.id] })).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-26',
+      'khách gửi thông báo',
+      (await api('post', '/admin/notifications', u.token, { title: 'x', content: 'y', userIds: [u.id] }))
+        .status,
+      403,
+    );
+    expectStatus(
+      'UC-ADM-26',
+      'gửi hợp lệ',
+      (
+        await api('post', '/admin/notifications', admin, {
+          title: `TB DAC ${tag}`,
+          content: 'Nội dung',
+          userIds: [u.id],
+        })
+      ).status,
+      201,
+    );
+    // ADM-27 nhật ký, ADM-28 thống kê
+    expectStatus(
+      'UC-ADM-27',
+      'khách xem nhật ký',
+      (await api('get', '/admin/activity-logs', u.token)).status,
+      403,
+    );
+    expectStatus(
+      'UC-ADM-27',
+      'xem nhật ký',
+      (await api('get', '/admin/activity-logs?pageSize=5', admin)).status,
+      200,
+    );
+    expectStatus(
+      'UC-ADM-28',
+      'khách xem thống kê',
+      (await api('get', '/admin/stats/overview', u.token)).status,
+      403,
+    );
+    expectStatus('UC-ADM-28', 'tổng quan', (await api('get', '/admin/stats/overview', admin)).status, 200);
+    expectStatus(
+      'UC-ADM-28',
+      'from > to',
+      (await api('get', '/admin/stats/finance?from=2026-12-31&to=2026-01-01', admin)).status,
+      [200, 400],
+    );
+    flush();
+  });
 });

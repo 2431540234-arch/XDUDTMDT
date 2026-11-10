@@ -7,7 +7,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { toSlug } from '../../common/utils/slug';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, asBody, conflictError, str, toId } from '../../common/utils/validate';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { CatalogCache } from '../../cache/catalog-cache';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -221,14 +221,17 @@ export class AdminContentService {
     if (!cur && str(b.title).trim().length < 2) errs.add('title', 'Vui lòng nhập tiêu đề trang.');
     if (b.title !== undefined && str(b.title).trim().length < 2)
       errs.add('title', 'Vui lòng nhập tiêu đề trang.');
+    else if (b.title !== undefined && str(b.title).trim().length > 255)
+      errs.add('title', 'Tiêu đề tối đa 255 ký tự.');
     if (b.status !== undefined && !['draft', 'published', 'archived'].includes(str(b.status)))
       errs.add('status', 'Trạng thái không hợp lệ.');
     errs.throwIfAny();
     let slug = cur?.slug;
     if (!cur) {
       slug = toSlug(str(b.slug) || str(b.title));
-      if (!slug || (await this.prisma.page.findUnique({ where: { slug } })))
-        new FieldErrors().add('slug', 'Slug đã tồn tại hoặc không hợp lệ.').throwIfAny();
+      if (!slug) new FieldErrors().add('slug', 'Slug không hợp lệ.').throwIfAny();
+      if (await this.prisma.page.findUnique({ where: { slug } }))
+        throw conflictError('slug', 'Slug đã tồn tại.');
     }
     const status = (b.status ? str(b.status) : (cur?.status ?? 'draft')) as
       'draft' | 'published' | 'archived';

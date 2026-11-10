@@ -8,7 +8,7 @@ import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { toSlug } from '../../common/utils/slug';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, asBody, conflictError, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -95,9 +95,10 @@ export class AdminSpacesService {
   private validate(b: Record<string, unknown>) {
     const errs = new FieldErrors();
     if (str(b.title).trim().length < 2) errs.add('title', 'Vui lòng nhập tên không gian.');
+    else if (str(b.title).trim().length > 255) errs.add('title', 'Tên không gian tối đa 255 ký tự.');
     if (!b.roomType || !ROOM_TYPES.includes(str(b.roomType) as RoomType))
       errs.add('roomType', 'Vui lòng chọn loại không gian.');
-    if (str(b.description).trim().length < 10) errs.add('description', 'Mô tả tối thiểu 10 ký tự.');
+    // DAC_TA UC-ADM-15: mô tả là tuỳ chọn (form quản trị vẫn khuyến khích nhập)
     if (b.status !== undefined && !STATUSES.includes(str(b.status)))
       errs.add('status', 'Trạng thái không hợp lệ.');
     if (
@@ -203,7 +204,7 @@ export class AdminSpacesService {
         where: { slug, ...(cur ? { id: { not: cur.id } } : {}) },
         select: { id: true },
       });
-      if (taken) new FieldErrors().add('slug', 'Slug đã được dùng cho không gian khác.').throwIfAny();
+      if (taken) throw conflictError('slug', 'Slug đã được dùng cho không gian khác.');
     } else if (cur) {
       slug = cur.slug;
     } else {
@@ -214,6 +215,9 @@ export class AdminSpacesService {
         slug = `${base}-${n}`;
     }
     const status = (str(merged.status) || 'draft') as 'draft' | 'published' | 'archived';
+    // DAC_TA UC-ADM-15 6a: không cho ĐĂNG khi chưa có ảnh 360° nào (ảnh đầu tiên là ảnh mở đầu nếu không đánh dấu khác)
+    if (status === 'published' && (panos ? panos.length : (cur?.spacePanoramas.length ?? 0)) === 0)
+      new FieldErrors().add('panoramas', 'Cần có ít nhất một ảnh 360° để đăng không gian mẫu.').throwIfAny();
     const coverMediaId = b.coverUrl
       ? await this.ingest.ingestImage(str(b.coverUrl), { userId: adminId, folder: 'spaces' })
       : (cur?.coverMediaId ?? null);
