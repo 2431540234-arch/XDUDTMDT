@@ -1,5 +1,7 @@
 # docs/archive – tài liệu đã lưu trữ
 
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 Ngày lưu trữ: 2026-11-11 · Nhánh `docs/sync-with-code`.
 
 Các tài liệu dưới đây **không còn phản ánh hiện trạng** của hệ thống nhưng được giữ lại làm lịch sử (không xóa). Mỗi file có một dòng ghi chú ở đầu nêu lý do lưu trữ; nội dung bên dưới giữ nguyên, không sửa. Muốn biết hiện trạng, xem [docs/README.md](../README.md).
