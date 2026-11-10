@@ -58,6 +58,7 @@ const routes: Route[] = [
   ['GET', '/spaces/facets', 'public', catalog.spaceFacets],
   ['GET', '/spaces/:slug', 'public', catalog.spaceBySlug],
   ['POST', '/spaces/:slug/views', 'public', catalog.recordSpaceView],
+  ['POST', '/spaces/:slug/add-to-cart', 'user', shop.addSpaceToCart],
   ['PUT', '/spaces/:slug/bookmark', 'user', catalog.bookmarkSpace],
   ['DELETE', '/spaces/:slug/bookmark', 'user', catalog.unbookmarkSpace],
 

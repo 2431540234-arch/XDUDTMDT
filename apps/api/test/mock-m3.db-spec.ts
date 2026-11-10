@@ -1152,27 +1152,69 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       await api('patch', `/admin/spaces/${spaceId}`, admin, { title: 'Không gian E2E' });
     });
 
-    it('"Thêm cả bộ vào giỏ": thêm đúng các biến thể còn hàng, báo rõ món hết hàng', async () => {
-      const dv = await prisma.productVariant.findFirstOrThrow({
-        where: { productId: prods[2], isActive: true },
-        orderBy: { id: 'asc' },
-      });
+    it('"Thêm cả bộ vào giỏ" (D-N37): một request, một transaction: có món hết hàng ⇒ 409 và KHÔNG thêm món nào', async () => {
       const all = await prisma.productVariant.findMany({ where: { productId: prods[2] } });
-      await prisma.productVariant.updateMany({
-        where: { id: { in: all.map((a) => a.id) } },
-        data: { stockQuantity: 0 },
-      }); // hết hàng mọi biến thể món thứ 3
+      const saved = all.map((a) => ({ id: a.id, stock: a.stockQuantity }));
+      const cartCount = async () => (await api('get', '/cart', cust)).body.data.items.length;
       await api('delete', '/cart', cust);
-      const r = await api('post', `/spaces/${slug}/add-to-cart`, cust);
-      expect(r.status).toBe(200);
-      expect(r.body.data.added.map((a: { productId: number }) => a.productId).sort()).toEqual(
-        [prods[0], prods[1]].sort(),
-      );
-      expect(r.body.data.unavailable).toHaveLength(1);
-      expect(r.body.data.unavailable[0]).toMatchObject({ productId: prods[2] });
-      expect(r.body.data.unavailable[0].reason).toMatch(/hết hàng|Chỉ còn/);
-      expect(r.body.data.cart.items).toHaveLength(2);
-      expect(dv.id).toBeGreaterThan(0);
+      try {
+        // hết hàng mọi biến thể của món thứ 3 (hai món đầu còn hàng)
+        await prisma.productVariant.updateMany({
+          where: { id: { in: all.map((a) => a.id) } },
+          data: { stockQuantity: 0 },
+        });
+        const r = await api('post', `/spaces/${slug}/add-to-cart`, cust);
+        expect(r.status).toBe(409);
+        expect(r.body.error.code).toBe('CONFLICT');
+        expect(r.body.error.details.unavailable).toHaveLength(1);
+        expect(r.body.error.details.unavailable[0]).toMatchObject({ productId: prods[2] });
+        expect(r.body.error.details.unavailable[0].reason).toMatch(/hết hàng|Chỉ còn/);
+        expect(await cartCount()).toBe(0); // hai món còn hàng cũng KHÔNG được thêm (hoàn tác)
+
+        // chọn một phần (productIds): chỉ các món còn hàng ⇒ thành công, đúng 2 dòng
+        const part = await api('post', `/spaces/${slug}/add-to-cart`, cust, {
+          productIds: [prods[0], prods[1]],
+        });
+        expect(part.status).toBe(200);
+        expect(part.body.data.added.map((x: { productId: number }) => x.productId).sort()).toEqual(
+          [prods[0], prods[1]].sort(),
+        );
+        expect(part.body.data.unavailable).toEqual([]);
+        expect(part.body.data.cart.items).toHaveLength(2);
+        // biến thể MẶC ĐỊNH mà endpoint dùng cho món 1 (để dựng tình huống quá tồn bên dưới)
+        const defVariant0 = part.body.data.added.find((x: { productId: number }) => x.productId === prods[0])
+          .variantId as number;
+        await api('delete', '/cart', cust);
+
+        // productIds không thuộc không gian / rỗng ⇒ 400 theo trường, giỏ không đổi
+        const bad = await api('post', `/spaces/${slug}/add-to-cart`, cust, { productIds: [999999999] });
+        expect(bad.status).toBe(400);
+        expect(Object.keys(bad.body.error.details)).toContain('productIds');
+        expect((await api('post', `/spaces/${slug}/add-to-cart`, cust, { productIds: [] })).status).toBe(400);
+        expect(await cartCount()).toBe(0);
+
+        // món vượt tồn do đã có trong giỏ: món 1 còn đúng 1 cái, giỏ đã có 1 ⇒ thêm nữa là quá tồn ⇒ 409, giỏ không đổi
+        await prisma.productVariant.update({ where: { id: defVariant0 }, data: { stockQuantity: 1 } });
+        expect((await api('post', '/cart/items', cust, { variantId: defVariant0, quantity: 1 })).status).toBe(
+          201,
+        );
+        const over = await api('post', `/spaces/${slug}/add-to-cart`, cust, {
+          productIds: [prods[0], prods[1]],
+        });
+        expect(over.status).toBe(409);
+        expect(over.body.error.details.unavailable.map((u: { productId: number }) => u.productId)).toEqual([
+          prods[0],
+        ]);
+        expect(await cartCount()).toBe(1); // vẫn đúng dòng cũ, món 2 không bị thêm
+      } finally {
+        for (const x of saved)
+          await prisma.productVariant.update({ where: { id: x.id }, data: { stockQuantity: x.stock } });
+        await api('delete', '/cart', cust);
+      }
+      // còn hàng đầy đủ ⇒ thêm cả bộ trong một request
+      const okAll = await api('post', `/spaces/${slug}/add-to-cart`, cust);
+      expect(okAll.status).toBe(200);
+      expect(okAll.body.data.cart.items.length).toBe(okAll.body.data.added.length);
       await api('delete', '/cart', cust);
       expect((await api('post', `/spaces/${slug}/add-to-cart`, undefined)).status).toBe(401);
     });

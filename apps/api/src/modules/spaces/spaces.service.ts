@@ -333,17 +333,32 @@ export class SpacesService {
    * "Thêm cả bộ vào giỏ": thêm biến thể mặc định của từng sản phẩm trong không gian (nếu còn hàng).
    * Món hết hàng/ngừng bán không làm hỏng cả thao tác: trả danh sách `unavailable` kèm lý do.
    */
-  async addAllToCart(userId: number, slug: string) {
+  /**
+   * Thêm bộ sản phẩm của không gian vào giỏ trong MỘT request và MỘT transaction (tất cả hoặc không món nào).
+   * Body tùy chọn { productIds: number[] } chọn một phần các món của không gian (mặc định: tất cả).
+   * Có món không thêm được (ngừng bán, hết hàng, quá tồn) ⇒ 409 CONFLICT kèm details.unavailable, giỏ KHÔNG đổi.
+   */
+  async addAllToCart(userId: number, slug: string, raw: unknown = {}) {
     const s = await this.prisma.space.findFirst({
       where: { slug, status: 'published' },
       include: SPACE_INCLUDE,
     });
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
-    const ids = this.productIds(s);
+    const all = this.productIds(s);
+    const body = asBody(raw);
+    let ids = all;
+    if (body.productIds !== undefined) {
+      const want = Array.isArray(body.productIds) ? body.productIds.map(Number) : [];
+      if (!want.length || want.some((x) => !all.includes(x)))
+        new FieldErrors()
+          .add('productIds', 'Danh sách sản phẩm phải là các sản phẩm của không gian này.')
+          .throwIfAny();
+      ids = all.filter((x) => want.includes(x));
+    }
     const rows = ids.length
       ? await this.prisma.product.findMany({ where: { id: { in: ids } }, include: PRODUCT_INCLUDE })
       : [];
-    const added: Array<{ productId: number; name: string; variantId: number }> = [];
+    const lines: Array<{ variantId: number; quantity: number; productId: number; name: string }> = [];
     const unavailable: Array<{ productId: number; name: string; reason: string }> = [];
     for (const id of ids) {
       const p = rows.find((r) => r.id === id);
@@ -353,19 +368,20 @@ export class SpacesService {
         unavailable.push({ productId: id, name: p.name, reason: 'Sản phẩm tạm ngừng bán' });
         continue;
       }
-      try {
-        await this.cart.addItem(userId, { variantId: dv.id, quantity: 1 });
-        added.push({ productId: id, name: p.name, variantId: dv.id });
-      } catch (e) {
-        if (
-          e instanceof AppException &&
-          (e.code === ErrorCode.OUT_OF_STOCK || e.code === ErrorCode.RESOURCE_NOT_FOUND)
-        ) {
-          unavailable.push({ productId: id, name: p.name, reason: e.message });
-        } else throw e;
-      }
+      lines.push({ variantId: dv.id, quantity: 1, productId: id, name: p.name });
     }
-    return { added, unavailable, cart: await this.cart.view(userId) };
+    if (unavailable.length)
+      throw new AppException(
+        ErrorCode.CONFLICT,
+        'Có sản phẩm không thể thêm vào giỏ; chưa thêm sản phẩm nào.',
+        { unavailable },
+      );
+    const cart = await this.cart.addItems(userId, lines);
+    return {
+      added: lines.map((l) => ({ productId: l.productId, name: l.name, variantId: l.variantId })),
+      unavailable: [],
+      cart,
+    };
   }
 
   /** Không gian ĐANG ĐĂNG (published); không tồn tại, nháp hoặc đã ẩn ⇒ 404 (UC-SPACE-04 3a) */

@@ -96,17 +96,29 @@ export default function SpaceDetailPage() {
   const original = chosen.reduce((sum, p) => sum + (p.salePrice ?? p.price), 0);
 
   const addAll = useMutation({
-    mutationFn: async () => {
-      let cart = null;
-      for (const p of chosen) cart = await cartApi.addItem({ variantId: p.defaultVariantId, quantity: 1 });
-      return cart;
-    },
-    onSuccess: (cart) => {
-      if (cart) qc.setQueryData(queryKeys.cart, cart);
+    // MỘT request tới POST /spaces/:slug/add-to-cart (transaction ở BE): có món hết hàng thì KHÔNG món nào được thêm
+    mutationFn: () =>
+      spaceApi.addToCart(
+        slug,
+        chosen.map((p) => p.id),
+      ),
+    onSuccess: ({ cart }) => {
+      qc.setQueryData(queryKeys.cart, cart);
       stats.current.added = true;
       toast.success(`Đã thêm ${chosen.length} sản phẩm vào giỏ hàng.`);
     },
-    onError: (e) => toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ hàng.'),
+    onError: (e) => {
+      if (e instanceof ApiClientError && e.code === 'CONFLICT') {
+        const list = (e.details?.unavailable as Array<{ name?: string; reason?: string }> | undefined) ?? [];
+        toast.error(
+          list.length
+            ? `Chưa thêm sản phẩm nào vào giỏ. ${list.map((u) => `${u.name ?? 'Sản phẩm'}: ${u.reason ?? 'không thể thêm'}`).join('; ')}`
+            : e.message,
+        );
+        return;
+      }
+      toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ hàng.');
+    },
   });
   const bookmark = useMutation({
     mutationFn: () => (s!.isBookmarked ? spaceApi.unbookmark(s!.slug) : spaceApi.bookmark(s!.slug)),

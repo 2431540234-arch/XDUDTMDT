@@ -24,6 +24,7 @@ import {
   orderView,
   RETURN_WINDOW_DAYS,
   shippingFeeFor,
+  spaceDetail,
   variantLabel,
   variantViews,
 } from './views';
@@ -74,6 +75,57 @@ export function addCartItem(ctx: Ctx): Result {
       updatedAt: nowIso(),
     });
   return created(cartView(ctx.db, ctx.user!.id));
+}
+
+/** Mock của POST /spaces/:slug/add-to-cart: tất cả hoặc không món nào (giống BE, D-N37) */
+export function addSpaceToCart(ctx: Ctx): Result {
+  const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug && x.status === 'published');
+  if (!s) throw notFound('Không gian mẫu');
+  const all = spaceDetail(ctx.db, s, ctx.user!.id).products;
+  const want = ctx.body?.productIds as number[] | undefined;
+  if (
+    want !== undefined &&
+    (!Array.isArray(want) || !want.length || want.some((id) => !all.some((p) => p.id === Number(id))))
+  )
+    throw validation({ productIds: 'Danh sách sản phẩm phải là các sản phẩm của không gian này.' });
+  const chosen = want ? all.filter((p) => want.map(Number).includes(p.id)) : all;
+  const cart = ensureCart(ctx);
+  const unavailable: Array<{ productId: number; name: string; reason: string }> = [];
+  for (const p of chosen) {
+    const v = ctx.db.productVariants.find((x) => x.id === p.defaultVariantId && x.isActive);
+    const have =
+      ctx.db.cartItems.find((i) => i.cartId === cart.id && i.variantId === p.defaultVariantId)?.quantity ?? 0;
+    if (!v) unavailable.push({ productId: p.id, name: p.name, reason: 'Sản phẩm tạm ngừng bán' });
+    else if (have + 1 > v.stockQuantity)
+      unavailable.push({
+        productId: p.id,
+        name: p.name,
+        reason:
+          v.stockQuantity > 0 ? `Chỉ còn ${v.stockQuantity} sản phẩm trong kho.` : 'Sản phẩm tạm hết hàng.',
+      });
+  }
+  if (unavailable.length)
+    throw new ApiFail('CONFLICT', 'Có sản phẩm không thể thêm vào giỏ; chưa thêm sản phẩm nào.', {
+      unavailable,
+    });
+  for (const p of chosen) {
+    const existing = ctx.db.cartItems.find((i) => i.cartId === cart.id && i.variantId === p.defaultVariantId);
+    if (existing) existing.quantity += 1;
+    else
+      ctx.db.cartItems.push({
+        id: nextId(ctx.db.cartItems),
+        cartId: cart.id,
+        variantId: p.defaultVariantId,
+        quantity: 1,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      });
+  }
+  return ok({
+    added: chosen.map((p) => ({ productId: p.id, name: p.name, variantId: p.defaultVariantId })),
+    unavailable: [],
+    cart: cartView(ctx.db, ctx.user!.id),
+  });
 }
 
 function ownCartItem(ctx: Ctx) {

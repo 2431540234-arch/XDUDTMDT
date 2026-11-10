@@ -70,9 +70,12 @@ export class SpacesController {
   @ApiBearerAuth()
   @Post(':slug/add-to-cart')
   @HttpCode(200)
-  @ApiOperation({ summary: 'Thêm cả bộ vào giỏ: trả { added, unavailable (món hết hàng kèm lý do), cart }' })
-  addToCart(@CurrentUser('id') uid: number, @Param('slug') slug: string) {
-    return this.spaces.addAllToCart(uid, slug);
+  @ApiOperation({
+    summary:
+      'Thêm bộ sản phẩm vào giỏ (một transaction, tất cả hoặc không món nào). Body tùy chọn { productIds }. Có món không thêm được ⇒ 409 kèm details.unavailable',
+  })
+  addToCart(@CurrentUser('id') uid: number, @Param('slug') slug: string, @Body() body: unknown) {
+    return this.spaces.addAllToCart(uid, slug, body);
   }
 
   @ApiBearerAuth()

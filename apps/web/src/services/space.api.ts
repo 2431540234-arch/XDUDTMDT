@@ -1,6 +1,6 @@
 // Service gọi API không gian mẫu (spaces)
 import type { RoomType } from '@aurelia-living/shared-types';
-import type { PlacementAlternative, SpaceDetail, SpaceListItem } from '@/types/api';
+import type { CartView, PlacementAlternative, SpaceDetail, SpaceListItem } from '@/types/api';
 import { useAuthStore } from '@/store/authStore';
 import { USE_MOCK, apiClient, http } from './api-client';
 
@@ -65,6 +65,13 @@ export const spaceApi = {
       }).catch(() => undefined);
     }
   },
+  /** Thêm các món đã chọn của không gian vào giỏ: MỘT request, một transaction (tất cả hoặc không món nào; lỗi ⇒ 409 kèm details.unavailable) */
+  addToCart: (slug: string, productIds?: number[]) =>
+    http.post<{
+      added: Array<{ productId: number; name: string; variantId: number }>;
+      unavailable: never[];
+      cart: CartView;
+    }>(`/spaces/${slug}/add-to-cart`, productIds ? { productIds } : {}),
   bookmark: (slug: string) => http.put<null>(`/spaces/${slug}/bookmark`),
   unbookmark: (slug: string) => http.delete(`/spaces/${slug}/bookmark`),
 };

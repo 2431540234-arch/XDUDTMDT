@@ -207,6 +207,56 @@ export class CartService {
     return this.view(userId);
   }
 
+  /**
+   * Thêm NHIỀU dòng trong MỘT transaction (UC-SPACE-03: thêm bộ sản phẩm của không gian vào giỏ).
+   * Có dòng không thêm được (ngừng bán / quá tồn) ⇒ 409 CONFLICT kèm details.unavailable và KHÔNG thêm dòng nào (transaction hoàn tác).
+   */
+  async addItems(
+    userId: number,
+    lines: Array<{ variantId: number; quantity: number; productId?: number; name?: string }>,
+  ) {
+    const cart = await this.ensure(userId);
+    await this.prisma.$transaction(async (tx) => {
+      const unavailable: Array<Record<string, unknown>> = [];
+      for (const l of lines) {
+        const v = await tx.productVariant.findFirst({
+          where: { id: l.variantId, isActive: true, product: { status: 'published', deletedAt: null } },
+        });
+        const info = { variantId: l.variantId, productId: l.productId, name: l.name };
+        if (!v) {
+          unavailable.push({ ...info, reason: 'Sản phẩm tạm ngừng bán' });
+          continue;
+        }
+        const existing = await tx.cartItem.findUnique({
+          where: { cartId_variantId: { cartId: cart.id, variantId: v.id } },
+        });
+        const total = (existing?.quantity ?? 0) + l.quantity;
+        if (total > v.stockQuantity) {
+          unavailable.push({
+            ...info,
+            reason:
+              v.stockQuantity > 0
+                ? `Chỉ còn ${v.stockQuantity} sản phẩm trong kho.`
+                : 'Sản phẩm tạm hết hàng.',
+            available: Math.max(0, v.stockQuantity),
+          });
+          continue;
+        }
+        if (existing) await tx.cartItem.update({ where: { id: existing.id }, data: { quantity: total } });
+        else await tx.cartItem.create({ data: { cartId: cart.id, variantId: v.id, quantity: l.quantity } });
+      }
+      if (unavailable.length)
+        throw new AppException(
+          ErrorCode.CONFLICT,
+          'Có sản phẩm không thể thêm vào giỏ; chưa thêm sản phẩm nào.',
+          {
+            unavailable,
+          },
+        );
+    });
+    return this.view(userId);
+  }
+
   private async ownItem(userId: number, id: number) {
     const cart = await this.ensure(userId);
     const it = await this.prisma.cartItem.findFirst({
