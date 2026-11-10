@@ -16,9 +16,9 @@ Ngày audit: 2026-11-10 · Chỉ đọc (không sửa mã nguồn); tệp duy nh
 
 | Phạm vi | ✅ | 🟡 | 🔴 | ⚪ | Ghi chú |
 |---|---|---|---|---|---|
-| 70 UC trong phạm vi (DAC_TA) | 68 | 2 | 0 | 0 | 97 % chạy end-to-end; 2 UC thiếu một phần FE (ADM-07, ADM-12) |
-| Chức năng ngoài DAC_TA / chưa có (17 dòng ở §2.2) | 6 | 8 | 1 | 2 | phần lớn 🟡 là "BE có, FE chưa dùng" |
-| Trang FE (66) | 60 | 6 | 0 | 0 | 6 trang có nội dung viết cứng hoặc thiếu thao tác (xem §4) |
+| 70 UC trong phạm vi (DAC_TA) | 70 | 0 | 0 | 0 | ADM-07 và ADM-12 đã bổ sung phần FE còn thiếu (xem §10) |
+| Chức năng ngoài DAC_TA / chưa có (17 dòng ở §2.2) | 7 | 7 | 1 | 2 | phần lớn 🟡 là "BE có, FE chưa dùng" |
+| Trang FE (66) | 63 | 3 | 0 | 0 | 3 trang còn nội dung viết cứng hoặc thiếu thao tác (xem §4; ADM content/models/inventory đã sửa, §10) |
 | Endpoint BE (210) | 210 − 1 | 1 (`POST /auth/google` luôn 503) | 0 | 0 | không có endpoint trả dữ liệu cứng, mock hay 501 |
 | Loại khỏi phạm vi có chủ đích | | | | 10 UC | 6 UC AR đã xóa (D-P16) + 4 UC Android hoãn (D-P09) |
 
@@ -47,12 +47,12 @@ Cột DB lấy từ dòng "Model + C/R/U/D" của từng UC trong `docs/DAC_TA_C
 | ADM | UC-ADM-04 Quản lý media (ảnh, tệp) | ✔ | media, activity_logs | 5/5 (POST /admin/media +4) | /admin/media | ✅ | apps/api/src/modules/media/admin-media.controller.ts:38 · apps/web/src/app/admin/media/page.tsx:1 | lưu ý: handler không gọi service; ủy quyền (không thấy Prisma trực tiếp) |
 | ADM | UC-ADM-05 Quản lý danh mục sản phẩm | ✔ | categories, media | 4/4 (GET /admin/categories +3) | /admin/categories | ✅ | apps/api/src/modules/categories/admin-categories.controller.ts:16 · apps/web/src/app/admin/categories/page.tsx:1 | lưu ý: ủy quyền (không thấy Prisma trực tiếp) |
 | ADM | UC-ADM-06 Quản lý thương hiệu | ✔ | brands, media | 5/5 (GET /admin/brands +4) | /admin/brands | ✅ | apps/api/src/modules/brands/admin-brands.controller.ts:17 · apps/web/src/app/admin/brands/page.tsx:1 | — |
-| ADM | UC-ADM-07 Quản lý trang tĩnh | ✔ | pages, activity_logs | 4/4 (/admin/pages: GET, POST, PATCH, DELETE) | /admin/content | 🟡 | api/…/pages/admin-pages.controller.ts:16 | BE đủ (GET/POST/PATCH/DELETE /admin/pages, admin-pages.controller.ts:16-31). FE `/admin/content` chỉ SỬA trang có sẵn (`savePage`, admin/content/page.tsx:471); KHÔNG có nút tạo/xóa trang, trong khi DAC_TA UC-ADM-07 luồng chính yêu cầu tạo/sửa. |
+| ADM | UC-ADM-07 Quản lý trang tĩnh | ✔ | pages, activity_logs | 4/4 (/admin/pages: GET, POST, PATCH, DELETE) | /admin/content | ✅ | api/…/pages/admin-pages.controller.ts:16 | ✅ ĐÃ SỬA (5ef2e33): FE có "Tạo trang" và "Xóa trang" (hộp thoại xác nhận). BE đủ (GET/POST/PATCH/DELETE /admin/pages, admin-pages.controller.ts:16-31). FE `/admin/content` chỉ SỬA trang có sẵn (`savePage`, admin/content/page.tsx:471); KHÔNG có nút tạo/xóa trang, trong khi DAC_TA UC-ADM-07 luồng chính yêu cầu tạo/sửa. |
 | ADM | UC-ADM-08 Quản lý thuộc tính và giá trị thuộc tính | ✔ | attributes, attribute_values, variant_attribute_values, activity_logs | 4/4 (GET /admin/attributes +3) | /admin/attributes | ✅ | apps/api/src/modules/attributes/admin-attributes.controller.ts:16 · apps/web/src/app/admin/attributes/page.tsx:1 | — |
 | ADM | UC-ADM-09 Quản lý sản phẩm | ✔ | products, categories, brands, product_variants, product_images, activity_logs | 5/5 (GET /admin/products +4) | /admin/products | ✅ | apps/api/src/modules/products/admin-products.controller.ts:18 · apps/web/src/app/admin/products/page.tsx:1 | — |
 | ADM | UC-ADM-10 Quản lý biến thể sản phẩm | ✔ | product_variants, variant_attribute_values, attribute_values, attributes | 2/2 (POST, PATCH /admin/products; API gộp) | /admin/products/[id] | ✅ | api/…/products/admin-products.controller.ts:28,52 | API gộp (D-N32): variants nằm trong PATCH /admin/products/:id (admin-products.controller.ts:52); FE ProductForm. Không có module riêng: `modules/variants/*` là khung rỗng. |
 | ADM | UC-ADM-11 Quản lý ảnh sản phẩm | ✔ | product_images, media, product_variants | 2/2 (POST, PATCH /admin/products; API gộp) | /admin/products/[id] | ✅ | api/…/products/admin-products.controller.ts:28,52 | API gộp (D-N32): images trong POST/PATCH /admin/products (admin-products.controller.ts:28,52); `modules/product-images/*` là khung rỗng. |
-| ADM | UC-ADM-12 Nhập kho và điều chỉnh tồn kho | ✔ | inventory_movements, product_variants | 9/9 (/admin/inventory*) | /admin/inventory | 🟡 | api/…/inventory/admin-inventory.controller.ts:18-77 | FE chỉ có phiếu nhập/xuất (`createReceipt`, inventory/page.tsx:54) + xem biến động; `POST /admin/inventory/movements` (nhập/điều chỉnh/hàng trả trực tiếp, admin-inventory.controller.ts:40) KHÔNG có lời gọi FE. |
+| ADM | UC-ADM-12 Nhập kho và điều chỉnh tồn kho | ✔ | inventory_movements, product_variants | 9/9 (/admin/inventory*) | /admin/inventory | ✅ | api/…/inventory/admin-inventory.controller.ts:18-77 | ✅ ĐÃ SỬA (b8599e9): thêm "Điều chỉnh tồn" (số lượng ± + lý do) gọi POST /admin/inventory/movements. Trước đó: FE chỉ có phiếu nhập/xuất (`createReceipt`, inventory/page.tsx:54) + xem biến động; `POST /admin/inventory/movements` (nhập/điều chỉnh/hàng trả trực tiếp, admin-inventory.controller.ts:40) KHÔNG có lời gọi FE. |
 | ADM | UC-ADM-13 Tải và quản lý mô hình 3D sản phẩm | ✔ | product_3d_models, model_files, media, products, activity_logs, notifications | 6/6 (/admin/models*) | /admin/models | ✅ | api/…/product-models/admin-models.controller.ts:52-134 | admin-models.controller.ts:52-134 (upload JSON/multipart, presign, confirm, reprocess, primary); FE /admin/models. Lưu ý: ô "Xem trước 360°" luôn dùng `/mock/models/sofa.glb` (xem §4). |
 | ADM | UC-ADM-14 Cấu hình biến thể chất liệu cho mô hình 3D | ✔ | model_material_variants, product_variants | 4/4 (/admin/models/:id/material*) | /admin/models | ✅ | api/…/product-models/admin-models.controller.ts:145-170 | admin-models.controller.ts:145-170; FE MaterialVariantsModal. |
 | ADM | UC-ADM-15 Quản lý không gian mẫu và ảnh 360° | ✔ | spaces, space_panoramas, media, categories | 5/5 (GET /admin/spaces +4) | /admin/spaces | ✅ | apps/api/src/modules/spaces/admin-spaces.controller.ts:18 · apps/web/src/app/admin/spaces/page.tsx:1 | lưu ý: ủy quyền (không thấy Prisma trực tiếp) |
@@ -112,13 +112,13 @@ Cột DB lấy từ dòng "Model + C/R/U/D" của từng UC trong `docs/DAC_TA_C
 | Hỏi đáp sản phẩm | ➕ | product_questions | GET/POST /products/:slug/questions, /admin/questions | /products/[slug]/360, /admin/questions | ✅ |  |
 | Sổ thu/chi, báo cáo tài chính | ➕ | expenses | GET/POST/DELETE /admin/expenses, GET /admin/stats/finance (admin-finance.controller.ts:27-42) | /admin/reports | ✅ | FE không gọi GET/DELETE expenses trực tiếp |
 | Phiếu nhập/xuất kho | ➕ | stock_receipts, stock_receipt_items | /admin/inventory/receipts* | /admin/inventory | ✅ |  |
-| Đăng nhập Google | ➕ | — | POST /auth/google (auth.service.ts:196) | /login, /register (GoogleButton) | 🟡 | BE LUÔN trả 503 SERVICE_UNAVAILABLE (curl xác nhận); nút FE ghi chú "giả lập" (GoogleButton.tsx:5) |
+| Đăng nhập Google | ➕ | — | POST /auth/google (auth.service.ts:196) | /login, /register (GoogleButton) | 🟡 (nút đã ẩn, c94cd17) | BE LUÔN trả 503 SERVICE_UNAVAILABLE (curl xác nhận); nút FE ghi chú "giả lập" (GoogleButton.tsx:5) |
 | Quản trị FAQ | ➕ | faq (settings/pages) | GET/PUT /admin/faq (admin-content.controller.ts:88-93) | — | 🟡 | BE có, KHÔNG có màn hình quản trị; FAQ công khai đọc được |
 | Tin nhắn liên hệ (admin) | ➕ | contact_messages | GET /admin/contact-messages, PATCH …/:id/handled (admin-content.controller.ts:100-107) | — | 🟡 | Form liên hệ công khai ✅ (POST /contact); phía admin không có màn hình |
 | Bài viết / blog | ➕ | posts | CRUD /admin/posts; GET /posts, GET /posts/:slug | /admin/content (admin) | 🟡 | Admin ✅; công khai: `contentApi.posts` định nghĩa nhưng KHÔNG trang nào dùng, không có route blog/bài viết |
 | Sắp xếp banner | ➕ | banners | PATCH /admin/banners/reorder (admin-content.controller.ts:42) | — | 🟡 | BE có, FE không gọi |
 | In hóa đơn | ➕ | orders | GET /admin/orders/:code/invoice (admin-orders.controller.ts:41) | — | 🟡 | BE có, FE không gọi |
-| Thêm cả bộ không gian vào giỏ | ➕ | carts, cart_items, space_views | POST /spaces/:slug/add-to-cart (spaces.controller.ts:71) | /spaces/[slug] | 🟡 | FE tự lặp `cartApi.addItem` từng món đã chọn (spaces/[slug]/page.tsx:100-101), không gọi endpoint này; món hết hàng giữa chừng sẽ để giỏ thêm dở |
+| Thêm cả bộ không gian vào giỏ | ➕ | carts, cart_items, space_views | POST /spaces/:slug/add-to-cart (spaces.controller.ts:71) | /spaces/[slug] | ✅ (18fd577) | ĐÃ SỬA: FE gọi endpoint này (một request, một transaction, 409 kèm unavailable, không thêm món nào). Trước đó FE tự lặp `cartApi.addItem` từng món đã chọn (spaces/[slug]/page.tsx:100-101), không gọi endpoint này; món hết hàng giữa chừng sẽ để giỏ thêm dở |
 | Cài đặt theo khóa | ➕ | settings | PUT /admin/settings/:key (admin-settings.controller.ts:29) | — | 🟡 | FE chỉ dùng PUT /admin/settings/store |
 | Bull Board (hàng đợi) | ➕ | — | /admin/queues (bull-board.middleware.ts) | — | ✅ | Chỉ admin; nhận token qua `?token=` (xem rủi ro) |
 | Chế độ dữ liệu giả của FE | ➕ | — | mock-data/mockApi (NEXT_PUBLIC_USE_MOCK) | toàn bộ | 🔴 | Có chủ đích cho dev; `.env.example` của web đặt mặc định `true` |
@@ -329,7 +329,7 @@ Cách đọc: "Bảng DB" là các model Prisma/bảng SQL tìm thấy trong th�
 | GET | /spaces/:slug | public | space, product | ✔ web/app/(shop)/products/[slug]/page.tsx (+3) | ✅ | api:5 e2e:4 · modules/spaces/spaces.controller.ts:43 |
 | GET | /spaces/:slug/placements/:placementId/alternatives | public | spaceProductPlacement, product | ✔ web/services/space.api.ts | ✅ | api:2 e2e:0 · modules/spaces/spaces.controller.ts:50 |
 | POST | /spaces/:slug/views | public | space, user, product, spaceView | ✔ web/services/space.api.ts | ✅ | api:3 e2e:0 · modules/spaces/spaces.controller.ts:60 |
-| POST | /spaces/:slug/add-to-cart | jwt | space, product | ✘ | ✅ | api:2 e2e:0 · modules/spaces/spaces.controller.ts:71 |
+| POST | /spaces/:slug/add-to-cart | jwt | space, product | ✔ web/services/space.api.ts | ✅ | api:2 e2e:0 · modules/spaces/spaces.controller.ts:71 |
 | PUT | /spaces/:slug/bookmark | jwt | spaceBookmark, space | ✔ web/services/space.api.ts | ✅ | api:2 e2e:0 · modules/spaces/spaces.controller.ts:79 |
 | DELETE | /spaces/:slug/bookmark | jwt | space, spaceBookmark | ✔ web/services/space.api.ts | ✅ | api:2 e2e:0 · modules/spaces/spaces.controller.ts:85 |
 | GET | /users/me | jwt | user, sql:orders | ✔ web/services/auth.api.ts | ✅ | api:6 e2e:0 · modules/users/users.controller.ts:13 |
@@ -377,21 +377,21 @@ Cách đọc: "Bảng DB" là các model Prisma/bảng SQL tìm thấy trong th�
 | /products/[slug] | web/app/(shop)/products/[slug]/page.tsx (200 dòng) | productApi.related, spaceApi.list, productApi.view360, productApi.reviews (+12) | Không | ✅ | — |
 | /search | web/app/(shop)/search/page.tsx (14 dòng) | productApi.search, productApi.list, productApi.facets, productApi.detail | Không | ✅ | — |
 | /spaces | web/app/(shop)/spaces/page.tsx (202 dòng) | spaceApi.unbookmark, spaceApi.bookmark, spaceApi.list, spaceApi.detail (+1) | Không | ✅ | — |
-| /spaces/[slug] | web/app/(shop)/spaces/[slug]/page.tsx (519 dòng) | spaceApi.alternatives, spaceApi.sendViewBeacon, cartApi.addItem, spaceApi.unbookmark (+8) | Không | 🟡 | Thêm bộ vào giỏ bằng nhiều lần `cartApi.addItem` thay vì POST /spaces/:slug/add-to-cart |
+| /spaces/[slug] | web/app/(shop)/spaces/[slug]/page.tsx (519 dòng) | spaceApi.alternatives, spaceApi.sendViewBeacon, cartApi.addItem, spaceApi.unbookmark (+8) | Không | ✅ (18fd577) | ĐÃ SỬA: dùng POST /spaces/:slug/add-to-cart; trước đó nhiều lần `cartApi.addItem` thay vì POST /spaces/:slug/add-to-cart |
 | /wishlist | web/app/(shop)/wishlist/page.tsx (92 dòng) | authApi.logout, cartApi.get, cartApi.addItem, cartApi.updateItem (+2) | Không | ✅ | — |
 | /products/[slug]/3d | web/app/(viewer)/products/[slug]/3d/page.tsx (188 dòng) | cartApi.get, cartApi.addItem, cartApi.updateItem, wishlistApi.add (+5) | Không | ✅ | — |
 | /admin/activity-logs | web/app/admin/activity-logs/page.tsx (148 dòng) | adminApi.activityLogs.options, adminApi.activityLogs.list | Không | ✅ | — |
 | /admin/attributes | web/app/admin/attributes/page.tsx (409 dòng) | adminApi.attributes.update, adminApi.attributes.create, adminApi.attributes.updateValue, adminApi.attributes.addValue (+2) | Không | ✅ | — |
 | /admin/brands | web/app/admin/brands/page.tsx (282 dòng) | adminApi.brands.update, adminApi.brands.create, adminApi.brands.list, adminApi.brands.remove | Không | ✅ | — |
 | /admin/categories | web/app/admin/categories/page.tsx (345 dòng) | adminApi.categories.update, adminApi.categories.create, adminApi.categories.remove | Không | ✅ | — |
-| /admin/content | web/app/admin/content/page.tsx (622 dòng) | adminApi.content.saveBanner, adminApi.content.removeBanner, adminApi.content.savePost, adminApi.content.removePost (+1) | Không | 🟡 | Không có UI tạo/xóa trang tĩnh, sắp xếp banner, quản trị FAQ, tin nhắn liên hệ (BE đã có) |
+| /admin/content | web/app/admin/content/page.tsx (622 dòng) | adminApi.content.saveBanner, adminApi.content.removeBanner, adminApi.content.savePost, adminApi.content.removePost (+1) | Không | ✅ (một phần, 5ef2e33) | ĐÃ CÓ tạo/xóa trang tĩnh; còn thiếu, sắp xếp banner, quản trị FAQ, tin nhắn liên hệ (BE đã có) |
 | /admin/customers | web/app/admin/customers/page.tsx (233 dòng) | adminApi.customers.create, adminApi.customers.list, adminApi.customers.setStatus | Không | ✅ | — |
 | /admin/customers/[id] | web/app/admin/customers/[id]/page.tsx (406 dòng) | adminApi.customers.get, adminApi.customers.orders, adminApi.customers.reviews, adminApi.customers.wishlist (+9) | Không | ✅ | — |
 | /admin/dashboard | web/app/admin/dashboard/page.tsx (7 dòng) | — | Không | ✅ | — |
-| /admin/inventory | web/app/admin/inventory/page.tsx (488 dòng) | adminApi.inventory.rows, adminApi.inventory.createReceipt, adminApi.inventory.movements, adminApi.inventory.confirmReceipt (+5) | Không | 🟡 | Thiếu thao tác điều chỉnh tồn trực tiếp (POST /admin/inventory/movements) |
+| /admin/inventory | web/app/admin/inventory/page.tsx (488 dòng) | adminApi.inventory.rows, adminApi.inventory.createReceipt, adminApi.inventory.movements, adminApi.inventory.confirmReceipt (+5) | Không | ✅ (b8599e9) | ĐÃ CÓ thao tác (trước đó thiếu) điều chỉnh tồn trực tiếp (POST /admin/inventory/movements) |
 | /admin/login | web/app/admin/login/page.tsx (135 dòng) | authApi.login | Không | ✅ | Ảnh nền `/mock-img/banner…` (login/page.tsx:56) |
 | /admin/media | web/app/admin/media/page.tsx (275 dòng) | adminApi.media.update, adminApi.media.list, adminApi.media.remove, adminApi.media.upload | Không | ✅ | — |
-| /admin/models | web/app/admin/models/page.tsx (455 dòng) | adminApi.products.list, adminApi.models.upload, adminApi.models.list, adminApi.models.removeModel (+8) | Không | 🟡 | Ô "Xem trước 360°" cố định `/mock/models/sofa.glb` (admin/models/page.tsx:189), tệp không tồn tại trong public/mock/models (chỉ có armchair.glb) và không phụ thuộc tệp đã chọn |
+| /admin/models | web/app/admin/models/page.tsx (455 dòng) | adminApi.products.list, adminApi.models.upload, adminApi.models.list, adminApi.models.removeModel (+8) | Không | ✅ (285c55d) | ĐÃ SỬA: xem trước dùng blob của tệp đã chọn, có trạng thái lỗi. Trước đó ô "Xem trước 360°" cố định `/mock/models/sofa.glb` (admin/models/page.tsx:189), tệp không tồn tại trong public/mock/models (chỉ có armchair.glb) và không phụ thuộc tệp đã chọn |
 | /admin/notifications | web/app/admin/notifications/page.tsx (183 dòng) | adminApi.customers.list, adminApi.notify.send | Không | ✅ | — |
 | /admin/orders | web/app/admin/orders/page.tsx (315 dòng) | adminApi.customers.list, adminApi.inventory.rows, adminApi.orders.create, adminApi.orders.list | Không | ✅ | — |
 | /admin/orders/[code] | web/app/admin/orders/[code]/page.tsx (625 dòng) | adminApi.orders.get, adminApi.orders.setStatus, adminApi.orders.cancel, adminApi.orders.refund (+5) | Không | ✅ | — |
@@ -656,7 +656,7 @@ Quét `apps/api/src`, `apps/api/prisma`, `apps/web/src`, `packages/`, `scripts/`
 | mock | apps/web/src/app/(shop)/about/page.tsx:65 | src="/mock-img/room?s=Bắc%20Âu&r=living_room&n=7" |
 | mock | apps/web/src/app/(shop)/about/page.tsx:100 | src={`/mock-img/avatar?n=${encodeURIComponent(n)}`} |
 | mock | apps/web/src/app/admin/login/page.tsx:56 | 'linear-gradient(135deg, rgba(43,30,22,0.92), rgba(43,30,22,0.55)), url(/mock-img/banner?n=5&s=Luxury)', |
-| mock | apps/web/src/app/admin/models/page.tsx:189 | <ModelPreview src="/mock/models/sofa.glb" alt="Xem trước mô hình" /> |
+| mock (ĐÃ BỎ, 285c55d) | apps/web/src/app/admin/models/page.tsx:189 | <ModelPreview src="/mock/models/sofa.glb" alt="Xem trước mô hình" /> |
 | mock | apps/web/src/app/admin/settings/page.tsx:22 | type Tab = 'store' \| 'payments' \| 'shipping' \| 'email' \| 'theme' \| 'seo' \| 'security' \| 'mock'; |
 | mock | apps/web/src/app/admin/settings/page.tsx:63 | import('@/mock-data/db').then((m) => setCfg(m.getConfig())); |
 | mock | apps/web/src/app/admin/settings/page.tsx:66 | const m = await import('@/mock-data/db'); |
@@ -693,15 +693,15 @@ Khối mã comment-out lớn: không tìm thấy qua quét `^\s*//.*\b(function|
 
 | # | Mức | Rủi ro | Bằng chứng |
 |---|---|---|---|
-| 1 | Cao (với sản xuất) | **Swagger bật mặc định** kể cả production; không có ràng buộc ở `superRefine` ép tắt (chỉ docs khuyên) | `env.validation.ts:87` (`bool.default('true')`), `app.setup.ts:33`, `.env.example:33`, `ENVIRONMENT.md:16` |
-| 2 | Cao | **Mật khẩu admin mặc định** `Admin@123456` (seed thường) và `admin@aurelia.vn / admin123` (seed mock/demo) | `prisma/seed.ts:13,698`, `.env.example:130`; ENVIRONMENT.md ghi "Production: bắt buộc tự đặt" nhưng không có kiểm tra tự động |
+| 1 | Cao (với sản xuất) · ✅ ĐÃ SỬA (8b6c01c) | **Swagger bật mặc định** kể cả production; không có ràng buộc ở `superRefine` ép tắt (chỉ docs khuyên) | `env.validation.ts:87` (`bool.default('true')`), `app.setup.ts:33`, `.env.example:33`, `ENVIRONMENT.md:16` |
+| 2 | Cao · ✅ ĐÃ SỬA (1f69fd4): production dừng nếu thiếu SEED_ADMIN_PASSWORD hoặc không đặt SEED_SAMPLE=false | **Mật khẩu admin mặc định** `Admin@123456` (seed thường) và `admin@aurelia.vn / admin123` (seed mock/demo) | `prisma/seed.ts:13,698`, `.env.example:130`; ENVIRONMENT.md ghi "Production: bắt buộc tự đặt" nhưng không có kiểm tra tự động |
 | 3 | Trung bình | Bull Board nhận token qua `?token=` trên URL (lộ ở lịch sử/nhật ký proxy) | `jobs/bull-board.middleware.ts:1-2` |
 | 4 | Trung bình | Access/refresh token lưu `localStorage` (rủi ro XSS lấy token). Giảm nhẹ: `RichText` dùng `react-markdown`, không `dangerouslySetInnerHTML` (code không dùng `dangerouslySetInnerHTML`, chỉ có 1 chú thích nhắc tên) | `web/store/authStore.ts:1` |
-| 5 | Trung bình | Đăng nhập Google: nút hiện cho người dùng nhưng luôn lỗi 503 | `auth.service.ts:196-206`, `web/components/account/GoogleButton.tsx:5` |
-| 6 | Trung bình | Xem trước mô hình 3D ở `/admin/models` luôn nạp `/mock/models/sofa.glb` — tệp không có trong `public/mock/models` (chỉ `armchair.glb`) ⇒ 404 và không phản ánh tệp được chọn | `web/app/admin/models/page.tsx:189`, `apps/web/public/mock/models/` |
+| 5 | Trung bình · ✅ ĐÃ SỬA (c94cd17 (ẩn nút, chưa làm Google)) | Đăng nhập Google: nút hiện cho người dùng nhưng luôn lỗi 503 | `auth.service.ts:196-206`, `web/components/account/GoogleButton.tsx:5` |
+| 6 | Trung bình · ✅ ĐÃ SỬA (285c55d) | Xem trước mô hình 3D ở `/admin/models` luôn nạp `/mock/models/sofa.glb` — tệp không có trong `public/mock/models` (chỉ `armchair.glb`) ⇒ 404 và không phản ánh tệp được chọn | `web/app/admin/models/page.tsx:189`, `apps/web/public/mock/models/` |
 | 7 | Trung bình | Trang `/about` và `/contact` có số liệu/đội ngũ/showroom viết cứng và ảnh `/mock-img/*` hiển thị ở chế độ thật | `web/app/(shop)/about/page.tsx:11-28,36,65,100`, `contact/page.tsx:31` |
-| 8 | Trung bình | Thêm "cả bộ" không gian vào giỏ làm nhiều lệnh tuần tự từ FE: món hết hàng giữa chừng ⇒ giỏ thêm dở; endpoint chuyên dụng trả `unavailable[]` không được dùng | `web/app/(shop)/spaces/[slug]/page.tsx:100-101`, `spaces.controller.ts:71` |
-| 9 | Thấp | Mặc định FE chạy dữ liệu giả: dễ nhầm là "đã nối API" khi demo | `apps/web/.env.example` (`NEXT_PUBLIC_USE_MOCK=true`) |
+| 8 | Trung bình · ✅ ĐÃ SỬA (18fd577) | Thêm "cả bộ" không gian vào giỏ làm nhiều lệnh tuần tự từ FE: món hết hàng giữa chừng ⇒ giỏ thêm dở; endpoint chuyên dụng trả `unavailable[]` không được dùng | `web/app/(shop)/spaces/[slug]/page.tsx:100-101`, `spaces.controller.ts:71` |
+| 9 | Thấp · ✅ ĐÃ SỬA (66f0052: next build thất bại nếu NEXT_PUBLIC_USE_MOCK=true; dev vẫn mặc định mock) | Mặc định FE chạy dữ liệu giả: dễ nhầm là "đã nối API" khi demo | `apps/web/.env.example` (`NEXT_PUBLIC_USE_MOCK=true`) |
 | 10 | Thấp | 12 endpoint không có test tự động tham chiếu đường dẫn (coupons ví, `orders/counts`, `products/:slug/related`, `spaces/facets`, 3 route khách hàng của admin, sửa/xóa vị trí panorama, `auth/google`); đã curl 200 ở phiên này nhưng không có kiểm hồi quy | `be2` quét test; curl 2026-11-10 |
 | 11 | Thấp | Supertest cần `aurelia_test` dựng lại từ đầu, nếu không test đếm seed sai; lỗi `localhost`→IPv6 trên Windows | `DECISIONS.md` D-T61, `ENVIRONMENT.md` (`PG_HOST`) |
 | 12 | Thấp | Rác trong repo: `docs/aurelia_dev_backup.sql` (459 KB, UTF-16, chỉ dữ liệu mẫu: 4 email mẫu, không có hash mật khẩu) được git theo dõi; 8 tệp `*.dump` ở gốc (đã `.gitignore`) | `CHUAN_MO_RONG.md` #18; `git ls-files` |
@@ -713,14 +713,14 @@ Không phát hiện: secret thật trong repo (chỉ `.env.example`), endpoint F
 
 | Ưu tiên | Việc | Cỡ |
 |---|---|---|
-| **P0** (trước khi đưa lên môi trường thật) | Ép `SWAGGER_ENABLED=false` khi `NODE_ENV=production` (thêm vào `superRefine`) và ép đổi `SEED_ADMIN_PASSWORD` ≠ mặc định ở production | S |
+| **P0** (trước khi đưa lên môi trường thật) | Ép `SWAGGER_ENABLED=false` khi `NODE_ENV=production` (thêm vào `superRefine`) và ép đổi `SEED_ADMIN_PASSWORD` ≠ mặc định ở production · ✅ ĐÃ SỬA (8b6c01c, 1f69fd4) | S |
 | P0 | Quyết định áp migration `remove_ar` cho `aurelia_dev` (sao lưu trước; xem `FINAL_READY_TO_MERGE_REPORT.md` §9) | S |
-| **P1** | Sửa xem trước mô hình 3D ở `/admin/models` (dùng URL/blob của tệp đã chọn, bỏ `sofa.glb`) | S |
-| P1 | UC-ADM-07: thêm nút "Tạo trang"/"Xóa trang" ở `/admin/content` (BE đã có) | M |
-| P1 | UC-ADM-12: thêm màn "Điều chỉnh tồn" gọi `POST /admin/inventory/movements` | M |
+| **P1** | Sửa xem trước mô hình 3D ở `/admin/models` (dùng URL/blob của tệp đã chọn, bỏ `sofa.glb`) · ✅ ĐÃ SỬA (285c55d) | S |
+| P1 | UC-ADM-07: thêm nút "Tạo trang"/"Xóa trang" ở `/admin/content` (BE đã có) · ✅ ĐÃ SỬA (5ef2e33) | M |
+| P1 | UC-ADM-12: thêm màn "Điều chỉnh tồn" gọi `POST /admin/inventory/movements` · ✅ ĐÃ SỬA (b8599e9) | M |
 | P1 | Thay nội dung viết cứng ở `/about` và `/contact` bằng dữ liệu từ `/settings/public` hoặc trang `about`; bỏ ảnh `/mock-img/*` khỏi chế độ thật | M |
-| P1 | Đăng nhập Google: hoặc hoàn thiện (OAuth) hoặc ẩn nút ở FE + bỏ khỏi API_CONTRACT | M |
-| P1 | Dùng `POST /spaces/:slug/add-to-cart` (hoặc thêm tham số danh sách món) thay cho lặp từng món | S |
+| P1 | Đăng nhập Google: hoặc hoàn thiện (OAuth) hoặc ẩn nút ở FE + bỏ khỏi API_CONTRACT · MỘT PHẦN (c94cd17): đã ẩn nút khi chưa bật NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED; CHƯA làm OAuth thật (chờ quyết định) | M |
+| P1 | Dùng `POST /spaces/:slug/add-to-cart` (hoặc thêm tham số danh sách món) thay cho lặp từng món · ✅ ĐÃ SỬA (18fd577) | S |
 | **P2** | Dọn 91 chú thích `TODO: chưa có trong BE/DB` và 11 comment "khung rỗng"; xóa hoặc đánh dấu module rỗng (`hotspots`, `product-images`, `variants`, `ai`) | S |
 | P2 | Cập nhật `database/*.sql` (bỏ AR, thêm 17 bảng) hoặc xóa thư mục, và sửa số "42 bảng" ở docs | M |
 | P2 | Bổ sung test hồi quy cho 12 endpoint chưa có test (§8 #10) | M |
@@ -728,8 +728,50 @@ Không phát hiện: secret thật trong repo (chỉ `.env.example`), endpoint F
 | P2 | Cập nhật bảng endpoint của `API_CONTRACT.md` (thêm ~31 dòng, bỏ 2 dòng cũ) và D-T32; chuyển Bull Board sang header/cookie, bỏ `?token=` | S |
 | P2 | Cân nhắc lưu refresh token bằng cookie httpOnly | L |
 
+
+## 10. Trạng thái xử lý sau audit (2026-11-11)
+
+Mỗi mục một commit riêng trên `feature/backend`, chưa push. Kết quả kiểm thử cuối cùng xem mục "Xác minh sau sửa" ở cuối.
+
+| # | Việc | Commit | Kết quả |
+|---|---|---|---|
+| 1 | Swagger: mặc định tắt ở production, chỉ bật khi `SWAGGER_ENABLED=true` rõ ràng | `8b6c01c` | ✅ ĐÃ SỬA: `env.validation.ts` + test đơn vị (6 trường hợp), `.env.example`, ENVIRONMENT.md |
+| 2 | Seed admin: production bắt buộc `SEED_ADMIN_PASSWORD` (và `SEED_SAMPLE=false`) | `1f69fd4` | ✅ ĐÃ SỬA: đã chạy thử `NODE_ENV=production` thiếu biến ⇒ lỗi; có `SEED_SAMPLE=true` ⇒ lỗi; hướng dẫn trong README |
+| 3 | `NEXT_PUBLIC_USE_MOCK=true` làm `next build` thất bại | `66f0052` | ✅ ĐÃ SỬA: `next.config.js` kiểm tra `PHASE_PRODUCTION_BUILD`; đã chạy `next build` với =true ⇒ thất bại. **Playwright qua `npm run test:e2e:real` chạy `E2E_USE_MOCK=false`** (`scripts/e2e-real.mjs:263`) bằng `next dev`; chỉ khi chạy trực tiếp `playwright test` mới mặc định `E2E_USE_MOCK=true` (`playwright.config.ts:6`) |
+| 4 | Thêm bộ không gian vào giỏ: FE gọi `POST /spaces/:slug/add-to-cart` | `18fd577` | ✅ ĐÃ SỬA: BE trước đó KHÔNG atomic (thêm món còn hàng, báo món hết) ⇒ viết lại bằng `CartService.addItems` trong MỘT transaction, hết hàng/quá tồn ⇒ 409 + `details.unavailable`, không món nào được thêm; nhận `productIds` tùy chọn để giữ ô chọn từng món. Test mock-m3 viết lại (tất cả-hoặc-không, chọn một phần, productIds sai, quá tồn do giỏ đã có). **Đổi hành vi so với test cũ** (test cũ khẳng định thêm từng phần) |
+| 5 | `/admin/models`: xem trước đúng tệp đã chọn | `285c55d` | ✅ ĐÃ SỬA: blob URL của `File`, `ModelPreview` có trạng thái lỗi (`role=alert`); e2e mới (tệp hợp lệ ⇒ `src=blob:`, tệp hỏng ⇒ báo lỗi) |
+| 6 | Google login: chỉ ẩn nút | `c94cd17` | ✅ ĐÃ SỬA (ẩn): nút và dấu phân cách chỉ hiện khi `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED=true`; 3 test đơn vị. **Chưa làm Google thật, chờ quyết định của bạn** |
+| 7 | UC-ADM-07: tạo/xóa trang tĩnh | `5ef2e33` | ✅ ĐÃ SỬA: modal tạo (tiêu đề, slug, loại, nội dung, trạng thái), xóa có hộp thoại xác nhận, lỗi theo ô (400/409). **Lỗi phát hiện thêm và đã sửa:** BE `CORE_PAGES` không có slug `about` nên xóa được trang "Về chúng tôi"; `ApiClientError.fieldErrors()` bỏ qua CONFLICT nên mọi lỗi "slug trùng" 409 không hiện dưới ô (trước đây rơi vào toast) |
+| 8 | UC-ADM-12: điều chỉnh tồn kho trực tiếp | `b8599e9` | ✅ ĐÃ SỬA: hành động "Điều chỉnh tồn" ở mỗi dòng, số lượng ± và lý do bắt buộc, gợi ý tồn sau điều chỉnh, giảm quá tồn ⇒ lỗi; e2e mới |
+
+Việc còn mở từ audit (không nằm trong phạm vi lần này): nội dung viết cứng ở `/about`, `/contact`; `database/*.sql` lỗi thời; chú thích `TODO: chưa có trong BE/DB`; UI cho FAQ, tin nhắn liên hệ, sắp xếp banner, in hóa đơn; 12 endpoint chưa có test; Bull Board `?token=`; token trong localStorage.
+
 ## Xác minh (Bước 6) — những gì đã chạy, kết quả thật
 
 - **Build/type/lint/test (chạy hôm nay, 2026-11-10, trên cùng mã nguồn; `1d6962e` chỉ thêm tài liệu so với `b5d7e49`):** `npx turbo run typecheck lint --force` 6/6 task thành công; web unit 36/36; API unit 142/142 (16 suite); supertest 392/392 (22 suite, DB `aurelia_test` dựng mới); MinIO API 7/7; Playwright API thật 69/69 (11 nhóm) và MinIO 2/2; hai lượt liên tiếp giống nhau (chi tiết ở `docs/FINAL_READY_TO_MERGE_REPORT.md` §7-8). `npm run build` cho `apps/api` không chạy riêng trong audit này (chỉ build gián tiếp qua e2e) để không sinh thêm tệp.
 - **Chạy thật + curl (phiên audit):** khởi động `apps/api/dist/main.js` trên cổng 4012 với DB `aurelia_test`; `/health` trả `database/redis/storage/smtp/queues: up`; log khởi động có **210 dòng `Mapped {…}`** = đúng 210 endpoint trích bằng phân tích tĩnh. Đã curl: `GET /coupons/me` 200, `/coupons/suggested` 200, `POST /coupons/save` 400 `COUPON_INVALID`, `GET /orders/counts` 200, `GET /products/:slug/related` 200, `GET /spaces/facets` 200, `GET /admin/users/:id/{orders,reviews,wishlist}` 200, `GET /admin/panoramas/1/placements` 200, `POST /auth/google` **503**, `POST /admin/orders {}` 400 `VALIDATION_FAILED`. Sau đó tắt tiến trình (cổng 4012 giải phóng). Không chạy mutation lên `aurelia_dev`/`aurelia_demo`/`aurelia_living`.
 - **Giới hạn:** không đọc từng dòng của toàn bộ 634 tệp mã nguồn (ts/tsx/mjs/prisma); phân loại endpoint "✅" dựa trên (1) route có thân gọi service, (2) service chạm DB hoặc ủy quyền sang service có DB, (3) có test hoặc đã curl. Phần "FE nối API thật" dựa trên quét lời gọi `http.*`/`xxxApi.*` (một số lời gọi động có thể bị bỏ sót, đã đối chiếu tay với các trường hợp nghi ngờ). Hành vi trình duyệt (UI) chỉ được xác nhận bởi e2e Playwright đã chạy, không bằng việc tự mở từng trang.
+
+## Xác minh sau sửa (2026-11-11, trên `b8599e9`)
+
+Chạy bằng `scratchpad/final6.sh` (cây làm việc sạch lúc bắt đầu) cộng các lần chạy bổ sung; môi trường `PG_HOST/REDIS_HOST=127.0.0.1`.
+
+| Hạng mục | Kết quả |
+|---|---|
+| `npx turbo run typecheck lint --force` | 6/6 task thành công |
+| Web unit | 40/40 (10 tệp; thêm `google-button` 3 test, `fieldErrors` 1 test) |
+| API unit | 143/143 (16 suite; thêm test Swagger) |
+| `npm run build -w @aurelia-living/api` | thành công (exit 0) |
+| `next build` web, `NEXT_PUBLIC_USE_MOCK=false` | thành công, 58/58 trang tĩnh (cần `NEXT_IGNORE_INCORRECT_LOCKFILE=1`, lỗi vá lockfile của Next trong npm workspaces đã có sẵn từ trước, `playwright.config.ts:20`) |
+| `next build` web, `NEXT_PUBLIC_USE_MOCK=true` | **thất bại đúng như yêu cầu** ("NEXT_PUBLIC_USE_MOCK=true bị CẤM khi build production") |
+| Migration dựng mới + drift | áp thành công, seed 34/52/83; `migrate diff` rỗng |
+| `types:check` | đồng bộ 25 enum, 59 entity |
+| Supertest | **392/392** (22 suite) |
+| MinIO API | 7/7 |
+| Playwright API thật (`test:e2e:real`, `E2E_USE_MOCK=false`) | lượt đầy đủ: 10/11 nhóm xanh (xem-360 25, admin-m2 3, admin-m3 3, admin-m4 6, admin-m5 8, admin-3d 5, admin-race 2, vat-lieu 2, phong-3d 3, ext-uc 6); **khach-hang đỏ 1 test** (xem bên dưới) |
+| Playwright MinIO | 2/2 |
+| Chạy lặp nhóm khach-hang | **3/3 lần xanh, 9/9 test mỗi lần** |
+
+**Lần đỏ chưa giải thích được:** trong lượt đầy đủ, `screens.spec.ts › storefront công khai` đỏ vì lỗi hydration ở `/products?category=sofa` (`Breadcrumb` trong `ProductListing`: "Expected server HTML to contain a matching <a>/<span>"). Mã này không nằm trong các commit lần này. Chạy lại riêng nhóm khach-hang 3 lần liên tiếp đều xanh, và trước đó khach-hang xanh ở cả hai lượt đầy đủ ngày 2026-11-10. Đây là lần đỏ không tái hiện được thứ hai của nhóm này (lần trước là test xác thực email, quá thời gian 60 giây). **Nguyên nhân gốc chưa được xác định**; giả thuyết (chưa chứng minh): breadcrumb phụ thuộc dữ liệu danh mục tải ở client nên có thể lệch HTML máy chủ khi API trả nhanh/chậm bất thường. Không thêm retry. Nếu coi hydration mismatch là lỗi thật, việc tiếp theo là sửa `Breadcrumb`/`ProductListing` để giá trị render đầu tiên không phụ thuộc dữ liệu tải sau.
+
+Không push (theo yêu cầu).
