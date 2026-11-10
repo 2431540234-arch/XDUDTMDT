@@ -289,7 +289,7 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       const other = await customer('addr-nocheckout-o');
       const foreign = (await api('post', '/addresses', other.token, addrBody())).body.data;
       const r2 = await api('post', '/orders', u.token, { addressId: foreign.id, paymentMethod: 'cod' });
-      expect(r2.status).toBe(400);
+      expect(r2.status).toBe(404);
     });
 
     it('đồng thời: nhiều thao tác địa chỉ chạy song song vẫn luôn còn đúng một mặc định và không lỗi 5xx', async () => {

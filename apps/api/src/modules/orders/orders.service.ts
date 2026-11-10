@@ -112,7 +112,10 @@ export class OrdersService {
   async create(userId: number, raw: unknown) {
     const b = asBody(raw);
     const errs = new FieldErrors();
-    const addr = await this.prisma.address.findFirst({ where: { id: toId(b.addressId), userId } });
+    const addressId = toId(b.addressId);
+    const addr = addressId ? await this.prisma.address.findFirst({ where: { id: addressId, userId } }) : null;
+    // DAC_TA UC-ORD-01: địa chỉ không thuộc user / không tồn tại ⇒ 404 (không lộ sự tồn tại); chưa chọn địa chỉ ⇒ 400 theo trường (D-N30)
+    if (addressId && !addr) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Địa chỉ không tồn tại.');
     if (!addr) errs.add('addressId', 'Vui lòng chọn địa chỉ nhận hàng.');
     if (!METHODS.includes(b.paymentMethod as PaymentMethod)) {
       errs.add('paymentMethod', 'Vui lòng chọn phương thức thanh toán.');
@@ -194,12 +197,22 @@ export class OrdersService {
         });
         const prod = new Map(products.map((x) => [x.id, x]));
 
+        // DAC_TA UC-ORD-01 4a: có dòng không còn bán ⇒ 409 kèm DANH SÁCH các dòng đó; không tạo đơn, giỏ không đổi (transaction hoàn tác)
+        const unavailable = wanted
+          .filter((w) => {
+            const v = byId.get(w.variantId);
+            const pr = v ? prod.get(v.product_id) : undefined;
+            return !v || !v.is_active || !pr || pr.status !== 'published' || pr.deletedAt;
+          })
+          .map((w) => ({ variantId: w.variantId }));
+        if (unavailable.length)
+          throw new AppException(ErrorCode.CONFLICT, 'Có sản phẩm trong giỏ không còn được bán.', {
+            unavailable,
+          });
+
         const lines = wanted.map((w) => {
-          const v = byId.get(w.variantId);
-          const pr = v ? prod.get(v.product_id) : undefined;
-          if (!v || !v.is_active || !pr || pr.status !== 'published' || pr.deletedAt) {
-            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Sản phẩm không còn được bán.');
-          }
+          const v = byId.get(w.variantId)!;
+          const pr = prod.get(v.product_id)!;
           const available = v.stock_quantity;
           if (available < w.quantity) {
             throw new AppException(

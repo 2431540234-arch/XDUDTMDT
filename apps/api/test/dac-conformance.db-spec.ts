@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { CatalogCache } from '../src/cache/catalog-cache';
 
 describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
   let app: INestApplication;
@@ -345,7 +346,7 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
           paymentMethod: 'cod',
         })
       ).status,
-      400,
+      404,
     );
     expectStatus(
       'UC-ORD-01',
@@ -1007,6 +1008,130 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       (await api('put', '/spaces/khong-co/bookmark')).status,
       401,
     );
+    flush();
+  });
+
+  it('nhóm 3: UC-ORD-01 (nhánh lỗi), UC-PAY-01/03, UC-CAT-04/05', async () => {
+    const c = await customer('g3');
+    const other = await customer('g3-o');
+    const v = await stockVariant();
+    const mine = (await api('post', '/addresses', c.token, addr())).body.data;
+    const theirs = (await api('post', '/addresses', other.token, addr())).body.data;
+    await api('post', '/cart/items', c.token, { variantId: v.id, quantity: 1 });
+    // ORD-01: địa chỉ không thuộc user / không tồn tại → 404 (DAC ngoại lệ); thiếu địa chỉ → 400 theo trường (D-N30)
+    expectStatus(
+      'UC-ORD-01',
+      'địa chỉ của người khác',
+      (await api('post', '/orders', c.token, { addressId: theirs.id, paymentMethod: 'cod' })).status,
+      404,
+    );
+    expectStatus(
+      'UC-ORD-01',
+      'địa chỉ không tồn tại',
+      (await api('post', '/orders', c.token, { addressId: 999999999, paymentMethod: 'cod' })).status,
+      404,
+    );
+    expectStatus(
+      'UC-ORD-01',
+      'thiếu addressId',
+      (await api('post', '/orders', c.token, { paymentMethod: 'cod' })).status,
+      400,
+    );
+    // ORD-01 4a: dòng không còn bán ⇒ 409, không tạo đơn, giỏ không đổi
+    const before = await prisma.order.count({ where: { userId: c.id } });
+    await prisma.productVariant.update({ where: { id: v.id }, data: { isActive: false } });
+    try {
+      const r = await api('post', '/orders', c.token, { addressId: mine.id, paymentMethod: 'cod' });
+      expectStatus('UC-ORD-01', 'dòng không còn bán', r.status, 409);
+    } finally {
+      await prisma.productVariant.update({ where: { id: v.id }, data: { isActive: true } });
+    }
+    if ((await prisma.order.count({ where: { userId: c.id } })) !== before)
+      issues.push('UC-ORD-01: đặt hàng lỗi không được tạo đơn');
+    if ((await api('get', '/cart', c.token)).body.data.items.length !== 1)
+      issues.push('UC-ORD-01: giỏ phải giữ nguyên khi đặt hàng lỗi');
+    // PAY-01 / PAY-03
+    const o = (await api('post', '/orders', c.token, { addressId: mine.id, paymentMethod: 'cod' })).body.data;
+    // COD không đi qua cổng: giao diện vẫn gọi checkout nên API trả thẳng trang thành công, KHÔNG tạo giao dịch online (mở rộng đã ghi ở CHUAN_MO_RONG)
+    const codCheckout = await api('post', `/payments/${o.id}/checkout`, c.token, {});
+    expectStatus('UC-PAY-01', 'checkout đơn COD', codCheckout.status, 200);
+    if (!String(codCheckout.body.data?.redirectUrl).startsWith('/checkout/success'))
+      issues.push('UC-PAY-01: đơn COD phải chuyển thẳng tới /checkout/success');
+    if ((await prisma.payment.findFirstOrThrow({ where: { orderId: o.id } })).method !== 'cod')
+      issues.push('UC-PAY-01: đơn COD không được đổi phương thức');
+    expectStatus(
+      'UC-PAY-01',
+      'chưa đăng nhập',
+      (await api('post', `/payments/${o.id}/checkout`, undefined, {})).status,
+      401,
+    );
+    await api('post', `/orders/${o.id}/cancel`, c.token, { reason: 'Không cần nữa' });
+    expectStatus(
+      'UC-PAY-03',
+      'retry đơn đã hủy',
+      (await api('post', `/payments/${o.id}/retry`, c.token, { method: 'vnpay' })).status,
+      409,
+    );
+    await api('post', '/cart/items', c.token, { variantId: v.id, quantity: 1 });
+    const o2 = (await api('post', '/orders', c.token, { addressId: mine.id, paymentMethod: 'vnpay' })).body
+      .data;
+    await prisma.order.update({ where: { id: o2.id }, data: { paymentStatus: 'paid' } });
+    expectStatus(
+      'UC-PAY-03',
+      'retry đơn đã thanh toán',
+      (await api('post', `/payments/${o2.id}/retry`, c.token, { method: 'vnpay' })).status,
+      409,
+    );
+    expectStatus(
+      'UC-PAY-01',
+      'checkout đơn đã thanh toán',
+      (await api('post', `/payments/${o2.id}/checkout`, c.token, {})).status,
+      409,
+    );
+    // CAT-04 / CAT-05: sản phẩm nháp và trang nháp ⇒ 404
+    const draft = await prisma.product.findFirstOrThrow({
+      where: { status: 'published', deletedAt: null },
+      orderBy: { id: 'desc' },
+    });
+    await prisma.product.update({ where: { id: draft.id }, data: { status: 'draft' } });
+    await app.get(CatalogCache).invalidateCatalog();
+    try {
+      expectStatus('UC-CAT-04', 'sản phẩm nháp', (await api('get', `/products/${draft.slug}`)).status, 404);
+    } finally {
+      await prisma.product.update({ where: { id: draft.id }, data: { status: 'published' } });
+      await app.get(CatalogCache).invalidateCatalog();
+    }
+    expectStatus(
+      'UC-CAT-04',
+      'sản phẩm bị xóa mềm',
+      (
+        await (async () => {
+          const p = await prisma.product.findFirstOrThrow({
+            where: { status: 'published', deletedAt: null },
+            orderBy: { id: 'desc' },
+          });
+          await prisma.product.update({ where: { id: p.id }, data: { deletedAt: new Date() } });
+          await app.get(CatalogCache).invalidateCatalog();
+          try {
+            return await api('get', `/products/${p.slug}`);
+          } finally {
+            await prisma.product.update({ where: { id: p.id }, data: { deletedAt: null } });
+            await app.get(CatalogCache).invalidateCatalog();
+          }
+        })()
+      ).status,
+      404,
+    );
+    const page = await prisma.page.findFirst({ where: { status: 'published' } });
+    if (page) {
+      await prisma.page.update({ where: { id: page.id }, data: { status: 'draft' } });
+      try {
+        expectStatus('UC-CAT-05', 'trang nháp', (await api('get', `/pages/${page.slug}`)).status, 404);
+      } finally {
+        await prisma.page.update({ where: { id: page.id }, data: { status: 'published' } });
+      }
+    }
+    expectStatus('UC-CAT-05', 'trang không tồn tại', (await api('get', '/pages/khong-co-trang')).status, 404);
     flush();
   });
 });
