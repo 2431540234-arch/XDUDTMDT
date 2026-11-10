@@ -658,6 +658,8 @@ test('UC-ADM-24 trang /admin/payments: dữ liệu thật, lọc, tìm kiếm, x
   };
   const search = page.getByPlaceholder(/Tìm theo mã đơn/);
   await search.fill(a.code);
+  // chờ kết quả ĐÃ LỌC: ô tìm kiếm trễ 300 ms nên trước đó bảng vẫn là danh sách cũ (hàng cũ còn khớp mã đơn), rồi bảng nạp lại
+  await expect(page.getByText('trong tổng 1 giao dịch')).toBeVisible({ timeout: 30_000 });
   const rowA = page.getByRole('row', { name: new RegExp(a.code) });
   await expect(rowA).toHaveCount(1, { timeout: 30_000 });
   const dataA = await apiRow(a.code);
@@ -678,6 +680,8 @@ test('UC-ADM-24 trang /admin/payments: dữ liệu thật, lọc, tìm kiếm, x
 
   // dùng lại mã ⇒ lỗi, giao dịch vẫn chờ
   await search.fill(b.code);
+  // chờ kết quả ĐÃ LỌC: ô tìm kiếm trễ 300 ms nên trước đó bảng vẫn là danh sách cũ (hàng cũ còn khớp mã đơn), rồi bảng nạp lại
+  await expect(page.getByText('trong tổng 1 giao dịch')).toBeVisible({ timeout: 30_000 });
   const rowB = page.getByRole('row', { name: new RegExp(b.code) });
   await expect(rowB).toHaveCount(1, { timeout: 30_000 });
   await rowB.getByRole('button', { name: 'Thao tác' }).click();
@@ -685,11 +689,13 @@ test('UC-ADM-24 trang /admin/payments: dữ liệu thật, lọc, tìm kiếm, x
   await page.getByRole('dialog').getByLabel('Mã giao dịch').fill(txn);
   await page.getByRole('dialog').getByRole('button', { name: 'Xác nhận', exact: true }).click();
   await expect(page.getByText(/Mã giao dịch đã được dùng/).first()).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('dialog').getByRole('button', { name: 'Đóng' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Đóng' }).last().click(); // nút chân hộp thoại (nút X ở góc cũng tên Đóng)
   expect((await apiRow(b.code)).status).toBe('pending');
 
   // đánh dấu thất bại
   await search.fill(c.code);
+  // chờ kết quả ĐÃ LỌC: ô tìm kiếm trễ 300 ms nên trước đó bảng vẫn là danh sách cũ (hàng cũ còn khớp mã đơn), rồi bảng nạp lại
+  await expect(page.getByText('trong tổng 1 giao dịch')).toBeVisible({ timeout: 30_000 });
   const rowC = page.getByRole('row', { name: new RegExp(c.code) });
   await expect(rowC).toHaveCount(1, { timeout: 30_000 });
   await rowC.getByRole('button', { name: 'Thao tác' }).click();
@@ -704,6 +710,8 @@ test('UC-ADM-24 trang /admin/payments: dữ liệu thật, lọc, tìm kiếm, x
 
   // COD: chỉ có "Xem đơn hàng", không có thao tác xử lý tay
   await search.fill(cod.code);
+  // chờ kết quả ĐÃ LỌC: ô tìm kiếm trễ 300 ms nên trước đó bảng vẫn là danh sách cũ (hàng cũ còn khớp mã đơn), rồi bảng nạp lại
+  await expect(page.getByText('trong tổng 1 giao dịch')).toBeVisible({ timeout: 30_000 });
   const rowCod = page.getByRole('row', { name: new RegExp(cod.code) });
   await expect(rowCod).toHaveCount(1, { timeout: 30_000 });
   await rowCod.getByRole('button', { name: 'Thao tác' }).click();
