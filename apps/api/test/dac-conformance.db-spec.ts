@@ -1324,4 +1324,260 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
     );
     flush();
   });
+
+  it('nhóm 5: UC-ADM-04/13/14, UC-REV-02/03, UC-ACC-03/07, UC-AUTH-07', async () => {
+    const u = await customer('g5');
+    const other = await customer('g5-o');
+    // ADM-04: altText ≤ 255, media không có ⇒ 404, khách ⇒ 403
+    const media = await prisma.media.findFirstOrThrow({ orderBy: { id: 'asc' } });
+    expectStatus(
+      'UC-ADM-04',
+      'altText 256 ký tự',
+      (await api('patch', `/admin/media/${media.id}`, admin, { altText: 'x'.repeat(256) })).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-04',
+      'media không tồn tại',
+      (await api('patch', '/admin/media/999999999', admin, { altText: 'a' })).status,
+      404,
+    );
+    expectStatus(
+      'UC-ADM-04',
+      'xóa media không tồn tại',
+      (await api('delete', '/admin/media/999999999', admin)).status,
+      404,
+    );
+    expectStatus(
+      'UC-ADM-04',
+      'khách sửa media',
+      (await api('patch', `/admin/media/${media.id}`, u.token, { altText: 'a' })).status,
+      403,
+    );
+    expectStatus('UC-ADM-04', 'chưa đăng nhập', (await api('get', '/admin/media')).status, 401);
+    // ADM-13: sản phẩm không có ⇒ 404, thiếu tệp ⇒ 400, khách ⇒ 403
+    expectStatus(
+      'UC-ADM-13',
+      'khách tải mô hình',
+      (await api('post', '/admin/models', u.token, { productId: 1 })).status,
+      403,
+    );
+    expectStatus('UC-ADM-13', 'thiếu dữ liệu', (await api('post', '/admin/models', admin, {})).status, 400);
+    expectStatus(
+      'UC-ADM-13',
+      'sản phẩm không tồn tại',
+      (
+        await api('post', '/admin/models', admin, {
+          productId: 999999999,
+          fileName: 'a.glb',
+          format: 'glb',
+          fileData: 'data:model/gltf-binary;base64,Z2xURg==',
+        })
+      ).status,
+      [400, 404],
+    );
+    expectStatus(
+      'UC-ADM-13',
+      'định dạng usdz bị từ chối',
+      (
+        await api('post', '/admin/models', admin, {
+          productId: 1,
+          fileName: 'a.usdz',
+          format: 'usdz',
+          fileData: 'data:model/vnd.usdz+zip;base64,UEsDBA==',
+        })
+      ).status,
+      [400, 415],
+    );
+    expectStatus(
+      'UC-ADM-13',
+      'presign thiếu dữ liệu',
+      (await api('post', '/admin/models/presign', admin, {})).status,
+      400,
+    );
+    expectStatus(
+      'UC-ADM-13',
+      'xóa mô hình không tồn tại',
+      (await api('delete', '/admin/models/999999999', admin)).status,
+      404,
+    );
+    // ADM-14: mô hình/biến thể không tồn tại ⇒ 404; khách ⇒ 403
+    expectStatus(
+      'UC-ADM-14',
+      'mô hình không tồn tại',
+      (
+        await api('put', '/admin/models/999999999/material-variants/1', admin, {
+          materialName: 'Gỗ',
+          config: {},
+        })
+      ).status,
+      404,
+    );
+    expectStatus(
+      'UC-ADM-14',
+      'khách cấu hình vật liệu',
+      (await api('put', '/admin/models/1/material-variants/1', u.token, { materialName: 'Gỗ', config: {} }))
+        .status,
+      403,
+    );
+    expectStatus(
+      'UC-ADM-14',
+      'xem vật liệu mô hình không tồn tại',
+      (await api('get', '/admin/models/999999999/material-variants', admin)).status,
+      404,
+    );
+    // REV-02 / REV-03
+    expectStatus(
+      'UC-REV-02',
+      'chưa đăng nhập',
+      (await api('post', '/products/khong-co/reviews', undefined, { rating: 5, content: 'ok' })).status,
+      401,
+    );
+    expectStatus(
+      'UC-REV-02',
+      'sản phẩm không tồn tại',
+      (await api('post', '/products/khong-co-san-pham/reviews', u.token, { rating: 5, content: 'tốt lắm' }))
+        .status,
+      [403, 404],
+    );
+    expectStatus(
+      'UC-REV-03',
+      'sửa đánh giá không tồn tại',
+      (await api('patch', '/reviews/999999999', u.token, { rating: 4, content: 'ổn' })).status,
+      404,
+    );
+    expectStatus(
+      'UC-REV-03',
+      'xóa đánh giá không tồn tại',
+      (await api('delete', '/reviews/999999999', u.token)).status,
+      404,
+    );
+    expectStatus('UC-REV-03', 'chưa đăng nhập', (await api('delete', '/reviews/1')).status, 401);
+    // ACC-03: phiên của người khác ⇒ 404; chưa đăng nhập ⇒ 401
+    const theirs = await prisma.userSession.findFirstOrThrow({ where: { userId: other.id } });
+    expectStatus(
+      'UC-ACC-03',
+      'thu hồi phiên của người khác',
+      (await api('delete', `/users/me/sessions/${theirs.id}`, u.token)).status,
+      404,
+    );
+    expectStatus(
+      'UC-ACC-03',
+      'phiên không tồn tại',
+      (await api('delete', '/users/me/sessions/999999999', u.token)).status,
+      404,
+    );
+    expectStatus('UC-ACC-03', 'chưa đăng nhập', (await api('get', '/users/me/sessions')).status, 401);
+    // ACC-07: thiếu/sai mật khẩu
+    expectStatus('UC-ACC-07', 'thiếu mật khẩu', (await api('delete', '/users/me', u.token, {})).status, 400);
+    expectStatus(
+      'UC-ACC-07',
+      'sai mật khẩu',
+      (await api('delete', '/users/me', u.token, { password: 'Sai-mat-khau-1' })).status,
+      [400, 401],
+    );
+    expectStatus(
+      'UC-ACC-07',
+      'chưa đăng nhập',
+      (await api('delete', '/users/me', undefined, { password: PW })).status,
+      401,
+    );
+    // AUTH-07
+    expectStatus(
+      'UC-AUTH-07',
+      'thiếu token',
+      (await api('post', '/auth/verify-email', undefined, {})).status,
+      400,
+    );
+    expectStatus(
+      'UC-AUTH-07',
+      'token sai',
+      (await api('post', '/auth/verify-email', undefined, { token: 'abc.def.ghi' })).status,
+      400,
+    );
+    flush();
+  });
+
+  it('nhóm 6: UC-3D-01, UC-SPACE-03/05, UC-ADM-02/17/29', async () => {
+    const u = await customer('g6');
+    // 3D-01: sản phẩm không có ⇒ 404; sản phẩm đã đăng nhưng chưa có mô hình ready không báo lỗi 5xx
+    expectStatus(
+      'UC-3D-01',
+      'sản phẩm không tồn tại',
+      (await api('get', '/products/khong-co-san-pham/model')).status,
+      404,
+    );
+    // SPACE-03: ghi lượt bấm hotspot / thêm giỏ của không gian không có ⇒ 404; chưa đăng nhập khi thêm giỏ ⇒ 401
+    expectStatus(
+      'UC-SPACE-03',
+      'không gian không tồn tại',
+      (await api('get', '/spaces/khong-co-khong-gian')).status,
+      404,
+    );
+    expectStatus(
+      'UC-SPACE-03',
+      'thêm giỏ khi chưa đăng nhập',
+      (await api('post', '/spaces/khong-co-khong-gian/add-to-cart', undefined, { items: [] })).status,
+      401,
+    );
+    expectStatus(
+      'UC-SPACE-03',
+      'thêm giỏ không gian không có',
+      (await api('post', '/spaces/khong-co-khong-gian/add-to-cart', u.token, { items: [] })).status,
+      [400, 404],
+    );
+    // SPACE-05: món thay thế của vị trí/không gian không có ⇒ 404
+    expectStatus(
+      'UC-SPACE-05',
+      'không gian không tồn tại',
+      (await api('get', '/spaces/khong-co/placements/1/alternatives')).status,
+      404,
+    );
+    const sp = await prisma.space.findFirst({ where: { status: 'published' } });
+    if (sp)
+      expectStatus(
+        'UC-SPACE-05',
+        'vị trí không tồn tại',
+        (await api('get', `/spaces/${sp.slug}/placements/999999999/alternatives`)).status,
+        404,
+      );
+    // ADM-02: vai trò chỉ admin xem được
+    expectStatus('UC-ADM-02', 'khách xem vai trò', (await api('get', '/admin/roles', u.token)).status, 403);
+    expectStatus('UC-ADM-02', 'chưa đăng nhập', (await api('get', '/admin/roles')).status, 401);
+    expectStatus('UC-ADM-02', 'admin xem vai trò', (await api('get', '/admin/roles', admin)).status, 200);
+    // ADM-17: đặt mô hình vào panorama không có ⇒ 404; khách ⇒ 403; thiếu dữ liệu ⇒ 400
+    expectStatus(
+      'UC-ADM-17',
+      'khách đặt mô hình',
+      (await api('post', '/admin/panoramas/1/placements', u.token, {})).status,
+      403,
+    );
+    expectStatus(
+      'UC-ADM-17',
+      'panorama không tồn tại',
+      (await api('get', '/admin/panoramas/999999999/placements', admin)).status,
+      404,
+    );
+    expectStatus(
+      'UC-ADM-17',
+      'thiếu dữ liệu',
+      (await api('post', '/admin/panoramas/999999999/placements', admin, {})).status,
+      [400, 404],
+    );
+    // ADM-29: phễu chỉ cho quyền nội dung; ngày sai ⇒ 400
+    expectStatus(
+      'UC-ADM-29',
+      'khách xem phễu',
+      (await api('get', '/admin/stats/spaces', u.token)).status,
+      403,
+    );
+    expectStatus('UC-ADM-29', 'phễu hợp lệ', (await api('get', '/admin/stats/spaces', admin)).status, 200);
+    expectStatus(
+      'UC-ADM-29',
+      'ngày sai định dạng',
+      (await api('get', '/admin/stats/spaces?from=abc&to=xyz', admin)).status,
+      [200, 400],
+    );
+    flush();
+  });
 });
