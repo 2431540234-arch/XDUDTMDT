@@ -124,6 +124,13 @@ npm run mobile:build          # mọi hệ điều hành (cmd, PowerShell, Linux
 | user    | `nguyenvana@example.com` | `User@123456`  |
 | user    | `tranthib@example.com`   | `User@123456`  |
 
+#### Seed ở production
+
+Mật khẩu mặc định ở bảng trên **chỉ dùng ngoài production**. Khi `NODE_ENV=production`, `npm run db:seed` dừng và báo lỗi nếu:
+
+- thiếu `SEED_ADMIN_PASSWORD` (hoặc rỗng): hãy tự đặt mật khẩu mạnh, ví dụ `SEED_ADMIN_EMAIL=admin@congty.vn SEED_ADMIN_PASSWORD="…" SEED_SAMPLE=false npm run db:seed`;
+- không đặt `SEED_SAMPLE=false`: dữ liệu mẫu/mock có tài khoản mẫu với mật khẩu công khai nên không được nạp ở production.
+
 ### 8. Script npm (thư mục gốc)
 
 | Lệnh                                     | Tác dụng                                                                                                                                                                                                |

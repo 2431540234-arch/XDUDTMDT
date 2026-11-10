@@ -10,7 +10,8 @@ import { ensureSampleObject, storageDriver } from './seed-storage';
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@aurelia.vn';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
+// Mật khẩu mặc định CHỈ dùng ngoài production; production bắt buộc đặt SEED_ADMIN_PASSWORD (kiểm tra ở main())
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin@123456';
 const SAMPLE_USER_PASSWORD = process.env.SEED_SAMPLE_USER_PASSWORD ?? 'User@123456';
 const VISITOR_ID = '5b3f1c1e-8a47-4c0e-9d5f-0c6b7d1e2a33';
 
@@ -689,8 +690,16 @@ async function syncSampleObjects() {
 }
 
 async function main() {
-  if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
-    throw new Error('Môi trường production bắt buộc đặt SEED_ADMIN_PASSWORD.');
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.SEED_ADMIN_PASSWORD?.trim()) {
+      throw new Error(
+        'Môi trường production bắt buộc đặt SEED_ADMIN_PASSWORD (không dùng mật khẩu mặc định).',
+      );
+    }
+    // dữ liệu mẫu/mock có tài khoản mẫu với mật khẩu công khai (admin123, User@123456…)
+    if (process.env.SEED_SAMPLE !== 'false') {
+      throw new Error('Môi trường production chỉ được seed phần bắt buộc: đặt SEED_SAMPLE=false.');
+    }
   }
   // Mặc định seed từ mock-data của FE (SEED_SOURCE=mock) để giao diện giống hệt khi chạy mock;
   // SEED_SOURCE=legacy giữ bộ dữ liệu mẫu cũ; SEED_SAMPLE=false chỉ seed phần bắt buộc.
