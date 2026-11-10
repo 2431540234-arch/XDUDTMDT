@@ -21,6 +21,7 @@ Kiểm tra nhanh: mở http://localhost:3000 thấy trang chủ có banner và s
 Lưu ý:
 - Ảnh demo nằm ở MinIO và vẫn còn bản ở thư mục `apps/api/uploads` (dùng cho `demo:local` và để chép lại bằng `npm run minio:sync`); **đừng xóa** thư mục này.
 - Email (xác thực, đặt lại mật khẩu) xem ở Mailpit http://localhost:8025.
+- Khi đăng ký/đặt lại/đổi mật khẩu, mật khẩu mới phải ≥ 8 ký tự có chữ hoa, chữ thường, chữ số và nhập lại khớp (đăng nhập không áp quy tắc này nên tài khoản demo cũ vẫn vào được). **Thanh toán** có trang riêng `/admin/payments` (lọc, xác nhận chuyển khoản, đánh dấu thất bại).
 - Mỗi lần thao tác thử làm thay đổi dữ liệu demo (đơn, giỏ…). Muốn trở về trạng thái ban đầu: dừng API rồi chạy bước 2.
 
 ## 2. Tài khoản

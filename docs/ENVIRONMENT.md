@@ -87,6 +87,7 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `MAIL_FROM` | Tùy chọn | `Aurelia Living <no-reply@aurelia.local>` | SmtpMailService | |
 | `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT` | Tùy chọn | `1025`, `8025` | docker-compose | Cổng SMTP và giao diện Mailpit |
 | `MAILPIT_API_URL` | Tùy chọn | `http://localhost:$MAILPIT_UI_PORT` | test e2e | Test kiểm tra thư đã tới |
+| `E2E_MAILPIT_URL` | Tùy chọn | `http://localhost:8025` | test Playwright (`screens.spec.ts`) | Địa chỉ API Mailpit; đặt `http://127.0.0.1:8025` khi `localhost` phân giải sang IPv6 không tới được |
 
 ## 7. Thanh toán (giả lập + VNPay sandbox)
 

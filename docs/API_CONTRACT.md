@@ -106,10 +106,10 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | POST | `/auth/login` | public | `auth.` |  | { email, password, adminOnly? } | `AUTH_ACCOUNT_LOCKED`, `AUTH_INVALID_CREDENTIALS`, `FORBIDDEN` |
-| POST | `/auth/register` | public | `auth.` |  | { fullName, email, phone, password } | `EMAIL_ALREADY_EXISTS` |
+| POST | `/auth/register` | public | `auth.` |  | { fullName (2–150), email (≤255), phone? (10–11 số), password (≥8, hoa+thường+số), confirmPassword } | `EMAIL_ALREADY_EXISTS`, 400 `VALIDATION_FAILED` theo trường |
 | POST | `/auth/logout` | public | `auth.logout` |  |  |  |
 | POST | `/auth/forgot-password` | public | `auth.forgotPassword` |  | { email } |  |
-| POST | `/auth/reset-password` | public | `auth.` |  | { token, password } | `BAD_REQUEST` |
+| POST | `/auth/reset-password` | public | `auth.` |  | { token, newPassword (bí danh `password`), confirmPassword } | `BAD_REQUEST` (token), 400 theo trường (chính sách mật khẩu) |
 | POST | `/auth/verify-email` | public | `auth.` |  | { token } | `BAD_REQUEST` |
 | POST | `/auth/resend-verification` | user | `auth.` |  |  | `RATE_LIMITED` |
 | POST | `/auth/google` | public | `auth.googleLogin` |  |  |  |
@@ -120,7 +120,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 |---|---|---|---|---|---|---|
 | GET | `/users/me` | user | `auth.me` |  |  |  |
 | PATCH | `/users/me` | user | `auth.` |  | { fullName?, phone?, gender?, birthday?, avatarUrl? } |  |
-| POST | `/users/me/change-password` | user | `auth.` |  | { currentPassword, newPassword, logoutOthers? } |  |
+| POST | `/users/me/change-password` | user | `auth.` |  | { currentPassword, newPassword (hoa+thường+số), confirmPassword, logoutOthers? } | 400 theo trường |
 
 ### 4. `addresses`
 
