@@ -1,3 +1,5 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # Đặc tả chức năng theo vai trò
 
 Aurelia Living: website thương mại điện tử nội thất, tích hợp xem 3D, xoay 360° và không gian mẫu 360°. **AR đã bị loại bỏ hoàn toàn (2026-11-09, D-P16).**
@@ -40,6 +42,8 @@ Tài liệu mô tả **80 use case**. Phạm vi triển khai và nghiệm thu hi
 | AR (đã loại bỏ hoàn toàn) | 6 | UC-3D-02, UC-3D-04, UC-3D-05, UC-3D-06, UC-3D-07, UC-ADM-30 | D-P11, D-P16 |
 | **Tổng ngoài phạm vi** | **10** | | |
 | **Đang hoạt động** | **70** | | 80 − 4 − 6 |
+
+Chi tiết 6 UC AR đã loại bỏ: [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi). Trạng thái triển khai từng UC (70/70 có BE, FE và test): [DOI_CHIEU_UC.md](DOI_CHIEU_UC.md). Chức năng có trong code nhưng đặc tả chưa có: [mục 16](#16-bổ-sung-theo-code-chưa-có-trong-đặc-tả-gốc). Đăng nhập Google: **Đã hoãn** (mục 16).
 
 Ghi chú: D-P11 trước đây ghi "7 UC AR"; con số đúng là **6** UC AR bị loại bỏ. UC thứ bảy trong danh sách đó là **UC-ADM-29** (Thống kê AR và phễu không gian mẫu), **vẫn đang hoạt động** nhưng chỉ còn phần phễu không gian mẫu (`GET /admin/stats/spaces`); phần thống kê AR đã bỏ. Các mục của UC ngoài phạm vi bên dưới được giữ để tham khảo lịch sử, đánh dấu **[ĐÃ LOẠI BỎ – D-P16]**; không triển khai và không kiểm thử.
 
@@ -233,7 +237,7 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | ✔ | ✔ | ✔ |
 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | ✔ | ✔ | ✔ |
 
-### 4.2. CRUD: 42 model × 3 vai trò (số 28–29 đã bỏ cùng AR)
+### 4.2. CRUD: 59 model × 3 vai trò (42 model chuẩn, số 28–29 đã bỏ cùng AR, và 17 model mở rộng số 45–61)
 
 | # | Model (bảng) | Khách vãng lai | Người dùng | Quản trị viên | UC sử dụng |
 | --- | --- | --- | --- | --- | --- |
@@ -281,6 +285,25 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | 42 | SpaceProductPlacement (space_product_placements) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-05, UC-ADM-17 |
 | 43 | SpaceBookmark (space_bookmarks) | — | C R D * | R | UC-SPACE-04 |
 | 44 | SpaceView (space_views) | C (kèm visitorId) | C* | R | UC-SPACE-02, UC-SPACE-06, UC-ADM-29 (phễu) |
+| 45 | ProductSpec (product_specs) | — | R† | C R U D | UC-CAT-04, UC-ADM-09 |
+| 46 | Product360Config (product_360_configs) | R | R | C R U | Bổ sung theo code (xem 360°) |
+| 47 | Product360Frame (product_360_frames) | R† | R† | C R U D | Bổ sung theo code (xem 360°) |
+| 48 | ReviewImage (review_images) | R† | C R† | R† | UC-REV-01, UC-REV-02 |
+| 49 | ProductQuestion (product_questions) | R | C R | R U | Bổ sung theo code (hỏi đáp sản phẩm) |
+| 50 | CouponScope (coupon_scopes) | — | R† | C R U D | UC-ADM-18, UC-CART-04 |
+| 51 | UserCoupon (user_coupons) | — | C R | — | Bổ sung theo code (ví mã giảm giá) |
+| 52 | CodeCounter (code_counters) | — | — | — | Hệ thống tự ghi (hàm DB cấp mã đơn/phiếu)‡ |
+| 53 | ReturnRequest (return_requests) | — | C R | R U | UC-ORD-04, UC-ADM-22 |
+| 54 | ReturnRequestItem (return_request_items) | — | C R† | R U | UC-ORD-04, UC-ADM-22 |
+| 55 | ReturnRequestImage (return_request_images) | — | C R† | R† | UC-ORD-04, UC-ADM-22 |
+| 56 | StockReceipt (stock_receipts) | — | — | C R U | UC-ADM-12 |
+| 57 | StockReceiptItem (stock_receipt_items) | — | — | C R | UC-ADM-12 |
+| 58 | Expense (expenses) | — | — | C R D (tự sinh‡ khi hoàn tiền/nhập kho) | UC-ADM-28 (báo cáo thu chi) |
+| 59 | Banner (banners) | R | R | C R U D | UC-CAT-01, UC-ADM-07 |
+| 60 | Post (posts) | R | R | C R U D | UC-ADM-07 |
+| 61 | ContactMessage (contact_messages) | C | C | R U | UC-CAT-05 (form liên hệ) |
+
+> Hàng 45–61 (17 bảng mở rộng) được bổ sung ngày 2026-11-11: quyền theo route→bảng trong code (`docs/api/openapi.json`, `apps/api/src/modules/*`), **hiệu chỉnh tay** cho thao tác lồng nhau và hàm DB; cột "UC sử dụng" ghi UC gần nhất hoặc "Bổ sung theo code" nếu đặc tả không có UC. **Cần xác minh** từng ô nếu dùng làm căn cứ nghiệm thu.
 
 ## 5. Sơ đồ use case
 
@@ -814,26 +837,9 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>Media (media): R<br>ModelMaterialVariant (model_material_variants): R |
 | **DB trigger / việc Service tự làm** | • Không có (cờ `has3dModel` do trigger DB duy trì). |
 
-#### UC-3D-02 – Xem sản phẩm bằng AR (đặt vào không gian thật)
+#### UC-3D-02 – (đã loại bỏ)
 
-> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
-
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files, ar_sessions) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
-| **Mô tả** | Đặt sản phẩm đúng kích thước thật lên sàn/tường/mặt bàn bằng camera điện thoại (WebXR/Scene Viewer trên Android dùng GLB; Quick Look trên iPhone dùng USDZ). |
-| **Tiền điều kiện** | `hasAr = true` (mô hình `ready` có đủ GLB và USDZ); thiết bị hỗ trợ AR. |
-| **Hậu điều kiện** | Có `ArSession` mode `ar` với các cờ `placed`, `captured`, `addedToCart`. |
-| **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:slug/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
-| **Luồng thay thế** | 2a. Thiết bị không hỗ trợ AR → hiển thị hướng dẫn và chuyển sang xem 3D (UC-3D-01).<br>3a. Thiếu một trong hai định dạng → `hasAr = false`, ẩn nút AR. |
-| **Ngoại lệ** | • Người dùng từ chối quyền camera → thông báo hướng dẫn cấp quyền. |
-| **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên app Android, xem sản phẩm qua camera là overlay ảnh 2D (UC-MOB-03), không dùng module `ar-overlay` của backend. |
-| **Dữ liệu vào** | • productId (bắt buộc): sản phẩm có `hasAr` |
-| **Dữ liệu ra** | • 200: như UC-3D-01 + `arSessionUuid` |
-| **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>ArSession (ar_sessions): C,U |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_sessions_set_updated_at` khi cập nhật cờ.<br>• Service: ghi/cập nhật `ArSession` (UC-3D-07). |
-| **Quan hệ UC** | include: UC-3D-07 |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 #### UC-3D-03 – Đổi màu/chất liệu trên mô hình 3D
 
@@ -845,38 +851,13 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Luồng chính** | 1. Khách: Chọn biến thể (màu/chất liệu) ở trang chi tiết đang mở 3D.<br>2. Hệ thống: Dùng `materialVariants[]` đã nhận ở UC-3D-01, tìm bản ghi theo `variantId`.<br>3. Hệ thống: Áp `config` (baseColor, roughness...) vào vật liệu `materialName` của mô hình ở phía client; không gọi API thêm. |
 | **Model + C/R/U/D** | ModelMaterialVariant (model_material_variants): R |
 
-#### UC-3D-06 – Xem ảnh AR công khai "Khách hàng đã trải nghiệm"
+#### UC-3D-06 – (đã loại bỏ)
 
-> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_snapshots) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
-| **Mô tả** | Xem ảnh AR người dùng đã chọn công khai, theo sản phẩm hoặc trên trang chủ. |
-| **Tiền điều kiện** |  |
-| **Hậu điều kiện** |  |
-| **Luồng chính** | 1. Khách: Mở mục "Khách hàng đã trải nghiệm" (trang chi tiết hoặc trang chủ).<br>2. Hệ thống: `GET /api/ar-snapshots/public?productId=&page=` chỉ trả `isPublic = true`, kèm tên rút gọn người chụp.<br>3. Hệ thống: Hiển thị lưới ảnh; không lộ email/điện thoại. |
-| **Luồng thay thế** |  |
-| **Ngoại lệ** |  |
-| **Quy tắc nghiệp vụ** | • Không công khai thông tin cá nhân ngoài tên hiển thị rút gọn. |
-| **Dữ liệu vào** |  |
-| **Dữ liệu ra** |  |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R<br>Media (media): R<br>User (users): R |
-| **DB trigger / việc Service tự làm** |  |
+#### UC-3D-07 – (đã loại bỏ)
 
-#### UC-3D-07 – Ghi nhận thống kê phiên 3D/AR (ẩn danh)
-
-> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
-
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_sessions) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
-| **Mô tả** | Mỗi lượt xem 3D/AR được ghi lại (thiết bị, hệ điều hành, nền tảng AR, thời gian, đặt được hay không, chụp ảnh, thêm giỏ). Khách dùng `visitorId` ẩn danh do client tạo. |
-| **Luồng chính** | 1. Hệ thống: Khi mở trình xem, client gọi `POST /api/ar-sessions` (CreateArSessionDto: `productId`, `modelId`, `mode`, `device`, `os`, `arPlatform`, `visitorId`) — endpoint dùng `OptionalJwtAuthGuard` [CẦN TẠO MỚI].<br>2. Hệ thống: Nếu có token → `userId`; ngược lại bắt buộc `visitorId` (UUID). Ràng buộc DB: phải có `userId` hoặc `visitorId` (CHECK `ck_ar_sessions_actor`).<br>3. Hệ thống: Trả `uuid` phiên. Khi đóng trình xem client gọi `PATCH /api/ar-sessions/:uuid` cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
-| **Quy tắc nghiệp vụ** | • Đây là ngoại lệ duy nhất cho phép khách ghi dữ liệu (cùng `space_views`); không chứa thông tin cá nhân.<br>• Cập nhật phiên chỉ khi `visitorId`/`userId` khớp phiên; giới hạn tốc độ để chống ghi rác. |
-| **Model + C/R/U/D** | ArSession (ar_sessions): C,U |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 #### UC-SPACE-01 – Duyệt và tìm kiếm không gian mẫu
 
@@ -1393,46 +1374,13 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Luồng chính** | 1. Người dùng: Mở đơn/sản phẩm đã đánh giá, bấm "Sửa" hoặc "Xóa".<br>2. Hệ thống: `PATCH /api/reviews/:id` hoặc `DELETE /api/reviews/:id`, kiểm tra review thuộc user.<br>3. Hệ thống: Sửa → đặt lại `status = pending`; xóa → xóa bản ghi. Trigger DB tính lại điểm trung bình. |
 | **Model + C/R/U/D** | Review (reviews): U,D |
 
-#### UC-3D-04 – Chụp và lưu ảnh AR
+#### UC-3D-04 – (đã loại bỏ)
 
-> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots, media) |
-| **Tác nhân chính / phụ** | Người dùng |
-| **Mô tả** | Trong phiên AR, user đăng nhập chụp ảnh sản phẩm đặt trong phòng và lưu vào tài khoản. |
-| **Tiền điều kiện** | Đang trong phiên AR; đã đăng nhập. |
-| **Hậu điều kiện** | Có `Media` (ảnh) và `ArSnapshot` (`isPublic = false`); `ArSession.captured = true`. |
-| **Luồng chính** | 1. Người dùng: Bấm nút chụp trong chế độ AR.<br>2. Hệ thống: Frontend kiểm tra đăng nhập rồi gửi `POST /api/ar-snapshots` (multipart: ảnh, `productId`, `arSessionUuid`).<br>3. Hệ thống: `MediaService` lưu ảnh lên MinIO/S3, tạo `Media`; job nén ảnh chạy nền (`compress-image.processor`).<br>4. Hệ thống: `ArSnapshotsService.create(userId, dto)` tạo `ArSnapshot`; đặt `captured = true` cho phiên.<br>5. Hệ thống: Trả 201; giao diện cho phép chia sẻ/đặt công khai (UC-3D-05). |
-| **Luồng thay thế** | 2a. Khách chưa đăng nhập → yêu cầu đăng nhập để lưu (có thể lưu cục bộ trên thiết bị). |
-| **Ngoại lệ** | • Ảnh > 10 MB hoặc sai định dạng → 400/413. |
-| **Quy tắc nghiệp vụ** | • `ArSnapshot.userId` bắt buộc (khách không lưu ảnh lên hệ thống).<br>• Ảnh mặc định riêng tư (`isPublic = false`). |
-| **Dữ liệu vào** | • file (bắt buộc): jpeg/png/webp, ≤ 10 MB<br>• productId (bắt buộc): sản phẩm đang xem<br>• arSessionUuid (tuỳ chọn): phiên AR của user |
-| **Dữ liệu ra** | • 201: `{ id, imageUrl, isPublic }` |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): C<br>Media (media): C<br>ArSession (ar_sessions): U |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`, `trg_media_set_updated_at`.<br>• Service: lưu tệp + tạo bản ghi trong `$transaction`. |
-| **Quan hệ UC** | extend: UC-3D-02 |
+#### UC-3D-05 – (đã loại bỏ)
 
-#### UC-3D-05 – Quản lý ảnh AR của tôi (công khai/ẩn/xóa)
-
-> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
-
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots) |
-| **Tác nhân chính / phụ** | Người dùng |
-| **Mô tả** | Xem các ảnh AR đã chụp, bật/tắt công khai để hiển thị ở mục "Khách hàng đã trải nghiệm", hoặc xóa. |
-| **Tiền điều kiện** | Đã đăng nhập. |
-| **Hậu điều kiện** | `isPublic` được đổi hoặc ảnh bị xóa. |
-| **Luồng chính** | 1. Người dùng: Mở `/account/ar-photos`.<br>2. Hệ thống: `GET /api/ar-snapshots/me` trả ảnh của chính user.<br>3. Người dùng: Bật "Công khai" hoặc bấm "Xóa".<br>4. Hệ thống: `PATCH /api/ar-snapshots/:id` ({ isPublic }) hoặc `DELETE /api/ar-snapshots/:id`; kiểm tra ảnh thuộc user.<br>5. Hệ thống: Trả 200/204. |
-| **Luồng thay thế** | 4a. Ảnh không thuộc user → 404. |
-| **Ngoại lệ** | • Ảnh bị admin gỡ (UC-ADM-30) → hiển thị thông báo. |
-| **Quy tắc nghiệp vụ** | • Chỉ ảnh `isPublic = true` xuất hiện công khai (partial index `idx_ar_snapshots_public`). |
-| **Dữ liệu vào** | • isPublic (bắt buộc (PATCH)): boolean |
-| **Dữ liệu ra** | • 200: bản ghi `ArSnapshot` |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D<br>Media (media): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`. |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 #### UC-SPACE-04 – Lưu / bỏ lưu không gian mẫu yêu thích
 
@@ -1926,17 +1874,9 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Mở trang thống kê không gian mẫu.<br>2. Hệ thống: `GET /api/admin/stats/spaces?from=&to=` tổng hợp `SpaceView` (gộp user và khách qua `visitorId`).<br>3. Hệ thống: Trả tỉ lệ chuyển đổi theo sản phẩm/phòng mẫu. |
 | **Model + C/R/U/D** | SpaceView (space_views): R<br>Space (spaces): R<br>Product (products): R |
 
-#### UC-ADM-30 – Gỡ ảnh AR công khai không phù hợp
+#### UC-ADM-30 – (đã loại bỏ)
 
-> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
-
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (ar_snapshots) |
-| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
-| **Mô tả** | Ẩn hoặc xóa ảnh AR công khai vi phạm. |
-| **Luồng chính** | 1. Admin: Mở danh sách ảnh AR công khai, chọn ảnh vi phạm.<br>2. Hệ thống: `PATCH /api/admin/ar-snapshots/:id` ({ isPublic: false }) hoặc `DELETE /api/admin/ar-snapshots/:id`.<br>3. Hệ thống: Ghi `ActivityLog`, trả 200/204. |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 ## 10. Vòng đời trạng thái
 
@@ -2218,6 +2158,160 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 | Ưu tiên Bắt buộc | 29 |
 | Ưu tiên Nên có | 36 |
 | Ưu tiên Mở rộng | 15 |
-| Model được ít nhất 1 UC sử dụng | 42/42 (đã bỏ 2 model AR) |
+| Model được ít nhất 1 UC sử dụng | 42/42 model chuẩn (đã bỏ 2 model AR); 17 model mở rộng chưa nằm trong ma trận UC gốc (xem 4.2 và mục 16) |
 
 Đã kiểm tra tự động: mã UC duy nhất; mọi `include`/`extend` trỏ tới UC tồn tại; 42/42 model có UC sử dụng; không UC nào cho khách ghi dữ liệu ngoài `User`, `UserSession`, `UserRole`, `PasswordReset` (đăng ký/đăng nhập/quên mật khẩu) và `SpaceView` (thống kê ẩn danh).
+
+## 15. Đã loại bỏ (không còn trong phạm vi)
+
+**Lý do chung:** chủ dự án quyết định loại bỏ HOÀN TOÀN tính năng AR (D-P16, 2026-11-09; thay D-P11 vốn chỉ "đưa ra ngoài phạm vi"). Đã bỏ bảng `ar_sessions`, `ar_snapshots`, kiểu `ar_mode`, cột `products.has_ar`, module/API/giao diện AR (migration `20261109010100_remove_ar`). **Giữ nguyên:** xem 3D bằng GLB, ảnh 360°, không gian mẫu, `placement`/`allow_scaling`, giá trị `usdz` của enum `model_file_format` (code chỉ nhận GLB). UC-ADM-29 (phễu không gian mẫu) vẫn hoạt động.
+
+| UC | Tên | Lý do loại bỏ | Thay thế |
+| --- | --- | --- | --- |
+| UC-3D-02 | Xem sản phẩm bằng AR (đặt vào không gian thật) | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-04 | Chụp và lưu ảnh AR | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-06 | Xem ảnh AR công khai "Khách hàng đã trải nghiệm" | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-07 | Ghi nhận thống kê phiên 3D/AR (ẩn danh) | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+
+Nội dung đặc tả gốc của 6 UC (nguyên văn, **không còn hiệu lực**, giữ để tra cứu và để các sơ đồ trong `docs/diagrams/` còn tham chiếu được):
+
+### 15.1. UC-3D-02
+
+##### UC-3D-02 – Xem sản phẩm bằng AR (đặt vào không gian thật)
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files, ar_sessions) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
+| **Mô tả** | Đặt sản phẩm đúng kích thước thật lên sàn/tường/mặt bàn bằng camera điện thoại (WebXR/Scene Viewer trên Android dùng GLB; Quick Look trên iPhone dùng USDZ). |
+| **Tiền điều kiện** | `hasAr = true` (mô hình `ready` có đủ GLB và USDZ); thiết bị hỗ trợ AR. |
+| **Hậu điều kiện** | Có `ArSession` mode `ar` với các cờ `placed`, `captured`, `addedToCart`. |
+| **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:slug/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
+| **Luồng thay thế** | 2a. Thiết bị không hỗ trợ AR → hiển thị hướng dẫn và chuyển sang xem 3D (UC-3D-01).<br>3a. Thiếu một trong hai định dạng → `hasAr = false`, ẩn nút AR. |
+| **Ngoại lệ** | • Người dùng từ chối quyền camera → thông báo hướng dẫn cấp quyền. |
+| **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên app Android, xem sản phẩm qua camera là overlay ảnh 2D (UC-MOB-03), không dùng module `ar-overlay` của backend. |
+| **Dữ liệu vào** | • productId (bắt buộc): sản phẩm có `hasAr` |
+| **Dữ liệu ra** | • 200: như UC-3D-01 + `arSessionUuid` |
+| **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>ArSession (ar_sessions): C,U |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_sessions_set_updated_at` khi cập nhật cờ.<br>• Service: ghi/cập nhật `ArSession` (UC-3D-07). |
+| **Quan hệ UC** | include: UC-3D-07 |
+
+### 15.2. UC-3D-04
+
+##### UC-3D-04 – Chụp và lưu ảnh AR
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots, media) |
+| **Tác nhân chính / phụ** | Người dùng |
+| **Mô tả** | Trong phiên AR, user đăng nhập chụp ảnh sản phẩm đặt trong phòng và lưu vào tài khoản. |
+| **Tiền điều kiện** | Đang trong phiên AR; đã đăng nhập. |
+| **Hậu điều kiện** | Có `Media` (ảnh) và `ArSnapshot` (`isPublic = false`); `ArSession.captured = true`. |
+| **Luồng chính** | 1. Người dùng: Bấm nút chụp trong chế độ AR.<br>2. Hệ thống: Frontend kiểm tra đăng nhập rồi gửi `POST /api/ar-snapshots` (multipart: ảnh, `productId`, `arSessionUuid`).<br>3. Hệ thống: `MediaService` lưu ảnh lên MinIO/S3, tạo `Media`; job nén ảnh chạy nền (`compress-image.processor`).<br>4. Hệ thống: `ArSnapshotsService.create(userId, dto)` tạo `ArSnapshot`; đặt `captured = true` cho phiên.<br>5. Hệ thống: Trả 201; giao diện cho phép chia sẻ/đặt công khai (UC-3D-05). |
+| **Luồng thay thế** | 2a. Khách chưa đăng nhập → yêu cầu đăng nhập để lưu (có thể lưu cục bộ trên thiết bị). |
+| **Ngoại lệ** | • Ảnh > 10 MB hoặc sai định dạng → 400/413. |
+| **Quy tắc nghiệp vụ** | • `ArSnapshot.userId` bắt buộc (khách không lưu ảnh lên hệ thống).<br>• Ảnh mặc định riêng tư (`isPublic = false`). |
+| **Dữ liệu vào** | • file (bắt buộc): jpeg/png/webp, ≤ 10 MB<br>• productId (bắt buộc): sản phẩm đang xem<br>• arSessionUuid (tuỳ chọn): phiên AR của user |
+| **Dữ liệu ra** | • 201: `{ id, imageUrl, isPublic }` |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): C<br>Media (media): C<br>ArSession (ar_sessions): U |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`, `trg_media_set_updated_at`.<br>• Service: lưu tệp + tạo bản ghi trong `$transaction`. |
+| **Quan hệ UC** | extend: UC-3D-02 |
+
+### 15.3. UC-3D-05
+
+##### UC-3D-05 – Quản lý ảnh AR của tôi (công khai/ẩn/xóa)
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots) |
+| **Tác nhân chính / phụ** | Người dùng |
+| **Mô tả** | Xem các ảnh AR đã chụp, bật/tắt công khai để hiển thị ở mục "Khách hàng đã trải nghiệm", hoặc xóa. |
+| **Tiền điều kiện** | Đã đăng nhập. |
+| **Hậu điều kiện** | `isPublic` được đổi hoặc ảnh bị xóa. |
+| **Luồng chính** | 1. Người dùng: Mở `/account/ar-photos`.<br>2. Hệ thống: `GET /api/ar-snapshots/me` trả ảnh của chính user.<br>3. Người dùng: Bật "Công khai" hoặc bấm "Xóa".<br>4. Hệ thống: `PATCH /api/ar-snapshots/:id` ({ isPublic }) hoặc `DELETE /api/ar-snapshots/:id`; kiểm tra ảnh thuộc user.<br>5. Hệ thống: Trả 200/204. |
+| **Luồng thay thế** | 4a. Ảnh không thuộc user → 404. |
+| **Ngoại lệ** | • Ảnh bị admin gỡ (UC-ADM-30) → hiển thị thông báo. |
+| **Quy tắc nghiệp vụ** | • Chỉ ảnh `isPublic = true` xuất hiện công khai (partial index `idx_ar_snapshots_public`). |
+| **Dữ liệu vào** | • isPublic (bắt buộc (PATCH)): boolean |
+| **Dữ liệu ra** | • 200: bản ghi `ArSnapshot` |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D<br>Media (media): R |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`. |
+
+### 15.4. UC-3D-06
+
+##### UC-3D-06 – Xem ảnh AR công khai "Khách hàng đã trải nghiệm"
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_snapshots) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
+| **Mô tả** | Xem ảnh AR người dùng đã chọn công khai, theo sản phẩm hoặc trên trang chủ. |
+| **Tiền điều kiện** |  |
+| **Hậu điều kiện** |  |
+| **Luồng chính** | 1. Khách: Mở mục "Khách hàng đã trải nghiệm" (trang chi tiết hoặc trang chủ).<br>2. Hệ thống: `GET /api/ar-snapshots/public?productId=&page=` chỉ trả `isPublic = true`, kèm tên rút gọn người chụp.<br>3. Hệ thống: Hiển thị lưới ảnh; không lộ email/điện thoại. |
+| **Luồng thay thế** |  |
+| **Ngoại lệ** |  |
+| **Quy tắc nghiệp vụ** | • Không công khai thông tin cá nhân ngoài tên hiển thị rút gọn. |
+| **Dữ liệu vào** |  |
+| **Dữ liệu ra** |  |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R<br>Media (media): R<br>User (users): R |
+| **DB trigger / việc Service tự làm** |  |
+
+### 15.5. UC-3D-07
+
+##### UC-3D-07 – Ghi nhận thống kê phiên 3D/AR (ẩn danh)
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_sessions) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
+| **Mô tả** | Mỗi lượt xem 3D/AR được ghi lại (thiết bị, hệ điều hành, nền tảng AR, thời gian, đặt được hay không, chụp ảnh, thêm giỏ). Khách dùng `visitorId` ẩn danh do client tạo. |
+| **Luồng chính** | 1. Hệ thống: Khi mở trình xem, client gọi `POST /api/ar-sessions` (CreateArSessionDto: `productId`, `modelId`, `mode`, `device`, `os`, `arPlatform`, `visitorId`) — endpoint dùng `OptionalJwtAuthGuard` [CẦN TẠO MỚI].<br>2. Hệ thống: Nếu có token → `userId`; ngược lại bắt buộc `visitorId` (UUID). Ràng buộc DB: phải có `userId` hoặc `visitorId` (CHECK `ck_ar_sessions_actor`).<br>3. Hệ thống: Trả `uuid` phiên. Khi đóng trình xem client gọi `PATCH /api/ar-sessions/:uuid` cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
+| **Quy tắc nghiệp vụ** | • Đây là ngoại lệ duy nhất cho phép khách ghi dữ liệu (cùng `space_views`); không chứa thông tin cá nhân.<br>• Cập nhật phiên chỉ khi `visitorId`/`userId` khớp phiên; giới hạn tốc độ để chống ghi rác. |
+| **Model + C/R/U/D** | ArSession (ar_sessions): C,U |
+
+### 15.6. UC-ADM-30
+
+##### UC-ADM-30 – Gỡ ảnh AR công khai không phù hợp
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (ar_snapshots) |
+| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
+| **Mô tả** | Ẩn hoặc xóa ảnh AR công khai vi phạm. |
+| **Luồng chính** | 1. Admin: Mở danh sách ảnh AR công khai, chọn ảnh vi phạm.<br>2. Hệ thống: `PATCH /api/admin/ar-snapshots/:id` ({ isPublic: false }) hoặc `DELETE /api/admin/ar-snapshots/:id`.<br>3. Hệ thống: Ghi `ActivityLog`, trả 200/204. |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D |
+
+## 16. Bổ sung theo code (chưa có trong đặc tả gốc)
+
+Chức năng **đang có trong code** nhưng không có UC trong đặc tả (nguồn: `docs/AUDIT_REPORT.md` mục 2.2, đối chiếu ngày 2026-11-11). Đánh dấu **Bổ sung theo code**; ghi nhận trong [CHUAN_MO_RONG.md](CHUAN_MO_RONG.md).
+
+| Chức năng | Trạng thái | Nơi trong code | Ghi chú |
+| --- | --- | --- | --- |
+| Xem sản phẩm 360° (xoay ảnh) | Có, chạy thật | `GET/PUT /admin/products/:id/360`, `GET /products/:slug/360`; trang `/products/[slug]/360` | Bổ sung theo code |
+| Ví mã giảm giá (lưu mã, mã gợi ý) | Có, chạy thật | `/coupons/me`, `/coupons/suggested`, `/coupons/save`; trang `/account/coupons` | Bổ sung theo code |
+| Hỏi đáp sản phẩm | Có, chạy thật | `/products/:slug/questions`, `/admin/questions` | Bổ sung theo code |
+| Sổ thu/chi và báo cáo tài chính | Có, chạy thật | `/admin/expenses`, `/admin/stats/finance`; trang `/admin/reports` | Bổ sung theo code |
+| Phiếu nhập/xuất kho | Có, chạy thật | `/admin/inventory/receipts*`; trang `/admin/inventory` | Bổ sung theo code (phương án b′ của UC-ADM-12) |
+| Thêm cả bộ không gian vào giỏ | Có, chạy thật | `POST /spaces/:slug/add-to-cart` (tất cả-hoặc-không; xem [API_CONTRACT.md](API_CONTRACT.md) mục 5c) | Bổ sung theo code |
+| Bài viết/blog | Một phần | `/admin/posts` (admin đủ); `GET /posts/:slug` có BE nhưng chưa có trang công khai | Bổ sung theo code |
+| Quản trị FAQ, tin nhắn liên hệ, sắp xếp banner, in hóa đơn | Chỉ BE | `/admin/faq`, `/admin/contact-messages`, `PATCH /admin/banners/reorder`, `GET /admin/orders/:code/invoice` | Bổ sung theo code; chưa có giao diện quản trị |
+| Cài đặt theo khóa | Chỉ BE | `PUT /admin/settings/:key` | Bổ sung theo code; FE chỉ dùng `PUT /admin/settings/store` |
+| Bull Board (hàng đợi nền) | Có | `/admin/queues` (chỉ admin) | Bổ sung theo code |
+| **Đăng nhập Google** | **Đã hoãn** | `POST /auth/google` luôn `503`; nút FE ẩn khi chưa bật `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | Hoãn sang giai đoạn sau; việc cần làm ở [KNOWN_ISSUES.md](KNOWN_ISSUES.md) |
+| Chế độ dữ liệu giả của giao diện (`NEXT_PUBLIC_USE_MOCK`) | Chỉ dev | `apps/web/src/mock-data` | Build production thất bại nếu bật |
+| Module AI, ứng dụng Android | Khung rỗng | `apps/api/src/modules/ai`, `apps/mobile` | Ngoài phạm vi (xem mục 13 và 1.4) |
