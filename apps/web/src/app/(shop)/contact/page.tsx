@@ -9,6 +9,8 @@ import Breadcrumb from '@/components/ui/Breadcrumb';
 import Button from '@/components/ui/Button';
 import Icon, { type IconName } from '@/components/ui/Icon';
 import Input, { Select, Textarea } from '@/components/ui/Input';
+import { siteConfig } from '@/config/site';
+import { cn } from '@/lib/cn';
 import { applyApiErrors, emailSchema, errorMessage, phoneSchema, requiredText } from '@/lib/validators';
 import { contentApi } from '@/services/content.api';
 import { toast } from '@/store/uiStore';
@@ -27,11 +29,6 @@ const SUBJECTS = [
   'Đổi trả & bảo hành',
   'Hợp tác & dự án',
   'Khác',
-];
-const SHOWROOMS = [
-  ['TP. Hồ Chí Minh', '123 Nguyễn Văn A, Quận 1'],
-  ['Hà Nội', '45 Trần Duy Hưng, Cầu Giấy'],
-  ['Đà Nẵng', '88 Nguyễn Văn Linh, Hải Châu'],
 ];
 
 export default function ContactPage() {
@@ -52,11 +49,15 @@ export default function ContactPage() {
     },
   });
   const err = f.formState.errors;
+  const hasAside = Boolean(siteConfig.mapEmbedUrl) || siteConfig.showrooms.length > 0;
+  // Hotline, email, địa chỉ lấy từ Cài đặt của cửa hàng (GET /settings/public); chưa có thì hiện "Đang cập nhật", không dùng số liệu mẫu
   const cards: Array<[IconName, string, string]> = [
-    ['phone', 'Hotline', s?.hotline ?? '0123 456 789'],
-    ['mail', 'Email', s?.email ?? 'aurelia@gmail.com'],
-    ['pin', 'Showroom', s?.address ?? '123 Nguyễn Văn A, TP.HCM'],
-    ['clock', 'Giờ làm việc', '8:00 – 21:00 hằng ngày'],
+    ['phone', 'Hotline', s?.hotline || 'Đang cập nhật'],
+    ['mail', 'Email', s?.email || 'Đang cập nhật'],
+    ['pin', 'Địa chỉ', s?.address || 'Đang cập nhật'],
+    ...(siteConfig.workingHours
+      ? ([['clock', 'Giờ làm việc', siteConfig.workingHours]] as Array<[IconName, string, string]>)
+      : []),
   ];
   return (
     <div className="container-page py-6">
@@ -76,7 +77,7 @@ export default function ContactPage() {
           </div>
         ))}
       </div>
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className={cn('mt-8 grid gap-6', hasAside ? 'lg:grid-cols-2' : 'max-w-2xl')}>
         <form className="card space-y-4 p-6" noValidate onSubmit={f.handleSubmit((v) => send.mutate(v))}>
           <h2 className="text-lg font-extrabold">Gửi tin nhắn</h2>
           <Input label="Họ và tên" required error={err.fullName?.message} {...f.register('fullName')} />
@@ -109,50 +110,44 @@ export default function ContactPage() {
             Gửi liên hệ
           </Button>
         </form>
-        <div className="space-y-5">
-          <div className="card overflow-hidden">
-            <div
-              className="relative flex h-64 items-center justify-center bg-surface-muted text-muted"
-              role="img"
-              aria-label="Bản đồ showroom"
-            >
-              <div
-                className="absolute inset-0 opacity-40"
-                style={{
-                  backgroundImage:
-                    'linear-gradient(#d8c3a5 1px, transparent 1px), linear-gradient(90deg, #d8c3a5 1px, transparent 1px)',
-                  backgroundSize: '32px 32px',
-                }}
-              />
-              <div className="relative text-center">
-                <Icon name="pin" size={36} className="mx-auto text-primary" />
-                <p className="mt-1 text-sm font-semibold text-ink">Aurelia Living Showroom</p>
-                <p className="text-xs">Bản đồ Google Maps sẽ được nhúng ở bản chạy thật</p>
+        {hasAside && (
+          <div className="space-y-5">
+            {siteConfig.mapEmbedUrl && (
+              <div className="card overflow-hidden">
+                <iframe
+                  title="Bản đồ showroom"
+                  src={siteConfig.mapEmbedUrl}
+                  className="h-64 w-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
               </div>
-            </div>
+            )}
+            {siteConfig.showrooms.length > 0 && (
+              <div className="card p-5">
+                <h2 className="mb-3 font-extrabold">Hệ thống showroom</h2>
+                <ul className="divide-y divide-line">
+                  {siteConfig.showrooms.map(({ city, address }) => (
+                    <li key={city} className="flex items-center justify-between gap-3 py-3 text-sm">
+                      <div>
+                        <p className="font-semibold">{city}</p>
+                        <p className="text-muted">{address}</p>
+                      </div>
+                      <a
+                        className="font-semibold text-primary hover:underline"
+                        href={`https://www.google.com/maps/search/${encodeURIComponent(`${address} ${city}`)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Chỉ đường →
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <div className="card p-5">
-            <h2 className="mb-3 font-extrabold">Hệ thống showroom</h2>
-            <ul className="divide-y divide-line">
-              {SHOWROOMS.map(([c, a]) => (
-                <li key={c} className="flex items-center justify-between gap-3 py-3 text-sm">
-                  <div>
-                    <p className="font-semibold">{c}</p>
-                    <p className="text-muted">{a}</p>
-                  </div>
-                  <a
-                    className="font-semibold text-primary hover:underline"
-                    href={`https://www.google.com/maps/search/${encodeURIComponent(`${a} ${c}`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Chỉ đường →
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
