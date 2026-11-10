@@ -84,7 +84,8 @@ export const envSchema = z.object({
   CACHE_KEY_PREFIX: z.string().default('aurelia:cache:'),
   CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
-  SWAGGER_ENABLED: bool.default('true'),
+  // Không đặt ⇒ bật ở development/test, TẮT ở production; muốn bật ở production phải đặt SWAGGER_ENABLED=true rõ ràng
+  SWAGGER_ENABLED: optional(bool),
 
   // Google OAuth (tùy chọn): chưa có thì POST /auth/google trả lỗi rõ ràng, các luồng khác không ảnh hưởng
   GOOGLE_CLIENT_ID: optional(z.string()),
@@ -136,7 +137,7 @@ const envSchemaChecked = envSchema.superRefine((env, ctx) => {
   }
 });
 
-export type Env = z.infer<typeof envSchema>;
+export type Env = Omit<z.infer<typeof envSchema>, 'SWAGGER_ENABLED'> & { SWAGGER_ENABLED: boolean };
 
 export function validateEnv(raw: Record<string, unknown>): Env {
   const result = envSchemaChecked.safeParse(raw);
@@ -146,5 +147,6 @@ export function validateEnv(raw: Record<string, unknown>): Env {
       `Cấu hình môi trường không hợp lệ:\n${lines.join('\n')}\nXem .env.example và sao chép thành .env.`,
     );
   }
-  return result.data;
+  const data = result.data;
+  return { ...data, SWAGGER_ENABLED: data.SWAGGER_ENABLED ?? data.NODE_ENV !== 'production' };
 }

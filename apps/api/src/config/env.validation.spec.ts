@@ -62,6 +62,16 @@ describe('validateEnv', () => {
     ).toBe(false);
   });
 
+  it('SWAGGER_ENABLED: không đặt ⇒ bật ở dev/test, TẮT ở production; chỉ bật ở production khi đặt true rõ ràng', () => {
+    const prod = { ...base, ...minio, NODE_ENV: 'production', PAYMENT_SANDBOX_FAKE: 'false' };
+    expect(validateEnv({ ...base, ...minio }).SWAGGER_ENABLED).toBe(true);
+    expect(validateEnv({ ...base, ...minio, NODE_ENV: 'test' }).SWAGGER_ENABLED).toBe(true);
+    expect(validateEnv(prod).SWAGGER_ENABLED).toBe(false);
+    expect(validateEnv({ ...prod, SWAGGER_ENABLED: '' }).SWAGGER_ENABLED).toBe(false);
+    expect(validateEnv({ ...prod, SWAGGER_ENABLED: 'true' }).SWAGGER_ENABLED).toBe(true);
+    expect(validateEnv({ ...base, ...minio, SWAGGER_ENABLED: 'false' }).SWAGGER_ENABLED).toBe(false);
+  });
+
   it('driver minio thiếu S3_ENDPOINT/khóa truy cập -> báo lỗi rõ ràng', () => {
     expect(() => validateEnv({ ...base })).toThrow(/S3_ENDPOINT.*bắt buộc khi STORAGE_DRIVER=minio/s);
   });

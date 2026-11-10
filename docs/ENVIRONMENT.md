@@ -13,7 +13,7 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `API_PORT` | Tùy chọn | `4000` | docker-compose | Cổng API trên máy host |
 | `CORS_ORIGINS` | Tùy chọn | `http://localhost:3000` | API, MinIO | Các origin được gọi API, cách nhau bằng dấu phẩy; cũng là CORS của MinIO |
 | `APP_URL` | Tùy chọn | `http://localhost:3000` | M02, M09 (link trong email) | URL công khai của website |
-| `SWAGGER_ENABLED` | Tùy chọn | `true` | M01 | Bật Swagger tại `/docs`; nên `false` ở production |
+| `SWAGGER_ENABLED` | Tùy chọn | không đặt ⇒ bật ở dev/test, **tắt ở production** | M01 | Swagger tại `/docs`. Ở production chỉ bật khi đặt `SWAGGER_ENABLED=true` rõ ràng |
 
 ## 2. Cơ sở dữ liệu
 
