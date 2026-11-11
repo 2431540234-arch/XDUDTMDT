@@ -124,6 +124,38 @@ async function waitHealth(url, ms = 120_000) {
   throw new Error(`API không sẵn sàng sau ${ms / 1000}s (${url})`);
 }
 
+/**
+ * Sau mỗi lần reset aurelia_test, API vẫn chạy liên tục từ trước: kết nối DB trong pool (Prisma) bị reset cắt,
+ * cache Redis có thể còn dữ liệu cũ ⇒ lần gọi ĐẦU TIÊN sau reset có thể lỗi (từng thấy login trả 500 / không có data,
+ * làm test đầu nhóm fail sau ~300ms). Gọi login admin cho tới khi thành công rồi mới chạy Playwright,
+ * và in lý do mỗi lần thử hỏng để biết nguyên nhân thật.
+ */
+async function warmUpApi() {
+  const url = `http://localhost:${API_PORT}/api/auth/login`;
+  let last = '';
+  for (let i = 1; i <= 20; i++) {
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'admin@aurelia.vn', password: 'admin123', adminOnly: true }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      const body = await r.json().catch(() => null);
+      if (r.ok && body?.data?.tokens?.accessToken) {
+        if (i > 1) log(`API sẵn sàng sau ${i} lần thử`);
+        return;
+      }
+      last = `HTTP ${r.status} ${JSON.stringify(body)}`;
+    } catch (e) {
+      last = e instanceof Error ? e.message : String(e);
+    }
+    log(`warm-up lần ${i}: login admin chưa được (${last})`);
+    await new Promise((res) => setTimeout(res, 1000));
+  }
+  throw new Error(`API không đăng nhập được admin sau khi reset ${DB}: ${last}`);
+}
+
 let api = null;
 function cleanup() {
   killTree(api);
@@ -254,6 +286,7 @@ async function main() {
       env: { ...process.env, API_PORT },
     });
     if (r.status !== 0) throw new Error(`Reset ${DB} thất bại`);
+    await warmUpApi();
     const args = [
       resolve(root, 'node_modules/@playwright/test/cli.js'),
       'test',
