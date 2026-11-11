@@ -14,28 +14,28 @@
 
 | Thành viên | Module phụ trách | Số UC | Số endpoint | Số trang FE | Số bảng | Số dòng code | Điểm khối lượng | % tổng | Lệch so với trung bình |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **Thành viên 1** | M09, M10, M11, M17 – Trải nghiệm 3D, không gian mẫu 360° và thống kê | 15 | 42 | 13 | 12 | 9.953 | **164.8** | 21.0% | 4.8% |
-| **Thành viên 2** | M08, M12, M13, M15 – Luồng mua hàng: giỏ, mã giảm giá, đặt hàng, thanh toán, đánh giá | 16 | 40 | 16 | 13 | 6.716 | **159.9** | 20.3% | 1.7% |
-| **Thành viên 3** | M05, M06, M07, M14 – Back-office: catalog quản trị, kho hàng, xử lý đơn, vận chuyển, đổi trả | 13 | 50 | 11 | 17 | 7.615 | **158.5** | 20.2% | 0.8% |
-| **Thành viên 4** | M01, M16, M18 – Nền tảng: xác thực, nội dung & cài đặt, hạ tầng dùng chung | 10 | 38 | 12 | 9 | 13.714 | **155.8** | 19.8% | -0.9% |
-| **Thành viên 5** | M02, M03, M04 – Khách hàng: tài khoản, quản trị người dùng, thông báo, duyệt/tìm sản phẩm | 16 | 40 | 14 | 8 | 5.740 | **147** | 18.7% | -6.5% |
+| **Thành viên 1** (Châu Nhựt Tân) | M09, M10, M11, M17 – Trải nghiệm 3D, không gian mẫu 360° và thống kê | 15 | 42 | 13 | 12 | 9.953 | **164.8** | 21.0% | 4.8% |
+| **Thành viên 2** (Nguyễn Tường Vy) | M08, M12, M13, M15 – Luồng mua hàng: giỏ, mã giảm giá, đặt hàng, thanh toán, đánh giá | 16 | 40 | 16 | 13 | 6.716 | **159.9** | 20.3% | 1.7% |
+| **Thành viên 3** (Nguyễn Minh Nhật) | M05, M06, M07, M14 – Back-office: catalog quản trị, kho hàng, xử lý đơn, vận chuyển, đổi trả | 13 | 50 | 11 | 17 | 7.615 | **158.5** | 20.2% | 0.8% |
+| **Thành viên 4** (Phạm Thị Phi Yến) | M01, M16, M18 – Nền tảng: xác thực, nội dung & cài đặt, hạ tầng dùng chung | 10 | 38 | 12 | 9 | 13.714 | **155.8** | 19.8% | -0.9% |
+| **Thành viên 5** (Khổng Thị Huyền Trang) | M02, M03, M04 – Khách hàng: tài khoản, quản trị người dùng, thông báo, duyệt/tìm sản phẩm | 16 | 40 | 14 | 8 | 5.740 | **147** | 18.7% | -6.5% |
 | **Tổng** | 18 module | 70 | 210 | 66 | 59 | 43.738 | 786 | 100% | |
 
 **Độ chênh:** điểm cao nhất 164.8 (Thành viên 1), thấp nhất 147 (Thành viên 5); chênh 17.8 điểm = **11.3% so với trung bình** 157.2 (mục tiêu ≤ 15%).
 
-**Nguyên tắc chia:** mỗi người nhận các module liên quan nhau về nghiệp vụ (xem tên nhóm ở cột "Module"); ai cũng có một phần giao diện khách hoặc quản trị để demo. Module hạ tầng M18 có một người chịu trách nhiệm chính (Thành viên 4) nhưng cả nhóm cùng dùng; các việc tồn đọng của `KNOWN_ISSUES.md` được giao cho người giữ module liên quan nhất (mục "Việc còn lại" của từng người). Tên thành viên để dạng "Thành viên 1…5", điền tên thật vào bảng sau:
+**Nguyên tắc chia:** mỗi người nhận các module liên quan nhau về nghiệp vụ (xem tên nhóm ở cột "Module"); ai cũng có một phần giao diện khách hoặc quản trị để demo. Module hạ tầng M18 có một người chịu trách nhiệm chính (Thành viên 4) nhưng cả nhóm cùng dùng; các việc tồn đọng của `KNOWN_ISSUES.md` được giao cho người giữ module liên quan nhất (mục "Việc còn lại" của từng người). Phân công tên thành viên (các chỗ khác trong tài liệu gọi theo số "Thành viên 1…5"):
 
 | Thành viên | Họ tên | Ghi chú |
 |---|---|---|
-| Thành viên 1 | _(điền tên)_ | |
-| Thành viên 2 | _(điền tên)_ | |
-| Thành viên 3 | _(điền tên)_ | |
-| Thành viên 4 | _(điền tên)_ | |
-| Thành viên 5 | _(điền tên)_ | |
+| Thành viên 1 | Châu Nhựt Tân | |
+| Thành viên 2 | Nguyễn Tường Vy | |
+| Thành viên 3 | Nguyễn Minh Nhật | |
+| Thành viên 4 | Phạm Thị Phi Yến | |
+| Thành viên 5 | Khổng Thị Huyền Trang | |
 
 ## Phần 2. Chi tiết từng thành viên
 
-### Thành viên 1 – Trải nghiệm 3D, không gian mẫu 360° và thống kê
+### Thành viên 1 (Châu Nhựt Tân) – Trải nghiệm 3D, không gian mẫu 360° và thống kê
 
 **Khối lượng:** 164.8 điểm (21.0%) · 15 UC · 42 endpoint · 13 trang FE · 12 bảng · 61 tệp / 9.953 dòng code.
 
@@ -245,7 +245,7 @@ DELETE /admin/expenses/{id}
 
 ---
 
-### Thành viên 2 – Luồng mua hàng: giỏ, mã giảm giá, đặt hàng, thanh toán, đánh giá
+### Thành viên 2 (Nguyễn Tường Vy) – Luồng mua hàng: giỏ, mã giảm giá, đặt hàng, thanh toán, đánh giá
 
 **Khối lượng:** 159.9 điểm (20.3%) · 16 UC · 40 endpoint · 16 trang FE · 13 bảng · 53 tệp / 6.716 dòng code.
 
@@ -452,7 +452,7 @@ PATCH /admin/payments/{id}/fail
 
 ---
 
-### Thành viên 3 – Back-office: catalog quản trị, kho hàng, xử lý đơn, vận chuyển, đổi trả
+### Thành viên 3 (Nguyễn Minh Nhật) – Back-office: catalog quản trị, kho hàng, xử lý đơn, vận chuyển, đổi trả
 
 **Khối lượng:** 158.5 điểm (20.2%) · 13 UC · 50 endpoint · 11 trang FE · 17 bảng · 44 tệp / 7.615 dòng code.
 
@@ -668,7 +668,7 @@ PATCH /admin/shipments/{id}
 
 ---
 
-### Thành viên 4 – Nền tảng: xác thực, nội dung & cài đặt, hạ tầng dùng chung
+### Thành viên 4 (Phạm Thị Phi Yến) – Nền tảng: xác thực, nội dung & cài đặt, hạ tầng dùng chung
 
 **Khối lượng:** 155.8 điểm (19.8%) · 10 UC · 38 endpoint · 12 trang FE · 9 bảng · 189 tệp / 13.714 dòng code.
 
@@ -847,7 +847,7 @@ GET /health
 
 ---
 
-### Thành viên 5 – Khách hàng: tài khoản, quản trị người dùng, thông báo, duyệt/tìm sản phẩm
+### Thành viên 5 (Khổng Thị Huyền Trang) – Khách hàng: tài khoản, quản trị người dùng, thông báo, duyệt/tìm sản phẩm
 
 **Khối lượng:** 147 điểm (18.7%) · 16 UC · 40 endpoint · 14 trang FE · 8 bảng · 64 tệp / 5.740 dòng code.
 
@@ -1047,11 +1047,11 @@ GET /brands
 
 | Người viết | Người review |
 |---|---|
-| Thành viên 1 | Thành viên 2 |
-| Thành viên 2 | Thành viên 3 |
-| Thành viên 3 | Thành viên 4 |
-| Thành viên 4 | Thành viên 5 |
-| Thành viên 5 | Thành viên 1 |
+| Thành viên 1 (Châu Nhựt Tân) | Thành viên 2 (Nguyễn Tường Vy) |
+| Thành viên 2 (Nguyễn Tường Vy) | Thành viên 3 (Nguyễn Minh Nhật) |
+| Thành viên 3 (Nguyễn Minh Nhật) | Thành viên 4 (Phạm Thị Phi Yến) |
+| Thành viên 4 (Phạm Thị Phi Yến) | Thành viên 5 (Khổng Thị Huyền Trang) |
+| Thành viên 5 (Khổng Thị Huyền Trang) | Thành viên 1 (Châu Nhựt Tân) |
 
 Người review ưu tiên xem: tính đúng của nghiệp vụ so với DAC_TA, xử lý lỗi và mã trạng thái, transaction/khóa khi ghi, phân quyền, test kèm theo, tài liệu cập nhật.
 
@@ -1059,12 +1059,12 @@ Người review ưu tiên xem: tính đúng của nghiệp vụ so với DAC_TA,
 
 | Bước | Nội dung | Người trình bày |
 |---|---|---|
-| 1 | Giới thiệu kiến trúc, hạ tầng (`/health`, Swagger, Docker), đăng ký/đăng nhập/quên mật khẩu | Thành viên 4 |
-| 2 | Trang chủ, duyệt/tìm kiếm không dấu, chi tiết sản phẩm, yêu thích, hồ sơ và địa chỉ | Thành viên 5 |
-| 3 | Xem 3D, đổi màu vật liệu, xoay 360°, không gian mẫu 360° (hotspot, đổi món) | Thành viên 1 |
-| 4 | Giỏ hàng, mã giảm giá, đặt hàng, thanh toán (COD/VNPAY giả lập), đánh giá | Thành viên 2 |
-| 5 | Admin: sản phẩm, kho, xử lý đơn, vận chuyển, đổi trả, hoàn tiền | Thành viên 3 |
-| 6 | Admin: quản trị người dùng, nội dung/cài đặt, thống kê, thu chi, phễu không gian | Thành viên 5, 4, 1 |
+| 1 | Giới thiệu kiến trúc, hạ tầng (`/health`, Swagger, Docker), đăng ký/đăng nhập/quên mật khẩu | Thành viên 4 (Phạm Thị Phi Yến) |
+| 2 | Trang chủ, duyệt/tìm kiếm không dấu, chi tiết sản phẩm, yêu thích, hồ sơ và địa chỉ | Thành viên 5 (Khổng Thị Huyền Trang) |
+| 3 | Xem 3D, đổi màu vật liệu, xoay 360°, không gian mẫu 360° (hotspot, đổi món) | Thành viên 1 (Châu Nhựt Tân) |
+| 4 | Giỏ hàng, mã giảm giá, đặt hàng, thanh toán (COD/VNPAY giả lập), đánh giá | Thành viên 2 (Nguyễn Tường Vy) |
+| 5 | Admin: sản phẩm, kho, xử lý đơn, vận chuyển, đổi trả, hoàn tiền | Thành viên 3 (Nguyễn Minh Nhật) |
+| 6 | Admin: quản trị người dùng, nội dung/cài đặt, thống kê, thu chi, phễu không gian | Thành viên 5 (Khổng Thị Huyền Trang), 4 (Phạm Thị Phi Yến), 1 (Châu Nhựt Tân) |
 
 ### Việc chung còn lại
 
