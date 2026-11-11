@@ -14,23 +14,23 @@ cp apps/web/.env.example apps/web/.env.development.local   # đã bật NEXT_PUB
 npm run dev -w @aurelia-living/web              # http://localhost:3000
 ```
 
-| Việc | Cách làm |
-|---|---|
-| Bật mock | `NEXT_PUBLIC_USE_MOCK=true` (trong `apps/web/.env.development.local`) rồi chạy lại `next dev` |
-| Tắt mock (gọi backend thật) | Đặt `NEXT_PUBLIC_USE_MOCK=false` (hoặc xóa biến) và đặt `NEXT_PUBLIC_API_URL`; **không sửa code giao diện** |
-| Khôi phục dữ liệu mẫu | Mở URL bất kỳ kèm `?resetMock=1` (vd. `http://localhost:3000/?resetMock=1`) hoặc Admin → Cài đặt → "Khôi phục dữ liệu mẫu" |
-| Giả lập lỗi / độ trễ | Admin → Cài đặt → "Dữ liệu giả lập" (bật lỗi GET, tỉ lệ lỗi ngẫu nhiên, tắt độ trễ 200–500ms) |
-| Giả lập thanh toán online thất bại | Khi đặt hàng, ghi chú đơn hàng có chứa `[fail]` → chuyển tới `/checkout/failed` |
+| Việc                               | Cách làm                                                                                                                   |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Bật mock                           | `NEXT_PUBLIC_USE_MOCK=true` (trong `apps/web/.env.development.local`) rồi chạy lại `next dev`                              |
+| Tắt mock (gọi backend thật)        | Đặt `NEXT_PUBLIC_USE_MOCK=false` (hoặc xóa biến) và đặt `NEXT_PUBLIC_API_URL`; **không sửa code giao diện**                |
+| Khôi phục dữ liệu mẫu              | Mở URL bất kỳ kèm `?resetMock=1` (vd. `http://localhost:3000/?resetMock=1`) hoặc Admin → Cài đặt → "Khôi phục dữ liệu mẫu" |
+| Giả lập lỗi / độ trễ               | Admin → Cài đặt → "Dữ liệu giả lập" (bật lỗi GET, tỉ lệ lỗi ngẫu nhiên, tắt độ trễ 200–500ms)                              |
+| Giả lập thanh toán online thất bại | Khi đặt hàng, ghi chú đơn hàng có chứa `[fail]` → chuyển tới `/checkout/failed`                                            |
 
 Mọi thay đổi (giỏ hàng, đơn hàng, CRUD admin…) được **lưu vào `localStorage`** (`aurelia-mock-db-v5`).
 
 ## Tài khoản test
 
-| Vai trò | Email | Mật khẩu | Ghi chú |
-|---|---|---|---|
-| Khách hàng | `khachhang@aurelia.vn` | `123456` | Có sẵn giỏ hàng (3 SP), 9 đơn đủ trạng thái, 9 mã giảm giá, 16+ thông báo, yêu thích |
-| Doanh nghiệp (admin) | `admin@aurelia.vn` | `admin123` | Vào `/admin` (đăng nhập tại `/admin/login`) |
-| Quên mật khẩu | – | liên kết đặt lại | Mock trả thêm `devResetLink` để thử không cần email; API thật gửi liên kết `/reset-password?token=…` qua email (không còn OTP). Mật khẩu mới phải ≥ 8 ký tự có chữ hoa, chữ thường, chữ số |
+| Vai trò              | Email                  | Mật khẩu         | Ghi chú                                                                                                                                                                                    |
+| -------------------- | ---------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Khách hàng           | `khachhang@aurelia.vn` | `123456`         | Có sẵn giỏ hàng (3 SP), 9 đơn đủ trạng thái, 9 mã giảm giá, 16+ thông báo, yêu thích                                                                                                       |
+| Doanh nghiệp (admin) | `admin@aurelia.vn`     | `admin123`       | Vào `/admin` (đăng nhập tại `/admin/login`)                                                                                                                                                |
+| Quên mật khẩu        | –                      | liên kết đặt lại | Mock trả thêm `devResetLink` để thử không cần email; API thật gửi liên kết `/reset-password?token=…` qua email (không còn OTP). Mật khẩu mới phải ≥ 8 ký tự có chữ hoa, chữ thường, chữ số |
 
 Ngoài ra có 32 khách hàng khác (mật khẩu `123456`), trong đó 3 tài khoản tạm khóa và 1 tài khoản bị cấm (đăng nhập sẽ báo lỗi). Hệ thống **chỉ có 2 vai trò** `admin` (Doanh nghiệp) và `user` (Khách hàng) – không có nhân viên.
 
@@ -51,29 +51,29 @@ mock-data/
 
 ## Các bảng (khớp tên bảng và tên trường `packages/shared-types`)
 
-| File | Số bản ghi (≈) | Ghi chú |
-|---|---|---|
-| `roles`, `user_roles`, `users` | 2 / 34 / 34 | 1 admin + 33 khách; trạng thái `active|suspended|banned` |
-| `addresses` | 60+ | 1–3 địa chỉ/khách, đúng 1 mặc định |
-| `categories` | 22 | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá |
-| `brands`, `attributes`, `attribute_values` | 6 / 3 / 30 | màu (kèm mã hex), kích thước, chất liệu |
-| `products`, `product_variants`, `variant_attribute_values`, `product_images` | 52 / 200+ | giá gốc/sale, tồn kho (có hết hàng/sắp hết), 4–5 ảnh/SP |
-| `product_3d_models`, `model_files` | 30+ | GLB thật dùng được; vài bản ghi USDZ giữ chỗ (hệ thống chỉ nhận GLB, USDZ ⇒ 415; AR đã loại bỏ) |
-| `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`, `space_bookmarks`, `space_views` | 24 / 48 / … | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId) |
-| `carts`, `cart_items`, `wishlists` | | giỏ hàng/yêu thích cho tài khoản test |
-| `coupons`, `coupon_usages` | 14 / … | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc |
-| `orders`, `order_items`, `order_status_history`, `payments`, `shipments` | 74 / … | tháng 01–11/2026, đủ mọi trạng thái + phương thức, tổng tiền tính đúng |
-| `inventory_movements` | | nhập − bán + trả = tồn kho hiện tại |
-| `reviews` | 80+ | chỉ gắn đơn đã giao; có chờ duyệt / bị ẩn |
-| `notifications`, `activity_logs` | 16+ (khách test) / 25+ | |
-| `pages`, `settings` | 7 / 3 | Về chúng tôi + 6 chính sách; cửa hàng, thanh toán, phí vận chuyển |
-| **Bảng mở rộng** (đã có trong DB/API: xem `docs/DATABASE_SCHEMA.md` nhóm 8; riêng `suppliers` chỉ có ở mock, BE lưu tên nhà cung cấp dạng chữ trong `stock_receipts`) | | |
-| `return_requests` | 13 | đổi trả đủ trạng thái |
-| `product_questions` | 34 | hỏi đáp: chưa trả lời / đã trả lời / ẩn |
-| `user_coupons` | | mã giảm giá đã lưu của khách (chưa dùng / đã dùng / hết hạn) |
-| `banners`, `posts`, `faq_topics` | 7 / 7 / 6 | nội dung |
-| `suppliers`, `stock_receipts`, `expenses` | 5 / 16 / 60+ | kho & thu chi |
-| `review_extras`, `product_extras` | | ảnh/chip đánh giá; phong cách, giá vốn, đặc điểm, thông số SP |
+| File                                                                                                                                                                  | Số bản ghi (≈)         | Ghi chú                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `roles`, `user_roles`, `users`                                                                                                                                        | 2 / 34 / 34            | 1 admin + 33 khách; trạng thái `active                                                          | suspended | banned` |
+| `addresses`                                                                                                                                                           | 60+                    | 1–3 địa chỉ/khách, đúng 1 mặc định                                                              |
+| `categories`                                                                                                                                                          | 22                     | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá                                                        |
+| `brands`, `attributes`, `attribute_values`                                                                                                                            | 6 / 3 / 30             | màu (kèm mã hex), kích thước, chất liệu                                                         |
+| `products`, `product_variants`, `variant_attribute_values`, `product_images`                                                                                          | 52 / 200+              | giá gốc/sale, tồn kho (có hết hàng/sắp hết), 4–5 ảnh/SP                                         |
+| `product_3d_models`, `model_files`                                                                                                                                    | 30+                    | GLB thật dùng được; vài bản ghi USDZ giữ chỗ (hệ thống chỉ nhận GLB, USDZ ⇒ 415; AR đã loại bỏ) |
+| `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`, `space_bookmarks`, `space_views`                                                           | 24 / 48 / …            | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId)                          |
+| `carts`, `cart_items`, `wishlists`                                                                                                                                    |                        | giỏ hàng/yêu thích cho tài khoản test                                                           |
+| `coupons`, `coupon_usages`                                                                                                                                            | 14 / …                 | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc                           |
+| `orders`, `order_items`, `order_status_history`, `payments`, `shipments`                                                                                              | 74 / …                 | tháng 01–11/2026, đủ mọi trạng thái + phương thức, tổng tiền tính đúng                          |
+| `inventory_movements`                                                                                                                                                 |                        | nhập − bán + trả = tồn kho hiện tại                                                             |
+| `reviews`                                                                                                                                                             | 80+                    | chỉ gắn đơn đã giao; có chờ duyệt / bị ẩn                                                       |
+| `notifications`, `activity_logs`                                                                                                                                      | 16+ (khách test) / 25+ |                                                                                                 |
+| `pages`, `settings`                                                                                                                                                   | 7 / 3                  | Về chúng tôi + 6 chính sách; cửa hàng, thanh toán, phí vận chuyển                               |
+| **Bảng mở rộng** (đã có trong DB/API: xem `docs/DATABASE_SCHEMA.md` nhóm 8; riêng `suppliers` chỉ có ở mock, BE lưu tên nhà cung cấp dạng chữ trong `stock_receipts`) |                        |                                                                                                 |
+| `return_requests`                                                                                                                                                     | 13                     | đổi trả đủ trạng thái                                                                           |
+| `product_questions`                                                                                                                                                   | 34                     | hỏi đáp: chưa trả lời / đã trả lời / ẩn                                                         |
+| `user_coupons`                                                                                                                                                        |                        | mã giảm giá đã lưu của khách (chưa dùng / đã dùng / hết hạn)                                    |
+| `banners`, `posts`, `faq_topics`                                                                                                                                      | 7 / 7 / 6              | nội dung                                                                                        |
+| `suppliers`, `stock_receipts`, `expenses`                                                                                                                             | 5 / 16 / 60+           | kho & thu chi                                                                                   |
+| `review_extras`, `product_extras`                                                                                                                                     |                        | ảnh/chip đánh giá; phong cách, giá vốn, đặc điểm, thông số SP                                   |
 
 Các số tổng hợp (doanh thu, số đơn theo trạng thái, top bán chạy, KPI dashboard, báo cáo thu chi, rating, đã bán, lượt dùng coupon) **được tính ra từ dữ liệu** (xem `mockApi/admin.ts`, `db.ts → recomputeAggregates`), không gõ cứng.
 
