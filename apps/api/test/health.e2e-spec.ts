@@ -5,6 +5,7 @@ import { IsEmail, IsInt, Min } from 'class-validator';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { PrismaService } from '../src/prisma/prisma.service';
 import { CurrentUser, Roles, type RequestUser } from '../src/common/decorators/auth.decorators';
 
 class ProbeDto {
@@ -39,6 +40,10 @@ class ProbeController {
 describe('Foundation (e2e)', () => {
   let app: INestApplication;
   let jwt: JwtService;
+  let prisma: PrismaService;
+  // JwtAuthGuard đọc người dùng và vai trò từ DB mỗi request (không tin vai trò trong JWT): test tự tạo user thật, không dựa vào dữ liệu seed
+  let userId = 0;
+  let adminId = 0;
 
   const tokenFor = (id: number, roles: string[]) =>
     jwt.sign({ sub: id, roles }, { secret: process.env.JWT_ACCESS_SECRET, expiresIn: '5m' });
@@ -52,9 +57,23 @@ describe('Foundation (e2e)', () => {
     setupApp(app);
     await app.init();
     jwt = app.get(JwtService);
+    prisma = app.get(PrismaService);
+    const stamp = Date.now();
+    userId = (
+      await prisma.user.create({
+        data: { fullName: 'Probe user', email: `probe-user-${stamp}@test.local`, passwordHash: 'x' },
+      })
+    ).id; // vai trò `user` do trigger DB gán
+    const admin = await prisma.user.create({
+      data: { fullName: 'Probe admin', email: `probe-admin-${stamp}@test.local`, passwordHash: 'x' },
+    });
+    adminId = admin.id;
+    const role = await prisma.role.findUniqueOrThrow({ where: { code: 'admin' } });
+    await prisma.userRole.create({ data: { userId: adminId, roleId: role.id } });
   });
 
   afterAll(async () => {
+    await prisma.user.deleteMany({ where: { id: { in: [userId, adminId] } } });
     await app.close();
   });
 
@@ -99,21 +118,21 @@ describe('Foundation (e2e)', () => {
   it('token hợp lệ -> @CurrentUser trả đúng user, bọc trong data', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/probe/me')
-      .set('Authorization', `Bearer ${tokenFor(7, ['user'])}`)
+      .set('Authorization', `Bearer ${tokenFor(userId, ['user'])}`)
       .expect(200);
-    expect(res.body).toEqual({ success: true, data: { id: 7, roles: ['user'] } });
+    expect(res.body).toEqual({ success: true, data: { id: userId, roles: ['user'] } });
   });
 
   it('@Roles("admin"): user -> 403 FORBIDDEN, admin -> 200', async () => {
     const asUser = await request(app.getHttpServer())
       .get('/api/probe/admin')
-      .set('Authorization', `Bearer ${tokenFor(7, ['user'])}`)
+      .set('Authorization', `Bearer ${tokenFor(userId, ['user'])}`)
       .expect(403);
     expect(asUser.body.error.code).toBe('FORBIDDEN');
 
     await request(app.getHttpServer())
       .get('/api/probe/admin')
-      .set('Authorization', `Bearer ${tokenFor(1, ['admin'])}`)
+      .set('Authorization', `Bearer ${tokenFor(adminId, ['admin'])}`)
       .expect(200);
   });
 });
