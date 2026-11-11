@@ -27,6 +27,14 @@ async function ensureBucket(s3: S3Client, bucket: string, isPublic: boolean) {
 
 export default async function globalSetup() {
   execSync('npx prisma migrate deploy', { cwd: __dirname + '/..', stdio: 'inherit', env: process.env });
+  // Dữ liệu BẮT BUỘC (vai trò admin/user, 6 quyền, role_permissions, cấu hình, tài khoản admin) không nằm trong migration mà ở seed.
+  // JwtAuthGuard đọc vai trò từ user_roles và PermissionsGuard đọc role_permissions, nên DB trống (như CI) làm mọi route cần quyền trả 401/403.
+  // SEED_SAMPLE=false: chỉ phần bắt buộc, idempotent (chạy lại trên DB đã có dữ liệu mẫu không đổi gì, không nhân đôi).
+  execSync('npx ts-node --transpile-only prisma/seed.ts', {
+    cwd: __dirname + '/..',
+    stdio: 'inherit',
+    env: { ...process.env, SEED_SAMPLE: 'false' },
+  });
 
   const s3 = new S3Client({
     endpoint: process.env.S3_ENDPOINT,
