@@ -7,7 +7,7 @@
 // Tùy chọn: E2E_ONLY=admin-m3 (chạy một nhóm theo tên), E2E_API_PORT, E2E_WEB_PORT, SKIP_BUILD=1
 import { spawn, spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
@@ -80,6 +80,11 @@ function keepEvidence(group) {
   console.log(`\n[e2e-real] ❌ nhóm ${group} fail. Bằng chứng: ${dst}`);
   for (const t of traces) console.log(`[e2e-real]   trace: npx playwright show-trace ${t}`);
   console.log(`[e2e-real]   log response >= 400 của API: ${apiErrorLog}`);
+  // in thẳng 40 dòng cuối vào log của job để xem được ngay cả khi không tải được artifact
+  if (existsSync(apiErrorLog)) {
+    const tail = readFileSync(apiErrorLog, 'utf8').trim().split('\n').slice(-40).join('\n');
+    if (tail) console.log(`[e2e-real]   40 dòng cuối api-errors.log:\n${tail}`);
+  }
 }
 
 function killPort(port) {
