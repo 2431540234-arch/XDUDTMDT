@@ -92,6 +92,7 @@ jobs:
           path: |
             .e2e-logs/
             apps/web/test-results/
+          include-hidden-files: true # .e2e-logs là thư mục ẩn, mặc định upload-artifact bỏ qua
           if-no-files-found: ignore
           retention-days: 7
       - name: Build (shared-types, api, web)
