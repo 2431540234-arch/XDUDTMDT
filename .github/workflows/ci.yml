@@ -70,7 +70,18 @@ jobs:
         run: npm run test
       - name: Cài trình duyệt cho Playwright (đúng phiên bản của apps/web)
         run: npx -w @aurelia-living/web playwright install --with-deps chromium
-      - name: E2E test (PostgreSQL service + Playwright)
-        run: npm run test:e2e
+      - name: E2E API (Jest + PostgreSQL, Redis, MinIO, Mailpit)
+        run: npm run test:e2e:api
+      # Playwright chạy với API THẬT (script tự build API, reset aurelia_test, chạy từng nhóm spec). Các spec ở tests/e2e
+      # kiểm luồng ghi dữ liệu nên cần backend; chế độ dữ liệu giả (npm run test:e2e) không chạy được chúng.
+      - name: E2E Playwright (API thật)
+        run: npm run test:e2e:real
+        env:
+          POSTGRES_PORT: 5433
+          PG_HOST: 127.0.0.1
+          JWT_ACCESS_SECRET: ci-only-access-secret-0123456789
+          JWT_REFRESH_SECRET: ci-only-refresh-secret-0123456789
+          REDIS_HOST: 127.0.0.1
+          S3_ENDPOINT: http://127.0.0.1:9000
       - name: Build (shared-types, api, web)
         run: npm run build
