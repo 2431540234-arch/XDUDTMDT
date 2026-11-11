@@ -2342,7 +2342,7 @@ Lưu ý khi dùng Prisma Client:
 
 - Đối chiếu với `apps/api/prisma/schema.prisma` (59 model, 25 enum, 86 quan hệ khóa ngoại): thêm nhóm 8 (17 bảng mở rộng, từ điển cột), mục 5.9–5.10 (ERD Mermaid sinh từ schema), STT 45–61 ở bảng ánh xạ Prisma. `prisma migrate diff` giữa migration và schema rỗng (không lệch) trên `aurelia_test`.
 - AR đã loại bỏ hoàn toàn khỏi schema (migration `20261109010100_remove_ar`); giá trị `usdz` của enum `model_file_format` được giữ để không xóa dữ liệu cũ, code chỉ nhận GLB.
-- `aurelia_dev` **chưa** áp migration `remove_ar` (cần quyết định riêng, có sao lưu).
+- `aurelia_dev` đã áp migration `remove_ar` ngày 2026-11-11 (đã sao lưu trước; `migrate status` sạch, `migrate diff` rỗng).
 
 ## 9. Quyết định đã chốt và điểm còn vướng
 

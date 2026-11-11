@@ -74,7 +74,7 @@ API **không khởi động** nếu cấu hình sai (`apps/api/src/config/env.va
 npm run db:deploy        # prisma migrate deploy (áp các migration chưa áp)
 ```
 
-- Trên DB đã có dữ liệu (ví dụ `aurelia_dev`): **sao lưu trước** (`pg_dump`). Migration `20261109010100_remove_ar` **xóa** dữ liệu AR (phiên AR, ảnh chụp AR, cờ `has_ar`, tệp usdz): đọc [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) mục 8.x và xin phép trước khi áp lên DB có dữ liệu thật.
+- Trên DB đã có dữ liệu (ví dụ `aurelia_dev`): **sao lưu trước** (`pg_dump`). Migration `20261109010100_remove_ar` **xóa** dữ liệu AR (bảng `ar_sessions`, `ar_snapshots`, cột `products.has_ar`; các dòng `model_files` định dạng usdz KHÔNG bị xóa): đọc [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) mục 8.x và xin phép trước khi áp lên DB có dữ liệu thật.
 - Kiểm tra lệch schema: `cd apps/api && npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script` (đầu ra rỗng = khớp).
 - Không chạy `npm run db:reset` hoặc `scripts/db-reset.mjs` trên DB thật (script chỉ chấp nhận `aurelia_demo`/`aurelia_test`).
 
