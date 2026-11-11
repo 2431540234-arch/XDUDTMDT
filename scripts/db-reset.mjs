@@ -20,10 +20,20 @@ const pgHost = process.env.PG_HOST ?? 'localhost'; // đặt PG_HOST=127.0.0.1 n
 const url = `postgresql://aurelia:aurelia@${pgHost}:${hostPort}/${name}?schema=public`;
 const port = process.env.API_PORT ?? '4000';
 
+// Mặc định chạy SQL bằng `docker exec` vào container Postgres của docker-compose (máy dev).
+// Trong CI (biến CI=true) hoặc khi đặt DB_RESET_VIA=prisma: chạy qua Prisma (scripts/sql-exec.cjs) vì Postgres là service container
+// không có tên cố định để `docker exec`; kết nối theo PG_HOST và POSTGRES_PORT.
+const viaPrisma =
+  process.env.DB_RESET_VIA === 'prisma' || (Boolean(process.env.CI) && process.env.DB_RESET_VIA !== 'docker');
 const psql = (db, sql) =>
-  execFileSync('docker', ['exec', container, 'psql', '-U', 'aurelia', '-d', db, '-At', '-c', sql], {
-    encoding: 'utf8',
-  }).trim();
+  viaPrisma
+    ? execFileSync(process.execPath, [resolve(import.meta.dirname, 'sql-exec.cjs'), db, sql], {
+        encoding: 'utf8',
+        env: { ...process.env, POSTGRES_PORT: hostPort, PG_HOST: pgHost },
+      }).trim()
+    : execFileSync('docker', ['exec', container, 'psql', '-U', 'aurelia', '-d', db, '-At', '-c', sql], {
+        encoding: 'utf8',
+      }).trim();
 
 function count(db) {
   const rows = psql(

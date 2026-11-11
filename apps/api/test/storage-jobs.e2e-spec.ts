@@ -28,6 +28,7 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
   let adminToken: string;
   let userToken: string;
   let adminId: number;
+  let userId: number;
   let productId: number;
   const publicBase = () => process.env.STORAGE_PUBLIC_URL as string;
 
@@ -63,10 +64,18 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
       data: { fullName: 'Admin test', email: `admin-${Date.now()}@test.local`, passwordHash: 'x' },
     });
     adminId = admin.id;
+    // Vai trò lấy từ user_roles (JwtAuthGuard đọc DB mỗi request): gán admin thật; quyền manage_products có từ role_permissions (seed bắt buộc)
+    const adminRole = await prisma.role.findUniqueOrThrow({ where: { code: 'admin' } });
+    await prisma.userRole.create({ data: { userId: adminId, roleId: adminRole.id } });
+    // người dùng thường RIÊNG (trước đây dùng chung id với admin và chỉ khác vai trò trong JWT)
+    const normal = await prisma.user.create({
+      data: { fullName: 'User test', email: `user-${Date.now()}@test.local`, passwordHash: 'x' },
+    });
+    userId = normal.id;
     const sign = (sub: number, roles: string[]) =>
       jwt.sign({ sub, roles }, { secret: process.env.JWT_ACCESS_SECRET, expiresIn: '10m' });
     adminToken = sign(adminId, ['admin']);
-    userToken = sign(adminId, ['user']);
+    userToken = sign(userId, ['user']);
     productId = (await prisma.product.create({ data: { name: 'SP test', slug: `sp-test-${Date.now()}` } }))
       .id;
   });
@@ -177,7 +186,14 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
   });
 
   it('ảnh thường vượt UPLOAD_MAX_IMAGE_MB bị 413; sai định dạng bị 415', async () => {
-    const big = Buffer.alloc(6 * 1024 * 1024, 1);
+    // MediaService kiểm tra CHỮ KÝ tệp trước dung lượng (415 cho nội dung giả mạo): tệp quá lớn phải có chữ ký JPEG hợp lệ để chạm tới nhánh 413
+    const big = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(6 * 1024 * 1024, 1)]);
+    const fake = Buffer.alloc(6 * 1024 * 1024, 1); // khai báo JPEG nhưng không có chữ ký JPEG ⇒ 415, không phải 413
+    await request(app.getHttpServer())
+      .post('/api/admin/media')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', fake, { filename: 'fake.jpg', contentType: 'image/jpeg' })
+      .expect(415);
     const tooBig = await request(app.getHttpServer())
       .post('/api/admin/media')
       .set('Authorization', `Bearer ${adminToken}`)
