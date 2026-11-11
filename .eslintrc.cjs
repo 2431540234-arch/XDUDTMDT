@@ -19,7 +19,7 @@ module.exports = {
       rules: { '@typescript-eslint/no-var-requires': 'off', 'no-console': 'off' },
     },
     {
-      files: ['**/*.spec.ts', '**/*.e2e-spec.ts', 'apps/api/prisma/seed.ts'],
+      files: ['**/*.spec.ts', '**/*.e2e-spec.ts', 'apps/api/prisma/seed*.ts'],
       rules: { 'no-console': 'off', '@typescript-eslint/no-explicit-any': 'off' },
     },
     { files: ['apps/api/src/main.ts'], rules: { 'no-console': 'off' } },

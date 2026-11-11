@@ -1,10 +1,25 @@
-// M06 – Danh mục, thương hiệu, thuộc tính, trang tĩnh. Trang tĩnh
-// Controller – UC-CAT-05
-// Bảng: pages
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
-import { Controller } from '@nestjs/common';
+// M06 – Trang tĩnh & chính sách (công khai): GET /pages?type=policy, GET /pages/:slug. Bảng: pages
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { Public } from '../../common/decorators/auth.decorators';
+import { ContentService } from './content.service';
 
 @ApiTags('pages')
 @Controller('pages')
-export class PagesController {}
+export class PagesController {
+  constructor(private readonly content: ContentService) {}
+
+  @Public()
+  @Get()
+  list(@Query('type') type?: string) {
+    // FE chỉ dùng type=policy để dựng menu chính sách
+    void type;
+    return this.content.policies();
+  }
+
+  @Public()
+  @Get(':slug')
+  bySlug(@Param('slug') slug: string) {
+    return this.content.pageBySlug(slug);
+  }
+}

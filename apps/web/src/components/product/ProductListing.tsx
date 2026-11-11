@@ -7,6 +7,7 @@ import Breadcrumb from '@/components/ui/Breadcrumb';
 import { EmptyState, ErrorState, ProductGridSkeleton } from '@/components/ui/States';
 import { LinkButton } from '@/components/ui/Button';
 import Pagination from '@/components/ui/Pagination';
+import { useHydrated } from '@/hooks/useHydrated';
 import { useQueryParams } from '@/hooks/useQueryParams';
 import { useCategories, useProductFacets, useProducts } from '@/hooks/useProducts';
 import { cn } from '@/lib/cn';
@@ -44,10 +45,14 @@ export default function ProductListing({ mode }: { mode: 'list' | 'search' }) {
   const products = useProducts(params as never, mode);
   const facets = useProductFacets({ q: mode === 'search' ? q : undefined } as never);
   const cats = useCategories();
+  // Lần render đầu ở client phải giống HTML máy chủ (máy chủ không có dữ liệu danh mục): chỉ dùng danh mục sau khi hydrate.
+  // Nếu không, khi Header (ngoài <Suspense>) nạp xong ['categories'] trước lúc nội dung này hydrate thì breadcrumb/tiêu đề lệch.
+  const hydrated = useHydrated();
+  const catData = hydrated ? cats.data : undefined;
 
   const currentCat =
     filter.category.length === 1
-      ? (cats.data?.flatMap((c) => [c, ...c.children]).find((c) => c.slug === filter.category[0]) ?? null)
+      ? (catData?.flatMap((c) => [c, ...c.children]).find((c) => c.slug === filter.category[0]) ?? null)
       : null;
   const total = products.data?.meta.total ?? 0;
 
@@ -91,7 +96,7 @@ export default function ProductListing({ mode }: { mode: 'list' | 'search' }) {
                 </p>
                 <p className="mt-2 max-w-xl text-sm text-muted">
                   {currentCat?.description ??
-                    'Bộ sưu tập nội thất hiện đại, chất liệu chọn lọc, hỗ trợ xem 3D/AR trước khi mua.'}
+                    'Bộ sưu tập nội thất hiện đại, chất liệu chọn lọc, hỗ trợ xem 3D trước khi mua.'}
                 </p>
               </>
             )}

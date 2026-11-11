@@ -1,2 +1,2 @@
-// Banner – TODO: chưa có trong DB
+// Banner
 export { banners } from './_content_gen';

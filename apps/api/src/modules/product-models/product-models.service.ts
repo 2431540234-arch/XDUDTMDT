@@ -4,16 +4,17 @@
 import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { ErrorCode, type ModelProcessingAccepted, type PresignedUpload } from '@aurelia-living/shared-types';
+import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { AppConfig } from '../../config/app-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../storage/storage.service';
 import { JobsService } from '../jobs/jobs.service';
+import { ONLY_GLB_MESSAGE } from './model-file-validator';
 import type { ConfirmModelFileDto, PresignModelFileDto } from './dto/model-file.dto';
 
 const FORMATS = {
   glb: { mime: 'model/gltf-binary', ext: 'glb' },
-  usdz: { mime: 'model/vnd.usdz+zip', ext: 'usdz' },
 } as const;
 
 @Injectable()
@@ -22,6 +23,7 @@ export class ProductModelsService {
     private readonly prisma: PrismaService,
     private readonly config: AppConfig,
     private readonly jobs: JobsService,
+    private readonly activity: ActivityLogService,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
   ) {}
 
@@ -36,6 +38,7 @@ export class ProductModelsService {
   }
 
   async presignFile(modelId: number, dto: PresignModelFileDto): Promise<PresignedUpload> {
+    if (dto.format !== 'glb') throw new AppException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ONLY_GLB_MESSAGE);
     await this.requireModel(modelId);
     if (dto.size > this.maxBytes) {
       throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, `Tệp vượt quá ${this.maxBytes / 1024 / 1024} MB.`, {
@@ -59,6 +62,7 @@ export class ProductModelsService {
     dto: ConfirmModelFileDto,
     adminId: number,
   ): Promise<ModelProcessingAccepted> {
+    if (dto.format !== 'glb') throw new AppException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ONLY_GLB_MESSAGE);
     await this.requireModel(modelId);
     if (!dto.key.startsWith(`models/incoming/${modelId}/`) || dto.key.includes('..')) {
       throw new AppException(ErrorCode.BAD_REQUEST, 'Khóa tệp không hợp lệ.');
@@ -71,7 +75,26 @@ export class ProductModelsService {
       throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, `Tệp vượt quá ${this.maxBytes / 1024 / 1024} MB.`);
     }
 
-    await this.prisma.product3DModel.update({ where: { id: modelId }, data: { status: 'processing' } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.product3DModel.update({ where: { id: modelId }, data: { status: 'processing' } });
+      // lưu khóa tệp gốc để có thể xử lý lại (POST /admin/models/:id/reprocess)
+      await this.activity.log(
+        {
+          actorId: adminId,
+          action: 'model.upload',
+          targetType: 'product3dmodel',
+          targetId: modelId,
+          changes: {
+            fileName: dto.fileName,
+            format: dto.format,
+            lod: dto.lod ?? 'high',
+            sizeBytes: info.size,
+            sourceKey: dto.key,
+          },
+        },
+        tx,
+      );
+    });
     const jobId = await this.jobs.enqueueModel({
       modelId,
       format: dto.format,

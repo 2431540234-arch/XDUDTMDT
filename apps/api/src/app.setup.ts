@@ -3,6 +3,8 @@ import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
+import { errorResponseLog } from './common/middleware/error-response-log.middleware';
+import { requestId } from './common/middleware/request-id.middleware';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 import { AppConfig } from './config/app-config.service';
 
@@ -11,9 +13,13 @@ export function setupApp(app: INestApplication) {
 
   // /health nằm ngoài prefix để load balancer/docker healthcheck gọi gọn
   app.setGlobalPrefix('api', { exclude: ['health', 'admin/queues', 'admin/queues/(.*)'] });
+  app.use(requestId);
+  // điều tra e2e: ghi mọi response >= 400 ra tệp (chỉ khi đặt biến môi trường)
+  if (process.env.HTTP_ERROR_LOG_FILE) app.use(errorResponseLog(process.env.HTTP_ERROR_LOG_FILE));
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.use(json({ limit: '1mb' }));
-  app.use(urlencoded({ extended: true, limit: '1mb' }));
+  // Giới hạn rộng hơn mặc định: FE gửi ảnh dạng data-URL base64 trong body (ảnh ≤ 5MB, frame 360 ≤ 2MB)
+  app.use(json({ limit: '25mb' }));
+  app.use(urlencoded({ extended: true, limit: '25mb' }));
   app.enableCors({
     origin: config
       .get('CORS_ORIGINS')

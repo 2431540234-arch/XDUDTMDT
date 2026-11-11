@@ -9,14 +9,20 @@ import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import Input, { Checkbox } from '@/components/ui/Input';
 import { cn } from '@/lib/cn';
-import { applyApiErrors, errorMessage, passwordChecks } from '@/lib/validators';
+import {
+  PASSWORD_POLICY_MESSAGE,
+  applyApiErrors,
+  errorMessage,
+  isStrongPassword,
+  passwordChecks,
+} from '@/lib/validators';
 import { userApi } from '@/services/auth.api';
 import { toast } from '@/store/uiStore';
 
 const schema = z
   .object({
     currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại.'),
-    newPassword: z.string().min(8, 'Mật khẩu mới tối thiểu 8 ký tự.'),
+    newPassword: z.string().refine(isStrongPassword, PASSWORD_POLICY_MESSAGE),
     confirm: z.string().min(1, 'Vui lòng xác nhận mật khẩu mới.'),
     logoutOthers: z.boolean().optional(),
   })
@@ -37,6 +43,7 @@ export default function ChangePasswordPage() {
       userApi.changePassword({
         currentPassword: v.currentPassword,
         newPassword: v.newPassword,
+        confirmPassword: v.confirm,
         logoutOthers: v.logoutOthers,
       }),
     onSuccess: () => {

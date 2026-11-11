@@ -22,7 +22,6 @@ export interface ProductQuery extends Query {
   material?: string[];
   style?: string[];
   has3d?: boolean;
-  hasAr?: boolean;
   featured?: boolean;
   sort?: string;
   page?: number;
@@ -32,12 +31,12 @@ export interface ProductQuery extends Query {
 export const productApi = {
   list: (q: ProductQuery) => http.list<ProductListItem>('/products', q),
   search: (q: ProductQuery) => http.list<ProductListItem>('/products/search', q),
-  facets: (q: ProductQuery) => http.get<ProductFacets>('/products/facets', q), // TODO: chưa có trong BE
+  facets: (q: ProductQuery) => http.get<ProductFacets>('/products/facets', q),
   detail: (slug: string) => http.get<ProductDetail>(`/products/${slug}`),
   model: (slug: string) => http.get<Model3DView | null>(`/products/${slug}/model`),
-  /** Dữ liệu xem 360° (ảnh theo màu, biến thể, chính sách) – TODO: chưa có trong BE */
+  /** Dữ liệu xem 360° (ảnh theo màu, biến thể, chính sách) */
   view360: (slug: string) => http.get<Product360Data>(`/products/${slug}/360`),
-  related: (slug: string) => http.get<ProductListItem[]>(`/products/${slug}/related`), // TODO: chưa có trong BE
+  related: (slug: string) => http.get<ProductListItem[]>(`/products/${slug}/related`),
   reviews: (slug: string, q: { page?: number; rating?: number } = {}) =>
     http.list<ReviewView>(`/products/${slug}/reviews`, q),
   createReview: (
@@ -51,7 +50,7 @@ export const productApi = {
       anonymous?: boolean;
     },
   ) => http.post<ReviewView>(`/products/${slug}/reviews`, body),
-  questions: (slug: string) => http.get<ProductQuestion[]>(`/products/${slug}/questions`), // TODO: chưa có trong BE
+  questions: (slug: string) => http.get<ProductQuestion[]>(`/products/${slug}/questions`),
   askQuestion: (slug: string, content: string) =>
     http.post<ProductQuestion>(`/products/${slug}/questions`, { content }),
 };
@@ -61,7 +60,7 @@ export const categoryApi = {
 };
 
 export const brandApi = {
-  list: () => http.get<Array<{ id: number; name: string; slug: string }>>('/brands'), // TODO: chưa có trong BE (có /admin/brands)
+  list: () => http.get<Array<{ id: number; name: string; slug: string }>>('/brands'),
 };
 
 export const wishlistApi = {

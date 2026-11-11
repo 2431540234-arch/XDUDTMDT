@@ -1,22 +1,44 @@
-// Logic xử lý mô hình 3D, KHÔNG phụ thuộc BullMQ/HTTP (để processor tách sang apps/worker mà không sửa).
+// Logic xử lý mô hình 3D (UC-ADM-13), KHÔNG phụ thuộc BullMQ/HTTP (để processor tách sang apps/worker mà không sửa).
 import { createHash } from 'node:crypto';
 import { basename, extname } from 'node:path';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ActivityLogService } from '../../../activity-log/activity-log.service';
+import { CatalogCache } from '../../../cache/catalog-cache';
+import { AppConfig } from '../../../config/app-config.service';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../../storage/storage.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import type { LodName, ModelJobData } from '../jobs.constants';
-import { buildLod, measure, readGlb } from './glb-tools';
+import { buildLod, measure, readGlb, type LodOutput } from './glb-tools';
 
 /** Lỗi do dữ liệu đầu vào (tệp hỏng...): thử lại cũng vô ích nên không retry. */
 export class InvalidModelFileError extends Error {}
+/** LOD vượt ngưỡng dung lượng cho web (D-N21): chạy lại cũng cho kết quả y hệt nên không retry. */
+export class ModelTooLargeError extends InvalidModelFileError {}
 
 export interface ModelProcessingResult {
   modelId: number;
   files: { format: 'glb' | 'usdz'; lod: LodName; key: string; polygonCount: number | null }[];
 }
 
+interface FileToSave {
+  format: 'glb' | 'usdz';
+  lod: LodName;
+  key: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  polygonCount: number | null;
+  textureResolution: number | null;
+  isCompressed: boolean;
+  checksum: string;
+}
+
 const sha256 = (buf: Buffer) => createHash('sha256').update(buf).digest('hex');
 const LODS: LodName[] = ['high', 'medium', 'low'];
+const stemOf = (fileName: string) =>
+  basename(fileName, extname(fileName)).replace(/[^a-zA-Z0-9_-]/g, '-') || 'model';
+const mb = (bytes: number) => Math.round((bytes / 1024 / 1024) * 10) / 10;
 
 @Injectable()
 export class ModelProcessingService {
@@ -24,6 +46,10 @@ export class ModelProcessingService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly config: AppConfig,
+    private readonly activity: ActivityLogService,
+    private readonly notifications: NotificationsService,
+    private readonly cache: CatalogCache,
     @Inject(STORAGE_SERVICE) private readonly storage: StorageService,
   ) {}
 
@@ -31,126 +57,145 @@ export class ModelProcessingService {
     const model = await this.prisma.product3DModel.findUnique({ where: { id: data.modelId } });
     if (!model) throw new InvalidModelFileError(`Không tìm thấy mô hình ${data.modelId}.`);
 
+    // AR ngoài phạm vi (D-P11): chỉ xử lý GLB; job USDZ cũ còn sót trong hàng đợi bị loại, không retry
+    if (data.format !== 'glb') throw new InvalidModelFileError('Hệ thống chỉ hỗ trợ tệp GLB');
     const source = await this.storage.download(data.sourceKey, 'private');
-    const result =
-      data.format === 'glb' ? await this.processGlb(data, source) : await this.processUsdz(data, source);
+    const files = await this.prepareGlb(data, source);
 
-    await this.prisma.product3DModel.update({ where: { id: data.modelId }, data: { status: 'ready' } });
-    this.logger.log(`Mô hình ${data.modelId} (${data.format}) xử lý xong: ${result.files.length} tệp.`);
-    return result;
+    // Tệp lên kho trước, bản ghi CSDL sau: nếu giữa chừng lỗi thì chưa có bản ghi nào trỏ tới tệp thiếu
+    for (const f of files) {
+      await this.storage.upload({ key: f.key, body: f.body, contentType: f.mimeType, visibility: 'public' });
+    }
+    const replaced = await this.saveAll(data, files);
+    await this.cache.invalidateProducts(); // mô hình đã ready: chi tiết sản phẩm cache phải có mô hình mới
+    // Dọn tệp của lần tải lên trước (tên khác) mà không còn bản ghi nào dùng
+    for (const key of replaced) await this.storage.delete(key, 'public').catch(() => undefined);
+
+    this.logger.log(`Mô hình ${data.modelId} (${data.format}) xử lý xong: ${files.length} tệp.`);
+    return {
+      modelId: data.modelId,
+      files: files.map((f) => ({ format: f.format, lod: f.lod, key: f.key, polygonCount: f.polygonCount })),
+    };
   }
 
-  /** Gọi khi job thất bại hẳn (hết lần thử hoặc lỗi không thể retry). */
-  async markFailed(modelId: number, reason: string): Promise<void> {
-    const readyFiles = await this.prisma.modelFile.count({ where: { modelId } });
-    // Còn tệp hợp lệ từ trước (ví dụ thay thế USDZ lỗi) thì không hạ trạng thái mô hình
-    await this.prisma.product3DModel.update({
-      where: { id: modelId },
-      data: { status: readyFiles > 0 ? 'ready' : 'failed' },
+  /**
+   * Gọi khi job thất bại hẳn (hết lần thử hoặc lỗi không thể retry): trong MỘT transaction đặt `failed`,
+   * ghi `activity_logs` (`model.processing_failed`) và tạo thông báo cho admin đã tải lên (D-N21, D-N22).
+   */
+  async markFailed(data: ModelJobData, reason: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const exists = await tx.product3DModel.count({ where: { id: data.modelId } });
+      if (!exists) return; // mô hình đã bị xóa trong lúc xử lý
+      await tx.product3DModel.update({ where: { id: data.modelId }, data: { status: 'failed' } });
+      await this.activity.log(
+        {
+          actorId: data.uploadedBy,
+          action: 'model.processing_failed',
+          targetType: 'product3dmodel',
+          targetId: data.modelId,
+          changes: { reason, format: data.format, fileName: data.fileName },
+        },
+        tx,
+      );
+      if (data.uploadedBy) {
+        await this.notifications.notify(
+          tx,
+          data.uploadedBy,
+          `Xử lý mô hình 3D thất bại: ${data.fileName}`,
+          'system',
+          reason,
+          '/admin/models',
+        );
+      }
     });
-    this.logger.warn(`Mô hình ${modelId} xử lý thất bại: ${reason}`);
+    await this.cache.invalidateProducts();
+    this.logger.warn(`Mô hình ${data.modelId} xử lý thất bại: ${reason}`);
   }
 
-  private async processGlb(data: ModelJobData, source: Buffer): Promise<ModelProcessingResult> {
+  /** Kiểm tra GLB, sinh 3 LOD, đo số liệu, kiểm tra ngưỡng dung lượng cho web (D-N21). */
+  private async prepareGlb(data: ModelJobData, source: Buffer) {
     try {
       measure(await readGlb(source)); // kiểm tra hợp lệ trước khi tốn công sinh LOD
     } catch (e) {
       throw new InvalidModelFileError((e as Error).message);
     }
-
-    const stem = basename(data.fileName, extname(data.fileName)).replace(/[^a-zA-Z0-9_-]/g, '-') || 'model';
-    const outputs = [];
+    const outputs: LodOutput[] = [];
     for (const lod of LODS) outputs.push(await buildLod(source, lod));
 
-    const files: ModelProcessingResult['files'] = [];
-    for (const out of outputs) {
-      const key = `models/${data.modelId}/${stem}-${out.lod}.glb`;
-      await this.storage.upload({
-        key,
-        body: out.buffer,
-        contentType: 'model/gltf-binary',
-        visibility: 'public',
-      });
-      await this.saveFile(data, {
-        format: 'glb',
-        lod: out.lod,
-        key,
-        fileName: `${stem}-${out.lod}.glb`,
-        mimeType: 'model/gltf-binary',
-        size: out.buffer.length,
-        polygonCount: out.polygonCount,
-        textureResolution: out.textureResolution,
-        isCompressed: out.compressed,
-        checksum: sha256(out.buffer),
-      });
-      files.push({ format: 'glb', lod: out.lod, key, polygonCount: out.polygonCount });
+    const limit = Math.floor(this.config.get('MODEL_SERVE_MAX_MB') * 1024 * 1024);
+    const tooBig = outputs.filter((o) => o.buffer.length > limit);
+    if (tooBig.length) {
+      const list = tooBig.map((o) => `${o.lod} ${mb(o.buffer.length)} MB`).join(', ');
+      throw new ModelTooLargeError(
+        `Tệp LOD vượt ngưỡng ${this.config.get('MODEL_SERVE_MAX_MB')} MB dùng cho web (${list}). Hãy giảm số đa giác hoặc kích thước texture rồi tải lại.`,
+      );
     }
-    return { modelId: data.modelId, files };
+    const stem = stemOf(data.fileName);
+    return outputs.map((o) => ({
+      format: 'glb' as const,
+      lod: o.lod,
+      key: `models/${data.modelId}/${stem}-${o.lod}.glb`,
+      fileName: `${stem}-${o.lod}.glb`,
+      mimeType: 'model/gltf-binary',
+      size: o.buffer.length,
+      polygonCount: o.polygonCount,
+      textureResolution: o.textureResolution,
+      isCompressed: o.compressed,
+      checksum: sha256(o.buffer),
+      body: o.buffer,
+    }));
   }
 
-  /** USDZ do admin tải thủ công: chỉ kiểm tra chữ ký ZIP, tính checksum rồi chép sang bucket public. */
-  private async processUsdz(data: ModelJobData, source: Buffer): Promise<ModelProcessingResult> {
-    if (source.length < 4 || source.readUInt32LE(0) !== 0x04034b50) {
-      throw new InvalidModelFileError('Tệp không phải USDZ hợp lệ (không phải ZIP).');
-    }
-    const stem = basename(data.fileName, extname(data.fileName)).replace(/[^a-zA-Z0-9_-]/g, '-') || 'model';
-    const key = `models/${data.modelId}/${stem}-${data.lod}.usdz`;
-    await this.storage.upload({ key, body: source, contentType: 'model/vnd.usdz+zip', visibility: 'public' });
-    await this.saveFile(data, {
-      format: 'usdz',
-      lod: data.lod,
-      key,
-      fileName: `${stem}-${data.lod}.usdz`,
-      mimeType: 'model/vnd.usdz+zip',
-      size: source.length,
-      polygonCount: null,
-      textureResolution: null,
-      isCompressed: false,
-      checksum: sha256(source),
-    });
-    return { modelId: data.modelId, files: [{ format: 'usdz', lod: data.lod, key, polygonCount: null }] };
-  }
+  /**
+   * Một transaction: tạo/cập nhật media + model_files của MỌI LOD rồi mới đặt `ready`.
+   * Idempotent: chạy lại (retry, tải lại cùng định dạng/LOD) ghi đè bản ghi cũ qua upsert, không nhân đôi.
+   * Trả về các khóa tệp cũ không còn được tham chiếu để dọn.
+   */
+  private async saveAll(data: ModelJobData, files: FileToSave[]): Promise<string[]> {
+    return this.prisma.$transaction(async (tx) => {
+      const orphanCandidates: { id: number; filePath: string }[] = [];
+      for (const f of files) {
+        const media = await tx.media.upsert({
+          where: { filePath: f.key },
+          update: { fileSize: f.size, mimeType: f.mimeType, fileName: f.fileName },
+          create: {
+            fileName: f.fileName,
+            filePath: f.key,
+            mimeType: f.mimeType,
+            fileSize: f.size,
+            uploadedBy: data.uploadedBy,
+          },
+        });
+        const where = { modelId_format_lod: { modelId: data.modelId, format: f.format, lod: f.lod } };
+        const old = await tx.modelFile.findUnique({ where, include: { media: true } });
+        if (old && old.mediaId !== media.id)
+          orphanCandidates.push({ id: old.mediaId, filePath: old.media.filePath });
+        const fields = {
+          mediaId: media.id,
+          polygonCount: f.polygonCount,
+          textureResolution: f.textureResolution,
+          isCompressed: f.isCompressed,
+          checksum: f.checksum,
+        };
+        await tx.modelFile.upsert({
+          where,
+          update: fields,
+          create: { modelId: data.modelId, format: f.format, lod: f.lod, ...fields },
+        });
+      }
+      await tx.product3DModel.update({ where: { id: data.modelId }, data: { status: 'ready' } });
 
-  /** Idempotent: chạy lại job (retry) cập nhật bản ghi cũ, không nhân đôi. */
-  private async saveFile(
-    data: ModelJobData,
-    f: {
-      format: 'glb' | 'usdz';
-      lod: LodName;
-      key: string;
-      fileName: string;
-      mimeType: string;
-      size: number;
-      polygonCount: number | null;
-      textureResolution: number | null;
-      isCompressed: boolean;
-      checksum: string;
-    },
-  ) {
-    await this.prisma.$transaction(async (tx) => {
-      const media = await tx.media.upsert({
-        where: { filePath: f.key },
-        update: { fileSize: f.size, mimeType: f.mimeType, fileName: f.fileName },
-        create: {
-          fileName: f.fileName,
-          filePath: f.key,
-          mimeType: f.mimeType,
-          fileSize: f.size,
-          uploadedBy: data.uploadedBy,
-        },
-      });
-      const fields = {
-        mediaId: media.id,
-        polygonCount: f.polygonCount,
-        textureResolution: f.textureResolution,
-        isCompressed: f.isCompressed,
-        checksum: f.checksum,
-      };
-      await tx.modelFile.upsert({
-        where: { modelId_format_lod: { modelId: data.modelId, format: f.format, lod: f.lod } },
-        update: fields,
-        create: { modelId: data.modelId, format: f.format, lod: f.lod, ...fields },
-      });
+      const orphans: string[] = [];
+      for (const o of orphanCandidates) {
+        const used =
+          (await tx.modelFile.count({ where: { mediaId: o.id } })) +
+          (await tx.product3DModel.count({ where: { posterMediaId: o.id } }));
+        if (!used && o.filePath.startsWith('models/')) {
+          await tx.media.deleteMany({ where: { id: o.id } });
+          orphans.push(o.filePath);
+        }
+      }
+      return orphans;
     });
   }
 }

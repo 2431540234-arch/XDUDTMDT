@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import Redis from 'ioredis';
 import { AppConfig } from '../config/app-config.service';
+import { CatalogCache } from './catalog-cache';
 import { CACHE_REDIS, CacheService } from './cache.service';
 
 @Global()
@@ -19,7 +20,8 @@ import { CACHE_REDIS, CacheService } from './cache.service';
         }),
     },
     CacheService,
+    CatalogCache,
   ],
-  exports: [CacheService],
+  exports: [CacheService, CatalogCache],
 })
 export class CacheModule {}

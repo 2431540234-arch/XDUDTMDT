@@ -1,3 +1,5 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # Đối chiếu công nghệ
 
 Cập nhật 2026-10-09, sau lượt cấu hình môi trường (D-T37) và đợt đồng bộ tài liệu. Phiên bản ghi ở đây là phiên bản **thực cài** (đọc từ `node_modules` và `apps/mobile/gradle/libs.versions.toml`), không phải phiên bản khai báo. Bản kiểm tra gốc ngày 2026-10-08 (trước khi cài môi trường) còn trong lịch sử git (commit `25fc057`).
@@ -34,7 +36,7 @@ Tổng 31 hạng mục của bảng nộp (mục 6). Các điểm chính:
 | TanStack Query | Gọi/cache API | Đã cấu hình | 5.104.1 (+ devtools 5.104.1) | `src/app/providers.tsx`, `src/lib/query-client.ts` | Provider đã gắn trong `layout.tsx`; chưa có truy vấn |
 | Three.js | 3D | Đã cấu hình | 0.163.0 (+ `@types/three` 0.163.0) | `package.json` (`overrides` ở gốc) | `tests/unit/r3f-canvas.test.tsx` |
 | React Three Fiber, drei | Kết nối React, tiện ích 3D | Đã cấu hình | 8.18.0, 9.122.0 | `src/components/viewer/*` (khung) | Test dựng `<Canvas>` qua; chưa có trang |
-| `@google/model-viewer` | AR trên điện thoại | Đã cấu hình | 3.5.0 | `ModelViewer.tsx` (client-only), `ModelViewerElement.tsx`, `types/model-viewer.d.ts` | Chưa có trang |
+| `@google/model-viewer` | Xem mô hình 3D (AR đã loại bỏ, D-P16) | Đã cấu hình | 3.5.0 | `ModelViewer.tsx` (client-only), `ModelViewerElement.tsx`, `types/model-viewer.d.ts` | Chưa có trang |
 | React Hook Form, `@hookform/resolvers`, Zod | Biểu mẫu, kiểm tra dữ liệu | Đã cấu hình | 7.89.0, 5.9.1, 3.25.76 | `package.json` | Chưa có form |
 | Recharts | Biểu đồ | Đã cấu hình | 2.15.4 | `package.json` | Chưa có biểu đồ |
 | Vitest, Testing Library, jsdom, Playwright | Kiểm thử | Đã dùng | 5.0.3, react 16.3.3, 30.1.2, 1.64.0 (Chromium) | `vitest.config.mts`, `playwright.config.ts` | 3 test đơn vị, 2 test e2e qua |
@@ -74,7 +76,7 @@ Thư viện đã thêm: `navigation-compose` 2.9.7, `lifecycle-viewmodel-compose
 | Redis "cache": chưa có | D-T30 | `CacheService` có, TTL gợi ý: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút; áp dụng ở M06, M07, M01 |
 | BullMQ "email, notification" | D-T31, D-T42 | Có queue `mail` (processor gửi SMTP thật) và `notification` (processor chỉ ghi log, chỉ cho việc nền chậm, D-T47); `MailService` đẩy job khi `MAIL_TRANSPORT=queue` |
 | MinIO sang S3 cần sửa mã | D-T33, D-T41 | Đã có driver `s3`; chuyển production chỉ đổi biến môi trường (xem `ENVIRONMENT.md` mục 5) |
-| AR web, ảnh 360° chưa có thư viện | D-T32 | model-viewer (AR); ảnh 360° tự dựng bằng R3F |
+| Xem 3D, ảnh 360° chưa có thư viện | D-T32 | model-viewer (chỉ xem 3D, không AR); ảnh 360° tự dựng bằng R3F |
 | Zustand với TanStack Query chưa phân chia | Quy ước ở mục 3.1 | Server state dùng Query, UI/token dùng Zustand |
 | Gói không dùng (`passport*`, `cookie-parser`) | D-T35 | Đã gỡ |
 
@@ -98,7 +100,7 @@ Gói ngoài danh sách ban đầu, đã thêm kèm lý do (xem DECISIONS D-T39, 
 | Công nghệ | Phiên bản | Vai trò | Nên đưa vào bảng nộp? |
 | --- | --- | --- | --- |
 | **NestJS** (core, common, platform-express) | 10.4.22 | Framework backend | **Bắt buộc** (đã có trong mục 6) |
-| `@nestjs/swagger` | 7.4.2 | OpenAPI tại `/docs` | Có (mục 6) |
+| `@nestjs/swagger` | 7.4.2 | OpenAPI tại `/docs` (tắt mặc định ở production) | Có (mục 6) |
 | `@nestjs/config` + Zod (API) | 3.3.0 / 3.25.76 | Kiểm tra biến môi trường khi khởi động | Có thể |
 | `@nestjs/jwt`, `bcryptjs` | 10.2.0 / 3.0.3 | Access token JWT, băm mật khẩu (không dùng Passport) | Có thể |
 | `class-validator`, `class-transformer` | 0.14.4 / 0.5.1 | Kiểm tra dữ liệu vào | Có thể |
@@ -136,7 +138,7 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | TanStack Query | Web | Gọi và cache API (dữ liệu từ server, kể cả giỏ hàng) | Đã cấu hình (Provider + devtools đã gắn, chưa có truy vấn) |
 | Three.js | Web | Xử lý 3D | Đã cấu hình (test dựng scene qua) |
 | React Three Fiber (+ drei) | Web | Kết nối React với Three.js: xem mô hình GLB (`useGLTF`), ảnh 360° (mặt cầu + `TextureLoader`), hotspot (`Html`) | Đã cấu hình (`<Canvas>` render được trong test) |
-| `@google/model-viewer` | Web | Xem sản phẩm bằng AR trên điện thoại (Scene Viewer, Quick Look) | Đã cấu hình (bọc client-only, build qua) |
+| `@google/model-viewer` | Web | Xem mô hình 3D của sản phẩm (không dùng chế độ AR) | Đã cấu hình (bọc client-only, build qua) |
 | React Hook Form + Zod | Web | Biểu mẫu và kiểm tra dữ liệu | Đã cấu hình (đã cài, chưa có form) |
 | Recharts | Web | Biểu đồ thống kê quản trị | Đã cấu hình (đã cài, chưa có biểu đồ) |
 | Vitest + Testing Library, Playwright | Web | Kiểm thử đơn vị/component và e2e trình duyệt | Đã dùng (3 test đơn vị, 2 test e2e) |
@@ -161,9 +163,9 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | Prisma | Backend làm việc với PostgreSQL | Query Product, tạo Order trong transaction | Đã dùng |
 | Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Cache danh mục và sản phẩm nổi bật, trạng thái BullMQ, giới hạn đăng nhập | Đã dùng (queue, throttler); cache Đã cấu hình |
 | BullMQ | Hàng đợi xử lý nền | `model-processing`, `image-processing`, `mail`, `notification` | Đã dùng (4 queue chạy, hiện trên Bull Board) |
-| MinIO | Lưu file (dev) | JPG, WebP, PNG, GLB, USDZ, panorama | Đã dùng |
+| MinIO | Lưu file (dev) | JPG, WebP, PNG, GLB, panorama | Đã dùng |
 | S3 | Object storage production | Ảnh và mô hình sản phẩm (chỉ đổi biến môi trường) | Đã cấu hình (driver `s3`, chưa triển khai thật) |
-| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 144 endpoint | Đã dùng |
+| Swagger (OpenAPI) | Tài liệu API | `/docs` cho 210 endpoint; spec xuất sẵn ở `docs/api/openapi.json` (xem `docs/api/README.md`). **Mặc định tắt ở `NODE_ENV=production`**, bật ở dev/test; chỉ bật ở production khi đặt `SWAGGER_ENABLED=true` rõ ràng | Đã dùng |
 | Jest + Supertest | Kiểm thử | Unit test (29), e2e với PostgreSQL, Redis, MinIO, Mailpit thật (23) | Đã dùng |
 | sharp | Xử lý ảnh | Tạo webp và thumbnail, thu nhỏ texture | Đã dùng |
 | glTF-Transform (+ Meshopt) | Xử lý mô hình 3D | Kiểm tra GLB, đo đa giác, sinh LOD, nén | Đã dùng |
@@ -180,7 +182,7 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | Nối `theme.ts` vào Tailwind | (đã có) | `apps/web/tailwind.config.ts` | **Xong** |
 | Form + validate | `react-hook-form` 7.89.0, `@hookform/resolvers` 5.9.1, `zod` 3.25.76 | `apps/web/package.json` | **Xong (cài)**; form viết ở M02 |
 | Trình xem 3D (`<Canvas>`, `useGLTF`) | (đã có) | `apps/web/src/components/viewer/*` | **Đã kiểm tra render**; component thật viết ở M12 |
-| AR trên điện thoại | `@google/model-viewer` 3.5.0 | `components/viewer/ModelViewer*.tsx`, `types/model-viewer.d.ts` | **Xong** |
+| Xem 3D (không AR) | `@google/model-viewer` 3.5.0 | `components/viewer/ModelViewer*.tsx`, `types/model-viewer.d.ts` | **Xong** |
 | Ảnh 360° + hotspot | (R3F tự dựng) | `components/viewer/SpacePanorama.tsx` | Chờ code M13 |
 | Biểu đồ dashboard | `recharts` 2.15.4 | `apps/web/package.json` | **Xong (cài)**; biểu đồ viết ở M14 |
 | Test web | Vitest 5.0.3, Testing Library, Playwright 1.64.0 | `apps/web/vitest.config.mts`, `playwright.config.ts`, `tests/` | **Xong** |
@@ -200,8 +202,14 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | 2 | Redis OTP/session | **Phương án A**: giữ PostgreSQL. Redis = "cache, trạng thái hàng đợi, giới hạn tốc độ" | D-T29 |
 | 3 | Redis cache | **Có** `CacheService` (ioredis), TTL như mục 3.3, xóa khóa khi admin sửa; đợt M06/M07 (M01 cho settings) | D-T30 |
 | 4 | BullMQ | **Có** queue `mail` (đợt M02) và `notification` (đợt M09, chỉ việc nền chậm), thử lại 3 lần, backoff mũ | D-T31, D-T47 |
-| 5 | AR web, 360° | `@google/model-viewer`; ảnh 360° tự dựng bằng R3F (mặt cầu + `TextureLoader` + drei `Html`, `useGLTF`) | D-T32 |
+| 5 | Xem 3D, 360° | `@google/model-viewer` (không AR); ảnh 360° tự dựng bằng R3F (mặt cầu + `TextureLoader` + drei `Html`, `useGLTF`) | D-T32 |
 | 6 | S3 | Không triển khai thật; cuối dự án sửa nhỏ (driver `s3`, `S3_FORCE_PATH_STYLE`, `S3_ENDPOINT` tùy chọn) | D-T33 |
 | 7 | Bảng nộp | Đồng ý thêm NestJS, Docker Compose, GitHub Actions, Swagger, Jest + Supertest, sharp, gltf-transform, model-viewer, Nodemailer + Mailpit; CÓ nhóm Mobile | D-T34; mục 6 |
 | 8 | Ảnh overlay | Chủ dự án tự chuẩn bị PNG nền trong suốt cho 5-10 sản phẩm; nơi lưu trong CSDL **đang chờ chọn** | D-T36, O-06 |
 | + | Gỡ gói; thư viện web | Gỡ `passport*`, `cookie-parser`; web: `react-hook-form` + `@hookform/resolvers` + `zod` (M02), `recharts` (M14); không Tiptap (trang tĩnh: textarea Markdown); cài đúng đợt | D-T35 |
+
+## 9. Lưu ý vận hành đã biết (2026-11-11)
+
+- **Lỗi vá lockfile của Next.js trong npm workspaces:** `next build`/`next dev` có thể báo `Failed to patch lockfile … reading 'os'`. Cách tránh: đặt `NEXT_IGNORE_INCORRECT_LOCKFILE=1` (Playwright tự đặt, `apps/web/playwright.config.ts`). Nguyên nhân gốc: **Cần xác minh**.
+- **`NEXT_PUBLIC_USE_MOCK`:** biến `NEXT_PUBLIC_*` được nhúng vào mã lúc build; `next build` production **thất bại** nếu `NEXT_PUBLIC_USE_MOCK=true` (`apps/web/next.config.js`).
+- **Swagger:** không đặt `SWAGGER_ENABLED` ⇒ bật ở development/test, tắt ở production (`apps/api/src/config/env.validation.ts`).

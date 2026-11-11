@@ -65,7 +65,7 @@ apps/web/playwright-report/
 apps/web/test-results/
 apps/web/coverage/
 
-# Kh�a k� app, kh�a ri�ng, ch?ng ch?
+# Kh�a k� app, kh�a ri�ng, ch?ng ch?
 *.jks
 *.keystore
 keystore.properties
@@ -92,3 +92,18 @@ google-services.json
 *.dump
 *.sql.gz
 backup/
+
+# Thư mục build riêng cho e2e/kiểm tra (NEXT_DIST_DIR)
+.next-*/
+apps/api/.tmp-uploads-db/
+apps/api/uploads/
+
+# Prompt làm việc cá nhân, không commit
+docs/PROMPT_AGENT_BE.md
+
+# Không đưa bản sao lưu/dump CSDL vào docs/ (chứa dữ liệu thật hoặc hash mật khẩu); để ở ../aurelia-backups/
+docs/**/*.sql
+docs/**/*.dump
+
+# Bằng chứng khi test e2e thật fail (trace, screenshot, log response >= 400)
+.e2e-logs/

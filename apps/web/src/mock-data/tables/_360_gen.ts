@@ -1,5 +1,5 @@
 // Dữ liệu "Xem 360°": product_360 (cấu hình) và product_360_frames (chuỗi ảnh theo màu).
-// TODO: cần thêm vào DB/API (chưa có bảng tương ứng) – xem docs/FE_PROGRESS.md (đề xuất DB/API).
+// Đã có trong DB/API: product_360_configs, product_360_frames.
 // Ảnh frame sinh bằng apps/web/scripts/gen-mock-360.mjs → public/mock/360/<product-slug>/<color-slug>/frame-01..36.svg
 import cfg from '../../../scripts/mock-360-products.json';
 import { slugify } from '@/lib/format';

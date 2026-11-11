@@ -14,7 +14,17 @@ interface MV extends HTMLElement {
   autoRotate: boolean;
   getCameraOrbit(): { theta: number; phi: number; radius: number };
   jumpCameraToGoal(): void;
-  model?: { materials: Array<{ pbrMetallicRoughness: { setBaseColorFactor(c: string | number[]): void } }> };
+  model?: {
+    materials: Array<{
+      name: string;
+      pbrMetallicRoughness: {
+        baseColorFactor: number[];
+        setBaseColorFactor(c: string | number[]): void;
+        setRoughnessFactor(v: number): void;
+        setMetallicFactor(v: number): void;
+      };
+    }>;
+  };
 }
 
 const VIEWS = [
@@ -25,15 +35,58 @@ const VIEWS = [
   { key: 'dims', label: 'Kích thước', orbit: '30deg 75deg auto' },
 ] as const;
 
+type Lod = 'high' | 'medium' | 'low';
+
+/** Điện thoại hoặc mạng chậm / bật tiết kiệm dữ liệu ⇒ dùng LOD thấp (UC-3D-01 bước 4); mặc định LOD medium */
+export function preferredLod(): Lod {
+  if (typeof window === 'undefined') return 'medium';
+  const nav = navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string; downlink?: number };
+  };
+  const slow =
+    Boolean(nav.connection?.saveData) ||
+    ['slow-2g', '2g', '3g'].includes(nav.connection?.effectiveType ?? '') ||
+    (nav.connection?.downlink !== undefined && nav.connection.downlink < 1.5);
+  const phone =
+    window.matchMedia?.('(max-width: 767px)').matches || /Android|iPhone|iPod/i.test(navigator.userAgent);
+  return slow || phone ? 'low' : 'medium';
+}
+
+/** Chọn tệp GLB theo LOD ưu tiên; thiếu thì lùi dần về LOD gần nhất có sẵn, cuối cùng là glbUrl */
+export function pickGlb(
+  model: Model3DView,
+  want: Lod,
+): { url: string | null; lod: Lod | null; size: number | null } {
+  const order: Lod[] =
+    want === 'low'
+      ? ['low', 'medium', 'high']
+      : want === 'medium'
+        ? ['medium', 'high', 'low']
+        : ['high', 'medium', 'low'];
+  for (const lod of order) {
+    const f = model.files.find((x) => x.format === 'glb' && x.lod === lod);
+    if (f?.url) return { url: f.url, lod, size: f.fileSize };
+  }
+  return { url: model.glbUrl, lod: null, size: null };
+}
+
 export default function ProductViewer3D({
   model,
   alt,
   tint,
+  variantId,
+  fallbackImage,
 }: {
   model: Model3DView;
   alt: string;
   tint?: string | null;
+  /** Biến thể đang chọn: nếu mô hình có cấu hình vật liệu cho biến thể này thì áp ngay lên vật liệu tương ứng (không tải lại mô hình) */
+  variantId?: number | null;
+  /** Ảnh thay thế khi không tải được mô hình (mặc định ảnh poster của mô hình) */
+  fallbackImage?: string | null;
 }) {
+  const [want] = useState<Lod>(preferredLod);
+  const glb = pickGlb(model, want);
   const ref = useRef<MV | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const [ready, setReady] = useState(false);
@@ -43,18 +96,43 @@ export default function ProductViewer3D({
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    import('@google/model-viewer').then(() => setReady(true)).catch(() => setError(true));
+    import('@google/model-viewer')
+      .then((m) => {
+        // LOD do máy chủ sinh được nén Meshopt: dùng bộ giải nén phục vụ tại chỗ thay vì CDN (xem public/vendor/README.md)
+        m.ModelViewerElement.meshoptDecoderLocation = '/vendor/meshopt_decoder.js';
+        setReady(true);
+      })
+      .catch(() => setError(true));
   }, []);
 
-  // đổi màu realtime: nhuộm vật liệu thân chính của mô hình
+  // UC-3D-03: cấu hình vật liệu của biến thể đang chọn (từ dữ liệu mô hình đã tải cùng trang, không gọi thêm API)
+  const mv = variantId == null ? undefined : model.materialVariants?.find((x) => x.variantId === variantId);
+  const [applied, setApplied] = useState('');
+
+  // đổi màu realtime: có cấu hình vật liệu của biến thể thì áp lên đúng vật liệu theo tên; không thì nhuộm vật liệu thân chính
   useEffect(() => {
     const el = ref.current;
-    if (!el || !tint) return;
-    const apply = () => el.model?.materials?.[0]?.pbrMetallicRoughness.setBaseColorFactor(tint);
+    if (!el || (!mv && !tint)) return;
+    const apply = () => {
+      const mats = el.model?.materials;
+      if (!mats?.length) return;
+      if (mv) {
+        const m = mats.find((x) => x.name === mv.materialName);
+        if (!m) return;
+        const c = mv.config;
+        if (c.baseColor) m.pbrMetallicRoughness.setBaseColorFactor(c.baseColor);
+        if (c.roughness !== undefined) m.pbrMetallicRoughness.setRoughnessFactor(c.roughness);
+        if (c.metalness !== undefined) m.pbrMetallicRoughness.setMetallicFactor(c.metalness);
+        setApplied(`${mv.materialName}=${c.baseColor ?? ''}`);
+      } else {
+        mats[0].pbrMetallicRoughness.setBaseColorFactor(tint!);
+        setApplied('');
+      }
+    };
     if (el.model) apply();
     el.addEventListener('load', apply);
     return () => el.removeEventListener('load', apply);
-  }, [tint, ready]);
+  }, [mv, tint, ready]);
 
   useEffect(() => {
     const el = ref.current;
@@ -103,11 +181,16 @@ export default function ProductViewer3D({
 
   const mm = (n: number) => `${(n / 10).toFixed(0)} cm`;
 
-  if (error || !model.glbUrl) {
+  if (error || !glb.url) {
+    const img = model.posterUrl ?? fallbackImage;
     return (
-      <div className="flex h-full min-h-[420px] flex-col items-center justify-center gap-2 text-muted">
+      <div
+        data-testid="viewer-3d-fallback"
+        className="flex h-full min-h-[420px] flex-col items-center justify-center gap-3 p-4 text-center text-muted"
+      >
+        {img && <img src={img} alt={alt} className="max-h-72 rounded-card object-contain" />}
         <Icon name="alert" size={32} />
-        <p>Không tải được mô hình 3D.</p>
+        <p role="alert">Không tải được mô hình 3D. Bạn vẫn có thể xem ảnh sản phẩm.</p>
       </div>
     );
   }
@@ -115,20 +198,18 @@ export default function ProductViewer3D({
   return (
     <div
       ref={wrap}
+      data-testid="viewer-3d"
+      data-lod={glb.lod ?? ''}
+      data-material-applied={applied}
       className="relative h-full min-h-[460px] w-full overflow-hidden bg-gradient-to-b from-white to-surface-muted"
     >
       {ready ? (
         <model-viewer
           ref={ref as never}
           class="h-full w-full"
-          src={model.glbUrl}
-          ios-src={model.usdzUrl ?? undefined}
+          src={glb.url}
           alt={alt}
           poster={model.posterUrl ?? undefined}
-          ar={model.status === 'ready' ? true : undefined}
-          ar-modes="webxr scene-viewer quick-look"
-          ar-scale={model.allowScaling ? 'auto' : 'fixed'}
-          ar-placement={model.placement === 'wall' ? 'wall' : 'floor'}
           camera-controls
           auto-rotate={spin ? true : undefined}
           shadow-intensity="1"
@@ -167,10 +248,8 @@ export default function ProductViewer3D({
           {mm(model.lengthMm)} × {mm(model.widthMm)} × {mm(model.heightMm)}
         </p>
         <p className="mt-1 text-muted">
-          {model.glbUrl.split('?')[0].split('.').pop()?.toUpperCase()} ·{' '}
-          {model.files.find((f) => f.format === 'glb')?.fileSize
-            ? `${(model.files.find((f) => f.format === 'glb')!.fileSize / 1048576).toFixed(1)} MB`
-            : ''}
+          GLB{glb.lod ? ` · LOD ${glb.lod}` : ''}
+          {glb.size ? ` · ${(glb.size / 1048576).toFixed(1)} MB` : ''}
         </p>
       </div>
       {view === 'dims' && (

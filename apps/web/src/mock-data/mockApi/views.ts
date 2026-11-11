@@ -177,7 +177,6 @@ export function model3DView(db: Db, m: Product3DModel): Model3DView {
     ...m,
     files,
     glbUrl: files.find((f) => f.format === 'glb')?.url ?? null,
-    usdzUrl: files.find((f) => f.format === 'usdz')?.url ?? null,
     posterUrl: mediaPath(db, m.posterMediaId),
   };
 }
@@ -301,7 +300,8 @@ export function orderView(db: Db, o: Db['orders'][number], opts: { customer?: bo
         reviewed: Boolean(p && db.reviews.some((r) => r.orderId === o.id && r.productId === p.id)),
       };
     });
-  const shipment = db.shipments.find((s) => s.orderId === o.id) ?? null;
+  const orderShipments = db.shipments.filter((s) => s.orderId === o.id);
+  const shipment = orderShipments[orderShipments.length - 1] ?? null; // vận đơn hiện tại = mới nhất
   const user = db.users.find((u) => u.id === o.userId);
   const uv = user ? userView(db, user) : null;
   const delivered = shipment?.deliveredAt ?? null;
@@ -324,6 +324,7 @@ export function orderView(db: Db, o: Db['orders'][number], opts: { customer?: bo
       })),
     payment: db.payments.find((p) => p.orderId === o.id) ?? null,
     shipment,
+    shipments: orderShipments,
     couponCode: coupon?.code ?? null,
     customer:
       opts.customer && user && uv
@@ -579,7 +580,7 @@ export function spaceDetail(db: Db, s: Db['spaces'][number], userId?: number | n
               : null,
           };
         }),
-      placements: db.spaceProductPlacements.filter((x) => x.panoramaId === p.id),
+      placements: [], // UC-ADM-17: mô hình 3D trong ảnh 360° chỉ có với API thật
     }));
   const productsList = spaceProductIds(db, s.id).map((id) =>
     productListItem(

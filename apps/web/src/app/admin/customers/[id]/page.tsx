@@ -51,6 +51,16 @@ export default function AdminCustomerDetailPage() {
     enabled: tab === 'wishlist',
   });
   const u = q.data;
+  const roleMut = useMutation({
+    mutationFn: (action: 'grant' | 'revoke') =>
+      action === 'grant' ? adminApi.customers.grantAdmin(uid) : adminApi.customers.revokeAdmin(uid),
+    onSuccess: (r) => {
+      toast.success(r.roles.includes('admin') ? 'Đã gán vai trò admin.' : 'Đã gỡ vai trò admin.');
+      qc.invalidateQueries({ queryKey: ['admin', 'customer', uid] });
+      qc.invalidateQueries({ queryKey: ['admin', 'customers'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)), // 409: tự gỡ của mình / gỡ admin cuối cùng
+  });
   useEffect(() => {
     if (u) {
       setF({ fullName: u.fullName, phone: u.phone ?? '' });
@@ -157,6 +167,46 @@ export default function AdminCustomerDetailPage() {
                 <dd>{u.gender === 'male' ? 'Nam' : u.gender === 'female' ? 'Nữ' : '—'}</dd>
               </div>
             </dl>
+          </section>
+          <section className="card p-5 text-sm" data-testid="roles-section">
+            <h2 className="mb-3 font-bold">Vai trò</h2>
+            <p className="flex flex-wrap gap-2" data-testid="role-badges">
+              {u.roles.map((r) => (
+                <StatusBadge
+                  key={r}
+                  label={r === 'admin' ? 'Quản trị viên (admin)' : 'Khách hàng (user)'}
+                  tone={r === 'admin' ? 'purple' : 'blue'}
+                />
+              ))}
+            </p>
+            <p className="mt-2 text-xs text-muted">
+              Admin có đủ 6 quyền quản trị. Thay đổi có hiệu lực ngay ở yêu cầu kế tiếp của người đó. Xem{' '}
+              <Link href="/admin/roles" className="text-primary hover:underline">
+                vai trò & quyền
+              </Link>
+              .
+            </p>
+            {u.roles.includes('admin') ? (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="outline"
+                loading={roleMut.isPending}
+                onClick={() => roleMut.mutate('revoke')}
+              >
+                Gỡ vai trò admin
+              </Button>
+            ) : (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="outline"
+                loading={roleMut.isPending}
+                onClick={() => roleMut.mutate('grant')}
+              >
+                Gán vai trò admin
+              </Button>
+            )}
           </section>
           <section className="card p-5 text-sm">
             <h2 className="mb-3 font-bold">Sổ địa chỉ</h2>

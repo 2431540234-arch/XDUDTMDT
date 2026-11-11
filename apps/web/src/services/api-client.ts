@@ -3,7 +3,7 @@
 // trình duyệt (apps/web/src/mock-data/mockApi); ngược lại gọi fetch tới `${NEXT_PUBLIC_API_URL}/api`.
 // Giao diện không phải đổi gì khi bật/tắt mock.
 import type { ApiResult, ErrorCode, PaginatedMeta } from '@aurelia-living/shared-types';
-import { useAuthStore } from '@/store/authStore';
+import { useAuthStore, type SessionUser } from '@/store/authStore';
 
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === 'true';
 
@@ -24,11 +24,21 @@ export class ApiClientError extends Error {
     this.name = 'ApiClientError';
   }
 
-  /** Lỗi theo từng trường (VALIDATION_FAILED) → { field: "thông báo đầu tiên" } */
+  /**
+   * Lỗi theo từng trường → { field: "thông báo đầu tiên" }: VALIDATION_FAILED (400) và CONFLICT (409, slug/mã trùng, D-N36).
+   * Với CONFLICT chỉ lấy các khóa có dạng mảng chuỗi (khóa khác như details.unavailable là dữ liệu, không phải lỗi ô nhập).
+   */
   fieldErrors(): Record<string, string> {
     const out: Record<string, string> = {};
-    if (this.code === 'VALIDATION_FAILED' && this.details) {
-      for (const [k, v] of Object.entries(this.details)) out[k] = Array.isArray(v) ? String(v[0]) : String(v);
+    if ((this.code === 'VALIDATION_FAILED' || this.code === 'CONFLICT') && this.details) {
+      for (const [k, v] of Object.entries(this.details)) {
+        if (
+          this.code === 'CONFLICT' &&
+          !(Array.isArray(v) && v.length > 0 && v.every((x) => typeof x === 'string'))
+        )
+          continue;
+        out[k] = Array.isArray(v) ? String(v[0]) : String(v);
+      }
     }
     return out;
   }
@@ -59,6 +69,25 @@ export function buildQueryString(query?: Query): string {
   return s ? `?${s}` : '';
 }
 
+/**
+ * Chờ nạp xong phiên đăng nhập từ localStorage (xem Providers) trước khi gửi request: khi tải lại trang, các truy vấn
+ * chạy ngay lúc mount có thể đến trước bước nạp ⇒ gửi không token ⇒ API thật trả 401 (mock không lộ vì nạp động chậm hơn).
+ */
+function sessionReady(): Promise<void> {
+  if (typeof window === 'undefined' || useAuthStore.getState().hydrated) return Promise.resolve();
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, 3000);
+    const unsub = useAuthStore.subscribe((st) => {
+      if (st.hydrated) done();
+    });
+    function done() {
+      clearTimeout(timer);
+      unsub();
+      resolve();
+    }
+  });
+}
+
 async function rawRequest(
   method: string,
   path: string,
@@ -74,28 +103,81 @@ async function rawRequest(
     res = await fetch(`${apiClient.baseURL}${path}${buildQueryString(opts.query)}`, {
       method,
       headers: {
-        'Content-Type': 'application/json',
+        // FormData: để trình duyệt tự đặt Content-Type (multipart + boundary)
+        ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body:
+        opts.body === undefined
+          ? undefined
+          : opts.body instanceof FormData
+            ? opts.body
+            : JSON.stringify(opts.body),
     });
   } catch {
     throw new ApiClientError('NETWORK_ERROR', 'Không kết nối được máy chủ. Vui lòng thử lại.', 0);
   }
+  // 204 No Content (vd. DELETE /users/me, DELETE /users/me/sessions/:id) không có thân JSON
+  if (res.status === 204) return { status: 204, body: { success: true, data: null } as ApiResult<unknown> };
   return { status: res.status, body: (await res.json()) as ApiResult<unknown> };
 }
 
-/** Gọi API, trả về { data, meta }. Ném ApiClientError nếu response không thành công. */
+/**
+ * Làm mới phiên: POST /auth/refresh với refresh token đang lưu (xoay vòng: token cũ bị thu hồi).
+ * Nhiều request cùng gặp 401 chỉ gọi refresh MỘT lần (dùng chung một Promise). Trả true nếu đã có cặp token mới.
+ */
+let refreshing: Promise<boolean> | null = null;
+export function refreshSession(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const { refreshToken } = useAuthStore.getState();
+    if (!refreshToken) return false;
+    try {
+      const { body } = await rawRequest('POST', '/auth/refresh', { body: { refreshToken } });
+      if (!body.success) return false;
+      const d = body.data as {
+        user?: SessionUser;
+        tokens: { accessToken: string; refreshToken: string };
+      };
+      const st = useAuthStore.getState();
+      const user = d.user ?? st.user;
+      if (!user) return false;
+      st.setSession(user, d.tokens.accessToken, d.tokens.refreshToken);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => {
+    refreshing = null;
+  });
+  return refreshing;
+}
+
+/** Đường dẫn xác thực không tự refresh (đăng nhập sai mật khẩu cũng trả 401 nhưng không phải hết hạn phiên) */
+const NO_REFRESH = /^\/auth\//;
+
+/** Gọi API, trả về { data, meta }. Ném ApiClientError nếu response không thành công. 401 ⇒ tự refresh rồi gửi lại 1 lần. */
 export async function request<T>(
   method: string,
   path: string,
   opts: RequestOptions = {},
 ): Promise<{ data: T; meta?: PaginatedMeta }> {
-  const sentToken = useAuthStore.getState().accessToken;
-  const { status, body } = await rawRequest(method, path, opts);
+  await sessionReady();
+  let sentToken = useAuthStore.getState().accessToken;
+  let { status, body } = await rawRequest(method, path, opts);
+  if (
+    !body.success &&
+    status === 401 &&
+    typeof window !== 'undefined' &&
+    sentToken &&
+    !NO_REFRESH.test(path) &&
+    (await refreshSession())
+  ) {
+    sentToken = useAuthStore.getState().accessToken;
+    ({ status, body } = await rawRequest(method, path, opts));
+  }
   if (!body.success) {
-    // Token đã gửi bị từ chối (hết hạn/không hợp lệ) → đăng xuất cục bộ. Không xóa nếu yêu cầu được gửi
-    // khi chưa có token (phiên đăng nhập đang được nạp từ localStorage).
+    // Token đã gửi bị từ chối (hết hạn/không hợp lệ và không làm mới được) → đăng xuất cục bộ. Không xóa nếu yêu cầu
+    // được gửi khi chưa có token (phiên đăng nhập đang được nạp từ localStorage).
     if (
       status === 401 &&
       typeof window !== 'undefined' &&

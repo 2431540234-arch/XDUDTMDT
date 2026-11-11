@@ -1,11 +1,10 @@
-// M14 – Thông báo và thống kê quản trị. Gửi thông báo cho người dùng (dùng NotificationsService của M03)
-// Module – UC-ADM-26
-// Bảng: notifications
-// TRẠNG THÁI: khung rỗng, chưa cài đặt logic.
+// UC-ADM-26 – Gửi thông báo cho người dùng. Bảng: notifications
 import { Module } from '@nestjs/common';
 import { AdminNotificationsController } from './admin-notifications.controller';
+import { AdminNotificationsService } from './admin-notifications.service';
 
 @Module({
   controllers: [AdminNotificationsController],
+  providers: [AdminNotificationsService],
 })
 export class AdminNotificationsModule {}

@@ -1,2 +1,2 @@
-// Mã giảm giá đã lưu của từng khách – TODO: chưa có trong DB
+// Mã giảm giá đã lưu của từng khách
 export { userCoupons } from './_social_gen';

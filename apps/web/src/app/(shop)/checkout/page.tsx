@@ -16,6 +16,7 @@ import { queryKeys } from '@/hooks/useCart';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
 import { paymentMethodLabel } from '@/lib/status';
+import { navigateTo } from '@/lib/navigation';
 import { errorMessage } from '@/lib/validators';
 import { addressApi } from '@/services/auth.api';
 import { cartApi, orderApi } from '@/services/cart.api';
@@ -80,6 +81,17 @@ function CheckoutContent() {
       setAddressId((addresses.data.find((a) => a.isDefault) ?? addresses.data[0]).id);
   }, [addresses.data, addressId]);
 
+  // phương thức đang chọn bị tắt trong Cài đặt ⇒ chuyển sang phương thức đầu tiên còn bật (theo thứ tự hiển thị)
+  useEffect(() => {
+    const list = settings.data?.payments;
+    if (!list?.length) return;
+    const on = new Set(list.filter((p) => p.enabled).map((p) => p.method as string));
+    if (on.size && !on.has(method)) {
+      const first = GROUPS.flatMap((g) => g.methods).find((m) => on.has(m));
+      if (first) setMethod(first);
+    }
+  }, [settings.data, method]);
+
   const cart = useQuery({
     queryKey: ['cart', 'checkout', itemIds.join(','), addressId],
     queryFn: () => cartApi.get({ items: itemIds, addressId }),
@@ -100,7 +112,7 @@ function CheckoutContent() {
     onSuccess: (url) => {
       qc.invalidateQueries({ queryKey: queryKeys.cart });
       qc.invalidateQueries({ queryKey: ['orders'] });
-      router.push(url);
+      navigateTo(router, url);
     },
     onError: (e) => toast.error(errorMessage(e)),
   });

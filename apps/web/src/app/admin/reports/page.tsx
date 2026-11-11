@@ -101,7 +101,7 @@ function ExpenseModal({ open, onClose }: { open: boolean; onClose: () => void })
           required
           value={f.category}
           onChange={(e) => setF({ ...f, category: e.target.value as Expense['category'] })}
-          options={CATS.map(([value, label]) => ({ value, label }))}
+          options={CATS.filter(([value]) => value !== 'refund').map(([value, label]) => ({ value, label }))}
         />
         <Input
           label="Số tiền (đ)"

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-// Kiểm tra tính năng "Xem 360°" (docs/PROMPT_360_SAN_PHAM.md, phần 5) với dữ liệu giả.
+// Kiểm tra tính năng "Xem 360°" (docs/archive/PROMPT_360_SAN_PHAM.md, phần 5; hiện trạng: docs/CHUAN_MO_RONG.md mục 15) với dữ liệu giả.
 
 const angle = async (page: Page) => Number(await page.getByRole('slider', { name: 'Góc xoay' }).inputValue());
 const stage = (page: Page) => page.getByRole('application', { name: 'Xem sản phẩm 360 độ' });
@@ -12,20 +12,31 @@ async function waitLoaded(page: Page) {
 
 test.describe.configure({ mode: 'serial' });
 
-test('mọi sản phẩm có banner dẫn tới trang 3D; trang 360° nhận biến thể từ URL', async ({ page }) => {
+test('nút "Xem 360°" chỉ hiện ở sản phẩm có 360°, mang theo biến thể; banner 3D vẫn có; trang 360° nhận biến thể từ URL', async ({
+  page,
+}) => {
   for (const [slug, name] of [
     ['ke-tivi-hien-dai', 'Kệ tivi hiện đại'],
     ['sofa-nordic', 'Sofa Nordic'],
   ]) {
     await page.goto(`/products/${slug}`);
     await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByRole('link', { name: 'Xem 360°' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Xem 360°', exact: true })).toHaveCount(
+      slug === 'sofa-nordic' ? 1 : 0,
+    );
     await expect(page.getByRole('link', { name: /Trải nghiệm 3D ngay/ })).toHaveAttribute(
       'href',
       `/products/${slug}/3d`,
     );
   }
-  await page.goto('/products/sofa-nordic/360?color=kem&size=4-cho');
+  // từ trang chi tiết: chọn Kem + 4 chỗ rồi bấm nút 360° → mở trang 360° đúng biến thể
+  await page.goto('/products/sofa-nordic');
+  await expect(page.getByRole('heading', { name: 'Sofa Nordic' })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('link', { name: 'Xem sản phẩm 360 độ' })).toBeVisible();
+  await page.getByRole('button', { name: 'Kem', exact: true }).click();
+  await page.getByRole('button', { name: '4 chỗ' }).click();
+  await page.getByRole('link', { name: 'Xem 360°', exact: true }).click();
+  await expect(page).toHaveURL(/\/products\/sofa-nordic\/360\?color=kem&size=4-cho/);
   await waitLoaded(page);
   await expect(page.getByTestId('color-name')).toHaveText('Kem');
 });
@@ -37,12 +48,12 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   await page.keyboard.press('Space'); // dừng tự xoay
   const a0 = await angle(page);
   await page.keyboard.press('ArrowRight');
-  expect(await angle(page)).toBe((a0 + 10) % 360);
+  await expect.poll(() => angle(page)).toBe((a0 + 10) % 360);
   await page.keyboard.press('ArrowLeft');
-  expect(await angle(page)).toBe(a0);
+  await expect.poll(() => angle(page)).toBe(a0);
 
   await page.getByRole('slider', { name: 'Góc xoay' }).fill('180');
-  expect(await angle(page)).toBe(180);
+  await expect.poll(() => angle(page)).toBe(180);
 
   // kéo chuột
   const box = (await stage(page).boundingBox())!;
@@ -50,14 +61,15 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 + 120, box.y + 200, { steps: 8 });
   await page.mouse.up();
-  expect(await angle(page)).not.toBe(180);
+  await expect.poll(() => angle(page)).not.toBe(180);
   await expect(page.getByText('Kéo để xoay 360°')).toBeHidden();
 
   // tự xoay
   await page.getByRole('button', { name: 'Tự xoay' }).click();
   const before = await angle(page);
-  await page.waitForTimeout(1500);
-  expect(await angle(page)).not.toBe(before);
+  // Chờ ĐIỀU KIỆN (frame hiện tại đổi), không chờ cố định. Đo giả lập CPU chậm (CDP): bình thường frame đầu đổi sau ~0,1 s; chậm 12 lần
+  // ~0,8–1,9 s; chậm 20 lần tới ~4,9 s. 15 s ~ 3 lần mức tệ nhất đo được; hết 15 s mà frame vẫn đứng nghĩa là tự xoay hỏng thật.
+  await expect.poll(() => angle(page), { timeout: 15_000 }).not.toBe(before);
   await page.getByRole('button', { name: 'Dừng tự xoay' }).click();
 
   // zoom
@@ -65,7 +77,7 @@ test('xoay: bàn phím, thanh trượt, tự xoay, kéo chuột, zoom', async ({
   await expect(stage(page)).toHaveAttribute('data-zoom', /1\.[1-9]/);
   await page.getByRole('button', { name: 'Đặt lại góc' }).click();
   await expect(stage(page)).toHaveAttribute('data-zoom', '1.00');
-  expect(await angle(page)).toBe(0);
+  await expect.poll(() => angle(page)).toBe(0);
 });
 
 test('đổi màu/kích thước: giữ góc, URL đổi, không tải lại trang, hết hàng', async ({ page }) => {

@@ -4,7 +4,7 @@
 // kéo thả đổi thứ tự, xem trước xoay, cảnh báo khi số frame giữa các màu không bằng nhau.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import UploadDropzone, { readAsDataUrl } from '@/components/admin/UploadDropzone';
+import UploadDropzone from '@/components/admin/UploadDropzone';
 import Rotator360 from '@/components/product/Rotator360';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -12,6 +12,7 @@ import { ErrorState, Skeleton } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
 import { errorMessage } from '@/lib/validators';
 import { adminApi } from '@/services/admin.api';
+import { uploadMany } from '@/services/media.api';
 import { toast } from '@/store/uiStore';
 
 type ColorFrames = { name: string; hex: string; frames: string[] };
@@ -29,6 +30,7 @@ export default function Product360Editor({ productId }: { productId: number }) {
   const [drag, setDrag] = useState<number | null>(null);
   const [frame, setFrame] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     const d = q.data;
@@ -62,7 +64,16 @@ export default function Product360Editor({ productId }: { productId: number }) {
   const addFiles = async (files: File[]) => {
     // tự sắp xếp theo tên file (frame-01 … frame-36), so sánh số
     const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    const urls = await Promise.all(sorted.map(readAsDataUrl));
+    setUploading(true);
+    let urls: string[];
+    try {
+      urls = await uploadMany(sorted, 'frame');
+    } catch (e) {
+      toast.error(errorMessage(e));
+      return;
+    } finally {
+      setUploading(false);
+    }
     setFrames([...(cur?.frames ?? []), ...urls]);
     setFrame(0);
   };
@@ -100,7 +111,7 @@ export default function Product360Editor({ productId }: { productId: number }) {
           />{' '}
           Tự xoay khi mở trang
         </label>
-        <Button loading={save.isPending} onClick={() => save.mutate()}>
+        <Button loading={save.isPending} disabled={uploading} onClick={() => save.mutate()}>
           Lưu ảnh 360°
         </Button>
       </div>
@@ -139,11 +150,16 @@ export default function Product360Editor({ productId }: { productId: number }) {
       <UploadDropzone
         label={`Tải ảnh frame cho màu ${active}`}
         multiple
-        maxMB={5}
-        hint="Kéo thả nhiều ảnh (frame-01.jpg … frame-36.jpg) – tự sắp xếp theo tên tệp"
+        maxMB={2}
+        hint="Kéo thả nhiều ảnh (frame-01.jpg … frame-36.jpg, tối đa 2MB/ảnh) – tự sắp xếp theo tên tệp"
         onError={toast.error}
         onFiles={addFiles}
       />
+      {uploading && (
+        <p role="status" className="text-sm text-muted">
+          Đang tải ảnh lên…
+        </p>
+      )}
 
       {cur && cur.frames.length > 0 ? (
         <div className="grid gap-5 lg:grid-cols-[1fr_1fr]">

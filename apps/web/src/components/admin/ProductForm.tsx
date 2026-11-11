@@ -18,7 +18,6 @@ import { cn } from '@/lib/cn';
 import { discountPercent, formatCurrency, slugify } from '@/lib/format';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
-import { brandApi } from '@/services/product.api';
 import { toast } from '@/store/uiStore';
 
 type Tab = 'basic' | 'images' | 'variants' | 'model' | 'view360' | 'attrs' | 'seo';
@@ -32,18 +31,6 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'seo', label: 'SEO' },
 ];
 
-const COLOR_PRESETS = [
-  ['Kem', '#E8DCC8'],
-  ['Be', '#D8C3A5'],
-  ['Trắng', '#F5F5F0'],
-  ['Nâu', '#7B5239'],
-  ['Đen', '#2B2B2B'],
-  ['Xám', '#8E8E8E'],
-  ['Xanh', '#3F6B8F'],
-  ['Xanh rêu', '#6B7D5C'],
-  ['Gỗ sồi', '#C9A26B'],
-  ['Óc chó', '#5C4033'],
-];
 const MATERIALS = ['Vải', 'Da', 'Nỉ', 'Gỗ', 'Kim loại', 'Đá', 'Kính'];
 const STYLES = ['Hiện đại', 'Bắc Âu', 'Tối giản', 'Japandi', 'Cổ điển', 'Luxury'];
 
@@ -172,7 +159,8 @@ export default function ProductForm({ productId }: { productId?: number }) {
   const [specs, setSpecs] = useState<Array<{ label: string; value: string }>>([]);
   const [features, setFeatures] = useState('');
   const cats = useCategories();
-  const brands = useQuery({ queryKey: ['brands'], queryFn: brandApi.list });
+  // ô chọn thương hiệu lấy từ API quản trị thương hiệu (UC-ADM-06): chỉ thương hiệu đang hoạt động (+ thương hiệu hiện tại của sản phẩm)
+  const brands = useQuery({ queryKey: ['admin', 'brands', 'pick'], queryFn: () => adminApi.brands.list({}) });
   const q = useQuery({
     queryKey: ['admin', 'product', productId],
     queryFn: () => adminApi.products.get(productId!),
@@ -389,7 +377,9 @@ export default function ProductForm({ productId }: { productId?: number }) {
                 placeholder="Chọn thương hiệu"
                 value={v.brandId}
                 onChange={(e) => set('brandId', e.target.value)}
-                options={(brands.data ?? []).map((b) => ({ value: b.id, label: b.name }))}
+                options={(brands.data ?? [])
+                  .filter((b) => b.isActive || String(b.id) === v.brandId)
+                  .map((b) => ({ value: b.id, label: b.isActive ? b.name : `${b.name} (đã tắt)` }))}
               />
               <Input
                 label="Giá bán (đ)"
@@ -683,6 +673,16 @@ function ImagesEditor({
   );
 }
 
+/** Giá trị thuộc tính (quản lý ở /admin/attributes) cho form biến thể: màu (tên + mã màu) và kích thước */
+function useAttributeOptions() {
+  const q = useQuery({ queryKey: ['admin', 'attributes'], queryFn: adminApi.attributes.list });
+  const colors = (q.data?.find((a) => a.code === 'color')?.values ?? []).map(
+    (v) => [v.value, v.colorHex ?? '#CCCCCC'] as const,
+  );
+  const sizes = (q.data?.find((a) => a.code === 'size')?.values ?? []).map((v) => v.value);
+  return { colors, sizes };
+}
+
 function VariantsEditor({
   variants,
   setVariants,
@@ -694,14 +694,15 @@ function VariantsEditor({
   baseSku: string;
   basePrice: number;
 }) {
+  const attrs = useAttributeOptions();
   const upd = (i: number, p: Partial<VariantRow>) =>
     setVariants(variants.map((x, k) => (k === i ? { ...x, ...p } : x)));
   const add = () =>
     setVariants([
       ...variants,
       {
-        colorName: 'Kem',
-        colorHex: '#E8DCC8',
+        colorName: '',
+        colorHex: '#CCCCCC',
         size: '',
         sku: `${baseSku || 'SKU'}-${variants.length + 1}`,
         price: basePrice,
@@ -751,25 +752,33 @@ function VariantsEditor({
                         className="field !py-1.5"
                         value={x.colorName}
                         onChange={(e) => {
-                          const c = COLOR_PRESETS.find((p) => p[0] === e.target.value);
+                          const c = attrs.colors.find((p) => p[0] === e.target.value);
                           upd(i, { colorName: e.target.value, colorHex: c?.[1] ?? x.colorHex });
                         }}
                       >
                         <option value="">Không có</option>
-                        {COLOR_PRESETS.map(([n]) => (
+                        {x.colorName && !attrs.colors.some(([n]) => n === x.colorName) && (
+                          <option>{x.colorName}</option>
+                        )}
+                        {attrs.colors.map(([n]) => (
                           <option key={n}>{n}</option>
                         ))}
                       </select>
                     </div>
                   </td>
                   <td className="pr-2">
-                    <input
+                    <select
                       aria-label="Kích thước"
                       className="field !py-1.5"
                       value={x.size}
                       onChange={(e) => upd(i, { size: e.target.value })}
-                      placeholder="3 chỗ"
-                    />
+                    >
+                      <option value="">Không có</option>
+                      {x.size && !attrs.sizes.includes(x.size) && <option>{x.size}</option>}
+                      {attrs.sizes.map((n) => (
+                        <option key={n}>{n}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="pr-2">
                     <input

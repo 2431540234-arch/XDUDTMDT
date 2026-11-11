@@ -1,10 +1,10 @@
 'use client';
 
-// Trình xem 3D / AR toàn trang (WIREFRAME 7.7) – /products/:slug/3d
+// Trình xem 3D toàn trang (WIREFRAME 7.7) – /products/:slug/3d
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Button, { LinkButton } from '@/components/ui/Button';
 import ColorSwatch from '@/components/ui/ColorSwatch';
 import Icon from '@/components/ui/Icon';
@@ -21,42 +21,6 @@ const ProductViewer3D = dynamic(() => import('@/components/viewer/ProductViewer3
     <div className="flex min-h-[460px] items-center justify-center text-muted">Đang tải trình xem 3D…</div>
   ),
 });
-
-/** QR minh họa: mô hình thật sẽ tạo mã từ liên kết AR; ở bản mock chỉ vẽ mẫu để giữ đúng bố cục */
-function FakeQr({ seed }: { seed: string }) {
-  const cells = useMemo(() => {
-    let h = 0;
-    for (const c of seed) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-    const n = 21;
-    return Array.from({ length: n * n }, (_, i) => {
-      h = (h * 1103515245 + 12345) >>> 0;
-      const x = i % n;
-      const y = Math.floor(i / n);
-      const finder = (x < 7 && y < 7) || (x > 13 && y < 7) || (x < 7 && y > 13);
-      return finder
-        ? x % 6 === 0 ||
-            y % 6 === 0 ||
-            x === 14 ||
-            x === 20 ||
-            y === 14 ||
-            y === 20 ||
-            (x % 6 >= 2 && x % 6 <= 4 && y % 6 >= 2 && y % 6 <= 4)
-        : (h >> 16) & 1;
-    });
-  }, [seed]);
-  return (
-    <svg
-      viewBox="0 0 21 21"
-      className="h-24 w-24 rounded bg-white p-1"
-      role="img"
-      aria-label="Mã QR minh họa"
-    >
-      {cells.map((on, i) =>
-        on ? <rect key={i} x={i % 21} y={Math.floor(i / 21)} width="1" height="1" fill="#2b1e16" /> : null,
-      )}
-    </svg>
-  );
-}
 
 export default function Viewer3DPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -145,7 +109,13 @@ export default function Viewer3DPage() {
       </header>
       <div className="grid flex-1 lg:grid-cols-[1fr_380px]">
         <div className="min-h-[460px]">
-          <ProductViewer3D model={p.model} alt={`Mô hình 3D ${p.name}`} tint={hex} />
+          <ProductViewer3D
+            model={p.model}
+            alt={`Mô hình 3D ${p.name}`}
+            tint={hex}
+            variantId={variant?.id ?? null}
+            fallbackImage={p.images[0]?.url ?? null}
+          />
         </div>
         <aside className="space-y-5 overflow-y-auto border-l border-line bg-white p-6">
           <div>
@@ -196,18 +166,6 @@ export default function Viewer3DPage() {
               </div>
             </div>
           )}
-          <div className="rounded-card border border-line bg-surface-muted/50 p-4">
-            <p className="flex items-center gap-2 font-bold">
-              <Icon name="cube" size={18} className="text-primary" /> Xem AR tại nhà
-            </p>
-            <div className="mt-3 flex items-center gap-4">
-              <FakeQr seed={p.slug} />
-              <p className="text-xs leading-relaxed text-muted">
-                Quét mã QR bằng điện thoại để đặt sản phẩm vào căn phòng của bạn. iOS dùng AR Quick Look
-                (USDZ), Android dùng Scene Viewer (GLB). <em>Mã QR minh họa trong bản dữ liệu giả.</em>
-              </p>
-            </div>
-          </div>
           <div className="space-y-2">
             <Button
               block

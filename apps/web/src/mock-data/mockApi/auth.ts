@@ -14,9 +14,11 @@ import {
 } from './http';
 import { addressView, mediaPath, userView } from './views';
 
-export const OTP_CODE = '123456';
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phoneRe = /^0\d{9}$/;
+const PASSWORD_POLICY_MESSAGE = 'Mật khẩu tối thiểu 8 ký tự, gồm chữ hoa, chữ thường và chữ số.';
+const isStrongPassword = (v: string) =>
+  v.length >= 8 && /\p{Lu}/u.test(v) && /\p{Ll}/u.test(v) && /[0-9]/.test(v);
 
 export function sessionUser(ctx: Ctx, u: DbUser) {
   const roles = ctx.db.userRoles
@@ -60,12 +62,14 @@ export function login(ctx: Ctx): Result {
 }
 
 export function register(ctx: Ctx): Result {
-  const { fullName = '', email = '', phone = '', password = '' } = ctx.body ?? {};
+  const { fullName = '', email = '', phone = '', password = '', confirmPassword = '' } = ctx.body ?? {};
   const errs: Record<string, string> = {};
   if (String(fullName).trim().length < 2) errs.fullName = 'Vui lòng nhập họ và tên.';
   if (!emailRe.test(String(email))) errs.email = 'Email không hợp lệ.';
-  if (!phoneRe.test(String(phone))) errs.phone = 'Số điện thoại phải gồm 10 chữ số.';
-  if (String(password).length < 8) errs.password = 'Mật khẩu tối thiểu 8 ký tự.';
+  if (String(phone).trim() && !/^0\d{9,10}$/.test(String(phone).trim()))
+    errs.phone = 'Số điện thoại phải gồm 10–11 chữ số, bắt đầu bằng 0.';
+  if (!isStrongPassword(String(password))) errs.password = PASSWORD_POLICY_MESSAGE;
+  if (String(confirmPassword) !== String(password)) errs.confirmPassword = 'Mật khẩu xác nhận không khớp.';
   if (Object.keys(errs).length) throw validation(errs);
   if (ctx.db.users.some((u) => u.email.toLowerCase() === String(email).trim().toLowerCase()))
     throw new ApiFail('EMAIL_ALREADY_EXISTS', 'Email này đã được đăng ký.');
@@ -103,29 +107,57 @@ export function register(ctx: Ctx): Result {
   return created({ user: sessionUser(ctx, u), tokens: tokensFor(u) });
 }
 
+export function refresh(ctx: Ctx): Result {
+  const rt = String(ctx.body?.refreshToken ?? '');
+  const id = Number(/^mock-refresh\.(\d+)\./.exec(rt)?.[1]);
+  const u = ctx.db.users.find((x) => x.id === id);
+  if (!u) throw new ApiFail('AUTH_TOKEN_INVALID', 'Phiên đăng nhập không hợp lệ.');
+  return ok({ user: sessionUser(ctx, u), tokens: tokensFor(u) });
+}
+
+/** Mock không gửi email: trả kèm liên kết xác thực để thử (chỉ có ở mock) */
+export function resendVerification(ctx: Ctx): Result {
+  const u = ctx.user!;
+  if (u.emailVerifiedAt) return ok({ sent: false, verified: true });
+  return ok({ sent: true, verified: false, devVerifyLink: `/verify-email?token=mock.${u.id}` });
+}
+
+export function verifyEmail(ctx: Ctx): Result {
+  const id = Number(/^mock\.(\d+)$/.exec(String(ctx.body?.token ?? ''))?.[1]);
+  const u = ctx.db.users.find((x) => x.id === id);
+  if (!u) throw new ApiFail('BAD_REQUEST', 'Liên kết xác thực không đúng hoặc đã hết hạn.');
+  u.emailVerifiedAt ??= nowIso();
+  return ok({ verified: true });
+}
+
 export function forgotPassword(ctx: Ctx): Result {
   const email = String(ctx.body?.email ?? '')
     .trim()
     .toLowerCase();
   if (!emailRe.test(email)) throw validation({ email: 'Email không hợp lệ.' });
-  // Không tiết lộ email có tồn tại hay không; mock luôn tạo OTP 123456
-  ctx.db.otps[email] = { code: OTP_CODE, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() };
-  return ok({ sent: true });
+  // Không tiết lộ email có tồn tại hay không. Mock không gửi email thật nên trả kèm liên kết để thử (chỉ có ở mock).
+  const token = Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  ctx.db.resetTokens[token] = { email, expiresAt: new Date(Date.now() + 30 * 60_000).toISOString() };
+  return ok({ sent: true, devResetLink: `/reset-password?token=${token}` });
 }
 
 export function resetPassword(ctx: Ctx): Result {
-  const { email = '', otp = '', password = '' } = ctx.body ?? {};
+  const body = ctx.body ?? {};
+  const token = body.token ?? '';
+  const password = body.newPassword ?? body.password ?? '';
   const errs: Record<string, string> = {};
-  if (String(password).length < 8) errs.password = 'Mật khẩu tối thiểu 8 ký tự.';
-  if (!/^\d{6}$/.test(String(otp))) errs.otp = 'Vui lòng nhập đủ 6 số của mã OTP.';
+  if (!isStrongPassword(String(password))) errs.newPassword = PASSWORD_POLICY_MESSAGE;
+  if (String(body.confirmPassword ?? '') !== String(password))
+    errs.confirmPassword = 'Mật khẩu xác nhận không khớp.';
+  if (!/^[0-9a-f]{64}$/.test(String(token))) errs.token = 'Liên kết không hợp lệ.';
   if (Object.keys(errs).length) throw validation(errs);
-  const rec = ctx.db.otps[String(email).toLowerCase()];
-  if (!rec || rec.code !== String(otp) || new Date(rec.expiresAt) < new Date())
-    throw new ApiFail('BAD_REQUEST', 'Mã OTP không đúng hoặc đã hết hạn.');
-  const u = ctx.db.users.find((x) => x.email.toLowerCase() === String(email).toLowerCase());
+  const rec = ctx.db.resetTokens[String(token)];
+  if (!rec || new Date(rec.expiresAt) < new Date())
+    throw new ApiFail('BAD_REQUEST', 'Liên kết đặt lại mật khẩu không đúng hoặc đã hết hạn.');
+  const u = ctx.db.users.find((x) => x.email.toLowerCase() === rec.email);
   if (!u) throw notFound('Tài khoản');
   ctx.db.credentials[u.id] = password;
-  delete ctx.db.otps[String(email).toLowerCase()];
+  delete ctx.db.resetTokens[String(token)];
   return done();
 }
 
@@ -171,12 +203,13 @@ export function updateMe(ctx: Ctx): Result {
 }
 
 export function changePassword(ctx: Ctx): Result {
-  const { currentPassword = '', newPassword = '' } = ctx.body ?? {};
+  const { currentPassword = '', newPassword = '', confirmPassword = '' } = ctx.body ?? {};
   const u = ctx.user!;
   const errs: Record<string, string> = {};
   if (ctx.db.credentials[u.id] !== currentPassword) errs.currentPassword = 'Mật khẩu hiện tại không đúng.';
-  if (String(newPassword).length < 8) errs.newPassword = 'Mật khẩu mới tối thiểu 8 ký tự.';
+  if (!isStrongPassword(String(newPassword))) errs.newPassword = PASSWORD_POLICY_MESSAGE;
   else if (newPassword === currentPassword) errs.newPassword = 'Mật khẩu mới phải khác mật khẩu cũ.';
+  if (String(confirmPassword) !== String(newPassword)) errs.confirmPassword = 'Mật khẩu xác nhận không khớp.';
   if (Object.keys(errs).length) throw validation(errs);
   ctx.db.credentials[u.id] = newPassword;
   return done();
@@ -256,12 +289,15 @@ export function updateAddress(ctx: Ctx): Result {
 
 export function deleteAddress(ctx: Ctx): Result {
   const a = ownAddress(ctx);
-  if (ctx.db.addresses.filter((x) => x.userId === a.userId).length <= 1)
-    throw new ApiFail('INVALID_STATE', 'Bạn cần giữ lại ít nhất một địa chỉ giao hàng.');
   ctx.db.addresses.splice(ctx.db.addresses.indexOf(a), 1);
   if (a.isDefault) {
-    const first = ctx.db.addresses.find((x) => x.userId === a.userId);
-    if (first) first.isDefault = true;
+    // xóa địa chỉ mặc định ⇒ địa chỉ MỚI NHẤT còn lại (id lớn nhất) thành mặc định; xóa hết cũng hợp lệ
+    const rest = ctx.db.addresses.filter((x) => x.userId === a.userId);
+    const newest = rest.reduce<(typeof rest)[number] | undefined>(
+      (m, x) => (!m || x.id > m.id ? x : m),
+      undefined,
+    );
+    if (newest) newest.isDefault = true;
   }
   return done();
 }

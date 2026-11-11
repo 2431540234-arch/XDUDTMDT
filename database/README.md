@@ -1,19 +1,30 @@
-# database/ – TÀI LIỆU THAM KHẢO
+# database/
 
-**Nguồn chuẩn của cấu trúc CSDL là [`apps/api/prisma`](../apps/api/prisma)** (`schema.prisma` + `migrations/`).
-Thư mục này chỉ giữ bản SQL thuần để đọc, đối chiếu và dựng nhanh một DB thử bằng `psql`. **Đừng sửa cấu trúc ở đây rồi mong DB tự đổi theo.**
+> Cập nhật lần cuối: 2026-11-11 – theo nhánh `fix/remaining-issues`.
 
-## Quan hệ giữa hai bên
+Thư mục này **không còn chứa SQL**. Các tệp SQL tham khảo cũ (`00_reset.sql` … `07_sample_data.sql`, `run_all.sql`) đã được gỡ ngày 2026-11-11 vì lỗi thời (44 bảng thay vì 59, còn bảng AR đã bị loại bỏ) và không script/compose/CI nào dùng. Nội dung cũ vẫn nằm trong lịch sử git, ví dụ: `git log --diff-filter=D --name-only -- database/` rồi `git show <commit-trước-khi-gỡ>:database/03_tables.sql`.
 
-| `database/` | `apps/api/prisma` |
+## Cấu trúc CSDL ở đâu
+
+| Cần gì | Xem ở |
 | --- | --- |
-| `01_extensions.sql` … `05_functions_triggers.sql` | `migrations/0_init/migration.sql` (nối nguyên văn 01 → 05 lúc baseline, không gồm seed) cộng các migration sau đó; `database/` được cập nhật tay cho khớp (ví dụ `media_file_size_int`) nên có thể chậm hơn migration |
-| `06_seed.sql`, `07_sample_data.sql` | `seed.ts` (chạy bằng `npx prisma db seed`, idempotent) |
-| `run_all.sql`, `00_reset.sql` | không dùng; dev dựng lại bằng `npx prisma migrate reset` |
+| Cấu trúc thật (bảng, cột, quan hệ, enum) | [`apps/api/prisma/schema.prisma`](../apps/api/prisma/schema.prisma) |
+| Lịch sử thay đổi (kể cả trigger, CHECK, partial index) | [`apps/api/prisma/migrations/`](../apps/api/prisma/migrations) (`0_init` đến `20261109010100_remove_ar`) |
+| Mô tả, từ điển dữ liệu, ERD | [`docs/DATABASE_SCHEMA.md`](../docs/DATABASE_SCHEMA.md), [`docs/CAU_TRUC_DB.md`](../docs/CAU_TRUC_DB.md) |
+| Quy ước khi code với CSDL | [`docs/QUY_UOC_CODE_DB.md`](../docs/QUY_UOC_CODE_DB.md) |
 
-Ở thời điểm baseline, `migrate deploy` trên DB trống cho kết quả giống hệt `run_all.sql` (`prisma migrate diff` rỗng và `pg_dump --schema-only` khác nhau chỉ ở bảng `_prisma_migrations`).
+## Dựng và seed
 
-## Quy trình thay đổi CSDL từ nay
+```bash
+npm run infra:up          # postgres, redis, minio, mailpit
+npm run db:deploy         # prisma migrate deploy: áp các migration chưa áp
+npm run db:seed           # seed idempotent (vai trò, quyền, cấu hình, admin, dữ liệu mẫu)
+```
+
+- Seed production: bắt buộc `SEED_ADMIN_PASSWORD` và `SEED_SAMPLE=false` (xem [`docs/DEPLOYMENT.md`](../docs/DEPLOYMENT.md) mục 5, biến ở [`docs/ENVIRONMENT.md`](../docs/ENVIRONMENT.md)).
+- DB demo/test dựng lại từ đầu: `node scripts/db-reset.mjs aurelia_demo` (hoặc `aurelia_test`); script **chỉ** chấp nhận hai tên này. Không chạy lên `aurelia_dev` hay DB thật.
+
+## Quy trình thay đổi CSDL
 
 Mọi thay đổi làm qua Prisma Migrate trong `apps/api`:
 
@@ -28,21 +39,8 @@ npx prisma migrate dev --create-only --name <mo_ta_ngan>
 npx prisma migrate dev
 ```
 
-Quy tắc:
-
 - **Không dùng `prisma db push`** (sẽ xóa phần chỉ có trong migration SQL như trigger, CHECK, partial index).
-- Luôn đọc lại SQL mà `migrate dev` sinh ra trước khi chấp nhận; đừng để Prisma tự bỏ CHECK/trigger/index mà nó không nhìn thấy.
-- Không sửa migration đã áp dụng (kể cả `0_init`); thay đổi mới = migration mới.
-- Môi trường thật: `npx prisma migrate deploy`.
-- Sau khi đổi cấu trúc, cập nhật `docs/DATABASE_SCHEMA.md`; có thể giữ `database/` đồng bộ nếu cần làm tài liệu, nhưng không bắt buộc.
-
-## Dùng nhanh bản SQL thuần (chỉ để thử/đối chiếu)
-
-```bash
-createdb -U postgres aurelia_ref
-psql -U postgres -d aurelia_ref -v ON_ERROR_STOP=1 -f database/run_all.sql
-```
-
-Quy ước bắt buộc khi code với CSDL (đúng/sai kèm ví dụ Prisma): [`docs/QUY_UOC_CODE_DB.md`](../docs/QUY_UOC_CODE_DB.md).
-
-Xem mô tả đầy đủ (từ điển dữ liệu, ERD, trigger, nghiệp vụ Service, ánh xạ bảng ↔ model Prisma) tại [`docs/DATABASE_SCHEMA.md`](../docs/DATABASE_SCHEMA.md).
+- Luôn đọc lại SQL mà `migrate dev` sinh ra; không sửa migration đã áp dụng (kể cả `0_init`).
+- Môi trường thật: `npx prisma migrate deploy`; sao lưu trước khi áp lên DB có dữ liệu.
+- Kiểm tra không lệch: `npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --script` (đầu ra rỗng = khớp).
+- Sau khi đổi cấu trúc, cập nhật `docs/DATABASE_SCHEMA.md` và chạy `npm run types:generate`.

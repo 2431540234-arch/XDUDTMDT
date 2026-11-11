@@ -139,15 +139,13 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
     expect(await prisma.modelFile.count({ where: { modelId: model.id } })).toBe(0);
   });
 
-  it('USDZ: chỉ kiểm tra ZIP + checksum rồi chép sang bucket public', async () => {
+  it('USDZ bị từ chối 415 ở bước presign (AR ngoài phạm vi, D-P11)', async () => {
     const model = await newModel();
-    const fakeUsdz = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 7)]);
-    const res = await uploadModel(model.id, fakeUsdz, 'usdz', 'sofa.usdz');
-    expect(res.status).toBe(202);
-    await waitFor(async () => (await statusOf(model.id)) === 'ready');
-    const file = await prisma.modelFile.findFirstOrThrow({ where: { modelId: model.id } });
-    expect(file).toMatchObject({ format: 'usdz', lod: 'high', isCompressed: false });
-    expect(file.checksum).toMatch(/^[0-9a-f]{64}$/);
+    await request(app.getHttpServer())
+      .post(`/api/admin/models/${model.id}/files/presign`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ format: 'usdz', fileName: 'sofa.usdz', size: 100 })
+      .expect(415);
   });
 
   it('ảnh thường: tải multipart qua API -> lưu MinIO + media, job sinh webp và thumbnail', async () => {

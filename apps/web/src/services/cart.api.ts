@@ -28,16 +28,14 @@ export const orderApi = {
     http.list<OrderView>('/orders', q),
   detail: (code: string) => http.get<OrderView>(`/orders/${code}`),
   cancel: (id: number, reason?: string) => http.post<OrderView>(`/orders/${id}/cancel`, { reason }),
-  counts: () => http.get<Record<string, number>>('/orders/counts'), // TODO: chưa có trong BE
-  /** Giả lập cổng thanh toán: trả về URL điều hướng (thành công hoặc thất bại) */
-  checkout: (orderId: number, outcome: 'success' | 'failed' = 'success') =>
-    http.post<{ redirectUrl: string }>(`/payments/${orderId}/checkout`, { outcome }),
+  counts: () => http.get<Record<string, number>>('/orders/counts'),
+  /** Bắt đầu thanh toán: trả URL điều hướng. Kết quả do hệ thống quyết định (khách không gửi được outcome) */
+  checkout: (orderId: number) => http.post<{ redirectUrl: string }>(`/payments/${orderId}/checkout`),
   retryPayment: (orderId: number, method?: PaymentMethod) =>
     http.post<{ redirectUrl: string }>(`/payments/${orderId}/retry`, { method }),
 };
 
 export const returnApi = {
-  // TODO: chưa có trong BE
   list: (q: { status?: string; page?: number } = {}) => http.list<ReturnRequest>('/returns', q),
   create: (body: {
     orderId: number;
@@ -50,13 +48,13 @@ export const returnApi = {
 };
 
 export const couponApi = {
-  mine: (q: { status?: string } = {}) => http.get<UserCouponView[]>('/coupons/me', q), // TODO: chưa có trong BE
-  suggested: () => http.get<CouponView[]>('/coupons/suggested'), // TODO: chưa có trong BE
-  save: (code: string) => http.post<UserCouponView>('/coupons/save', { code }), // TODO: chưa có trong BE
+  mine: (q: { status?: string } = {}) => http.get<UserCouponView[]>('/coupons/me', q),
+  suggested: () => http.get<CouponView[]>('/coupons/suggested'),
+  save: (code: string) => http.post<UserCouponView>('/coupons/save', { code }),
 };
 
 export const myReviewApi = {
-  list: () => http.get<ReviewView[]>('/reviews/me'), // TODO: chưa có trong BE
+  list: () => http.get<ReviewView[]>('/reviews/me'),
   update: (id: number, body: { rating: number; content: string; tags?: string[] }) =>
     http.patch<ReviewView>(`/reviews/${id}`, body),
   remove: (id: number) => http.delete(`/reviews/${id}`),

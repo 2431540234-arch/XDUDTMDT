@@ -1,7 +1,8 @@
 'use client';
 
 // Chi tiết sản phẩm (WIREFRAME 2.3): gallery | thông tin → banner 3D → tabs → sản phẩm liên quan
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import ProductCard from '@/components/product/ProductCard';
@@ -15,8 +16,9 @@ import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useProduct } from '@/hooks/useProducts';
 import { discountPercent } from '@/lib/format';
 import { pushRecent } from '@/lib/recent';
-import { parseVariantQuery } from '@/lib/variant';
+import { parseVariantQuery, variantQuery } from '@/lib/variant';
 import { productApi } from '@/services/product.api';
+import { spaceApi } from '@/services/space.api';
 import { ApiClientError } from '@/services/api-client';
 
 export default function ProductDetailPage() {
@@ -27,6 +29,13 @@ export default function ProductDetailPage() {
     queryFn: () => productApi.related(slug),
     enabled: Boolean(q.data),
   });
+  // UC-SPACE-06: không gian mẫu có chứa sản phẩm này (liên kết gắn ?from=<slug> để ghi nhận sản phẩm dẫn tới)
+  const inSpaces = useQuery({
+    queryKey: ['spaces', 'with-product', slug],
+    queryFn: () => spaceApi.list({ product: slug, pageSize: 3, sort: 'popular' }),
+    enabled: Boolean(q.data),
+  });
+  const qc = useQueryClient();
   const [color, setColor] = useState<string | null>(null);
   const [size, setSize] = useState<string | null>(null);
   const [active, setActive] = useState(0);
@@ -105,6 +114,10 @@ export default function ProductDetailPage() {
           active={active}
           onActive={setActive}
           model3dHref={p.model ? `/products/${p.slug}/3d` : null}
+          href360={p.has360 ? `/products/${p.slug}/360${variantQuery(color, size)}` : null}
+          onPrefetch360={() => {
+            void qc.prefetchQuery({ queryKey: ['p360', p.slug], queryFn: () => productApi.view360(p.slug) });
+          }}
           discount={discountPercent(price, original)}
         />
         <ProductInfo
@@ -129,7 +142,7 @@ export default function ProductDetailPage() {
           <div>
             <h2 className="text-lg font-extrabold">Trải nghiệm sản phẩm 3D</h2>
             <p className="text-sm text-muted">
-              Xoay 360°, phóng to và đặt thử {p.name} vào căn phòng của bạn bằng AR.
+              Xoay, phóng to và quan sát {p.name} từ mọi góc ngay trên website.
             </p>
           </div>
         </div>
@@ -137,6 +150,32 @@ export default function ProductDetailPage() {
           Trải nghiệm 3D ngay <Icon name="arrowRight" size={16} />
         </LinkButton>
       </section>
+
+      {inSpaces.data && inSpaces.data.items.length > 0 && (
+        <section className="mt-10" data-testid="spaces-with-product" aria-labelledby="in-spaces">
+          <h2 id="in-spaces" className="mb-4 text-xl font-extrabold uppercase">
+            Xem trong không gian mẫu
+          </h2>
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {inSpaces.data.items.map((s) => (
+              <li key={s.id}>
+                <Link
+                  href={`/spaces/${s.slug}?from=${encodeURIComponent(p.slug)}`}
+                  className="flex items-center gap-3 rounded-card border border-line bg-white p-2 transition hover:border-primary"
+                >
+                  <span className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-surface-muted">
+                    {s.coverUrl && <img src={s.coverUrl} alt="" className="h-full w-full object-cover" />}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="line-clamp-2 font-semibold">{s.title}</span>
+                    <span className="text-xs text-muted">{s.productCount} sản phẩm · toàn cảnh 360°</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <ProductTabs product={p} tab={tab} onTab={setTab} />
 

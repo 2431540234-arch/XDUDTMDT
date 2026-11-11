@@ -21,6 +21,17 @@ export const envSchema = z.object({
 
   REDIS_HOST: z.string().default('localhost'),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
+  // Tiền tố khóa BullMQ trong Redis. Mỗi môi trường (dev/demo/e2e) nên một tiền tố riêng, nếu không worker của môi trường
+  // này sẽ nhận job của môi trường kia (và xử lý trên nhầm DB). Mặc định: test ⇒ bull-test, còn lại bull.
+  BULL_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
+  // Tiền tố khóa bộ đếm giới hạn tốc độ trong Redis (cùng lý do với BULL_PREFIX). Mặc định: test ⇒ throttle-test:, còn lại throttle:
+  THROTTLE_PREFIX: z
+    .string()
+    .regex(/^[a-z0-9:-]+$/)
+    .optional(),
 
   // local: đĩa cục bộ | minio: MinIO dev | s3: AWS S3 production (cùng mã, chỉ khác biến môi trường)
   STORAGE_DRIVER: z.enum(['local', 'minio', 's3']).default('minio'),
@@ -73,7 +84,14 @@ export const envSchema = z.object({
   CACHE_KEY_PREFIX: z.string().default('aurelia:cache:'),
   CACHE_DEFAULT_TTL_SECONDS: z.coerce.number().int().positive().default(300),
 
-  SWAGGER_ENABLED: bool.default('true'),
+  // Không đặt ⇒ bật ở development/test, TẮT ở production; muốn bật ở production phải đặt SWAGGER_ENABLED=true rõ ràng
+  SWAGGER_ENABLED: optional(bool),
+
+  // Google OAuth (tùy chọn): chưa có thì POST /auth/google trả lỗi rõ ràng, các luồng khác không ảnh hưởng
+  GOOGLE_CLIENT_ID: optional(z.string()),
+  GOOGLE_CLIENT_SECRET: optional(z.string()),
+  // Cổng thanh toán giả lập khi chưa có khóa VNPAY: checkout trả redirect tới trang thành công/thất bại của FE
+  PAYMENT_SANDBOX_FAKE: bool.default('true'),
 });
 
 const MINIO_REQUIRED = ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] as const;
@@ -83,7 +101,34 @@ export function resolveForcePathStyle(env: Pick<Env, 'STORAGE_DRIVER' | 'S3_FORC
   return env.S3_FORCE_PATH_STYLE ?? env.STORAGE_DRIVER === 'minio';
 }
 
+/** "15m", "12h", "900" (giây)… -> số giây; không đọc được thì trả Infinity (bị coi là quá dài) */
+export function ttlSeconds(spec: string): number {
+  const m = /^(\d+)\s*(ms|s|m|h|d)?$/.exec(spec.trim());
+  if (!m) return Infinity;
+  const unit = { ms: 0.001, s: 1, m: 60, h: 3600, d: 86_400 }[m[2] ?? 's']!;
+  return Number(m[1]) * unit;
+}
+
+/** Production: access token tối đa 15 phút (FE tự làm mới bằng refresh token); dev/test được dài hơn */
+export const PROD_MAX_ACCESS_TTL_SECONDS = 15 * 60;
+
 const envSchemaChecked = envSchema.superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && env.PAYMENT_SANDBOX_FAKE) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['PAYMENT_SANDBOX_FAKE'],
+      message:
+        'KHÔNG được bật ở NODE_ENV=production (khách có thể tự đánh dấu đã thanh toán). Đặt PAYMENT_SANDBOX_FAKE=false.',
+    });
+  }
+  if (env.NODE_ENV === 'production' && ttlSeconds(env.JWT_ACCESS_EXPIRES_IN) > PROD_MAX_ACCESS_TTL_SECONDS) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['JWT_ACCESS_EXPIRES_IN'],
+      message:
+        'ở NODE_ENV=production tối đa 15m (FE tự làm mới bằng refresh token); giá trị dài chỉ dùng cho dev',
+    });
+  }
   if (env.STORAGE_DRIVER !== 'minio') return;
   for (const key of MINIO_REQUIRED) {
     if (!env[key]) {
@@ -92,7 +137,7 @@ const envSchemaChecked = envSchema.superRefine((env, ctx) => {
   }
 });
 
-export type Env = z.infer<typeof envSchema>;
+export type Env = Omit<z.infer<typeof envSchema>, 'SWAGGER_ENABLED'> & { SWAGGER_ENABLED: boolean };
 
 export function validateEnv(raw: Record<string, unknown>): Env {
   const result = envSchemaChecked.safeParse(raw);
@@ -102,5 +147,6 @@ export function validateEnv(raw: Record<string, unknown>): Env {
       `Cấu hình môi trường không hợp lệ:\n${lines.join('\n')}\nXem .env.example và sao chép thành .env.`,
     );
   }
-  return result.data;
+  const data = result.data;
+  return { ...data, SWAGGER_ENABLED: data.SWAGGER_ENABLED ?? data.NODE_ENV !== 'production' };
 }

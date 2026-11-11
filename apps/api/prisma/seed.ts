@@ -1,6 +1,6 @@
 // Seed dữ liệu cho cơ sở dữ liệu (idempotent: chạy nhiều lần không lỗi, không nhân đôi dữ liệu).
 //   - Phần BẮT BUỘC: 2 vai trò, 6 quyền, role_permissions, settings, tài khoản admin
-//   - Phần MẪU (dev/test): giống database/07_sample_data.sql; tắt bằng SEED_SAMPLE=false
+//   - Phần MẪU (dev/test): bộ dữ liệu mẫu cũ (SEED_SOURCE=legacy) hoặc từ mock-data (mặc định); tắt bằng SEED_SAMPLE=false
 // Admin: email/mật khẩu lấy từ SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD (mặc định chỉ cho dev, ĐỔI khi triển khai thật).
 // User mẫu (chỉ khi SEED_SAMPLE != false) dùng SEED_SAMPLE_USER_PASSWORD.
 import { PrismaClient } from '@prisma/client';
@@ -10,7 +10,8 @@ import { ensureSampleObject, storageDriver } from './seed-storage';
 const prisma = new PrismaClient();
 
 const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@aurelia.vn';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'Admin@123456';
+// Mật khẩu mặc định CHỈ dùng ngoài production; production bắt buộc đặt SEED_ADMIN_PASSWORD (kiểm tra ở main())
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin@123456';
 const SAMPLE_USER_PASSWORD = process.env.SEED_SAMPLE_USER_PASSWORD ?? 'User@123456';
 const VISITOR_ID = '5b3f1c1e-8a47-4c0e-9d5f-0c6b7d1e2a33';
 
@@ -34,11 +35,31 @@ const SETTINGS: [string, unknown, string][] = [
   ['currency', 'VND', 'Đơn vị tiền tệ'],
   ['default_shipping_fee', 150000, 'Phí vận chuyển mặc định (VND)'],
   ['free_shipping_threshold', 5000000, 'Miễn phí vận chuyển cho đơn từ mức này (VND)'],
-  ['ar_enabled', true, 'Bật tính năng xem AR'],
   ['maintenance_mode', false, 'Chế độ bảo trì'],
 ];
 
-async function seedCore() {
+/**
+ * Trang tĩnh mặc định (idempotent, KHÔNG ghi đè nội dung admin đã sửa): trang /about đọc nội dung từ trang slug "about" nên bản cài
+ * không có dữ liệu mẫu (production, SEED_SAMPLE=false) vẫn có trang giới thiệu trung tính thay vì 404. Chỉ chạy khi KHÔNG seed từ mock-data
+ * (mock-data đã có trang about riêng).
+ */
+async function seedDefaultPages() {
+  await prisma.page.upsert({
+    where: { slug: 'about' },
+    update: {},
+    create: {
+      title: 'Về chúng tôi',
+      slug: 'about',
+      type: 'static',
+      content:
+        '## Về Aurelia Living\n\nAurelia Living là website thương mại điện tử nội thất, tích hợp xem sản phẩm 3D, xoay 360° và không gian mẫu 360°.\n\nNội dung giới thiệu chi tiết sẽ được cập nhật trong trang quản trị (Nội dung → Trang tĩnh).',
+      status: 'published',
+      publishedAt: new Date(),
+    },
+  });
+}
+
+async function seedCore(createAdmin = true) {
   const adminRole = await prisma.role.upsert({
     where: { code: 'admin' },
     update: {},
@@ -81,7 +102,7 @@ async function seedCore() {
   // trg_users_assign_default_role không gán thêm vai trò "user".
   // email không có @unique (partial unique index trong DB) nên dùng findFirst.
   const existing = await prisma.user.findFirst({ where: { email: ADMIN_EMAIL, deletedAt: null } });
-  if (!existing) {
+  if (createAdmin && !existing) {
     const passwordHash = await hash(ADMIN_PASSWORD, 10);
     await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
@@ -276,7 +297,7 @@ async function seedSample() {
     }
   }
 
-  // Mô hình 3D sofa (GLB + USDZ => trigger bật has_3d_model, has_ar)
+  // Mô hình 3D sofa (chỉ GLB; AR/USDZ ngoài phạm vi, D-P11 => trigger bật has_3d_model)
   let model = await prisma.product3DModel.findFirst({ where: { productId: sofa.id, isPrimary: true } });
   if (!model) {
     const poster = await media(
@@ -306,7 +327,6 @@ async function seedSample() {
       },
     });
     const glb = await media(admin.id, 'sofa-oslo-high.glb', 'model/gltf-binary', 4200000, 'GLB sofa');
-    const usdz = await media(admin.id, 'sofa-oslo-high.usdz', 'model/vnd.usdz+zip', 5100000, 'USDZ sofa');
     await prisma.modelFile.createMany({
       data: [
         {
@@ -318,16 +338,6 @@ async function seedSample() {
           textureResolution: 2048,
           isCompressed: true,
           checksum: 'a3f5c1d2e4b6a8f0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8',
-        },
-        {
-          modelId: model.id,
-          format: 'usdz',
-          lod: 'high',
-          mediaId: usdz.id,
-          polygonCount: 85000,
-          textureResolution: 2048,
-          isCompressed: false,
-          checksum: 'b4a6d2e3f5c7b9a1d3e5f7a9b1c3d5e7f9a1b3c5d7e9f1a3b5c7d9e1f3a5b7c9',
         },
       ],
     });
@@ -634,48 +644,7 @@ async function seedSample() {
     create: { userId: u1.id, spaceId: space.id },
   });
 
-  // Thống kê AR + lượt xem space: chỉ tạo một lần (nhật ký, không có khóa tự nhiên)
-  if (
-    !(await prisma.arSession.findFirst({ where: { OR: [{ userId: u1.id }, { visitorId: VISITOR_ID }] } }))
-  ) {
-    const s = await prisma.arSession.create({
-      data: {
-        userId: u1.id,
-        productId: sofa.id,
-        modelId: model.id,
-        device: 'iPhone 15',
-        os: 'iOS 18',
-        arPlatform: 'quick_look',
-        mode: 'ar',
-        durationSeconds: 95,
-        placed: true,
-        captured: true,
-        addedToCart: true,
-      },
-    });
-    await prisma.arSession.create({
-      data: {
-        visitorId: VISITOR_ID,
-        productId: sofa.id,
-        modelId: model.id,
-        device: 'Pixel 8',
-        os: 'Android 15',
-        arPlatform: 'scene_viewer',
-        mode: 'view_3d',
-        durationSeconds: 30,
-      },
-    });
-    const snap = await media(
-      admin.id,
-      'ar-snapshot-1.jpg',
-      'image/jpeg',
-      520000,
-      'Sofa đặt trong phòng khách',
-    );
-    await prisma.arSnapshot.create({
-      data: { userId: u1.id, productId: sofa.id, arSessionId: s.id, mediaId: snap.id, isPublic: true },
-    });
-  }
+  // Lượt xem space: chỉ tạo một lần (nhật ký, không có khóa tự nhiên)
   if (!(await prisma.spaceView.findFirst({ where: { spaceId: space.id } }))) {
     // Khách vãng lai: userId NULL + visitorId; trigger tăng spaces.view_count
     await prisma.spaceView.create({
@@ -742,13 +711,33 @@ async function syncSampleObjects() {
 }
 
 async function main() {
-  if (process.env.NODE_ENV === 'production' && !process.env.SEED_ADMIN_PASSWORD) {
-    throw new Error('Môi trường production bắt buộc đặt SEED_ADMIN_PASSWORD.');
+  if (process.env.NODE_ENV === 'production') {
+    if (!process.env.SEED_ADMIN_PASSWORD?.trim()) {
+      throw new Error(
+        'Môi trường production bắt buộc đặt SEED_ADMIN_PASSWORD (không dùng mật khẩu mặc định).',
+      );
+    }
+    // dữ liệu mẫu/mock có tài khoản mẫu với mật khẩu công khai (admin123, User@123456…)
+    if (process.env.SEED_SAMPLE !== 'false') {
+      throw new Error('Môi trường production chỉ được seed phần bắt buộc: đặt SEED_SAMPLE=false.');
+    }
   }
-  await seedCore();
-  if (process.env.SEED_SAMPLE !== 'false') {
+  // Mặc định seed từ mock-data của FE (SEED_SOURCE=mock) để giao diện giống hệt khi chạy mock;
+  // SEED_SOURCE=legacy giữ bộ dữ liệu mẫu cũ; SEED_SAMPLE=false chỉ seed phần bắt buộc.
+  const useMock = process.env.SEED_SAMPLE !== 'false' && (process.env.SEED_SOURCE ?? 'mock') === 'mock';
+  await seedCore(!useMock); // seed mock có tài khoản admin riêng (admin@aurelia.vn / admin123)
+  if (!useMock) await seedDefaultPages();
+  if (useMock) {
+    const { seedFromMock } = await import('./seed-mock');
+    await seedFromMock();
+  } else if (process.env.SEED_SAMPLE !== 'false') {
     await seedSample();
     await syncSampleObjects();
+  }
+  // Mô hình 3D mẫu đi qua luồng xử lý nền (đủ 3 LOD, checksum, ready); SEED_SKIP_MODEL_PROCESSING=true để bỏ qua
+  if (process.env.SEED_SAMPLE !== 'false' && process.env.SEED_SKIP_MODEL_PROCESSING !== 'true') {
+    const { processSeedModels } = await import('./seed-models');
+    await processSeedModels();
   }
   console.log('Seed hoàn tất.');
 }

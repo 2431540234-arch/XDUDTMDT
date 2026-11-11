@@ -1,6 +1,8 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 # Đặc tả chức năng theo vai trò
 
-Aurelia Living: website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°.
+Aurelia Living: website thương mại điện tử nội thất, tích hợp xem 3D, xoay 360° và không gian mẫu 360°. **AR đã bị loại bỏ hoàn toàn (2026-11-09, D-P16).**
 
 ## 1. Giới thiệu
 
@@ -12,7 +14,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 | Nguồn | Dùng để |
 | --- | --- |
-| [CAU_TRUC_DB.md](CAU_TRUC_DB.md) | Nghiệp vụ của 44 bảng |
+| [CAU_TRUC_DB.md](CAU_TRUC_DB.md) | Nghiệp vụ của 42 bảng (đã bỏ 2 bảng AR) |
 | `apps/api/prisma/schema.prisma` | Tên model, field, enum, quan hệ (nguồn chuẩn) |
 | [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Từ điển dữ liệu, trigger, ánh xạ bảng ↔ model |
 | [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) | Việc trigger đã làm; việc Service tự làm trong `prisma.$transaction` |
@@ -20,7 +22,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 ### 1.3. Quy ước ký hiệu
 
-- **Mã UC**: `UC-<NHÓM>-<số>`. Nhóm: AUTH (xác thực), ACC (tài khoản), CAT (danh mục/sản phẩm phía khách), CART (giỏ hàng), ORD (đơn hàng), PAY (thanh toán), REV (đánh giá), 3D (3D & AR), SPACE (không gian mẫu), ADM (quản trị).
+- **Mã UC**: `UC-<NHÓM>-<số>`. Nhóm: AUTH (xác thực), ACC (tài khoản), CAT (danh mục/sản phẩm phía khách), CART (giỏ hàng), ORD (đơn hàng), PAY (thanh toán), REV (đánh giá), 3D (xem 3D; phần AR đã loại bỏ), SPACE (không gian mẫu), ADM (quản trị).
 - **Tên dữ liệu** dùng tên model/field trong `schema.prisma`; tên bảng đặt trong ngoặc, ví dụ `User (users)`.
 - **Ưu tiên**: *Bắt buộc* · *Nên có* · *Mở rộng*.
 - **Nguồn**: chức năng suy ra trực tiếp từ CSDL ghi tên bảng; chức năng không suy ra trực tiếp ghi `[ĐỀ XUẤT]`.
@@ -30,18 +32,33 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 - Mọi endpoint có tiền tố `/api` (cần `app.setGlobalPrefix('api')` trong `main.ts` [CẦN TẠO MỚI]).
 
 
+### 1.4. Phạm vi hiệu lực (cập nhật 2026-11-09)
+
+Tài liệu mô tả **80 use case**. Phạm vi triển khai và nghiệm thu hiện hành là **70 use case đang hoạt động**; 10 use case còn lại nằm ngoài phạm vi:
+
+| Nhóm loại khỏi phạm vi | Số UC | Mã UC | Căn cứ |
+| --- | ---: | --- | --- |
+| Ứng dụng Android | 4 | UC-MOB-01..04 | Làm sau khi web xong (D-P06); chưa thuộc nghiệm thu web/API |
+| AR (đã loại bỏ hoàn toàn) | 6 | UC-3D-02, UC-3D-04, UC-3D-05, UC-3D-06, UC-3D-07, UC-ADM-30 | D-P11, D-P16 |
+| **Tổng ngoài phạm vi** | **10** | | |
+| **Đang hoạt động** | **70** | | 80 − 4 − 6 |
+
+Chi tiết 6 UC AR đã loại bỏ: [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi). Trạng thái triển khai từng UC (70/70 có BE, FE và test): [DOI_CHIEU_UC.md](DOI_CHIEU_UC.md). Chức năng có trong code nhưng đặc tả chưa có: [mục 16](#16-bổ-sung-theo-code-chưa-có-trong-đặc-tả-gốc). Đăng nhập Google: **Đã hoãn** (mục 16).
+
+Ghi chú: D-P11 trước đây ghi "7 UC AR"; con số đúng là **6** UC AR bị loại bỏ. UC thứ bảy trong danh sách đó là **UC-ADM-29** (Thống kê AR và phễu không gian mẫu), **vẫn đang hoạt động** nhưng chỉ còn phần phễu không gian mẫu (`GET /admin/stats/spaces`); phần thống kê AR đã bỏ. Các mục của UC ngoài phạm vi bên dưới được giữ để tham khảo lịch sử, đánh dấu **[ĐÃ LOẠI BỎ – D-P16]**; không triển khai và không kiểm thử.
+
 ## 2. Vai trò
 
 | Vai trò | Lưu trong CSDL | Phạm vi |
 | --- | --- | --- |
-| Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `Role`) | CHỈ xem (trên web hoặc app Android UC-MOB): trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/AR, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt, ảnh AR công khai. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá, lưu không gian đều yêu cầu đăng nhập. Lượt xem được ghi ẩn danh (`ArSession`, `SpaceView` với `visitorId`) |
-| Người dùng (user) | `User (users)` + `Role (roles)` = `user` | Mọi quyền của khách + hồ sơ, đổi mật khẩu, quản lý phiên đăng nhập, sổ địa chỉ, giỏ hàng, áp mã, đặt hàng, thanh toán, theo dõi/hủy đơn, đánh giá sản phẩm đã mua, yêu thích, chụp/công khai ảnh AR, lưu không gian mẫu, thông báo. Chỉ thao tác dữ liệu của chính mình |
+| Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `Role`) | CHỈ xem (trên web hoặc app Android UC-MOB): trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/360°, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá, lưu không gian đều yêu cầu đăng nhập. Lượt xem không gian mẫu được ghi ẩn danh (`SpaceView` với `visitorId`) |
+| Người dùng (user) | `User (users)` + `Role (roles)` = `user` | Mọi quyền của khách + hồ sơ, đổi mật khẩu, quản lý phiên đăng nhập, sổ địa chỉ, giỏ hàng, áp mã, đặt hàng, thanh toán, theo dõi/hủy đơn, đánh giá sản phẩm đã mua, yêu thích, lưu không gian mẫu, thông báo. Chỉ thao tác dữ liệu của chính mình |
 | Quản trị viên (admin) | `User (users)` + `Role (roles)` = `admin`, có đủ 6 quyền | Toàn bộ quản trị: người dùng, vai trò, cài đặt, media, danh mục, trang tĩnh, thương hiệu, thuộc tính, sản phẩm, biến thể, ảnh, tồn kho, mô hình 3D, không gian mẫu, đánh giá, mã giảm giá, đơn hàng, thanh toán, vận chuyển, nhật ký, thống kê |
 | Tác nhân ngoài | Không lưu | Cổng thanh toán (VNPay sandbox; MoMo, ZaloPay là hướng phát triển, FR11, D-N20), đơn vị vận chuyển (GHN, GHTK, Viettel Post), dịch vụ email |
 
 **Quy tắc kế thừa quyền:** User ⊃ Khách (user làm được mọi việc của khách). Admin là vai trò quản trị riêng: đăng nhập như user nhưng dùng khu vực `/dashboard`, `/admin/*` và API `/api/admin/*`; admin cũng xem được mọi nội dung công khai. Không có vai trò `staff`, `editor`, `customer`, `guest` trong CSDL.
 
-**Quyền chi tiết của admin** (`Permission (permissions)`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Mỗi UC quản trị ghi quyền cần có. Guard cần có: `JwtAuthGuard`, `RolesGuard` (đã có khung), `PermissionsGuard` [CẦN TẠO MỚI] (đọc `role_permissions`), `OptionalJwtAuthGuard` [CẦN TẠO MỚI] (cho API ghi phiên 3D/AR ẩn danh).
+**Quyền chi tiết của admin** (`Permission (permissions)`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Mỗi UC quản trị ghi quyền cần có. Guard cần có: `JwtAuthGuard`, `RolesGuard` (đã có khung), `PermissionsGuard` [CẦN TẠO MỚI] (đọc `role_permissions`), `OptionalJwtAuthGuard` [CẦN TẠO MỚI] (cho API ghi lượt xem không gian mẫu ẩn danh).
 
 
 ## 3. Danh sách use case
@@ -83,13 +100,13 @@ Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 U
 | UC-REV-01 | Xem đánh giá sản phẩm | Đánh giá | Khách, User, Admin | Nên có | Review, User | CSDL (reviews) |
 | UC-REV-02 | Đánh giá sản phẩm đã mua | Đánh giá | Khách (phải đăng nhập), User (của mình) | Nên có | Review, Order, OrderItem, User | CSDL (reviews) |
 | UC-REV-03 | Sửa/xóa đánh giá của mình | Đánh giá | Khách (phải đăng nhập), User (của mình) | Mở rộng | Review | [ĐỀ XUẤT] (reviews) |
-| UC-3D-01 | Xem mô hình 3D của sản phẩm | 3D & AR | Khách, User, Admin | Nên có | Product3DModel, ModelFile, Media, ModelMaterialVariant | CSDL (product_3d_models, model_files) |
-| UC-3D-02 | Xem sản phẩm bằng AR (đặt vào không gian thật) | 3D & AR | Khách, User, Admin | Nên có | Product3DModel, ModelFile, ArSession | CSDL (product_3d_models, model_files, ar_sessions) |
-| UC-3D-03 | Đổi màu/chất liệu trên mô hình 3D | 3D & AR | Khách, User, Admin | Mở rộng | ModelMaterialVariant | CSDL (model_material_variants) |
-| UC-3D-04 | Chụp và lưu ảnh AR | 3D & AR | Khách (phải đăng nhập), User (của mình) | Nên có | ArSnapshot, Media, ArSession | CSDL (ar_snapshots, media) |
-| UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | 3D & AR | Khách (phải đăng nhập), User (của mình) | Nên có | ArSnapshot, Media | CSDL (ar_snapshots) |
-| UC-3D-06 | Xem ảnh AR công khai "Khách hàng đã trải nghiệm" | 3D & AR | Khách, User, Admin | Nên có | ArSnapshot, Media, User | CSDL (ar_snapshots) |
-| UC-3D-07 | Ghi nhận thống kê phiên 3D/AR (ẩn danh) | 3D & AR | Khách, User, Admin | Mở rộng | ArSession | CSDL (ar_sessions) |
+| UC-3D-01 | Xem mô hình 3D của sản phẩm | 3D | Khách, User, Admin | Nên có | Product3DModel, ModelFile, Media, ModelMaterialVariant | CSDL (product_3d_models, model_files) |
+| UC-3D-02 | ~~Xem sản phẩm bằng AR (đặt vào không gian thật)~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách, User, Admin | Nên có | — | — |
+| UC-3D-03 | Đổi màu/chất liệu trên mô hình 3D | 3D | Khách, User, Admin | Mở rộng | ModelMaterialVariant | CSDL (model_material_variants) |
+| UC-3D-04 | ~~Chụp và lưu ảnh AR~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách (phải đăng nhập), User (của mình) | Nên có | — | — |
+| UC-3D-05 | ~~Quản lý ảnh AR của tôi (công khai/ẩn/xóa)~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách (phải đăng nhập), User (của mình) | Nên có | — | — |
+| UC-3D-06 | ~~Xem ảnh AR công khai "Khách hàng đã trải nghiệm"~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách, User, Admin | Nên có | — | — |
+| UC-3D-07 | ~~Ghi nhận thống kê phiên 3D/AR (ẩn danh)~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách, User, Admin | Mở rộng | — | — |
 | UC-SPACE-01 | Duyệt và tìm kiếm không gian mẫu | Không gian mẫu | Khách, User, Admin | Nên có | Space, Media, Category | CSDL (spaces, index idx_spaces_title_unaccent_trgm) |
 | UC-SPACE-02 | Xem không gian mẫu 360° | Không gian mẫu | Khách, User, Admin | Nên có | Space, SpacePanorama, SpaceHotspot, SpaceProductPlacement, Product, Product3DModel, ModelFile, Media, SpaceView | CSDL (spaces, space_panoramas, space_hotspots, space_product_placements, space_views) |
 | UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | Không gian mẫu | Khách, User, Admin | Nên có | SpaceHotspot, Product, ProductVariant | CSDL (space_hotspots, space_views) |
@@ -124,8 +141,8 @@ Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 U
 | UC-ADM-26 | Gửi thông báo cho người dùng | Quản trị | Admin | Mở rộng | Notification, User | [ĐỀ XUẤT] (notifications) |
 | UC-ADM-27 | Xem nhật ký hoạt động của quản trị viên | Quản trị | Admin | Mở rộng | ActivityLog, User | CSDL (activity_logs) |
 | UC-ADM-28 | Xem thống kê tổng quan | Quản trị | Admin | Mở rộng | Order, OrderItem, Product, User | [ĐỀ XUẤT] (orders, order_items, users) |
-| UC-ADM-29 | Thống kê AR và phễu không gian mẫu | Quản trị | Admin | Mở rộng | ArSession, SpaceView, Space, Product | CSDL (ar_sessions, space_views) |
-| UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | Quản trị | Admin | Mở rộng | ArSnapshot | [ĐỀ XUẤT] (ar_snapshots) |
+| UC-ADM-29 | Thống kê phễu không gian mẫu (phần thống kê AR đã bỏ, D-P16) | Quản trị | Admin | Mở rộng | SpaceView, Space, Product | CSDL (space_views) |
+| UC-ADM-30 | ~~Gỡ ảnh AR công khai không phù hợp~~ **[ĐÃ LOẠI BỎ – D-P16]** | Quản trị | Admin | Mở rộng | — | — |
 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Category, Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-02 (categories, products) |
 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-04 (products) |
 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductImage, Media | [ĐỀ XUẤT] (ảnh overlay: xem 12.2 #11) |
@@ -173,12 +190,12 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-REV-02 | Đánh giá sản phẩm đã mua | cần đăng nhập | chỉ của mình | ✘ |
 | UC-REV-03 | Sửa/xóa đánh giá của mình | cần đăng nhập | chỉ của mình | ✘ |
 | UC-3D-01 | Xem mô hình 3D của sản phẩm | ✔ | ✔ | ✔ |
-| UC-3D-02 | Xem sản phẩm bằng AR (đặt vào không gian thật) | ✔ | ✔ | ✔ |
+| UC-3D-02 | ~~Xem sản phẩm bằng AR (đặt vào không gian thật)~~ **[ĐÃ LOẠI BỎ – D-P16]** | ✔ | ✔ | ✔ |
 | UC-3D-03 | Đổi màu/chất liệu trên mô hình 3D | ✔ | ✔ | ✔ |
-| UC-3D-04 | Chụp và lưu ảnh AR | cần đăng nhập | chỉ của mình | ✘ |
-| UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | cần đăng nhập | chỉ của mình | ✘ |
-| UC-3D-06 | Xem ảnh AR công khai "Khách hàng đã trải nghiệm" | ✔ | ✔ | ✔ |
-| UC-3D-07 | Ghi nhận thống kê phiên 3D/AR (ẩn danh) | ✔ | ✔ | ✔ |
+| UC-3D-04 | ~~Chụp và lưu ảnh AR~~ **[ĐÃ LOẠI BỎ – D-P16]** | cần đăng nhập | chỉ của mình | ✘ |
+| UC-3D-05 | ~~Quản lý ảnh AR của tôi (công khai/ẩn/xóa)~~ **[ĐÃ LOẠI BỎ – D-P16]** | cần đăng nhập | chỉ của mình | ✘ |
+| UC-3D-06 | ~~Xem ảnh AR công khai "Khách hàng đã trải nghiệm"~~ **[ĐÃ LOẠI BỎ – D-P16]** | ✔ | ✔ | ✔ |
+| UC-3D-07 | ~~Ghi nhận thống kê phiên 3D/AR (ẩn danh)~~ **[ĐÃ LOẠI BỎ – D-P16]** | ✔ | ✔ | ✔ |
 | UC-SPACE-01 | Duyệt và tìm kiếm không gian mẫu | ✔ | ✔ | ✔ |
 | UC-SPACE-02 | Xem không gian mẫu 360° | ✔ | ✔ | ✔ |
 | UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | ✔ | ✔ | ✔ |
@@ -213,14 +230,14 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-ADM-26 | Gửi thông báo cho người dùng | ✘ | ✘ | ✔ |
 | UC-ADM-27 | Xem nhật ký hoạt động của quản trị viên | ✘ | ✘ | ✔ |
 | UC-ADM-28 | Xem thống kê tổng quan | ✘ | ✘ | ✔ |
-| UC-ADM-29 | Thống kê AR và phễu không gian mẫu | ✘ | ✘ | ✔ |
-| UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | ✘ | ✘ | ✔ |
+| UC-ADM-29 | Thống kê phễu không gian mẫu (phần thống kê AR đã bỏ, D-P16) | ✘ | ✘ | ✔ |
+| UC-ADM-30 | ~~Gỡ ảnh AR công khai không phù hợp~~ **[ĐÃ LOẠI BỎ – D-P16]** | ✘ | ✘ | ✔ |
 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | ✔ | ✔ | ✔ |
 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | ✔ | ✔ | ✔ |
 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | ✔ | ✔ | ✔ |
 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | ✔ | ✔ | ✔ |
 
-### 4.2. CRUD: 44 model × 3 vai trò
+### 4.2. CRUD: 59 model × 3 vai trò (42 model chuẩn, số 28–29 đã bỏ cùng AR, và 17 model mở rộng số 45–61)
 
 | # | Model (bảng) | Khách vãng lai | Người dùng | Quản trị viên | UC sử dụng |
 | --- | --- | --- | --- | --- | --- |
@@ -233,7 +250,7 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | 7 | UserSession (user_sessions) | C‡ | C* R* U*(thu hồi) | R U(thu hồi) | UC-AUTH-01, UC-AUTH-02, UC-AUTH-03, UC-AUTH-04… |
 | 8 | Address (addresses) | — | C R U D * | R | UC-ACC-04, UC-ORD-01 |
 | 9 | Setting (settings) | R† | R† | C R U | UC-CAT-01, UC-ORD-01, UC-ADM-03 |
-| 10 | Media (media) | R† | C* R† (avatar, ảnh AR) | C R U D | UC-ACC-01, UC-CAT-04, UC-3D-01, UC-3D-04… |
+| 10 | Media (media) | R† | C* R† (avatar) | C R U D | UC-ACC-01, UC-CAT-04, UC-3D-01… |
 | 11 | Notification (notifications) | — | R* U* D* | C R | UC-ACC-05, UC-ORD-01, UC-ORD-03, UC-PAY-02… |
 | 12 | ActivityLog (activity_logs) | — | — | R (ghi C tự động) | UC-ADM-09, UC-ADM-27 |
 | 13 | Category (categories) | R† | R† | C R U D | UC-CAT-01, UC-CAT-02, UC-CAT-04, UC-SPACE-01… |
@@ -248,11 +265,11 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | 22 | InventoryMovement (inventory_movements) | — | — (Service ghi khi đặt/hủy đơn) | C R | UC-ORD-01, UC-ORD-03, UC-ADM-12, UC-ADM-22… |
 | 23 | Review (reviews) | R† | C* R† U* D* | R U D | UC-CAT-04, UC-REV-01, UC-REV-02, UC-REV-03… |
 | 24 | Wishlist (wishlists) | — | C R D * | R | UC-ACC-06 |
-| 25 | Product3DModel (product_3d_models) | R† | R† | C R U D | UC-CAT-04, UC-3D-01, UC-3D-02, UC-SPACE-02… |
-| 26 | ModelFile (model_files) | R† | R† | C R U D | UC-3D-01, UC-3D-02, UC-SPACE-02, UC-ADM-13 |
+| 25 | Product3DModel (product_3d_models) | R† | R† | C R U D | UC-CAT-04, UC-3D-01, UC-SPACE-02… |
+| 26 | ModelFile (model_files) | R† | R† | C R U D | UC-3D-01, UC-SPACE-02, UC-ADM-13 |
 | 27 | ModelMaterialVariant (model_material_variants) | R† | R† | C R U D | UC-3D-01, UC-3D-03, UC-ADM-14 |
-| 28 | ArSession (ar_sessions) | C (kèm visitorId) | C* U* | R | UC-3D-02, UC-3D-04, UC-3D-07, UC-ADM-29 |
-| 29 | ArSnapshot (ar_snapshots) | R† | C R U D * | R U D | UC-3D-04, UC-3D-05, UC-3D-06, UC-ADM-30 |
+| 28 | ~~ArSession (ar_sessions)~~ **đã bỏ (D-P16)** | — | — | — | — |
+| 29 | ~~ArSnapshot (ar_snapshots)~~ **đã bỏ (D-P16)** | — | — | — | — |
 | 30 | Cart (carts) | — | C* R* (tự tạo) | R | UC-CART-01, UC-CART-02, UC-CART-03, UC-CART-04… |
 | 31 | CartItem (cart_items) | — | C R U D * | R | UC-CART-01, UC-CART-02, UC-CART-03, UC-ORD-01 |
 | 32 | Coupon (coupons) | — | R† (áp mã) | C R U D | UC-CART-04, UC-ORD-01, UC-ORD-03, UC-ADM-19… |
@@ -267,7 +284,26 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | 41 | SpaceHotspot (space_hotspots) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-03, UC-ADM-16 |
 | 42 | SpaceProductPlacement (space_product_placements) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-05, UC-ADM-17 |
 | 43 | SpaceBookmark (space_bookmarks) | — | C R D * | R | UC-SPACE-04 |
-| 44 | SpaceView (space_views) | C (kèm visitorId) | C* | R | UC-SPACE-02, UC-SPACE-06, UC-ADM-29 |
+| 44 | SpaceView (space_views) | C (kèm visitorId) | C* | R | UC-SPACE-02, UC-SPACE-06, UC-ADM-29 (phễu) |
+| 45 | ProductSpec (product_specs) | — | R† | C R U D | UC-CAT-04, UC-ADM-09 |
+| 46 | Product360Config (product_360_configs) | R | R | C R U | Bổ sung theo code (xem 360°) |
+| 47 | Product360Frame (product_360_frames) | R† | R† | C R U D | Bổ sung theo code (xem 360°) |
+| 48 | ReviewImage (review_images) | R† | C R† | R† | UC-REV-01, UC-REV-02 |
+| 49 | ProductQuestion (product_questions) | R | C R | R U | Bổ sung theo code (hỏi đáp sản phẩm) |
+| 50 | CouponScope (coupon_scopes) | — | R† | C R U D | UC-ADM-18, UC-CART-04 |
+| 51 | UserCoupon (user_coupons) | — | C R | — | Bổ sung theo code (ví mã giảm giá) |
+| 52 | CodeCounter (code_counters) | — | — | — | Hệ thống tự ghi (hàm DB cấp mã đơn/phiếu)‡ |
+| 53 | ReturnRequest (return_requests) | — | C R | R U | UC-ORD-04, UC-ADM-22 |
+| 54 | ReturnRequestItem (return_request_items) | — | C R† | R U | UC-ORD-04, UC-ADM-22 |
+| 55 | ReturnRequestImage (return_request_images) | — | C R† | R† | UC-ORD-04, UC-ADM-22 |
+| 56 | StockReceipt (stock_receipts) | — | — | C R U | UC-ADM-12 |
+| 57 | StockReceiptItem (stock_receipt_items) | — | — | C R | UC-ADM-12 |
+| 58 | Expense (expenses) | — | — | C R D (tự sinh‡ khi hoàn tiền/nhập kho) | UC-ADM-28 (báo cáo thu chi) |
+| 59 | Banner (banners) | R | R | C R U D | UC-CAT-01, UC-ADM-07 |
+| 60 | Post (posts) | R | R | C R U D | UC-ADM-07 |
+| 61 | ContactMessage (contact_messages) | C | C | R U | UC-CAT-05 (form liên hệ) |
+
+> Hàng 45–61 (17 bảng mở rộng) được bổ sung ngày 2026-11-11: quyền theo route→bảng trong code (`docs/api/openapi.json`, `apps/api/src/modules/*`), **hiệu chỉnh tay** cho thao tác lồng nhau và hàm DB; cột "UC sử dụng" ghi UC gần nhất hoặc "Bổ sung theo code" nếu đặc tả không có UC. **Cần xác minh** từng ô nếu dùng làm căn cứ nghiệm thu.
 
 ## 5. Sơ đồ use case
 
@@ -291,7 +327,7 @@ flowchart LR
     G_ORD(["Đơn hàng (3 UC)"])
     G_PAY(["Thanh toán (3 UC)"])
     G_REV(["Đánh giá (3 UC)"])
-    G_D3(["3D & AR (7 UC)"])
+    G_D3(["3D (2 UC; 5 UC AR đã bỏ)"])
     G_SPACE(["Không gian mẫu (6 UC)"])
     G_MOB(["Ứng dụng Android (4 UC)"])
     G_ADM(["Quản trị (30 UC)"])
@@ -349,12 +385,9 @@ flowchart LR
     subgraph SG_REV["Đánh giá"]
         UC_REV_01(["UC-REV-01 Xem đánh giá sản phẩm"])
     end
-    subgraph SG_D3["3D & AR"]
+    subgraph SG_D3["3D"]
         UC_3D_01(["UC-3D-01 Xem mô hình 3D của sản phẩm"])
-        UC_3D_02(["UC-3D-02 Xem sản phẩm bằng AR (đặt vào không gian thật)"])
         UC_3D_03(["UC-3D-03 Đổi màu/chất liệu trên mô hình 3D"])
-        UC_3D_06(["UC-3D-06 Xem ảnh AR công khai 'Khách hàng đã trải nghiệm'"])
-        UC_3D_07(["UC-3D-07 Ghi nhận thống kê phiên 3D/AR (ẩn danh)"])
     end
     subgraph SG_SPACE["Không gian mẫu"]
         UC_SPACE_01(["UC-SPACE-01 Duyệt và tìm kiếm không gian mẫu"])
@@ -381,10 +414,7 @@ flowchart LR
     K --- UC_CAT_06
     K --- UC_REV_01
     K --- UC_3D_01
-    K --- UC_3D_02
     K --- UC_3D_03
-    K --- UC_3D_06
-    K --- UC_3D_07
     K --- UC_SPACE_01
     K --- UC_SPACE_02
     K --- UC_SPACE_03
@@ -397,8 +427,6 @@ flowchart LR
     UC_AUTH_01 --- EM
     UC_AUTH_05 --- EM
     UC_CAT_06 -. "«extend»" .-> UC_CAT_03
-    UC_3D_01 -. "«include»" .-> UC_3D_07
-    UC_3D_02 -. "«include»" .-> UC_3D_07
     UC_SPACE_02 -. "«include»" .-> UC_SPACE_06
     UC_SPACE_03 -. "«extend»" .-> UC_SPACE_02
     UC_MOB_03 -. "«extend»" .-> UC_MOB_02
@@ -447,9 +475,7 @@ flowchart LR
         UC_REV_02(["UC-REV-02 Đánh giá sản phẩm đã mua"])
         UC_REV_03(["UC-REV-03 Sửa/xóa đánh giá của mình"])
     end
-    subgraph SG_D3["3D & AR"]
-        UC_3D_04(["UC-3D-04 Chụp và lưu ảnh AR"])
-        UC_3D_05(["UC-3D-05 Quản lý ảnh AR của tôi (công khai/ẩn/xóa)"])
+    subgraph SG_D3["3D"]
     end
     subgraph SG_SPACE["Không gian mẫu"]
         UC_SPACE_04(["UC-SPACE-04 Lưu / bỏ lưu không gian mẫu yêu thích"])
@@ -475,8 +501,6 @@ flowchart LR
     N --- UC_PAY_03
     N --- UC_REV_02
     N --- UC_REV_03
-    N --- UC_3D_04
-    N --- UC_3D_05
     N --- UC_SPACE_04
     UC_AUTH_07 --- EM
     UC_ORD_01 --- EM
@@ -552,8 +576,7 @@ flowchart LR
         UC_ADM_26(["UC-ADM-26 Gửi thông báo cho người dùng"])
         UC_ADM_27(["UC-ADM-27 Xem nhật ký hoạt động của quản trị viên"])
         UC_ADM_28(["UC-ADM-28 Xem thống kê tổng quan"])
-        UC_ADM_29(["UC-ADM-29 Thống kê AR và phễu không gian mẫu"])
-        UC_ADM_30(["UC-ADM-30 Gỡ ảnh AR công khai không phù hợp"])
+        UC_ADM_29(["UC-ADM-29 Thống kê phễu không gian mẫu"])
     end
     A --- UC_ADM_15
     A --- UC_ADM_16
@@ -570,7 +593,6 @@ flowchart LR
     A --- UC_ADM_27
     A --- UC_ADM_28
     A --- UC_ADM_29
-    A --- UC_ADM_30
     UC_ADM_25 --- SH
     classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
     classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3
@@ -676,7 +698,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | --- | --- |
 | **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Bắt buộc** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (products, categories, spaces) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
-| **Mô tả** | Trang chủ giới thiệu Aurelia Living: sản phẩm nổi bật, danh mục gốc, không gian mẫu mới, liên kết 3D/AR. |
+| **Mô tả** | Trang chủ giới thiệu Aurelia Living: sản phẩm nổi bật, danh mục gốc, không gian mẫu mới, liên kết 3D. |
 | **Tiền điều kiện** | Không. |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
 | **Luồng chính** | 1. Khách: Mở `/`.<br>2. Hệ thống: Frontend gọi song song `GET /api/products?featured=true&pageSize=8`, `GET /api/categories?parent=root`, `GET /api/spaces?pageSize=4&sort=newest`.<br>3. Hệ thống: Backend chỉ trả bản ghi `status = published`, `deletedAt = null` (sản phẩm) và `isActive = true` (danh mục).<br>4. Hệ thống: Trả danh sách (giá đã `serialize` thành number); trang hiển thị các khối nội dung. |
@@ -697,12 +719,12 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Xem danh sách sản phẩm theo danh mục (cây nhiều cấp), lọc, sắp xếp, phân trang. |
 | **Tiền điều kiện** | Không. |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
-| **Luồng chính** | 1. Khách: Chọn danh mục trên menu hoặc mở `/products`.<br>2. Hệ thống: Gọi `GET /api/categories` (cây danh mục) và `GET /api/products?category=<slug>&brand=&minPrice=&maxPrice=&has3d=&hasAr=&sort=&page=&pageSize=`.<br>3. Hệ thống: `ProductsService.findAll(query)` lọc `status = published`, `deletedAt = null`, gồm cả sản phẩm thuộc danh mục con; kèm ảnh đại diện và giá thấp nhất của biến thể đang bán.<br>4. Hệ thống: Trả danh sách phân trang và tổng số.<br>5. Khách: Đổi bộ lọc/sắp xếp → lặp lại bước 2–4; bấm thẻ sản phẩm → UC-CAT-04. |
+| **Luồng chính** | 1. Khách: Chọn danh mục trên menu hoặc mở `/products`.<br>2. Hệ thống: Gọi `GET /api/categories` (cây danh mục) và `GET /api/products?category=<slug>&brand=&minPrice=&maxPrice=&has3d=&featured=&color=&material=&style=&sort=&page=&pageSize=`.<br>3. Hệ thống: `ProductsService.findAll(query)` lọc `status = published`, `deletedAt = null`, gồm cả sản phẩm thuộc danh mục con; kèm ảnh đại diện và giá thấp nhất của biến thể đang bán.<br>4. Hệ thống: Trả danh sách phân trang và tổng số.<br>5. Khách: Đổi bộ lọc/sắp xếp → lặp lại bước 2–4; bấm thẻ sản phẩm → UC-CAT-04. |
 | **Luồng thay thế** | 3a. Danh mục không tồn tại/không `isActive` → 404.<br>3b. Không có sản phẩm khớp → trả danh sách rỗng, giao diện hiển thị "Không tìm thấy". |
-| **Ngoại lệ** | • Tham số sai (page < 1, sort lạ) → 400. |
-| **Quy tắc nghiệp vụ** | • Sắp xếp: `newest`, `price_asc`, `price_desc`, `best_selling` (`soldCount`), `rating` (`ratingAvg`).<br>• Cờ `has3dModel`, `hasAr` do trigger DB duy trì; chỉ đọc.<br>• Giá hiển thị: `salePrice ?? price` của biến thể rẻ nhất (`Decimal` → number bằng `serialize`). |
-| **Dữ liệu vào** | • category, brand, minPrice, maxPrice, has3d, hasAr, sort, page, limit (tuỳ chọn): số nguyên dương, `limit` ≤ 50 |
-| **Dữ liệu ra** | • 200: `{ items[], total, page, limit }` |
+| **Ngoại lệ** | • Tham số sai (page < 1, sort lạ, giá không phải số…) → lùi về giá trị mặc định, KHÔNG báo lỗi (D-N29). |
+| **Quy tắc nghiệp vụ** | • Sắp xếp theo quy ước chung `sort=<trường>:<asc|desc>` (API_CONVENTIONS §6): `createdAt` (mặc định `createdAt:desc` = mới nhất), `price`, `soldCount`, `ratingAvg`, `name`.<br>• Danh mục gồm cả danh mục con ĐANG HOẠT ĐỘNG; danh mục con tắt thì sản phẩm của nó không hiện ở danh mục cha.<br>• Cờ `has3dModel` do trigger DB duy trì; chỉ đọc. Không có bộ lọc AR (đã loại bỏ, D-P16).<br>• Giá hiển thị: `salePrice ?? price` của biến thể rẻ nhất (`Decimal` → number bằng `serialize`). |
+| **Dữ liệu vào** | • category, brand, minPrice, maxPrice, has3d, featured, color, material, style, sort, page, pageSize (tuỳ chọn): `pageSize` mặc định 12, tối đa 100 (D-N29) |
+| **Dữ liệu ra** | • 200: `data[]` kèm `meta { page, pageSize, total, totalPages }` |
 | **Model + C/R/U/D** | Category (categories): R<br>Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Brand (brands): R |
 | **DB trigger / việc Service tự làm** | • Không có (đọc dữ liệu do trigger duy trì). |
 
@@ -710,17 +732,17 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Bắt buộc** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (products, index trigram idx_products_name_trgm) |
+| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Bắt buộc** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (products); chỉ mục trong bộ nhớ (cache Redis `catalog:index`) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Tìm sản phẩm theo tên gần đúng; gợi ý khi đang gõ. |
 | **Tiền điều kiện** | Không. |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
-| **Luồng chính** | 1. Khách: Gõ từ khóa vào ô tìm kiếm trên Header.<br>2. Hệ thống: Sau 300 ms (debounce) gọi `GET /api/products/search?q=...&pageSize=5` (gợi ý).<br>3. Hệ thống: `ProductsService.search(q)` chạy `$queryRaw` dùng `ILIKE`/`similarity` trên `products.name` (index GIN trigram), chỉ lấy `published`, `deletedAt IS NULL`.<br>4. Khách: Nhấn Enter → trang `/products?q=...` với `GET /api/products/search?q=&page=`.<br>5. Hệ thống: Trả danh sách sắp theo độ giống. |
-| **Luồng thay thế** | 3a. Từ khóa < 2 ký tự → 400 hoặc trả rỗng.<br>3b. Không có kết quả → danh sách rỗng, gợi ý danh mục phổ biến. |
-| **Ngoại lệ** | • Ký tự đặc biệt (`%`, `_`) phải được escape khi dựng mẫu ILIKE (tránh truy vấn chậm/sai). |
-| **Quy tắc nghiệp vụ** | • UC này tìm theo tên có dấu (index trigram trên `name`). Tìm không dấu ('ban tra' ra 'Bàn trà') ở UC-CAT-06.<br>• Prisma không biểu diễn index GIN nên bắt buộc dùng `$queryRaw` (QUY_UOC, DATABASE_SCHEMA 8.3). |
-| **Dữ liệu vào** | • q (bắt buộc): 2–100 ký tự<br>• page, limit (tuỳ chọn): số nguyên dương |
-| **Dữ liệu ra** | • 200: `{ items[], total }` |
+| **Luồng chính** | 1. Khách: Gõ từ khóa vào ô tìm kiếm trên Header.<br>2. Hệ thống: Sau 300 ms (debounce) gọi `GET /api/products/search?q=...&pageSize=5` (gợi ý).<br>3. Hệ thống: `ProductsService` lọc trong bộ nhớ trên chỉ mục catalog (cache Redis, xóa khi admin đổi dữ liệu): so khớp không dấu, không phân biệt hoa thường trên tên, danh mục, phong cách và mô tả ngắn, mọi từ khóa đều phải có mặt; chỉ lấy `published`, `deletedAt = null` (D-N29).<br>4. Khách: Nhấn Enter → trang `/products?q=...` với `GET /api/products/search?q=&page=`.<br>5. Hệ thống: Trả danh sách sắp theo độ liên quan (khớp tên được ưu tiên). |
+| **Luồng thay thế** | 3a. Từ khóa đúng 1 ký tự → trả danh sách rỗng (200); không có từ khóa → danh sách theo bộ lọc bình thường.<br>3b. Không có kết quả → danh sách rỗng, gợi ý danh mục phổ biến. |
+| **Ngoại lệ** | • Ký tự đặc biệt (`%`, `_`, `'`, `\`, `(`…) chỉ là chữ thường, không phải ký tự đại diện hay biểu thức chính quy (so khớp chuỗi con trong bộ nhớ, không dựng SQL từ từ khóa). |
+| **Quy tắc nghiệp vụ** | • Tìm theo tên, danh mục, phong cách và mô tả ngắn; tìm không dấu ('ban tra' ra 'Bàn trà') ở UC-CAT-06. Cơ chế tìm kiếm trong bộ nhớ được GIỮ (D-N29), không chuyển sang SQL trigram; index `idx_products_name_trgm` vẫn tồn tại nhưng không dùng. |
+| **Dữ liệu vào** | • q (tuỳ chọn): không có ⇒ không lọc theo từ khóa; 1 ký tự ⇒ rỗng; ≥ 2 ký tự ⇒ tìm<br>• page, pageSize (tuỳ chọn): số nguyên dương, `pageSize` tối đa 100 |
+| **Dữ liệu ra** | • 200: `data[]` kèm `meta { page, pageSize, total, totalPages }` |
 | **Model + C/R/U/D** | Product (products): R<br>ProductImage (product_images): R |
 | **DB trigger / việc Service tự làm** | • Không có. |
 
@@ -730,13 +752,13 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | --- | --- |
 | **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Bắt buộc** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (products, product_variants, product_images, reviews) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
-| **Mô tả** | Xem thông tin đầy đủ của sản phẩm: ảnh, biến thể (màu, chất liệu), giá, tồn kho, đánh giá, nút xem 3D/AR. |
+| **Mô tả** | Xem thông tin đầy đủ của sản phẩm: ảnh, biến thể (màu, chất liệu), giá, tồn kho, đánh giá, nút xem 3D/360°. |
 | **Tiền điều kiện** | Sản phẩm `published` và chưa xóa mềm. |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
-| **Luồng chính** | 1. Khách: Bấm thẻ sản phẩm → `/products/[slug]`.<br>2. Hệ thống: `GET /api/products/:slug`.<br>3. Hệ thống: `ProductsService.findBySlug` trả sản phẩm kèm ảnh (theo `sortOrder`), danh sách biến thể `isActive` với giá và thuộc tính, thương hiệu, danh mục, cờ `has3dModel`/`hasAr`, `ratingAvg`/`ratingCount`.<br>4. Khách: Chọn biến thể (màu/chất liệu) → giao diện cập nhật giá, ảnh của biến thể và `stockQuantity` (hiển thị "Còn hàng"/"Hết hàng").<br>5. Khách: Bấm "Xem 3D/AR" → UC-3D-01/UC-3D-02; cuộn xuống xem đánh giá → UC-REV-01; bấm "Thêm vào giỏ" → UC-CART-01. |
+| **Luồng chính** | 1. Khách: Bấm thẻ sản phẩm → `/products/[slug]`.<br>2. Hệ thống: `GET /api/products/:slug`.<br>3. Hệ thống: `ProductsService.findBySlug` trả sản phẩm kèm ảnh (theo `sortOrder`), danh sách biến thể `isActive` với giá và thuộc tính, thương hiệu, danh mục, cờ `has3dModel`, `ratingAvg`/`ratingCount`.<br>4. Khách: Chọn biến thể (màu/chất liệu) → giao diện cập nhật giá, ảnh của biến thể và `stockQuantity` (hiển thị "Còn hàng"/"Hết hàng").<br>5. Khách: Bấm "Xem 3D" → UC-3D-01; cuộn xuống xem đánh giá → UC-REV-01; bấm "Thêm vào giỏ" → UC-CART-01. |
 | **Luồng thay thế** | 3a. Không tìm thấy hoặc đã ẩn/xóa mềm → 404.<br>4a. Biến thể hết hàng → vô hiệu nút thêm vào giỏ. |
 | **Ngoại lệ** | • Lỗi mạng → trang báo lỗi, cho thử lại. |
-| **Quy tắc nghiệp vụ** | • Ảnh đại diện duy nhất `ProductImage.isPrimary` (partial unique index).<br>• Chỉ hiển thị cờ AR khi `hasAr = true` (đã có đủ file GLB và USDZ ở mô hình `ready`).<br>• URL công khai dùng slug: route web hiện là `(shop)/products/[id]/page.tsx` → cần đổi thành `products/[slug]` [CẦN SỬA]. |
+| **Quy tắc nghiệp vụ** | • Ảnh đại diện duy nhất `ProductImage.isPrimary` (partial unique index).<br>• Chỉ hiển thị nút xem 3D khi `has3dModel = true` (có mô hình `ready`). Không còn cờ AR (D-P16).<br>• Công khai chỉ thấy biến thể đang bán (`isActive = true`); quản trị thấy cả biến thể đã ngừng bán (D-N32).<br>• URL công khai dùng slug: route web hiện là `(shop)/products/[id]/page.tsx` → cần đổi thành `products/[slug]` [CẦN SỬA]. |
 | **Dữ liệu vào** | • slug (bắt buộc): chuỗi slug |
 | **Dữ liệu ra** | • 200: chi tiết sản phẩm (tiền dạng number) |
 | **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>VariantAttributeValue (variant_attribute_values): R<br>AttributeValue (attribute_values): R<br>Attribute (attributes): R<br>ProductImage (product_images): R<br>Media (media): R<br>Brand (brands): R<br>Category (categories): R<br>Product3DModel (product_3d_models): R<br>Review (reviews): R |
@@ -764,17 +786,17 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (products; cần migration index mới) |
+| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (products; chỉ mục trong bộ nhớ) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Gõ không dấu ("ban tra", "sofa oslo") vẫn tìm ra "Bàn trà", "Sofa Oslo". |
-| **Tiền điều kiện** | Đã có index không dấu trên `products.name` (xem quy tắc). |
+| **Tiền điều kiện** | Không (tìm trong bộ nhớ, không cần index riêng). |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
-| **Luồng chính** | 1. Khách: Gõ từ khóa không dấu vào ô tìm kiếm (hoặc có dấu: kết quả như nhau).<br>2. Hệ thống: `GET /api/products/search?q=...` (cùng endpoint UC-CAT-03).<br>3. Hệ thống: `ProductsService.search(q)` chạy `$queryRaw`: `immutable_unaccent(name) ILIKE '%' \|\| immutable_unaccent(:q) \|\| '%'`, kèm sắp xếp theo `similarity(immutable_unaccent(name), immutable_unaccent(:q))`, chỉ `published`, `deletedAt IS NULL`.<br>4. Hệ thống: Trả danh sách như UC-CAT-03. |
-| **Luồng thay thế** | 3a. Từ khóa rỗng/quá ngắn → 400. |
-| **Ngoại lệ** | • Ký tự `%`, `_` phải được escape trước khi ghép vào mẫu ILIKE. |
-| **Quy tắc nghiệp vụ** | • Cần MỘT migration mới (tạo bằng `prisma migrate dev --create-only`, làm khi code): `CREATE INDEX idx_products_name_unaccent_trgm ON products USING gin (immutable_unaccent(name) gin_trgm_ops);` (hàm `immutable_unaccent` đã có trong CSDL). Cập nhật `docs/DATABASE_SCHEMA.md` và ghi chú trên model `Product` sau khi thêm.<br>• Prisma không biểu diễn index biểu thức nên bắt buộc `$queryRaw`. |
-| **Dữ liệu vào** | • q (bắt buộc): 2–100 ký tự<br>• page, limit (tuỳ chọn): số nguyên dương |
-| **Dữ liệu ra** | • 200: `{ items[], total }` |
+| **Luồng chính** | 1. Khách: Gõ từ khóa không dấu vào ô tìm kiếm (hoặc có dấu: kết quả như nhau).<br>2. Hệ thống: `GET /api/products/search?q=...` (cùng endpoint UC-CAT-03).<br>3. Hệ thống: Chuẩn hóa từ khóa và dữ liệu bằng `foldVi` (bỏ dấu, hạ chữ thường, xử lý đ/Đ) rồi lọc trong bộ nhớ như UC-CAT-03 (D-N29); chỉ `published`, `deletedAt = null`.<br>4. Hệ thống: Trả danh sách như UC-CAT-03. |
+| **Luồng thay thế** | 3a. Từ khóa đúng 1 ký tự → rỗng (200); từ khóa rỗng → không lọc. |
+| **Ngoại lệ** | • Ký tự `%`, `_` chỉ là chữ thường (không phải ký tự đại diện). |
+| **Quy tắc nghiệp vụ** | • Không cần migration: tìm trong bộ nhớ (D-N29). Index `idx_products_name_unaccent_trgm` (migration `add_backend_extras`) đã tồn tại và có thể dùng nếu sau này chuyển sang SQL khi dữ liệu lớn. |
+| **Dữ liệu vào** | • q (tuỳ chọn): không có ⇒ không lọc theo từ khóa; 1 ký tự ⇒ rỗng; ≥ 2 ký tự ⇒ tìm<br>• page, pageSize (tuỳ chọn): số nguyên dương, `pageSize` tối đa 100 |
+| **Dữ liệu ra** | • 200: `data[]` kèm `meta { page, pageSize, total, totalPages }` |
 | **Model + C/R/U/D** | Product (products): R<br>ProductImage (product_images): R |
 | **DB trigger / việc Service tự làm** | • Không có. |
 | **Quan hệ UC** | extend: UC-CAT-03 |
@@ -801,12 +823,12 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files) |
+| **Thông tin chung** | Nhóm: 3D · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Xem và xoay mô hình 3D tương tác của sản phẩm trên web (React Three Fiber / model-viewer). |
 | **Tiền điều kiện** | Sản phẩm có mô hình `status = ready` (`has3dModel = true`). |
-| **Hậu điều kiện** | Ghi một `ArSession` mode `view_3d` (ẩn danh nếu là khách). |
-| **Luồng chính** | 1. Khách: Ở trang chi tiết bấm tab "Xem 3D".<br>2. Hệ thống: `GET /api/products/:slug/model`.<br>3. Hệ thống: `ProductModelsService.getPublicModel(slug, variantId?)` trả mô hình chính (`isPrimary`, `status = ready`), danh sách `ModelFile` (GLB theo LOD), kích thước thật, `viewerConfig`, ảnh chờ `posterMediaId`.<br>4. Hệ thống: Trình xem hiển thị ảnh chờ, tải tệp GLB theo LOD phù hợp thiết bị (`ModelLoader`), áp `viewerConfig` (góc camera, tự xoay, ánh sáng).<br>5. Hệ thống: Ghi nhận phiên (UC-3D-07).<br>6. Khách: Xoay/phóng to; chọn biến thể màu/chất liệu → UC-3D-03. |
+| **Hậu điều kiện** | Không thay đổi dữ liệu (không còn ghi phiên xem). |
+| **Luồng chính** | 1. Khách: Ở trang chi tiết bấm tab "Xem 3D".<br>2. Hệ thống: `GET /api/products/:slug/model`.<br>3. Hệ thống: `ProductModelsService.getPublicModel(slug, variantId?)` trả mô hình chính (`isPrimary`, `status = ready`), danh sách `ModelFile` (GLB theo LOD), kích thước thật, `viewerConfig`, ảnh chờ `posterMediaId`.<br>4. Hệ thống: Trình xem hiển thị ảnh chờ, tải tệp GLB theo LOD phù hợp thiết bị (`ModelLoader`), áp `viewerConfig` (góc camera, tự xoay, ánh sáng).<br>5. Khách: Xoay/phóng to; chọn biến thể màu/chất liệu → UC-3D-03. |
 | **Luồng thay thế** | 3a. Sản phẩm không có mô hình `ready` → ẩn nút "Xem 3D".<br>4a. Thiết bị yếu/mạng chậm → dùng LOD `low`/`medium`.<br>4b. Tải lỗi → hiển thị ảnh chờ và thông báo. |
 | **Ngoại lệ** | • Mô hình đang `processing`/`failed` → không công khai. |
 | **Quy tắc nghiệp vụ** | • Chỉ mô hình `ready` được công khai; mỗi sản phẩm tối đa một mô hình chính (`uq_product_3d_models_primary`).<br>• Tệp lấy qua URL của `Media` (MinIO/S3). |
@@ -814,65 +836,28 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Dữ liệu ra** | • 200: `{ model: { uuid, lengthMm, widthMm, heightMm, placement, allowScaling, viewerConfig, posterUrl }, files: [{ format, lod, url, polygonCount }], materialVariants[] }` |
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>Media (media): R<br>ModelMaterialVariant (model_material_variants): R |
 | **DB trigger / việc Service tự làm** | • Không có (cờ `has3dModel` do trigger DB duy trì). |
-| **Quan hệ UC** | include: UC-3D-07 |
 
-#### UC-3D-02 – Xem sản phẩm bằng AR (đặt vào không gian thật)
+#### UC-3D-02 – (đã loại bỏ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files, ar_sessions) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
-| **Mô tả** | Đặt sản phẩm đúng kích thước thật lên sàn/tường/mặt bàn bằng camera điện thoại (WebXR/Scene Viewer trên Android dùng GLB; Quick Look trên iPhone dùng USDZ). |
-| **Tiền điều kiện** | `hasAr = true` (mô hình `ready` có đủ GLB và USDZ); thiết bị hỗ trợ AR. |
-| **Hậu điều kiện** | Có `ArSession` mode `ar` với các cờ `placed`, `captured`, `addedToCart`. |
-| **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:slug/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
-| **Luồng thay thế** | 2a. Thiết bị không hỗ trợ AR → hiển thị hướng dẫn và chuyển sang xem 3D (UC-3D-01).<br>3a. Thiếu một trong hai định dạng → `hasAr = false`, ẩn nút AR. |
-| **Ngoại lệ** | • Người dùng từ chối quyền camera → thông báo hướng dẫn cấp quyền. |
-| **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên app Android, xem sản phẩm qua camera là overlay ảnh 2D (UC-MOB-03), không dùng module `ar-overlay` của backend. |
-| **Dữ liệu vào** | • productId (bắt buộc): sản phẩm có `hasAr` |
-| **Dữ liệu ra** | • 200: như UC-3D-01 + `arSessionUuid` |
-| **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>ArSession (ar_sessions): C,U |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_sessions_set_updated_at` khi cập nhật cờ.<br>• Service: ghi/cập nhật `ArSession` (UC-3D-07). |
-| **Quan hệ UC** | include: UC-3D-07 |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 #### UC-3D-03 – Đổi màu/chất liệu trên mô hình 3D
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (model_material_variants) |
+| **Thông tin chung** | Nhóm: 3D · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (model_material_variants) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Khi chọn biến thể khác, mô hình áp cấu hình vật liệu tương ứng mà không tải lại mô hình mới. |
 | **Luồng chính** | 1. Khách: Chọn biến thể (màu/chất liệu) ở trang chi tiết đang mở 3D.<br>2. Hệ thống: Dùng `materialVariants[]` đã nhận ở UC-3D-01, tìm bản ghi theo `variantId`.<br>3. Hệ thống: Áp `config` (baseColor, roughness...) vào vật liệu `materialName` của mô hình ở phía client; không gọi API thêm. |
 | **Model + C/R/U/D** | ModelMaterialVariant (model_material_variants): R |
 
-#### UC-3D-06 – Xem ảnh AR công khai "Khách hàng đã trải nghiệm"
+#### UC-3D-06 – (đã loại bỏ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_snapshots) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
-| **Mô tả** | Xem ảnh AR người dùng đã chọn công khai, theo sản phẩm hoặc trên trang chủ. |
-| **Tiền điều kiện** |  |
-| **Hậu điều kiện** |  |
-| **Luồng chính** | 1. Khách: Mở mục "Khách hàng đã trải nghiệm" (trang chi tiết hoặc trang chủ).<br>2. Hệ thống: `GET /api/ar-snapshots/public?productId=&page=` chỉ trả `isPublic = true`, kèm tên rút gọn người chụp.<br>3. Hệ thống: Hiển thị lưới ảnh; không lộ email/điện thoại. |
-| **Luồng thay thế** |  |
-| **Ngoại lệ** |  |
-| **Quy tắc nghiệp vụ** | • Không công khai thông tin cá nhân ngoài tên hiển thị rút gọn. |
-| **Dữ liệu vào** |  |
-| **Dữ liệu ra** |  |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R<br>Media (media): R<br>User (users): R |
-| **DB trigger / việc Service tự làm** |  |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
-#### UC-3D-07 – Ghi nhận thống kê phiên 3D/AR (ẩn danh)
+#### UC-3D-07 – (đã loại bỏ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_sessions) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
-| **Mô tả** | Mỗi lượt xem 3D/AR được ghi lại (thiết bị, hệ điều hành, nền tảng AR, thời gian, đặt được hay không, chụp ảnh, thêm giỏ). Khách dùng `visitorId` ẩn danh do client tạo. |
-| **Luồng chính** | 1. Hệ thống: Khi mở trình xem, client gọi `POST /api/ar-sessions` (CreateArSessionDto: `productId`, `modelId`, `mode`, `device`, `os`, `arPlatform`, `visitorId`) — endpoint dùng `OptionalJwtAuthGuard` [CẦN TẠO MỚI].<br>2. Hệ thống: Nếu có token → `userId`; ngược lại bắt buộc `visitorId` (UUID). Ràng buộc DB: phải có `userId` hoặc `visitorId` (CHECK `ck_ar_sessions_actor`).<br>3. Hệ thống: Trả `uuid` phiên. Khi đóng trình xem client gọi `PATCH /api/ar-sessions/:uuid` cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
-| **Quy tắc nghiệp vụ** | • Đây là ngoại lệ duy nhất cho phép khách ghi dữ liệu (cùng `space_views`); không chứa thông tin cá nhân.<br>• Cập nhật phiên chỉ khi `visitorId`/`userId` khớp phiên; giới hạn tốc độ để chống ghi rác. |
-| **Model + C/R/U/D** | ArSession (ar_sessions): C,U |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 #### UC-SPACE-01 – Duyệt và tìm kiếm không gian mẫu
 
@@ -888,7 +873,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Ngoại lệ** | • `roomType` không thuộc enum → 400. |
 | **Quy tắc nghiệp vụ** | • `RoomType`: living_room, bedroom, kitchen, dining_room, bathroom, office, other.<br>• Prisma không biểu diễn index biểu thức → bắt buộc `$queryRaw` khi tìm không dấu. |
 | **Dữ liệu vào** | • roomType, style, category, q, sort, page, limit (tuỳ chọn): q 2–100 ký tự |
-| **Dữ liệu ra** | • 200: `{ items[], total }` |
+| **Dữ liệu ra** | • 200: `data[]` kèm `meta { page, pageSize, total, totalPages }` |
 | **Model + C/R/U/D** | Space (spaces): R<br>Media (media): R<br>Category (categories): R |
 | **DB trigger / việc Service tự làm** | • Không có. |
 
@@ -953,15 +938,15 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 
 ## 7. Khách vãng lai
 
-Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng nhập, quên/đặt lại mật khẩu. Mọi thao tác ghi khác đều bị chặn ở **cả hai lớp**: frontend hiện hộp thoại yêu cầu đăng nhập và KHÔNG gọi API ghi; backend trả 401 vì route có `JwtAuthGuard`. Ngoại lệ duy nhất cho khách ghi dữ liệu là thống kê ẩn danh `ArSession`, `SpaceView` kèm `visitorId` (UC-3D-07, UC-SPACE-06).
+Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng nhập, quên/đặt lại mật khẩu. Mọi thao tác ghi khác đều bị chặn ở **cả hai lớp**: frontend hiện hộp thoại yêu cầu đăng nhập và KHÔNG gọi API ghi; backend trả 401 vì route có `JwtAuthGuard`. Ngoại lệ duy nhất cho khách ghi dữ liệu là thống kê ẩn danh `SpaceView` kèm `visitorId` (UC-SPACE-06).
 
 | Hành động khách thử | Hệ quả |
 | --- | --- |
 | Thêm vào giỏ (UC-CART-01), xem giỏ (UC-CART-02) | Yêu cầu đăng nhập; sau khi đăng nhập thực hiện lại hành động |
 | Áp mã giảm giá (UC-CART-04), đặt hàng (UC-ORD-01), thanh toán (UC-PAY-01) | Yêu cầu đăng nhập |
 | Yêu thích sản phẩm (UC-ACC-06), lưu không gian mẫu (UC-SPACE-04) | Yêu cầu đăng nhập |
-| Viết đánh giá (UC-REV-02), chụp ảnh AR để lưu (UC-3D-04) | Yêu cầu đăng nhập |
-| Xem/ghi thống kê 3D, AR, không gian mẫu | Được phép, ghi ẩn danh bằng `visitorId` (UUID do client tạo) |
+| Viết đánh giá (UC-REV-02), lưu không gian mẫu (UC-SPACE-04) | Yêu cầu đăng nhập |
+| Xem 3D, 360°, không gian mẫu; ghi lượt xem không gian mẫu | Được phép, ghi ẩn danh bằng `visitorId` (UUID do client tạo) |
 
 #### UC-AUTH-01 – Đăng ký tài khoản
 
@@ -1018,7 +1003,7 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Luồng chính** | 1. Khách: Chọn sản phẩm ở `CatalogScreen`.<br>2. Hệ thống: `ProductDetailViewModel` gọi `ProductRepository.getProduct(slug)` → `GET /api/products/:slug`.<br>3. Hệ thống: App hiển thị `ProductDetailScreen`: ảnh (vuốt ngang), tên, mô tả, khoảng giá, danh sách biến thể (màu, chất liệu) chỉ để xem.<br>4. Hệ thống: Nếu phản hồi có `overlayImageUrl`, hiện nút "Thử trong camera".<br>5. Khách: Bấm nút → UC-MOB-03. |
 | **Luồng thay thế** | 2a. Không tìm thấy (404) → quay lại danh sách kèm thông báo.<br>4a. Sản phẩm chưa có ảnh overlay → ẩn nút "Thử trong camera". |
 | **Ngoại lệ** | • Lỗi mạng → `ErrorView` với nút thử lại. |
-| **Quy tắc nghiệp vụ** | • App không thêm giỏ hàng/đặt hàng; muốn mua, khách mở website.<br>• Không ghi `ArSession` (không thống kê). |
+| **Quy tắc nghiệp vụ** | • App không thêm giỏ hàng/đặt hàng; muốn mua, khách mở website.<br>• Không ghi thống kê. |
 | **Dữ liệu vào** | • slug (bắt buộc) |
 | **Dữ liệu ra** | • 200: sản phẩm kèm ảnh, biến thể và `overlayImageUrl` (tuỳ chọn) |
 | **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Media (media): R |
@@ -1056,7 +1041,7 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Luồng chính** | 1. Khách: Bấm nút chụp.<br>2. Hệ thống: `CameraViewModel.onCapture()` gọi `ImageCapture.takePicture` (CameraX); nhận ảnh gốc kèm `rotationDegrees`.<br>3. Hệ thống: `BitmapUtils.compose` vẽ ảnh overlay lên ảnh chụp, quy đổi vị trí/tỉ lệ/góc xoay từ khung preview sang kích thước ảnh chụp.<br>4. Hệ thống: `GalleryRepository.save` ghi JPEG vào `MediaStore.Images` (`Pictures/AureliaLiving`), đánh dấu `IS_PENDING` rồi hoàn tất.<br>5. Hệ thống: Hiển thị thông báo "Đã lưu vào thư viện ảnh" kèm nút "Chia sẻ" (tuỳ chọn, dùng hộp chia sẻ của Android). |
 | **Luồng thay thế** | 2a. Lỗi chụp (`ImageCaptureException`) → thông báo "Không chụp được, thử lại".<br>4a. Điện thoại Android 8-9 (API 26-28) chưa cấp quyền ghi bộ nhớ → xin quyền `WRITE_EXTERNAL_STORAGE`; từ chối thì không lưu, giữ ảnh tạm trong bộ nhớ để thử lại.<br>4b. Bộ nhớ đầy → thông báo lỗi. |
 | **Ngoại lệ** | • Hết bộ nhớ khi ghép ảnh (độ phân giải cao) → giảm kích thước ảnh ghép và thử lại một lần. |
-| **Quy tắc nghiệp vụ** | • Ảnh lưu CỤC BỘ trên điện thoại, không tải lên máy chủ (khác UC-3D-04 trên web: lưu `ArSnapshot` cần đăng nhập).<br>• Từ Android 10 (API 29) trở lên ghi qua `MediaStore` không cần quyền lưu trữ. |
+| **Quy tắc nghiệp vụ** | • Ảnh lưu CỤC BỘ trên điện thoại, không tải lên máy chủ (app Android là ngoài phạm vi hiện hành).<br>• Từ Android 10 (API 29) trở lên ghi qua `MediaStore` không cần quyền lưu trữ. |
 | **Dữ liệu vào** | • ảnh chụp từ CameraX, `OverlayState`, ảnh overlay |
 | **Dữ liệu ra** | • Tệp JPEG trong `Pictures/AureliaLiving`; thông báo kết quả |
 | **Model + C/R/U/D** | Không dùng bảng nào. |
@@ -1140,11 +1125,11 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | Thêm, sửa, xóa địa chỉ nhận hàng và chọn địa chỉ mặc định. |
 | **Tiền điều kiện** | Đã đăng nhập. |
 | **Hậu điều kiện** | Sổ địa chỉ của user được cập nhật; tối đa một địa chỉ mặc định. |
-| **Luồng chính** | 1. Người dùng: Mở `/account/addresses`.<br>2. Hệ thống: `GET /api/addresses` trả danh sách địa chỉ của chính user.<br>3. Người dùng: Chọn Thêm/Sửa/Xóa/Đặt mặc định và nhập tên người nhận, điện thoại, tỉnh/thành, quận/huyện, phường/xã, số nhà.<br>4. Hệ thống: `POST /api/addresses`, `PATCH /api/addresses/:id`, `DELETE /api/addresses/:id` hoặc `PATCH /api/addresses/:id/default`.<br>5. Hệ thống: Kiểm tra địa chỉ thuộc user; với "đặt mặc định": trong `$transaction` bỏ cờ `isDefault` của địa chỉ cũ rồi đặt cờ cho địa chỉ mới.<br>6. Hệ thống: Trả danh sách mới. |
-| **Luồng thay thế** | 3a. Địa chỉ đầu tiên của user tự động là mặc định [ĐỀ XUẤT].<br>5a. Địa chỉ không thuộc user → 404. |
-| **Ngoại lệ** | • Xóa địa chỉ mặc định khi còn địa chỉ khác → hệ thống đặt địa chỉ mới nhất làm mặc định [ĐỀ XUẤT]. |
-| **Quy tắc nghiệp vụ** | • Mỗi user tối đa MỘT địa chỉ mặc định (partial unique index `uq_addresses_user_default`): Service phải bỏ cờ cũ trước khi đặt cờ mới.<br>• Đơn hàng lưu bản chụp địa chỉ (không tham chiếu `Address`), nên sửa/xóa địa chỉ không ảnh hưởng đơn cũ. |
-| **Dữ liệu vào** | • recipientName (bắt buộc): ≤ 150 ký tự<br>• phone (bắt buộc): 10–11 chữ số<br>• province, district, ward (bắt buộc): ≤ 100 ký tự<br>• addressLine (bắt buộc): ≤ 255 ký tự<br>• isDefault (tuỳ chọn): boolean |
+| **Luồng chính** | 1. Người dùng: Mở `/account/profile` (mục "Địa chỉ của tôi", D-N30).<br>2. Hệ thống: `GET /api/addresses` trả danh sách địa chỉ của chính user.<br>3. Người dùng: Chọn Thêm/Sửa/Xóa/Đặt mặc định và nhập tên người nhận, điện thoại, tỉnh/thành, quận/huyện, phường/xã, số nhà.<br>4. Hệ thống: `POST /api/addresses`, `PATCH /api/addresses/:id`, `DELETE /api/addresses/:id` hoặc `PATCH /api/addresses/:id/default`.<br>5. Hệ thống: Kiểm tra địa chỉ thuộc user; với "đặt mặc định": trong `$transaction` bỏ cờ `isDefault` của địa chỉ cũ rồi đặt cờ cho địa chỉ mới.<br>6. Hệ thống: Trả danh sách mới. |
+| **Luồng thay thế** | 3a. Địa chỉ đầu tiên của user (kể cả địa chỉ đầu tiên sau khi đã xóa hết) tự động là mặc định.<br>5a. Địa chỉ không thuộc user → 404. |
+| **Ngoại lệ** | • Xóa địa chỉ mặc định khi còn địa chỉ khác → hệ thống đặt địa chỉ MỚI NHẤT còn lại (id lớn nhất) làm mặc định (đã chốt, D-N30).<br>• Được xóa cả địa chỉ cuối cùng: sổ địa chỉ rỗng là trạng thái hợp lệ; khi đặt hàng mà chưa có địa chỉ, hệ thống trả 400 theo trường `addressId` và giao diện hướng dẫn thêm địa chỉ. |
+| **Quy tắc nghiệp vụ** | • Mỗi user tối đa MỘT địa chỉ mặc định (partial unique index `uq_addresses_user_default`): Service phải bỏ cờ cũ trước khi đặt cờ mới. Mọi thao tác trên sổ địa chỉ của MỘT user chạy tuần tự (khóa dòng user trong transaction) nên chạy song song vẫn luôn còn đúng một mặc định.<br>• Không giới hạn số địa chỉ (D-N30).<br>• Đơn hàng lưu bản chụp địa chỉ (không tham chiếu `Address`), nên sửa/xóa địa chỉ không ảnh hưởng đơn cũ. |
+| **Dữ liệu vào** | • recipientName (bắt buộc): ≤ 150 ký tự<br>• phone (bắt buộc): đúng 10 chữ số, bắt đầu bằng 0 (D-N30)<br>• province, district, ward (bắt buộc): ≤ 100 ký tự<br>• addressLine (bắt buộc): ≤ 255 ký tự<br>• isDefault (tuỳ chọn): boolean |
 | **Dữ liệu ra** | • 200/201: danh sách hoặc bản ghi `Address` |
 | **Model + C/R/U/D** | Address (addresses): C,R,U,D |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_addresses_set_updated_at`.<br>• Service: đổi mặc định trong `$transaction`. |
@@ -1389,42 +1374,13 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Luồng chính** | 1. Người dùng: Mở đơn/sản phẩm đã đánh giá, bấm "Sửa" hoặc "Xóa".<br>2. Hệ thống: `PATCH /api/reviews/:id` hoặc `DELETE /api/reviews/:id`, kiểm tra review thuộc user.<br>3. Hệ thống: Sửa → đặt lại `status = pending`; xóa → xóa bản ghi. Trigger DB tính lại điểm trung bình. |
 | **Model + C/R/U/D** | Review (reviews): U,D |
 
-#### UC-3D-04 – Chụp và lưu ảnh AR
+#### UC-3D-04 – (đã loại bỏ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots, media) |
-| **Tác nhân chính / phụ** | Người dùng |
-| **Mô tả** | Trong phiên AR, user đăng nhập chụp ảnh sản phẩm đặt trong phòng và lưu vào tài khoản. |
-| **Tiền điều kiện** | Đang trong phiên AR; đã đăng nhập. |
-| **Hậu điều kiện** | Có `Media` (ảnh) và `ArSnapshot` (`isPublic = false`); `ArSession.captured = true`. |
-| **Luồng chính** | 1. Người dùng: Bấm nút chụp trong chế độ AR.<br>2. Hệ thống: Frontend kiểm tra đăng nhập rồi gửi `POST /api/ar-snapshots` (multipart: ảnh, `productId`, `arSessionUuid`).<br>3. Hệ thống: `MediaService` lưu ảnh lên MinIO/S3, tạo `Media`; job nén ảnh chạy nền (`compress-image.processor`).<br>4. Hệ thống: `ArSnapshotsService.create(userId, dto)` tạo `ArSnapshot`; đặt `captured = true` cho phiên.<br>5. Hệ thống: Trả 201; giao diện cho phép chia sẻ/đặt công khai (UC-3D-05). |
-| **Luồng thay thế** | 2a. Khách chưa đăng nhập → yêu cầu đăng nhập để lưu (có thể lưu cục bộ trên thiết bị). |
-| **Ngoại lệ** | • Ảnh > 10 MB hoặc sai định dạng → 400/413. |
-| **Quy tắc nghiệp vụ** | • `ArSnapshot.userId` bắt buộc (khách không lưu ảnh lên hệ thống).<br>• Ảnh mặc định riêng tư (`isPublic = false`). |
-| **Dữ liệu vào** | • file (bắt buộc): jpeg/png/webp, ≤ 10 MB<br>• productId (bắt buộc): sản phẩm đang xem<br>• arSessionUuid (tuỳ chọn): phiên AR của user |
-| **Dữ liệu ra** | • 201: `{ id, imageUrl, isPublic }` |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): C<br>Media (media): C<br>ArSession (ar_sessions): U |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`, `trg_media_set_updated_at`.<br>• Service: lưu tệp + tạo bản ghi trong `$transaction`. |
-| **Quan hệ UC** | extend: UC-3D-02 |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
-#### UC-3D-05 – Quản lý ảnh AR của tôi (công khai/ẩn/xóa)
+#### UC-3D-05 – (đã loại bỏ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots) |
-| **Tác nhân chính / phụ** | Người dùng |
-| **Mô tả** | Xem các ảnh AR đã chụp, bật/tắt công khai để hiển thị ở mục "Khách hàng đã trải nghiệm", hoặc xóa. |
-| **Tiền điều kiện** | Đã đăng nhập. |
-| **Hậu điều kiện** | `isPublic` được đổi hoặc ảnh bị xóa. |
-| **Luồng chính** | 1. Người dùng: Mở `/account/ar-photos`.<br>2. Hệ thống: `GET /api/ar-snapshots/me` trả ảnh của chính user.<br>3. Người dùng: Bật "Công khai" hoặc bấm "Xóa".<br>4. Hệ thống: `PATCH /api/ar-snapshots/:id` ({ isPublic }) hoặc `DELETE /api/ar-snapshots/:id`; kiểm tra ảnh thuộc user.<br>5. Hệ thống: Trả 200/204. |
-| **Luồng thay thế** | 4a. Ảnh không thuộc user → 404. |
-| **Ngoại lệ** | • Ảnh bị admin gỡ (UC-ADM-30) → hiển thị thông báo. |
-| **Quy tắc nghiệp vụ** | • Chỉ ảnh `isPublic = true` xuất hiện công khai (partial index `idx_ar_snapshots_public`). |
-| **Dữ liệu vào** | • isPublic (bắt buộc (PATCH)): boolean |
-| **Dữ liệu ra** | • 200: bản ghi `ArSnapshot` |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D<br>Media (media): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`. |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 #### UC-SPACE-04 – Lưu / bỏ lưu không gian mẫu yêu thích
 
@@ -1435,12 +1391,12 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | User lưu không gian mẫu để xem lại và xem danh sách đã lưu. |
 | **Tiền điều kiện** | Đã đăng nhập (khách bấm lưu được yêu cầu đăng nhập). |
 | **Hậu điều kiện** | Có/không có `SpaceBookmark` của cặp (user, không gian). |
-| **Luồng chính** | 1. Người dùng: Bấm biểu tượng "Lưu" ở không gian.<br>2. Hệ thống: `PUT /api/spaces/:slug/bookmark` hoặc `DELETE /api/spaces/:slug/bookmark`.<br>3. Hệ thống: Kiểm tra không gian `published`; `upsert` theo `(userId, spaceId)`.<br>4. Hệ thống: Trả 204; giao diện đổi trạng thái.<br>5. Người dùng: Mở `/account/saved-spaces` → `GET /api/spaces/bookmarks/me`. |
+| **Luồng chính** | 1. Người dùng: Bấm biểu tượng "Lưu" ở không gian.<br>2. Hệ thống: `PUT /api/spaces/:slug/bookmark` hoặc `DELETE /api/spaces/:slug/bookmark`.<br>3. Hệ thống: Kiểm tra không gian `published`; `upsert` theo `(userId, spaceId)`.<br>4. Hệ thống: Trả 200 (thân rỗng); giao diện đổi trạng thái.<br>5. Người dùng: Mở `/account/saved-spaces` → `GET /api/spaces?bookmarked=true` (không có route `/spaces/bookmarks/me`, D-N31). |
 | **Luồng thay thế** | 1a. Khách chưa đăng nhập → yêu cầu đăng nhập, không gọi API.<br>3a. Không gian không tồn tại/đã ẩn → 404. |
 | **Ngoại lệ** | • Lưu trùng → coi như thành công. |
-| **Quy tắc nghiệp vụ** | • UNIQUE `(userId, spaceId)`. |
+| **Quy tắc nghiệp vụ** | • UNIQUE `(userId, spaceId)`.<br>• Chỉ lưu được không gian đang `published`; nháp/đã ẩn hoặc không tồn tại → 404. Không gian đã lưu mà sau đó bị ẩn thì không còn trong danh sách nhưng vẫn bỏ lưu được. Khách chưa đăng nhập: 401, danh sách `bookmarked=true` của khách rỗng.<br>• Trang `/account/saved-spaces` có trạng thái đang tải, trống, lỗi, phân trang và nút "Bỏ khỏi danh sách". |
 | **Dữ liệu vào** | • slug (bắt buộc): slug không gian đang `published` |
-| **Dữ liệu ra** | • 204 hoặc danh sách không gian đã lưu |
+| **Dữ liệu ra** | • 200 (thân rỗng) hoặc danh sách phân trang các không gian đã lưu |
 | **Model + C/R/U/D** | SpaceBookmark (space_bookmarks): C,R,D<br>Space (spaces): R |
 | **DB trigger / việc Service tự làm** | • Không có. |
 | **Quan hệ UC** | include: UC-AUTH-02 |
@@ -1484,13 +1440,13 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | --- | --- |
 | **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (settings) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_settings`) |
-| **Mô tả** | Xem và sửa cấu hình: tên website, email/điện thoại liên hệ, tiền tệ, phí vận chuyển mặc định, ngưỡng miễn phí vận chuyển, bật AR, bảo trì. |
+| **Mô tả** | Xem và sửa cấu hình: tên website, email/điện thoại liên hệ, tiền tệ, phí vận chuyển mặc định, ngưỡng miễn phí vận chuyển, bảo trì. |
 | **Tiền điều kiện** | Admin có quyền `manage_settings`. |
 | **Hậu điều kiện** | Giá trị cấu hình được cập nhật; có `ActivityLog`. |
 | **Luồng chính** | 1. Admin: Mở `/admin/settings`.<br>2. Hệ thống: `GET /api/admin/settings` trả danh sách khóa-giá trị (JSONB).<br>3. Admin: Sửa giá trị (ví dụ `default_shipping_fee`) và lưu.<br>4. Hệ thống: `PUT /api/admin/settings/:key` (UpdateSettingDto) kiểm tra kiểu giá trị theo từng khóa.<br>5. Hệ thống: `upsert` theo `key`, ghi `ActivityLog` (giá trị trước/sau trong `changes`), trả 200. |
 | **Luồng thay thế** | 4a. Khóa không thuộc danh sách cho phép → 400.<br>4b. Sai kiểu (ví dụ phí âm) → 400. |
 | **Ngoại lệ** | • Thiếu quyền → 403. |
-| **Quy tắc nghiệp vụ** | • Giá trị lưu `JSONB`; khóa `UNIQUE`.<br>• Chỉ nhóm khóa công khai (tên website, liên hệ, tiền tệ, phí vận chuyển, ngưỡng miễn phí, bật AR) được trả qua `GET /api/settings/public` [ĐỀ XUẤT: schema chưa có cờ công khai, dùng danh sách trắng trong Service].<br>• `OrdersService` đọc `default_shipping_fee` và `free_shipping_threshold` khi tính phí (UC-ORD-01). |
+| **Quy tắc nghiệp vụ** | • Giá trị lưu `JSONB`; khóa `UNIQUE`.<br>• Chỉ nhóm khóa công khai (tên website, liên hệ, tiền tệ, phí vận chuyển, ngưỡng miễn phí) được trả qua `GET /api/settings/public` [ĐỀ XUẤT: schema chưa có cờ công khai, dùng danh sách trắng trong Service].<br>• `OrdersService` đọc `default_shipping_fee` và `free_shipping_threshold` khi tính phí (UC-ORD-01). |
 | **Dữ liệu vào** | • key (bắt buộc): thuộc danh sách khóa hợp lệ<br>• value (bắt buộc): đúng kiểu của khóa |
 | **Dữ liệu ra** | • 200: `{ key, value, updatedAt }` |
 | **Model + C/R/U/D** | Setting (settings): R,U,C |
@@ -1509,7 +1465,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng thay thế** | 2a. Loại tệp không cho phép → 400; quá dung lượng → 413.<br>6a. Tệp đang được dùng (ảnh sản phẩm, model, panorama...) → 409 vì khóa ngoại `RESTRICT`. |
 | **Ngoại lệ** | • MinIO lỗi → 502, không tạo `Media`.<br>• Ảnh/panorama vượt giới hạn → 413 (`PAYLOAD_TOO_LARGE`); sai loại tệp → 415.<br>• Xác nhận khi tệp chưa có trên MinIO → 404. |
 | **Quy tắc nghiệp vụ** | • `filePath` UNIQUE; `fileSize` ≥ 0 và tối đa 2 GB (cột INTEGER).<br>• Xóa `Media` làm `SET NULL` ở tham chiếu tùy chọn (ảnh danh mục, logo, avatar...) nhưng bị chặn ở tham chiếu bắt buộc. |
-| **Dữ liệu vào** | • file (bắt buộc): ảnh ≤ 10 MB; GLB/USDZ ≤ 100 MB [ĐỀ XUẤT]<br>• altText (tuỳ chọn): ≤ 255 ký tự |
+| **Dữ liệu vào** | • file (bắt buộc): ảnh ≤ 10 MB; GLB ≤ 100 MB [ĐỀ XUẤT]<br>• altText (tuỳ chọn): ≤ 255 ký tự |
 | **Dữ liệu ra** | • 201: `{ id, fileName, url, mimeType, fileSize, altText }` |
 | **Model + C/R/U/D** | Media (media): C,R,U,D<br>ActivityLog (activity_logs): C |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_media_set_updated_at`.<br>• Service: lưu tệp và tạo bản ghi; xóa tệp S3 sau khi xóa bản ghi thành công.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
@@ -1595,10 +1551,10 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Tạo, sửa, đăng/ẩn, đánh dấu nổi bật và xóa mềm sản phẩm. |
 | **Tiền điều kiện** | Admin có quyền. |
 | **Hậu điều kiện** | Sản phẩm thay đổi; có `ActivityLog`. |
-| **Luồng chính** | 1. Admin: Mở `/admin/products` (danh sách, lọc theo trạng thái/danh mục, tìm tên).<br>2. Hệ thống: `GET /api/admin/products?status=&category=&q=&deleted=&page=`.<br>3. Admin: Bấm "Thêm sản phẩm" (`/admin/products/new`): tên, slug, mô tả ngắn/chi tiết, danh mục, thương hiệu, trạng thái, nổi bật, SEO.<br>4. Hệ thống: `POST /api/admin/products` (CreateProductDto); `PATCH /api/admin/products/:id` (UpdateProductDto).<br>5. Hệ thống: Sinh slug nếu trống; kiểm tra slug duy nhất (kể cả sản phẩm đã xóa mềm), danh mục/thương hiệu tồn tại.<br>6. Hệ thống: Lưu `Product` (`ratingAvg`, `ratingCount`, `has3dModel`, `hasAr` giữ do trigger), ghi `ActivityLog`, trả 201.<br>7. Admin: Thêm biến thể, ảnh (UC-ADM-10, UC-ADM-11), mô hình 3D (UC-ADM-13).<br>8. Admin: Đổi `status` sang `published`; hoặc "Xóa".<br>9. Hệ thống: `PATCH /api/admin/products/:id/status`; kiểm tra điều kiện đăng; xóa mềm = `DELETE /api/admin/products/:id` đặt `deletedAt = now()`, `status = archived`. |
+| **Luồng chính** | 1. Admin: Mở `/admin/products` (danh sách, lọc theo trạng thái/danh mục, tìm tên).<br>2. Hệ thống: `GET /api/admin/products?status=&category=&q=&deleted=&page=`.<br>3. Admin: Bấm "Thêm sản phẩm" (`/admin/products/new`): tên, slug, mô tả ngắn/chi tiết, danh mục, thương hiệu, trạng thái, nổi bật, SEO.<br>4. Hệ thống: `POST /api/admin/products` (CreateProductDto); `PATCH /api/admin/products/:id` (UpdateProductDto).<br>5. Hệ thống: Sinh slug nếu trống; kiểm tra slug duy nhất (kể cả sản phẩm đã xóa mềm), danh mục/thương hiệu tồn tại.<br>6. Hệ thống: Lưu `Product` (`ratingAvg`, `ratingCount`, `has3dModel` giữ do trigger), ghi `ActivityLog`, trả 201.<br>7. Admin: Thêm biến thể, ảnh (UC-ADM-10, UC-ADM-11), mô hình 3D (UC-ADM-13).<br>8. Admin: Đổi `status` sang `published`; hoặc "Xóa".<br>9. Hệ thống: `PATCH /api/admin/products/:id/status`; kiểm tra điều kiện đăng; xóa mềm = `DELETE /api/admin/products/:id` đặt `deletedAt = now()`, `status = archived`. |
 | **Luồng thay thế** | 5a. Slug trùng → 409.<br>9a. Đăng khi chưa có biến thể `isActive` hoặc chưa có ảnh đại diện → 400 [ĐỀ XUẤT]. |
 | **Ngoại lệ** | • Danh mục/thương hiệu không tồn tại → 400. |
-| **Quy tắc nghiệp vụ** | • Không bao giờ xóa cứng; `deletedAt` + `archived` (QUY_UOC §4); mọi danh sách công khai lọc `deletedAt: null`.<br>• `ratingAvg`, `ratingCount`, `has3dModel`, `hasAr` do trigger DB tính: Service không ghi (QUY_UOC §6). `soldCount` do Service tăng khi đơn hoàn tất.<br>• Tìm gần đúng theo tên dùng index GIN trigram. |
+| **Quy tắc nghiệp vụ** | • Không bao giờ xóa cứng; `deletedAt` + `archived` (QUY_UOC §4); mọi danh sách công khai lọc `deletedAt: null`.<br>• `ratingAvg`, `ratingCount`, `has3dModel` do trigger DB tính: Service không ghi (QUY_UOC §6). `soldCount` do Service tăng khi đơn hoàn tất.<br>• Tìm gần đúng theo tên dùng index GIN trigram. |
 | **Dữ liệu vào** | • name (bắt buộc): ≤ 255 ký tự<br>• slug (tuỳ chọn): ≤ 280 ký tự<br>• shortDescription (tuỳ chọn): ≤ 500; description<br>• categoryId, brandId (tuỳ chọn): id tồn tại<br>• status (tuỳ chọn): `draft`, `published`, `archived` (mặc định `draft`)<br>• isFeatured, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột |
 | **Dữ liệu ra** | • 200/201: `ProductResponseDto` |
 | **Model + C/R/U/D** | Product (products): C,R,U,D<br>Category (categories): R<br>Brand (brands): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>ActivityLog (activity_logs): C |
@@ -1613,10 +1569,10 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Thêm/sửa biến thể bán (SKU, giá, giá khuyến mãi, cân nặng, trạng thái) và gắn giá trị thuộc tính. |
 | **Tiền điều kiện** | Sản phẩm tồn tại. |
 | **Hậu điều kiện** | Biến thể và thuộc tính được lưu. |
-| **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm, mục "Biến thể" bấm "Thêm biến thể".<br>2. Admin: Nhập SKU, giá, giá khuyến mãi (tuỳ chọn), cân nặng, chọn mỗi thuộc tính một giá trị.<br>3. Hệ thống: `POST /api/admin/products/:id/variants` (CreateVariantDto) hoặc `PATCH /api/admin/variants/:id`.<br>4. Hệ thống: Trong `$transaction`: kiểm tra SKU duy nhất, `salePrice ≤ price`, mỗi thuộc tính một giá trị; tạo `ProductVariant` và `VariantAttributeValue` (kèm `attributeId`).<br>5. Hệ thống: Tồn kho ban đầu = 0 (nhập kho ở UC-ADM-12).<br>6. Hệ thống: Ghi `ActivityLog`, trả 201. |
+| **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm, mục "Biến thể" bấm "Thêm biến thể".<br>2. Admin: Nhập SKU, giá, giá khuyến mãi (tuỳ chọn), cân nặng, chọn mỗi thuộc tính một giá trị.<br>3. Hệ thống: `POST /api/admin/products` hoặc `PATCH /api/admin/products/:id` — biến thể nằm trong mảng `variants` của body (có `id` ⇒ sửa; không có `id` ⇒ tạo; biến thể không còn trong mảng ⇒ ngừng bán `isActive = false`); không có route riêng cho biến thể (D-N32).<br>4. Hệ thống: Trong `$transaction`: kiểm tra SKU duy nhất, `salePrice ≤ price`, mỗi thuộc tính một giá trị; tạo `ProductVariant` và `VariantAttributeValue` (kèm `attributeId`).<br>5. Hệ thống: Tồn kho ban đầu = 0 (nhập kho ở UC-ADM-12).<br>6. Hệ thống: Ghi `ActivityLog`, trả 201. |
 | **Luồng thay thế** | 4a. SKU trùng → 409.<br>4b. `salePrice > price` → 400 (CHECK `ck_product_variants_sale_price`).<br>4c. Hai giá trị cho cùng một thuộc tính → 400 (UNIQUE `(variantId, attributeId)`). |
 | **Ngoại lệ** | • Giá trị thuộc tính không thuộc thuộc tính khai báo → 400 (khóa ngoại kép). |
-| **Quy tắc nghiệp vụ** | • Không xóa biến thể đã có lịch sử kho (`RESTRICT` ở `InventoryMovement`): chuyển `isActive = false`.<br>• Giá `price ≥ 0`; `stockQuantity` không sửa trực tiếp ở đây mà qua phiếu kho.<br>• Biến thể bị xóa: dòng giỏ bị xóa theo (`CASCADE`), `OrderItem.variantId` thành NULL (đơn cũ vẫn giữ tên/SKU/giá). |
+| **Quy tắc nghiệp vụ** | • Không bao giờ xóa biến thể: bỏ khỏi danh sách ⇒ `isActive = false` (giữ lịch sử kho, đơn hàng, ảnh gắn biến thể); dòng giỏ hàng của biến thể đó bị xóa; gửi lại `id` thì bán lại. Công khai không thấy biến thể đã ngừng bán.<br>• Giá `price ≥ 0`; `stockQuantity` không sửa trực tiếp ở đây mà qua phiếu kho.<br>• Biến thể bị xóa: dòng giỏ bị xóa theo (`CASCADE`), `OrderItem.variantId` thành NULL (đơn cũ vẫn giữ tên/SKU/giá). |
 | **Dữ liệu vào** | • sku (bắt buộc): ≤ 100 ký tự, duy nhất<br>• price (bắt buộc): số ≥ 0 (VND)<br>• salePrice (tuỳ chọn): ≥ 0 và ≤ `price`<br>• weightGram (tuỳ chọn): số nguyên ≥ 0<br>• isActive (tuỳ chọn): boolean<br>• attributeValueIds[] (bắt buộc): mỗi thuộc tính một giá trị |
 | **Dữ liệu ra** | • 200/201: biến thể (giá dạng number) |
 | **Model + C/R/U/D** | ProductVariant (product_variants): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): C,D<br>AttributeValue (attribute_values): R<br>Attribute (attributes): R |
@@ -1631,9 +1587,9 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Gắn ảnh vào sản phẩm hoặc biến thể, sắp thứ tự và chọn ảnh đại diện. |
 | **Tiền điều kiện** | Sản phẩm tồn tại; ảnh đã tải lên (UC-ADM-04) hoặc tải ngay. |
 | **Hậu điều kiện** | `ProductImage` được thêm/sửa; đúng một ảnh đại diện. |
-| **Luồng chính** | 1. Admin: Ở mục "Ảnh", chọn/ tải ảnh, (tuỳ chọn) chọn biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/images` ({ mediaId, variantId?, sortOrder }).<br>3. Admin: Sắp xếp kéo thả, chọn "Đặt làm ảnh đại diện".<br>4. Hệ thống: `PATCH /api/admin/products/:id/images/order`, `PATCH /api/admin/product-images/:imageId/primary`.<br>5. Hệ thống: Đặt ảnh đại diện trong `$transaction`: bỏ cờ `isPrimary` của ảnh cũ rồi đặt cờ cho ảnh mới.<br>6. Hệ thống: Xóa ảnh: `DELETE /api/admin/product-images/:imageId` (không xóa tệp media). |
-| **Luồng thay thế** | 2a. Biến thể không thuộc sản phẩm → 400 (khóa ngoại kép `(variantId, productId)`). |
-| **Ngoại lệ** | • Xóa ảnh đại diện → Service chọn ảnh kế tiếp làm đại diện [ĐỀ XUẤT]. |
+| **Luồng chính** | 1. Admin: Ở mục "Ảnh", chọn/ tải ảnh, (tuỳ chọn) chọn biến thể.<br>2. Hệ thống: Ảnh nằm trong mảng `images` của `POST/PATCH /api/admin/products`: mỗi phần tử `{ mediaId | url, variantId?, isPrimary? }`, thứ tự mảng = thứ tự hiển thị (D-N32); không có route riêng cho ảnh.<br>3. Admin: Sắp xếp kéo thả, chọn "Đặt làm ảnh đại diện".<br>4. Hệ thống: Đồng bộ theo `mediaId` trong cùng `$transaction` (khóa dòng sản phẩm): ảnh đã có giữ nguyên dòng và liên kết biến thể (không gửi `variantId` ⇒ giữ; `null` ⇒ gỡ); ảnh mới thêm; ảnh không còn trong mảng bị gỡ liên kết.<br>5. Hệ thống: Luôn đúng một ảnh đại diện (ảnh được đánh dấu đầu tiên, nếu không thì ảnh đại diện cũ còn lại, nếu không thì ảnh đầu).<br>6. Hệ thống: Gỡ ảnh chỉ xóa dòng liên kết `product_images`; KHÔNG xóa `Media` hay tệp vật lý (có thể đang được sản phẩm/mô hình khác dùng). |
+| **Luồng thay thế** | 2a. Biến thể không thuộc sản phẩm → 400 (lỗi theo trường `images.<i>.variantId`; khóa ngoại kép `(variantId, productId)`); `mediaId` không tồn tại → 400; ảnh trùng `mediaId` chỉ giữ một. |
+| **Ngoại lệ** | • Gỡ ảnh đại diện → ảnh còn lại đầu tiên (hoặc ảnh được đánh dấu) làm đại diện. |
 | **Quy tắc nghiệp vụ** | • Mỗi sản phẩm tối đa MỘT ảnh đại diện (partial unique `uq_product_images_primary`): Service phải bỏ cờ cũ trước. |
 | **Dữ liệu vào** | • mediaId (bắt buộc): id media ảnh<br>• variantId (tuỳ chọn): biến thể của sản phẩm<br>• sortOrder (tuỳ chọn): số nguyên |
 | **Dữ liệu ra** | • 200/201: danh sách ảnh của sản phẩm |
@@ -1664,14 +1620,14 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | --- | --- |
 | **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) · phụ: Worker xử lý nền (BullMQ, chạy cùng tiến trình API), MinIO |
-| **Mô tả** | Khai báo kích thước thật, vị trí đặt AR, cấu hình trình xem; tải tệp GLB/USDZ; hệ thống tối ưu và đưa mô hình sang trạng thái sẵn sàng. |
+| **Mô tả** | Khai báo kích thước thật, vị trí đặt, cấu hình trình xem; tải tệp GLB (không nhận USDZ); hệ thống tối ưu và đưa mô hình sang trạng thái sẵn sàng. |
 | **Tiền điều kiện** | Sản phẩm tồn tại; admin có quyền. |
-| **Hậu điều kiện** | Mô hình `ready` (hoặc `failed`); cờ `has3dModel`/`hasAr` của sản phẩm được trigger cập nhật. |
-| **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Chọn tệp GLB hoặc USDZ (≤ `UPLOAD_MAX_MODEL_MB` = 100 MB); USDZ có thể kèm LOD.<br>4. Hệ thống: `POST /api/admin/models/:id/files/presign` (`format`, `lod`, `fileName`, `size`): kiểm tra quyền admin, mô hình tồn tại, dung lượng; trả `uploadUrl` (presigned PUT, hiệu lực `PRESIGN_EXPIRES_SECONDS` = 900 giây, ký cả `Content-Type` và `Content-Length`) vào bucket PRIVATE `aurelia-private`, khóa `models/incoming/:id/<uuid>.<glb\|usdz>`.<br>5. Trình duyệt: `PUT` tệp thẳng lên MinIO (không qua API; MinIO bật CORS cho `http://localhost:3000`).<br>6. Frontend: `POST /api/admin/models/:id/files/confirm` (`key`, `format`, `lod`, `fileName`).<br>7. Hệ thống: `head` tệp trên MinIO (tồn tại, không vượt giới hạn), đặt `status = processing`, đẩy job vào hàng đợi `model-processing`, trả 202 `{ modelId, jobId, status }`.<br>8. Worker (`modules/jobs`): tải tệp gốc từ bucket private. GLB: kiểm tra hợp lệ bằng `@gltf-transform/core`, đo `polygonCount`, `textureResolution`, sinh 3 LOD high/medium/low (dedup, prune, simplify bằng Meshopt, thu nhỏ texture bằng `sharp`, nén Meshopt), tải lên bucket public `aurelia-public` (`models/:id/<tên>-<lod>.glb`), tạo `Media` + `ModelFile` (`isCompressed`, `checksum` SHA-256) trong `$transaction`. USDZ (admin tải thủ công từng LOD): chỉ kiểm tra chữ ký ZIP, tính checksum, chép sang bucket public.<br>9. Worker: thành công → `Product3DModel.status = ready`; lỗi → `failed` (tệp hỏng: không thử lại; lỗi tạm thời: thử lại 3 lần, backoff mũ).<br>10. CSDL: Trigger cập nhật `Product.has3dModel`, `Product.hasAr`.<br>11. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; thử lại khi `failed`. |
-| **Luồng thay thế** | 4a. Tệp vượt giới hạn → 413 `PAYLOAD_TOO_LARGE`; không phải GLB/USDZ → 400/415.<br>7a. Chưa thấy tệp trên MinIO khi xác nhận → 404.<br>9a. Xử lý lỗi → `failed`; admin tải lại tệp hợp lệ hoặc bấm "Xử lý lại" (`POST /api/admin/models/:id/reprocess`) → `processing`. Tải lại cùng định dạng/LOD thì ghi đè bản ghi `ModelFile` cũ (upsert, không nhân đôi). |
+| **Hậu điều kiện** | Mô hình `ready` (hoặc `failed`); cờ `has3dModel` của sản phẩm được trigger cập nhật. |
+| **Luồng chính** | 1. Admin: Ở trang sửa sản phẩm mục "Mô hình 3D" bấm "Thêm mô hình"; nhập dài/rộng/cao (mm), vị trí đặt (sàn/tường/mặt bàn), cho phép đổi tỉ lệ, cấu hình trình xem, ảnh chờ, (tuỳ chọn) biến thể.<br>2. Hệ thống: `POST /api/admin/products/:id/models` (CreateProductModelDto) tạo `Product3DModel` với `status = uploading`.<br>3. Admin: Chọn tệp GLB (≤ `UPLOAD_MAX_MODEL_MB` = 100 MB); tệp khác GLB (kể cả USDZ) bị từ chối 415.<br>4. Hệ thống: `POST /api/admin/models/:id/files/presign` (`format`, `lod`, `fileName`, `size`): kiểm tra quyền admin, mô hình tồn tại, dung lượng; trả `uploadUrl` (presigned PUT, hiệu lực `PRESIGN_EXPIRES_SECONDS` = 900 giây, ký cả `Content-Type` và `Content-Length`) vào bucket PRIVATE `aurelia-private`, khóa `models/incoming/:id/<uuid>.<glb>`.<br>5. Trình duyệt: `PUT` tệp thẳng lên MinIO (không qua API; MinIO bật CORS cho `http://localhost:3000`).<br>6. Frontend: `POST /api/admin/models/:id/files/confirm` (`key`, `format`, `lod`, `fileName`).<br>7. Hệ thống: `head` tệp trên MinIO (tồn tại, không vượt giới hạn), đặt `status = processing`, đẩy job vào hàng đợi `model-processing`, trả 202 `{ modelId, jobId, status }`.<br>8. Worker (`modules/jobs`): tải tệp gốc từ bucket private. GLB: kiểm tra hợp lệ bằng `@gltf-transform/core`, đo `polygonCount`, `textureResolution`, sinh 3 LOD high/medium/low (dedup, prune, simplify bằng Meshopt, thu nhỏ texture bằng `sharp`, nén Meshopt), tải lên bucket public `aurelia-public` (`models/:id/<tên>-<lod>.glb`), tạo `Media` + `ModelFile` (`isCompressed`, `checksum` SHA-256) trong `$transaction`. Tệp khác GLB (kể cả USDZ) không được nhận (415).<br>9. Worker: thành công → `Product3DModel.status = ready`; lỗi → `failed` (tệp hỏng: không thử lại; lỗi tạm thời: thử lại 3 lần, backoff mũ).<br>10. CSDL: Trigger cập nhật `Product.has3dModel`.<br>11. Admin: Đặt mô hình làm "mô hình chính" (`PATCH /api/admin/models/:id/primary`); xem trạng thái; thử lại khi `failed`. |
+| **Luồng thay thế** | 4a. Tệp vượt giới hạn → 413 `PAYLOAD_TOO_LARGE`; không phải GLB → 415.<br>7a. Chưa thấy tệp trên MinIO khi xác nhận → 404.<br>9a. Xử lý lỗi → `failed`; admin tải lại tệp hợp lệ hoặc bấm "Xử lý lại" (`POST /api/admin/models/:id/reprocess`) → `processing`. Tải lại cùng định dạng/LOD thì ghi đè bản ghi `ModelFile` cũ (upsert, không nhân đôi). |
 | **Ngoại lệ** | • Tệp sai định dạng/quá lớn → 400/413.<br>• Kích thước ≤ 0 → 400 (CHECK `ck_product_3d_models_size`). |
 | **Tiêu chí nghiệm thu (NFR02, D-N21)** | Job `model-processing` phải bảo đảm mỗi tệp LOD dùng cho web có dung lượng ≤ 5 MB (ngưỡng đọc từ biến `MODEL_SERVE_MAX_MB`, mặc định 5). Vượt ngưỡng → trong MỘT `prisma.$transaction` worker đặt `Product3DModel.status = failed`, ghi `ActivityLog` (`model.processing_failed`) và tạo `Notification` cho admin đã tải mô hình lên (`uploadedBy` trong dữ liệu job, cũng là `media.uploaded_by`; bảng `product_3d_models`, `model_files` không có cột `created_by`, D-N22); admin tải lại tệp nhẹ hơn hoặc "Xử lý lại". Kiểm tra này chỉ nằm ở UC-ADM-13; UC-3D-04 chỉ ghi chú tiền điều kiện. Hiện mới có biến cấu hình, chưa có logic kiểm tra (làm ở M12). |
-| **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; `hasAr` = có mô hình `ready` với đủ GLB và USDZ; do trigger DB, Service không ghi.<br>• Xử lý nền chạy trong `apps/api/src/modules/jobs` bằng BullMQ + Redis (compose mặc định có `redis`). Worker chạy CÙNG tiến trình API; processor chỉ là lớp mỏng gọi `ModelProcessingService` nên có thể tách sang `apps/worker` mà không sửa logic.<br>• Tệp gốc nằm ở bucket private (chỉ presigned GET), bản đã xử lý ở bucket public. `media.file_path` lưu object key.<br>• Job thất bại được giữ lại để xem ở Bull Board `/admin/queues` (chỉ admin). |
+| **Quy tắc nghiệp vụ** | • Đặt mô hình chính trong `$transaction`: bỏ cờ cũ rồi đặt cờ mới (partial unique `uq_product_3d_models_primary`).<br>• `has3dModel` = có mô hình `ready`; do trigger DB, Service không ghi.<br>• Xử lý nền chạy trong `apps/api/src/modules/jobs` bằng BullMQ + Redis (compose mặc định có `redis`). Worker chạy CÙNG tiến trình API; processor chỉ là lớp mỏng gọi `ModelProcessingService` nên có thể tách sang `apps/worker` mà không sửa logic.<br>• Tệp gốc nằm ở bucket private (chỉ presigned GET), bản đã xử lý ở bucket public. `media.file_path` lưu object key.<br>• Job thất bại được giữ lại để xem ở Bull Board `/admin/queues` (chỉ admin). |
 | **Dữ liệu vào** | • lengthMm, widthMm, heightMm (bắt buộc): số nguyên > 0<br>• placement (bắt buộc): `floor`, `wall`, `table`<br>• allowScaling (tuỳ chọn): boolean<br>• viewerConfig (tuỳ chọn): JSON<br>• posterMediaId, variantId (tuỳ chọn): id hợp lệ (biến thể phải thuộc sản phẩm)<br>• format, lod, file (khi tải tệp) (bắt buộc): `glb |
 | **Dữ liệu ra** | • 201: `Product3DModel` kèm `files[]` và `status` |
 | **Model + C/R/U/D** | Product3DModel (product_3d_models): C,R,U,D<br>ModelFile (model_files): C,R,U,D<br>Media (media): C,R<br>Product (products): R<br>ActivityLog (activity_logs): C<br>Notification (notifications): C |
@@ -1850,11 +1806,11 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Xem giao dịch, xác nhận thủ công khoản chuyển khoản ngân hàng, đánh dấu thất bại. |
 | **Tiền điều kiện** | Có `Payment` pending (chuyển khoản). |
 | **Hậu điều kiện** | `Payment` success/failed; `Order.paymentStatus` tương ứng. |
-| **Luồng chính** | 1. Admin: Mở `/admin/payments`, lọc `pending`, `bank_transfer`.<br>2. Hệ thống: `GET /api/admin/payments?status=&method=&page=`.<br>3. Admin: Đối soát sao kê, bấm "Xác nhận đã nhận tiền" (nhập mã giao dịch).<br>4. Hệ thống: `PATCH /api/admin/payments/:id/confirm` ({ transactionCode }) trong `$transaction`: `Payment.status = success`, `paidAt`; `Order.paymentStatus = paid`; nếu đơn đang `pending` thì tự chuyển `confirmed` (`changedBy` = admin, ghi chú 'Xác nhận chuyển khoản') [ĐỀ XUẤT: áp dụng như thanh toán online].<br>5. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
-| **Luồng thay thế** | 4a. `transactionCode` trùng → 409 (UNIQUE).<br>4b. Chọn "Thất bại" → `Payment.failed`, `Order.paymentStatus = failed`. |
-| **Ngoại lệ** | • Giao dịch online do cổng quản lý → không xác nhận tay (chỉ xem). |
+| **Luồng chính** | 1. Admin: Mở chi tiết đơn `/admin/orders/:code` (hoặc gọi danh sách giao dịch), lọc `pending`, `bank_transfer`.<br>2. Hệ thống: `GET /api/admin/payments?status=&method=&q=&page=&pageSize=` (mới nhất trước; status/method sai ⇒ 400). Giao diện xử lý ở chi tiết đơn `/admin/orders/:code` (khối "Thanh toán"); chưa có trang `/admin/payments` riêng.<br>3. Admin: Đối soát sao kê, bấm "Xác nhận đã nhận tiền" (nhập mã giao dịch).<br>4. Hệ thống: `PATCH /api/admin/payments/:id/confirm` ({ transactionCode? }) trong `$transaction` với cập nhật có điều kiện theo trạng thái (hai yêu cầu đồng thời chỉ một thành công): `Payment.status = success`, `paidAt`, `transactionCode`, `gatewayResponse` (người xác nhận, thời điểm); `Order.paymentStatus = paid`; nếu đơn đang `pending` thì tự chuyển `confirmed` (`changedBy` = admin, ghi chú 'Xác nhận đã nhận thanh toán'; đã chốt O-04/D-N33). Admin cũng xem `GET /api/admin/payments?status=&method=&q=&page=&pageSize=` và đánh dấu thất bại bằng `PATCH /api/admin/payments/:id/fail` ({ reason? }).<br>5. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
+| **Luồng thay thế** | 4a. `transactionCode` trùng → 409 `CONFLICT` (kiểm ở mã và ràng buộc UNIQUE `uq_payments_transaction_code` ở CSDL).<br>4b. Chọn "Thất bại" → `Payment.failed`, `Order.paymentStatus = failed`, thông báo cho khách.<br>4c. Giao dịch không còn `pending` (đã `success`/`failed`/`refunded`) → 409, không bị ghi đè.<br>4d. Đơn ĐÃ HỦY: giao dịch chờ bị chuyển `failed` lúc hủy đơn; tiền chuyển khoản về muộn vẫn xác nhận được (`failed → success`, đơn giữ `cancelled`, `paymentStatus = paid`) để admin hoàn tiền thủ công (D-N28, D-N33). |
+| **Ngoại lệ** | • Giao dịch online (`vnpay`, `momo`, `zalopay`, `card`) do cổng quản lý và COD (tự ghi nhận khi giao hàng) → không xác nhận/đánh dấu thất bại tay: 409 `INVALID_STATE`. Chỉ `bank_transfer` đang chờ đối soát. |
 | **Quy tắc nghiệp vụ** | • COD tự chuyển `success` khi vận đơn `delivered` và đơn `completed` (UC-ADM-25). |
-| **Dữ liệu vào** | • transactionCode (tuỳ chọn): ≤ 100, duy nhất |
+| **Dữ liệu vào** | • transactionCode (tuỳ chọn, xác nhận): ≤ 100, duy nhất<br>• reason (tuỳ chọn, thất bại): ≤ 255 |
 | **Dữ liệu ra** | • 200: `Payment` mới |
 | **Model + C/R/U/D** | Payment (payments): R,U<br>Order (orders): R,U<br>Notification (notifications): C |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_payments_set_updated_at`, `trg_orders_set_updated_at`. |
@@ -1868,10 +1824,10 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Tạo vận đơn, nhập mã vận đơn, cập nhật tiến trình giao hàng. Khi vận đơn được đánh dấu đã giao, đơn tự chuyển hoàn tất. |
 | **Tiền điều kiện** | Đơn `processing` trở đi. |
 | **Hậu điều kiện** | `Shipment` cập nhật; khi `delivered`: đơn `completed`, COD được ghi nhận đã thanh toán. |
-| **Luồng chính** | 1. Admin: Ở chi tiết đơn bấm "Tạo vận đơn": chọn đơn vị (GHN/GHTK/Viettel Post/khác), mã vận đơn, phí.<br>2. Hệ thống: `POST /api/admin/orders/:id/shipments` (CreateShipmentDto) tạo `Shipment` `pending`.<br>3. Admin: Cập nhật trạng thái: `picked_up` → `in_transit` → `delivered` (hoặc `failed`/`returned`).<br>4. Hệ thống: `PATCH /api/admin/shipments/:id` (UpdateShipmentDto): đặt `shippedAt` khi `picked_up`, `deliveredAt` khi `delivered`.<br>5. Hệ thống: Khi `delivered`, `OrdersService.completeOrder(adminId, orderId)` chạy trong CÙNG `$transaction`: đặt `app.current_user_id` (và `app.status_note = 'Giao hàng thành công'`), `Order.status`: `shipping → completed`; tăng `Product.soldCount` theo số lượng từng dòng; nếu `paymentMethod = cod` và `Payment` đang `pending` thì `Payment.status = success` (`paidAt`) và `Order.paymentStatus = paid`.<br>6. CSDL: Trigger ghi `OrderStatusHistory` (`shipping → completed`).<br>7. Hệ thống: Thông báo user ở các mốc chính (đã giao); ghi `ActivityLog`; trả 200. |
+| **Luồng chính** | 1. Admin: Ở chi tiết đơn bấm "Tạo vận đơn": chọn đơn vị (GHN/GHTK/Viettel Post/khác), mã vận đơn, phí.<br>2. Hệ thống: `POST /api/admin/orders/:id/shipments` (CreateShipmentDto) tạo `Shipment` `pending`.<br>3. Admin: Cập nhật trạng thái theo §10.4: `picked_up` → `in_transit` → `delivered` | `failed` | `returned`; `failed` → `in_transit` (giao lại) | `returned`.<br>4. Hệ thống: `PATCH /api/admin/shipments/:id` (UpdateShipmentDto): đặt `shippedAt` khi `picked_up`, `deliveredAt` khi `delivered`.<br>5. Hệ thống: Khi `delivered`, `OrdersService.completeOrder(adminId, orderId)` chạy trong CÙNG `$transaction`: đặt `app.current_user_id` (và `app.status_note = 'Giao hàng thành công'`), `Order.status`: `shipping → completed`; tăng `Product.soldCount` theo số lượng từng dòng; nếu `paymentMethod = cod` và `Payment` đang `pending` thì `Payment.status = success` (`paidAt`) và `Order.paymentStatus = paid`.<br>6. CSDL: Trigger ghi `OrderStatusHistory` (`shipping → completed`).<br>7. Hệ thống: Thông báo user ở các mốc chính (đã giao); ghi `ActivityLog`; trả 200. |
 | **Luồng thay thế** | 2a. Đơn chưa `processing` → 409.<br>4a. `deliveredAt < shippedAt` → 400 (CHECK `ck_shipments_dates`).<br>5a. Đánh dấu `delivered` khi đơn không ở `shipping` (chưa chuyển giao hàng ở UC-ADM-21) → 409.<br>5b. Đơn đã thanh toán trước (không COD) → chỉ đổi trạng thái đơn và `soldCount`, `Payment` giữ nguyên. |
-| **Ngoại lệ** | • Mã vận đơn trùng đơn vị khác → cảnh báo.<br>• `failed`/`returned`: đơn giữ nguyên `shipping`; cách xử lý đơn bị giao thất bại/hoàn hàng chưa chốt (xem mục 12.2). |
-| **Quy tắc nghiệp vụ** | • Giai đoạn đầu nhập tay; đồng bộ tự động qua webhook đơn vị vận chuyển là hướng phát triển (mục 13).<br>• `delivered` TỰ chuyển đơn `completed` (đã quyết định); không còn thao tác "Hoàn tất" thủ công ở UC-ADM-21.<br>• `soldCount` tăng trong cùng transaction với `completed` (Service, QUY_UOC §5.2); `OrderStatusHistory` do DB trigger ghi. |
+| **Ngoại lệ** | • Mã vận đơn trùng đơn vị khác → cảnh báo.<br>• `failed`/`returned`: đơn giữ nguyên `shipping`; khách được thông báo ĐÚNG MỘT LẦN (gửi sau khi lưu; lỗi gửi thông báo không làm hỏng việc đổi trạng thái; cập nhật lặp lại cùng trạng thái là thao tác rỗng). Với `returned`, admin được HỦY đơn đang giao (`POST /admin/orders/:id/cancel`, hoàn tồn kho, ghi lịch sử kèm lý do và người thực hiện) rồi hoàn tiền thủ công nếu đã thanh toán (`POST /admin/orders/:id/refund`, chỉ một lần). Đã chốt D-N34, thay thế điểm mở O-03. |
+| **Quy tắc nghiệp vụ** | • Máy trạng thái chặt: `failed` chỉ từ `in_transit`; `delivered` chỉ từ `in_transit`; `delivered`/`returned` là trạng thái cuối; `failed` còn vận đơn đang hoạt động nên chưa tạo vận đơn mới (chỉ sau `returned`). Hệ thống KHÔNG có endpoint webhook của đơn vị vận chuyển.<br>• Giai đoạn đầu nhập tay; đồng bộ tự động qua webhook đơn vị vận chuyển là hướng phát triển (mục 13).<br>• `delivered` TỰ chuyển đơn `completed` (đã quyết định); không còn thao tác "Hoàn tất" thủ công ở UC-ADM-21.<br>• `soldCount` tăng trong cùng transaction với `completed` (Service, QUY_UOC §5.2); `OrderStatusHistory` do DB trigger ghi. |
 | **Dữ liệu vào** | • carrier (bắt buộc): `ghn`, `ghtk`, `viettel_post`, `other`<br>• trackingCode (tuỳ chọn): ≤ 100<br>• fee (tuỳ chọn): ≥ 0<br>• status (bắt buộc (cập nhật)): `ShipmentStatus` |
 | **Dữ liệu ra** | • 200/201: `Shipment` (kèm trạng thái đơn mới khi `delivered`) |
 | **Model + C/R/U/D** | Shipment (shipments): C,R,U<br>Order (orders): R,U<br>OrderItem (order_items): R<br>Product (products): U<br>Payment (payments): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
@@ -1908,25 +1864,19 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Mở `/dashboard`, chọn khoảng ngày.<br>2. Hệ thống: `GET /api/admin/stats/overview?from=&to=` tổng hợp (SUM `total` của đơn `completed`, COUNT theo `status`, top `soldCount`, COUNT user mới).<br>3. Hệ thống: Trả số liệu (tiền dạng number) để vẽ biểu đồ. |
 | **Model + C/R/U/D** | Order (orders): R<br>OrderItem (order_items): R<br>Product (products): R<br>User (users): R |
 
-#### UC-ADM-29 – Thống kê AR và phễu không gian mẫu
+#### UC-ADM-29 – Thống kê phễu không gian mẫu
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (ar_sessions, space_views) |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (space_views) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
-| **Mô tả** | Đánh giá hiệu quả AR (tỉ lệ đặt được, chụp ảnh, thêm giỏ theo nền tảng) và phễu phòng mẫu (xem → bấm điểm → thêm giỏ). |
-| **Luồng chính** | 1. Admin: Mở trang thống kê AR/không gian.<br>2. Hệ thống: `GET /api/admin/stats/ar?from=&to=` và `GET /api/admin/stats/spaces?from=&to=` tổng hợp `ArSession`, `SpaceView` (gộp user và khách qua `visitorId`).<br>3. Hệ thống: Trả tỉ lệ chuyển đổi theo sản phẩm/nền tảng/phòng mẫu. |
-| **Model + C/R/U/D** | ArSession (ar_sessions): R<br>SpaceView (space_views): R<br>Space (spaces): R<br>Product (products): R |
+| **Mô tả** | Phễu phòng mẫu (xem → bấm điểm → thêm giỏ). Phần thống kê AR đã loại bỏ (D-P16); UC vẫn hoạt động với phần phễu không gian mẫu. |
+| **Luồng chính** | 1. Admin: Mở trang thống kê không gian mẫu.<br>2. Hệ thống: `GET /api/admin/stats/spaces?from=&to=` tổng hợp `SpaceView` (gộp user và khách qua `visitorId`).<br>3. Hệ thống: Trả tỉ lệ chuyển đổi theo sản phẩm/phòng mẫu. |
+| **Model + C/R/U/D** | SpaceView (space_views): R<br>Space (spaces): R<br>Product (products): R |
 
-#### UC-ADM-30 – Gỡ ảnh AR công khai không phù hợp
+#### UC-ADM-30 – (đã loại bỏ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (ar_snapshots) |
-| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
-| **Mô tả** | Ẩn hoặc xóa ảnh AR công khai vi phạm. |
-| **Luồng chính** | 1. Admin: Mở danh sách ảnh AR công khai, chọn ảnh vi phạm.<br>2. Hệ thống: `PATCH /api/admin/ar-snapshots/:id` ({ isPublic: false }) hoặc `DELETE /api/admin/ar-snapshots/:id`.<br>3. Hệ thống: Ghi `ActivityLog`, trả 200/204. |
-| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D |
+UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
 ## 10. Vòng đời trạng thái
 
@@ -2053,7 +2003,7 @@ stateDiagram-v2
     ready --> processing: Admin thay tệp, version tăng
 ```
 
-Khi `ready`, DB trigger cập nhật `Product.has3dModel` và `hasAr` (chỉ khi đủ GLB và USDZ).
+Khi `ready`, DB trigger cập nhật `Product.has3dModel`.
 
 
 ## 11. Tích hợp ngoài
@@ -2115,7 +2065,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 
 ### 11.4. Lưu trữ tệp và xử lý nền
 
-`StorageService` có ba driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev), `s3` (production, cùng lớp S3-compatible nên chuyển chỉ đổi biến môi trường) và `local`. MinIO có hai bucket: `aurelia-public` (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh qua `STORAGE_PUBLIC_URL`) và `aurelia-private` (tệp gốc chờ xử lý, ảnh AR chưa công khai; chỉ truy cập bằng presigned GET). Ảnh ≤ 5 MB tải qua API (multipart); mô hình 3D (≤ 100 MB) và panorama (≤ 20 MB) tải bằng presigned PUT thẳng lên MinIO rồi gọi API xác nhận. Hàng đợi BullMQ + Redis (`modules/jobs`) có 4 queue: `model-processing` (kiểm tra GLB, đo đa giác/texture, sinh LOD, tính checksum), `image-processing` (webp + thumbnail bằng `sharp`), `mail` (gửi email) và `notification` (khung); mỗi job thử lại tối đa 3 lần với backoff mũ, job thất bại được giữ lại; Bull Board tại `/admin/queues` (chỉ admin). Worker chạy cùng tiến trình API, thiết kế để tách sang `apps/worker`. Redis còn lưu bộ đếm giới hạn tốc độ (`@nestjs/throttler`, nhóm `default` và `auth`) và cache (`CacheService`); Redis **không** lưu phiên đăng nhập hay OTP (phiên và đặt lại mật khẩu ở PostgreSQL). Quyết định: `docs/DECISIONS.md` D-T21..D-T23, D-T29..D-T31, D-T41, D-T42.
+`StorageService` có ba driver chọn bằng `STORAGE_DRIVER`: `minio` (mặc định dev), `s3` (production, cùng lớp S3-compatible nên chuyển chỉ đổi biến môi trường) và `local`. MinIO có hai bucket: `aurelia-public` (ảnh, panorama, mô hình đã xử lý; đọc ẩn danh qua `STORAGE_PUBLIC_URL`) và `aurelia-private` (tệp gốc chờ xử lý; chỉ truy cập bằng presigned GET). Ảnh ≤ 5 MB tải qua API (multipart); mô hình 3D (≤ 100 MB) và panorama (≤ 20 MB) tải bằng presigned PUT thẳng lên MinIO rồi gọi API xác nhận. Hàng đợi BullMQ + Redis (`modules/jobs`) có 4 queue: `model-processing` (kiểm tra GLB, đo đa giác/texture, sinh LOD, tính checksum), `image-processing` (webp + thumbnail bằng `sharp`), `mail` (gửi email) và `notification` (khung); mỗi job thử lại tối đa 3 lần với backoff mũ, job thất bại được giữ lại; Bull Board tại `/admin/queues` (chỉ admin). Worker chạy cùng tiến trình API, thiết kế để tách sang `apps/worker`. Redis còn lưu bộ đếm giới hạn tốc độ (`@nestjs/throttler`, nhóm `default` và `auth`) và cache (`CacheService`); Redis **không** lưu phiên đăng nhập hay OTP (phiên và đặt lại mật khẩu ở PostgreSQL). Quyết định: `docs/DECISIONS.md` D-T21..D-T23, D-T29..D-T31, D-T41, D-T42.
 
 
 ## 12. Quyết định nghiệp vụ và điểm còn mở
@@ -2124,7 +2074,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 
 | # | Quyết định | UC |
 | --- | --- | --- |
-| 1 | User hủy đơn khi `pending` hoặc `confirmed`; admin hủy được trước `shipping` (`pending`, `confirmed`, `processing`). Hủy đơn hoàn tồn kho và lượt dùng coupon | UC-ORD-03, UC-ADM-22 |
+| 1 | User hủy đơn khi `pending` hoặc `confirmed`; admin hủy được trước `shipping` (`pending`, `confirmed`, `processing`), và **ngoại lệ D-N34**: đơn `shipping` mà mọi vận đơn đã `returned` cũng hủy được. Hủy đơn hoàn tồn kho và lượt dùng coupon | UC-ORD-03, UC-ADM-22 |
 | 2 | COD: `Payment` `pending`, chuyển `success` khi vận đơn `delivered` (đơn `completed`). Online: `success` khi nhận callback hợp lệ; callback thất bại: đơn vẫn `pending`, cho thanh toán lại | UC-PAY-02, UC-PAY-03, UC-ADM-25 |
 | 3 | Hoàn tiền thủ công: admin đổi đơn sang `refunded` và payment sang `refunded`; không gọi API hoàn tiền của cổng | UC-ADM-23 |
 | 4 | Không bắt buộc xác thực email để đặt hàng; **bắt buộc** xác thực email mới được đánh giá | UC-AUTH-07, UC-REV-02 |
@@ -2146,18 +2096,26 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 20 | **Ứng dụng Android (phương án tối thiểu)**: làm SAU khi web xong M07 (và M12 nếu kịp). Phạm vi: danh mục, chi tiết sản phẩm, camera CameraX + overlay ảnh (kéo, xoay, phóng to), chụp ảnh ghép và lưu vào máy. Không đăng nhập, không giỏ hàng/đặt hàng trên app. Chỉ dùng API công khai sẵn có. Tác nhân: khách vãng lai. Ảnh overlay là PNG nền trong suốt do chủ dự án chuẩn bị cho 5-10 sản phẩm demo | UC-MOB-01..04 |
 | 21 | **Redis** chỉ làm cache, trạng thái hàng đợi và giới hạn tốc độ; **phiên đăng nhập, đặt lại mật khẩu nằm ở PostgreSQL** (`user_sessions`, `password_resets`), xác thực email bằng JWT; không có OTP (D-T29) | UC-AUTH-02..07, UC-ACC-03 |
 
+| 22 | **Loại bỏ hoàn toàn AR** (thay thế "7 UC AR" của D-P11 bằng con số đúng: 6 UC AR bị loại, UC-ADM-29 còn phần phễu): bỏ bảng `ar_sessions`, `ar_snapshots`, kiểu `ar_mode`, cột `products.has_ar`, module `ar-sessions`/`ar-snapshots`/`ar-overlay`; giữ 3D, 360°, không gian mẫu, tệp GLB | UC-3D-02, 04, 05, 06, 07, UC-ADM-30 (D-P16, D-T59) |
+| 23 | **Danh mục và tìm kiếm** (D-N29): danh mục không tồn tại/không hoạt động → 404; tham số sai → lùi về mặc định (không 400); `sort=<trường>:<asc\|desc>`; `pageSize` ≤ 100; từ khóa 1 ký tự → rỗng; tìm trong tên + danh mục + phong cách + mô tả ngắn; GIỮ tìm trong bộ nhớ (không SQL trigram) | UC-CAT-02, UC-CAT-03, UC-CAT-06 |
+| 24 | **Sổ địa chỉ** (D-N30): điện thoại đúng 10 số bắt đầu bằng 0; xóa địa chỉ mặc định → địa chỉ mới nhất còn lại thành mặc định; xóa được địa chỉ cuối cùng; không giới hạn số lượng | UC-ACC-04 |
+| 25 | **Lưu không gian mẫu** (D-N31): trang `/account/saved-spaces`; danh sách lấy bằng `GET /spaces?bookmarked=true` (không thêm `/spaces/bookmarks/me`); chỉ lưu được không gian `published` | UC-SPACE-04 |
+| 26 | **Biến thể và ảnh sản phẩm** (D-N32): giữ thiết kế gộp trong `POST/PATCH /admin/products`; ảnh đồng bộ theo `mediaId` (không xóa-tạo lại), giữ liên kết biến thể, không xóa media/tệp; biến thể bỏ đi chỉ ngừng bán | UC-ADM-10, UC-ADM-11 |
+| 27 | **Xác nhận thanh toán** (D-N33): chỉ `bank_transfer` đang chờ; có `transactionCode` duy nhất; có đánh dấu thất bại; đơn đã hủy vẫn xác nhận được để hoàn tiền; xử lý đồng thời an toàn | UC-ADM-24 |
+| 28 | **Vận đơn thất bại/hoàn hàng** (D-N34, thay thế điểm mở O-03/O-07): máy trạng thái §10.4; thông báo khách một lần; admin hủy được đơn `shipping` khi mọi vận đơn đã `returned`, rồi hoàn tiền một lần | UC-ADM-25, UC-ADM-22, UC-ADM-23 |
+
 ### 12.2. Điểm còn mở (đang áp dụng mặc định, chờ phản hồi)
 
 | # | Điểm | Mặc định đang áp dụng |
 | --- | --- | --- |
 | 1 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNN`, thử lại khi trùng (UC-ORD-01) |
-| 2 | Giới hạn tệp | Ảnh ≤ 5 MB, panorama ≤ 20 MB, GLB/USDZ ≤ 100 MB (biến `UPLOAD_MAX_IMAGE_MB`, `UPLOAD_MAX_PANORAMA_MB`, `UPLOAD_MAX_MODEL_MB`); `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
+| 2 | Giới hạn tệp | Ảnh ≤ 5 MB, panorama ≤ 20 MB, GLB ≤ 100 MB (biến `UPLOAD_MAX_IMAGE_MB`, `UPLOAD_MAX_PANORAMA_MB`, `UPLOAD_MAX_MODEL_MB`); `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
 | 3 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Đã có hạ tầng: nhóm `default` 120 yêu cầu/60 giây cho mọi route, nhóm `auth` 10 yêu cầu/60 giây cho route gắn `@AuthThrottle()`; vượt thì trả 429 `RATE_LIMITED`. Route thống kê ẩn danh dùng nhóm `default` (có thể siết riêng khi code M12, M13) |
 | 4 | Thông báo tự động (đổi trạng thái đơn, duyệt đánh giá) | Service tạo `Notification`; không có trigger |
 | 5 | Gộp giỏ khách vào giỏ user sau đăng nhập | Không gộp (khách không có giỏ); client chỉ nhớ ý định thêm vào giỏ để thực hiện lại sau khi đăng nhập |
-| 6 | Xác nhận chuyển khoản (UC-ADM-24) cũng tự chuyển đơn `pending → confirmed` giống thanh toán online | Có áp dụng [ĐỀ XUẤT] |
+| 6 | ~~Xác nhận chuyển khoản (UC-ADM-24) cũng tự chuyển đơn `pending → confirmed` giống thanh toán online~~ | **Đã chốt** (D-N33): có áp dụng |
 | 7 | Callback thanh toán thành công đến sau khi đơn đã `cancelled` | Chỉ ghi `Payment` success, không đổi đơn, cảnh báo admin hoàn tiền thủ công [ĐỀ XUẤT] |
-| 8 | Vận đơn `failed`/`returned` khi đơn đang `shipping` | Chưa chốt; đề xuất cho admin hủy/hoàn tiền đơn khi vận đơn `returned` (mở rộng UC-ADM-22 cho trường hợp này) |
+| 8 | ~~Vận đơn `failed`/`returned` khi đơn đang `shipping`~~ | **Đã chốt** (D-N34): xem quyết định 28 ở mục 12.1 |
 | 9 | `userId` của lượt xem không gian khi dùng `sendBeacon` (không gửi được header Authorization) | Gửi `accessToken` tuỳ chọn trong body; không có thì ghi ẩn danh |
 | 10 | Đã xác thực email hay chưa với tài khoản cũ khi bật tính năng | Chưa có dữ liệu cũ; không áp dụng |
 | 11 | Nơi lưu ảnh overlay của sản phẩm trong CSDL (UC-MOB-02, UC-MOB-03) | **CHƯA CHỐT**: cần chủ dự án chọn một trong 3 phương án (quy ước tiền tố `overlays/`; cột/enum loại ảnh trong `product_images`; cột `products.overlay_media_id`). Xem `docs/DECISIONS.md` O-06. Trong lúc chờ, tài liệu gọi chung là `overlayImageUrl` |
@@ -2175,7 +2133,7 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 | Thành phần | Vị trí | Ghi chú |
 | --- | --- | --- |
 | Module AI (gợi ý sản phẩm, mô tả tự động; OpenAI/Ollama) | `apps/api/src/modules/ai` | Tuỳ chọn, chưa có yêu cầu nghiệp vụ |
-| Module overlay AR phía backend | `apps/api/src/modules/ar-overlay` | Sinh dữ liệu/metadata overlay; hiện app dùng ảnh PNG, không cần module này |
+| Module overlay phía backend | (đã xóa thư mục rỗng `ar-overlay`, D-P16) | Hiện app dùng ảnh PNG, không cần module này |
 | Mở rộng ứng dụng Android: đăng nhập, giỏ hàng, đặt hàng, thông báo | `apps/mobile` | Phạm vi hiện tại chỉ có xem sản phẩm, camera overlay, chụp ảnh (UC-MOB) |
 | Tách worker BullMQ sang `apps/worker` (tiến trình riêng) | `infra/docker/Dockerfile.worker`, `apps/api/src/modules/jobs` | Hiện worker chạy cùng tiến trình API; processor đã tách logic nên chuyển được mà không sửa |
 | Webhook đơn vị vận chuyển, đồng bộ trạng thái tự động | UC-ADM-25 | Hiện nhập tay |
@@ -2187,7 +2145,7 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 
 | Chỉ số | Giá trị |
 | --- | --- |
-| Tổng UC | 80 |
+| Tổng UC | 80 (trong đó 70 đang hoạt động; 4 UC Android và 6 UC AR ngoài phạm vi, xem mục 1.4) |
 | UC Khách vãng lai | 25 |
 | UC Người dùng (gồm kế thừa Khách) | 48 |
 | UC Quản trị viên | 59 |
@@ -2200,6 +2158,160 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 | Ưu tiên Bắt buộc | 29 |
 | Ưu tiên Nên có | 36 |
 | Ưu tiên Mở rộng | 15 |
-| Model được ít nhất 1 UC sử dụng | 44/44 |
+| Model được ít nhất 1 UC sử dụng | 42/42 model chuẩn (đã bỏ 2 model AR); 17 model mở rộng chưa nằm trong ma trận UC gốc (xem 4.2 và mục 16) |
 
-Đã kiểm tra tự động: mã UC duy nhất; mọi `include`/`extend` trỏ tới UC tồn tại; 44/44 model có UC sử dụng; không UC nào cho khách ghi dữ liệu ngoài `User`, `UserSession`, `UserRole`, `PasswordReset` (đăng ký/đăng nhập/quên mật khẩu) và `ArSession`, `SpaceView` (thống kê ẩn danh).
+Đã kiểm tra tự động: mã UC duy nhất; mọi `include`/`extend` trỏ tới UC tồn tại; 42/42 model có UC sử dụng; không UC nào cho khách ghi dữ liệu ngoài `User`, `UserSession`, `UserRole`, `PasswordReset` (đăng ký/đăng nhập/quên mật khẩu) và `SpaceView` (thống kê ẩn danh).
+
+## 15. Đã loại bỏ (không còn trong phạm vi)
+
+**Lý do chung:** chủ dự án quyết định loại bỏ HOÀN TOÀN tính năng AR (D-P16, 2026-11-09; thay D-P11 vốn chỉ "đưa ra ngoài phạm vi"). Đã bỏ bảng `ar_sessions`, `ar_snapshots`, kiểu `ar_mode`, cột `products.has_ar`, module/API/giao diện AR (migration `20261109010100_remove_ar`). **Giữ nguyên:** xem 3D bằng GLB, ảnh 360°, không gian mẫu, `placement`/`allow_scaling`, giá trị `usdz` của enum `model_file_format` (code chỉ nhận GLB). UC-ADM-29 (phễu không gian mẫu) vẫn hoạt động.
+
+| UC | Tên | Lý do loại bỏ | Thay thế |
+| --- | --- | --- | --- |
+| UC-3D-02 | Xem sản phẩm bằng AR (đặt vào không gian thật) | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-04 | Chụp và lưu ảnh AR | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-05 | Quản lý ảnh AR của tôi (công khai/ẩn/xóa) | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-06 | Xem ảnh AR công khai "Khách hàng đã trải nghiệm" | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-3D-07 | Ghi nhận thống kê phiên 3D/AR (ẩn danh) | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+| UC-ADM-30 | Gỡ ảnh AR công khai không phù hợp | D-P16: AR bị loại bỏ hoàn toàn | Xem 3D (UC-3D-01), đổi vật liệu (UC-3D-03) |
+
+Nội dung đặc tả gốc của 6 UC (nguyên văn, **không còn hiệu lực**, giữ để tra cứu và để các sơ đồ trong `docs/diagrams/` còn tham chiếu được):
+
+### 15.1. UC-3D-02
+
+##### UC-3D-02 – Xem sản phẩm bằng AR (đặt vào không gian thật)
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files, ar_sessions) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
+| **Mô tả** | Đặt sản phẩm đúng kích thước thật lên sàn/tường/mặt bàn bằng camera điện thoại (WebXR/Scene Viewer trên Android dùng GLB; Quick Look trên iPhone dùng USDZ). |
+| **Tiền điều kiện** | `hasAr = true` (mô hình `ready` có đủ GLB và USDZ); thiết bị hỗ trợ AR. |
+| **Hậu điều kiện** | Có `ArSession` mode `ar` với các cờ `placed`, `captured`, `addedToCart`. |
+| **Luồng chính** | 1. Khách: Bấm "Xem trong không gian của bạn" trên trang chi tiết.<br>2. Hệ thống: Frontend phát hiện nền tảng (iOS/Android) và lấy `GET /api/products/:slug/model`.<br>3. Hệ thống: Chọn tệp: iOS → USDZ, Android/Web → GLB; truyền kích thước thật (`lengthMm`, `widthMm`, `heightMm`), `placement` và `allowScaling` cho trình AR.<br>4. Hệ thống: Ghi `ArSession` (mode `ar`, `arPlatform`) — UC-3D-07.<br>5. Khách: Đặt, di chuyển, xoay sản phẩm; (tuỳ chọn) chụp ảnh (UC-3D-04); (tuỳ chọn) thêm vào giỏ (UC-CART-01).<br>6. Hệ thống: Khi kết thúc phiên, cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
+| **Luồng thay thế** | 2a. Thiết bị không hỗ trợ AR → hiển thị hướng dẫn và chuyển sang xem 3D (UC-3D-01).<br>3a. Thiếu một trong hai định dạng → `hasAr = false`, ẩn nút AR. |
+| **Ngoại lệ** | • Người dùng từ chối quyền camera → thông báo hướng dẫn cấp quyền. |
+| **Quy tắc nghiệp vụ** | • Mô hình khóa tỉ lệ nếu `allowScaling = false`.<br>• Trên app Android, xem sản phẩm qua camera là overlay ảnh 2D (UC-MOB-03), không dùng module `ar-overlay` của backend. |
+| **Dữ liệu vào** | • productId (bắt buộc): sản phẩm có `hasAr` |
+| **Dữ liệu ra** | • 200: như UC-3D-01 + `arSessionUuid` |
+| **Model + C/R/U/D** | Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>ArSession (ar_sessions): C,U |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_sessions_set_updated_at` khi cập nhật cờ.<br>• Service: ghi/cập nhật `ArSession` (UC-3D-07). |
+| **Quan hệ UC** | include: UC-3D-07 |
+
+### 15.2. UC-3D-04
+
+##### UC-3D-04 – Chụp và lưu ảnh AR
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots, media) |
+| **Tác nhân chính / phụ** | Người dùng |
+| **Mô tả** | Trong phiên AR, user đăng nhập chụp ảnh sản phẩm đặt trong phòng và lưu vào tài khoản. |
+| **Tiền điều kiện** | Đang trong phiên AR; đã đăng nhập. |
+| **Hậu điều kiện** | Có `Media` (ảnh) và `ArSnapshot` (`isPublic = false`); `ArSession.captured = true`. |
+| **Luồng chính** | 1. Người dùng: Bấm nút chụp trong chế độ AR.<br>2. Hệ thống: Frontend kiểm tra đăng nhập rồi gửi `POST /api/ar-snapshots` (multipart: ảnh, `productId`, `arSessionUuid`).<br>3. Hệ thống: `MediaService` lưu ảnh lên MinIO/S3, tạo `Media`; job nén ảnh chạy nền (`compress-image.processor`).<br>4. Hệ thống: `ArSnapshotsService.create(userId, dto)` tạo `ArSnapshot`; đặt `captured = true` cho phiên.<br>5. Hệ thống: Trả 201; giao diện cho phép chia sẻ/đặt công khai (UC-3D-05). |
+| **Luồng thay thế** | 2a. Khách chưa đăng nhập → yêu cầu đăng nhập để lưu (có thể lưu cục bộ trên thiết bị). |
+| **Ngoại lệ** | • Ảnh > 10 MB hoặc sai định dạng → 400/413. |
+| **Quy tắc nghiệp vụ** | • `ArSnapshot.userId` bắt buộc (khách không lưu ảnh lên hệ thống).<br>• Ảnh mặc định riêng tư (`isPublic = false`). |
+| **Dữ liệu vào** | • file (bắt buộc): jpeg/png/webp, ≤ 10 MB<br>• productId (bắt buộc): sản phẩm đang xem<br>• arSessionUuid (tuỳ chọn): phiên AR của user |
+| **Dữ liệu ra** | • 201: `{ id, imageUrl, isPublic }` |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): C<br>Media (media): C<br>ArSession (ar_sessions): U |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`, `trg_media_set_updated_at`.<br>• Service: lưu tệp + tạo bản ghi trong `$transaction`. |
+| **Quan hệ UC** | extend: UC-3D-02 |
+
+### 15.3. UC-3D-05
+
+##### UC-3D-05 – Quản lý ảnh AR của tôi (công khai/ẩn/xóa)
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (ar_snapshots) |
+| **Tác nhân chính / phụ** | Người dùng |
+| **Mô tả** | Xem các ảnh AR đã chụp, bật/tắt công khai để hiển thị ở mục "Khách hàng đã trải nghiệm", hoặc xóa. |
+| **Tiền điều kiện** | Đã đăng nhập. |
+| **Hậu điều kiện** | `isPublic` được đổi hoặc ảnh bị xóa. |
+| **Luồng chính** | 1. Người dùng: Mở `/account/ar-photos`.<br>2. Hệ thống: `GET /api/ar-snapshots/me` trả ảnh của chính user.<br>3. Người dùng: Bật "Công khai" hoặc bấm "Xóa".<br>4. Hệ thống: `PATCH /api/ar-snapshots/:id` ({ isPublic }) hoặc `DELETE /api/ar-snapshots/:id`; kiểm tra ảnh thuộc user.<br>5. Hệ thống: Trả 200/204. |
+| **Luồng thay thế** | 4a. Ảnh không thuộc user → 404. |
+| **Ngoại lệ** | • Ảnh bị admin gỡ (UC-ADM-30) → hiển thị thông báo. |
+| **Quy tắc nghiệp vụ** | • Chỉ ảnh `isPublic = true` xuất hiện công khai (partial index `idx_ar_snapshots_public`). |
+| **Dữ liệu vào** | • isPublic (bắt buộc (PATCH)): boolean |
+| **Dữ liệu ra** | • 200: bản ghi `ArSnapshot` |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D<br>Media (media): R |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_ar_snapshots_set_updated_at`. |
+
+### 15.4. UC-3D-06
+
+##### UC-3D-06 – Xem ảnh AR công khai "Khách hàng đã trải nghiệm"
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_snapshots) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
+| **Mô tả** | Xem ảnh AR người dùng đã chọn công khai, theo sản phẩm hoặc trên trang chủ. |
+| **Tiền điều kiện** |  |
+| **Hậu điều kiện** |  |
+| **Luồng chính** | 1. Khách: Mở mục "Khách hàng đã trải nghiệm" (trang chi tiết hoặc trang chủ).<br>2. Hệ thống: `GET /api/ar-snapshots/public?productId=&page=` chỉ trả `isPublic = true`, kèm tên rút gọn người chụp.<br>3. Hệ thống: Hiển thị lưới ảnh; không lộ email/điện thoại. |
+| **Luồng thay thế** |  |
+| **Ngoại lệ** |  |
+| **Quy tắc nghiệp vụ** | • Không công khai thông tin cá nhân ngoài tên hiển thị rút gọn. |
+| **Dữ liệu vào** |  |
+| **Dữ liệu ra** |  |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R<br>Media (media): R<br>User (users): R |
+| **DB trigger / việc Service tự làm** |  |
+
+### 15.5. UC-3D-07
+
+##### UC-3D-07 – Ghi nhận thống kê phiên 3D/AR (ẩn danh)
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: 3D & AR · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (ar_sessions) |
+| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
+| **Mô tả** | Mỗi lượt xem 3D/AR được ghi lại (thiết bị, hệ điều hành, nền tảng AR, thời gian, đặt được hay không, chụp ảnh, thêm giỏ). Khách dùng `visitorId` ẩn danh do client tạo. |
+| **Luồng chính** | 1. Hệ thống: Khi mở trình xem, client gọi `POST /api/ar-sessions` (CreateArSessionDto: `productId`, `modelId`, `mode`, `device`, `os`, `arPlatform`, `visitorId`) — endpoint dùng `OptionalJwtAuthGuard` [CẦN TẠO MỚI].<br>2. Hệ thống: Nếu có token → `userId`; ngược lại bắt buộc `visitorId` (UUID). Ràng buộc DB: phải có `userId` hoặc `visitorId` (CHECK `ck_ar_sessions_actor`).<br>3. Hệ thống: Trả `uuid` phiên. Khi đóng trình xem client gọi `PATCH /api/ar-sessions/:uuid` cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
+| **Quy tắc nghiệp vụ** | • Đây là ngoại lệ duy nhất cho phép khách ghi dữ liệu (cùng `space_views`); không chứa thông tin cá nhân.<br>• Cập nhật phiên chỉ khi `visitorId`/`userId` khớp phiên; giới hạn tốc độ để chống ghi rác. |
+| **Model + C/R/U/D** | ArSession (ar_sessions): C,U |
+
+### 15.6. UC-ADM-30
+
+##### UC-ADM-30 – Gỡ ảnh AR công khai không phù hợp
+
+> **[ĐÃ LOẠI BỎ – D-P16, 2026-11-09]** UC này không còn trong phạm vi: không triển khai, không kiểm thử, không có API/bảng tương ứng. Nội dung dưới đây giữ nguyên để tham khảo lịch sử.
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] (ar_snapshots) |
+| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
+| **Mô tả** | Ẩn hoặc xóa ảnh AR công khai vi phạm. |
+| **Luồng chính** | 1. Admin: Mở danh sách ảnh AR công khai, chọn ảnh vi phạm.<br>2. Hệ thống: `PATCH /api/admin/ar-snapshots/:id` ({ isPublic: false }) hoặc `DELETE /api/admin/ar-snapshots/:id`.<br>3. Hệ thống: Ghi `ActivityLog`, trả 200/204. |
+| **Model + C/R/U/D** | ArSnapshot (ar_snapshots): R,U,D |
+
+## 16. Bổ sung theo code (chưa có trong đặc tả gốc)
+
+Chức năng **đang có trong code** nhưng không có UC trong đặc tả (nguồn: `docs/AUDIT_REPORT.md` mục 2.2, đối chiếu ngày 2026-11-11). Đánh dấu **Bổ sung theo code**; ghi nhận trong [CHUAN_MO_RONG.md](CHUAN_MO_RONG.md).
+
+| Chức năng | Trạng thái | Nơi trong code | Ghi chú |
+| --- | --- | --- | --- |
+| Xem sản phẩm 360° (xoay ảnh) | Có, chạy thật | `GET/PUT /admin/products/:id/360`, `GET /products/:slug/360`; trang `/products/[slug]/360` | Bổ sung theo code |
+| Ví mã giảm giá (lưu mã, mã gợi ý) | Có, chạy thật | `/coupons/me`, `/coupons/suggested`, `/coupons/save`; trang `/account/coupons` | Bổ sung theo code |
+| Hỏi đáp sản phẩm | Có, chạy thật | `/products/:slug/questions`, `/admin/questions` | Bổ sung theo code |
+| Sổ thu/chi và báo cáo tài chính | Có, chạy thật | `/admin/expenses`, `/admin/stats/finance`; trang `/admin/reports` | Bổ sung theo code |
+| Phiếu nhập/xuất kho | Có, chạy thật | `/admin/inventory/receipts*`; trang `/admin/inventory` | Bổ sung theo code (phương án b′ của UC-ADM-12) |
+| Thêm cả bộ không gian vào giỏ | Có, chạy thật | `POST /spaces/:slug/add-to-cart` (tất cả-hoặc-không; xem [API_CONTRACT.md](API_CONTRACT.md) mục 5c) | Bổ sung theo code |
+| Bài viết/blog | Một phần | `/admin/posts` (admin đủ); `GET /posts/:slug` có BE nhưng chưa có trang công khai | Bổ sung theo code |
+| Quản trị FAQ, tin nhắn liên hệ, sắp xếp banner, in hóa đơn | Chỉ BE | `/admin/faq`, `/admin/contact-messages`, `PATCH /admin/banners/reorder`, `GET /admin/orders/:code/invoice` | Bổ sung theo code; chưa có giao diện quản trị |
+| Cài đặt theo khóa | Chỉ BE | `PUT /admin/settings/:key` | Bổ sung theo code; FE chỉ dùng `PUT /admin/settings/store` |
+| Bull Board (hàng đợi nền) | Có | `/admin/queues` (chỉ admin) | Bổ sung theo code |
+| **Đăng nhập Google** | **Đã hoãn** | `POST /auth/google` luôn `503`; nút FE ẩn khi chưa bật `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | Hoãn sang giai đoạn sau; việc cần làm ở [KNOWN_ISSUES.md](KNOWN_ISSUES.md) |
+| Chế độ dữ liệu giả của giao diện (`NEXT_PUBLIC_USE_MOCK`) | Chỉ dev | `apps/web/src/mock-data` | Build production thất bại nếu bật |
+| Module AI, ứng dụng Android | Khung rỗng | `apps/api/src/modules/ai`, `apps/mobile` | Ngoài phạm vi (xem mục 13 và 1.4) |

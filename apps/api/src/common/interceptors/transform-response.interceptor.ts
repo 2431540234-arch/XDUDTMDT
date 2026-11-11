@@ -12,11 +12,18 @@ export interface Paginated<T> {
   meta: PaginatedMeta;
 }
 
-export function paginated<T>(items: T[], page: number, pageSize: number, total: number): Paginated<T> {
+/** extra: trường bổ sung đặt vào meta (ví dụ số lượng theo tab trạng thái) */
+export function paginated<T>(
+  items: T[],
+  page: number,
+  pageSize: number,
+  total: number,
+  extra: Record<string, unknown> = {},
+): Paginated<T> {
   return {
     [PAGINATED]: true,
     items,
-    meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)) },
+    meta: { page, pageSize, total, totalPages: Math.max(1, Math.ceil(total / pageSize)), ...extra },
   };
 }
 

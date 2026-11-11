@@ -101,11 +101,16 @@ export default function Rotator360({
   const [menu, setMenu] = useState(false);
   const [fs, setFs] = useState(false);
 
+  // Các frame do CHÍNH hiệu ứng xoay/quán tính vừa phát ra (xem ghi chú ở useEffect đồng bộ bên dưới)
+  const emitted = useRef<number[]>([]);
   const setPos = useCallback(
     (p: number) => {
       pos.current = p;
       const i = mod(Math.round(p), n);
-      if (i !== frameRef.current) onFrame(i);
+      if (i !== frameRef.current) {
+        emitted.current = [...emitted.current.slice(-15), i];
+        onFrame(i);
+      }
     },
     [n, onFrame],
   );
@@ -118,8 +123,13 @@ export default function Rotator360({
     if (playing) onPlaying(false);
   };
 
-  // đồng bộ khi frame đổi từ ngoài (thanh trượt/nút)
+  // Đồng bộ khi frame đổi từ ngoài (thanh trượt/nút). Khi đang tự xoay hoặc quán tính, frame nhận được có thể là giá trị CŨ do chính
+  // hiệu ứng đó phát ra nhưng React render chậm (máy yếu/tải nặng): đặt lại vị trí về frame cũ sẽ làm mất phần đã xoay thêm, nên tự
+  // xoay bị khựng (đo được: chậm CPU 12–20 lần chỉ còn 4–7 thay vì 24 frame mỗi 4 giây). Frame nằm trong số vừa phát ra ⇒ bỏ qua.
   useEffect(() => {
+    const animating = playing || inertia.current !== null;
+    if (animating && emitted.current.includes(frame)) return;
+    emitted.current = [];
     if (mod(Math.round(pos.current), n) !== frame) pos.current = frame;
   }, [frame, n]);
 

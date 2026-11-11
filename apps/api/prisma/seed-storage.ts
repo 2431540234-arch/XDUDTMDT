@@ -42,7 +42,7 @@ async function exists(key: string): Promise<boolean> {
 const localPath = (key: string) =>
   resolve(__dirname, '..', env.STORAGE_LOCAL_DIR ?? './uploads', 'public', key);
 
-/** Tạo nội dung giả hợp lệ theo loại tệp: ảnh màu đơn sắc, GLB lấy từ fixture, USDZ là ZIP tối thiểu. */
+/** Tạo nội dung giả hợp lệ theo loại tệp: ảnh màu đơn sắc, GLB lấy từ fixture. */
 async function placeholder(key: string, mimeType: string): Promise<Buffer> {
   if (mimeType.startsWith('image/')) {
     const img = sharp({ create: { width: 800, height: 600, channels: 3, background: '#b08d6e' } });
@@ -51,14 +51,33 @@ async function placeholder(key: string, mimeType: string): Promise<Buffer> {
   if (mimeType === 'model/gltf-binary') {
     return readFile(resolve(__dirname, '../test/fixtures/sphere.glb'));
   }
-  // USDZ (ZIP) tối thiểu: chữ ký local file header + phần đệm. Chỉ để minh họa, không dùng để dựng hình.
-  return Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 0)]);
+  // loại khác: nội dung giả tối thiểu (hệ thống không tạo USDZ, D-P11)
+  return Buffer.alloc(64, 0);
 }
 
 /** Đảm bảo tệp mẫu có trên kho; trả về dung lượng thật nếu vừa tải lên, null nếu đã có sẵn. */
 export async function ensureSampleObject(key: string, mimeType: string): Promise<number | null> {
   if (await exists(key)) return null;
   const body = await placeholder(key, mimeType);
+  if (storageDriver === 'local') {
+    await mkdir(dirname(localPath(key)), { recursive: true });
+    await writeFile(localPath(key), body);
+  } else {
+    await client().send(
+      new PutObjectCommand({
+        Bucket: env.S3_BUCKET_PUBLIC ?? 'aurelia-public',
+        Key: key,
+        Body: body,
+        ContentType: mimeType,
+      }),
+    );
+  }
+  return body.length;
+}
+
+/** Ghi một tệp (nội dung đã có) lên kho nếu chưa tồn tại. Trả về dung lượng. Dùng bởi seed từ mock-data. */
+export async function storeObject(key: string, body: Buffer, mimeType: string): Promise<number> {
+  if (await exists(key)) return body.length;
   if (storageDriver === 'local') {
     await mkdir(dirname(localPath(key)), { recursive: true });
     await writeFile(localPath(key), body);

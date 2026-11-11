@@ -1,6 +1,8 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
 ## DANH SÁCH BẢNG CƠ SỞ DỮ LIỆU
 
-Hệ thống gồm **44 bảng**, chia thành **7 nhóm** chức năng.
+Hệ thống gồm **59 bảng**: **42 bảng chuẩn** chia thành **7 nhóm** chức năng (số thứ tự 28–29 để trống vì đã loại bỏ AR ngày 2026-11-09, D-P16) và **17 bảng mở rộng** ở nhóm 8 (STT 45–61). Cột chi tiết của từng bảng: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
 
 **Vai trò:** Quản trị viên (admin), Người dùng (user), Khách vãng lai (không cần đăng nhập, chỉ được xem; muốn thêm vào giỏ, mua hàng hay áp mã giảm giá phải đăng ký hoặc đăng nhập).
 
@@ -9,7 +11,7 @@ Hệ thống gồm **44 bảng**, chia thành **7 nhóm** chức năng.
 | STT | Tên bảng | Chức năng |
 | --- | --- | --- |
 | 1 | users | Lưu tài khoản người dùng: họ tên, email (không phân biệt hoa thường), số điện thoại, mật khẩu đã mã hóa, ảnh đại diện. Có trạng thái tài khoản (hoạt động, tạm khóa, bị cấm), thời điểm xác thực email và lần đăng nhập cuối. Hỗ trợ xóa mềm. |
-| 2 | roles | Danh sách vai trò trong hệ thống. Có sẵn 2 vai trò: quản trị viên (admin) và người dùng (user). Khách vãng lai không có tài khoản nên không lưu trong bảng này. Khách vãng lai chỉ được xem sản phẩm, mô hình 3D/AR, không gian mẫu và trang tĩnh. Muốn thêm vào giỏ hàng, mua hàng hay áp mã giảm giá phải đăng ký hoặc đăng nhập. |
+| 2 | roles | Danh sách vai trò trong hệ thống. Có sẵn 2 vai trò: quản trị viên (admin) và người dùng (user). Khách vãng lai không có tài khoản nên không lưu trong bảng này. Khách vãng lai chỉ được xem sản phẩm, mô hình 3D/360°, không gian mẫu và trang tĩnh. Muốn thêm vào giỏ hàng, mua hàng hay áp mã giảm giá phải đăng ký hoặc đăng nhập. |
 | 3 | permissions | Danh sách các quyền cụ thể: quản lý người dùng, quản lý sản phẩm, xem đơn hàng, xử lý đơn hàng, quản lý nội dung, cấu hình hệ thống. |
 | 4 | role_permissions | Gán quyền cho từng vai trò. Quản trị viên (admin) có toàn bộ quyền. Người dùng (user) không có quyền quản trị, chỉ thao tác trên dữ liệu của chính mình. |
 | 5 | user_roles | Gán vai trò cho người dùng. Một người dùng có thể có nhiều vai trò. |
@@ -22,7 +24,7 @@ Hệ thống gồm **44 bảng**, chia thành **7 nhóm** chức năng.
 | STT | Tên bảng | Chức năng |
 | --- | --- | --- |
 | 9 | settings | Lưu cấu hình website: tên website, email liên hệ, đơn vị tiền tệ, phí vận chuyển mặc định… |
-| 10 | media | Kho tệp tin dùng chung cho toàn hệ thống: ảnh sản phẩm, ảnh danh mục, tệp mô hình 3D, ảnh chụp AR. Lưu tên tệp, đường dẫn, loại tệp, dung lượng, mô tả ảnh và người tải lên. |
+| 10 | media | Kho tệp tin dùng chung cho toàn hệ thống: ảnh sản phẩm, ảnh danh mục, tệp mô hình 3D, ảnh 360°. Lưu tên tệp, đường dẫn, loại tệp, dung lượng, mô tả ảnh và người tải lên. |
 | 11 | notifications | Thông báo gửi đến người dùng (ví dụ: đơn hàng đã được giao). Lưu tiêu đề, dữ liệu kèm theo và trạng thái đã đọc. |
 | 12 | activity_logs | Nhật ký thao tác của quản trị viên: ai thực hiện, thao tác gì, trên đối tượng nào, nội dung thay đổi, địa chỉ IP. Phục vụ kiểm tra và truy vết khi có sự cố. |
 
@@ -38,7 +40,7 @@ Hệ thống gồm **44 bảng**, chia thành **7 nhóm** chức năng.
 | STT | Tên bảng | Chức năng |
 | --- | --- | --- |
 | 15 | brands | Thương hiệu sản phẩm: tên, đường dẫn, logo, trạng thái bật/tắt. |
-| 16 | products | Thông tin chung của sản phẩm: tên, đường dẫn, mô tả ngắn, mô tả chi tiết, danh mục, thương hiệu, trạng thái, sản phẩm nổi bật. Tự động tính điểm đánh giá trung bình và số lượt đánh giá. Lưu số lượng đã bán, thông tin SEO, hỗ trợ xóa mềm. Có hai cờ tự động cập nhật cho biết sản phẩm có mô hình 3D và có hỗ trợ AR hay không. Hỗ trợ tìm kiếm gần đúng theo tên. |
+| 16 | products | Thông tin chung của sản phẩm: tên, đường dẫn, mô tả ngắn, mô tả chi tiết, danh mục, thương hiệu, trạng thái, sản phẩm nổi bật. Tự động tính điểm đánh giá trung bình và số lượt đánh giá. Lưu số lượng đã bán, thông tin SEO, hỗ trợ xóa mềm. Có cờ tự động cập nhật cho biết sản phẩm có mô hình 3D hay không. Hỗ trợ tìm kiếm gần đúng theo tên. |
 | 17 | attributes | Các loại thuộc tính sản phẩm như Màu sắc, Kích thước, Chất liệu. |
 | 18 | attribute_values | Giá trị cụ thể của từng thuộc tính, ví dụ: Đỏ, Xanh, XL, Gỗ sồi. |
 | 19 | product_variants | Biến thể cụ thể của sản phẩm dùng để bán. Mỗi biến thể có mã SKU, giá bán, giá khuyến mãi, số lượng tồn kho và cân nặng riêng. Hệ thống đảm bảo giá khuyến mãi không lớn hơn giá gốc và tồn kho không âm. |
@@ -48,15 +50,13 @@ Hệ thống gồm **44 bảng**, chia thành **7 nhóm** chức năng.
 | 23 | reviews | Đánh giá sản phẩm từ 1 đến 5 sao kèm nội dung. Có thể gắn với đơn hàng để chỉ người dùng đã mua mới được đánh giá. Đánh giá cần được duyệt trước khi hiển thị; khi duyệt, điểm trung bình của sản phẩm tự động cập nhật. |
 | 24 | wishlists | Danh sách sản phẩm yêu thích của từng người dùng. |
 
-#### 5. Mô hình 3D và thực tế tăng cường AR (5 bảng)
+#### 5. Mô hình 3D (3 bảng; phần AR đã loại bỏ)
 
 | STT | Tên bảng | Chức năng |
 | --- | --- | --- |
-| 25 | product_3d_models | Mô hình 3D của sản phẩm hoặc của một biến thể cụ thể. Lưu kích thước thật (dài, rộng, cao theo mm) để AR hiển thị đúng tỉ lệ ngoài đời thực; vị trí đặt trong AR (sàn nhà, tường, mặt bàn); cho phép hoặc khóa thay đổi tỉ lệ; cấu hình trình xem 3D (góc camera, tự xoay, ánh sáng, độ sáng, ảnh chờ khi tải). Theo dõi trạng thái xử lý (đang tải lên, đang xử lý, sẵn sàng, lỗi) và phiên bản. Mỗi sản phẩm có một mô hình chính. |
-| 26 | model_files | Các tệp thực tế của mô hình 3D: định dạng GLB dùng cho web và Android, định dạng USDZ dùng cho iPhone. Mỗi định dạng có thể có 3 mức chi tiết (cao, trung bình, thấp) để thiết bị cấu hình yếu tải nhanh hơn. Lưu số đa giác, độ phân giải texture, trạng thái nén và mã kiểm tra tệp. |
+| 25 | product_3d_models | Mô hình 3D của sản phẩm hoặc của một biến thể cụ thể. Lưu kích thước thật (dài, rộng, cao theo mm) để hiển thị đúng tỉ lệ ngoài đời thực; vị trí đặt (sàn nhà, tường, mặt bàn); cho phép hoặc khóa thay đổi tỉ lệ; cấu hình trình xem 3D (góc camera, tự xoay, ánh sáng, độ sáng, ảnh chờ khi tải). Theo dõi trạng thái xử lý (đang tải lên, đang xử lý, sẵn sàng, lỗi) và phiên bản. Mỗi sản phẩm có một mô hình chính. |
+| 26 | model_files | Các tệp thực tế của mô hình 3D: định dạng GLB dùng cho web và Android (giá trị USDZ của enum được giữ để không xóa dữ liệu sẵn có, hệ thống không nhận USDZ). Mỗi định dạng có thể có 3 mức chi tiết (cao, trung bình, thấp) để thiết bị cấu hình yếu tải nhanh hơn. Lưu số đa giác, độ phân giải texture, trạng thái nén và mã kiểm tra tệp. |
 | 27 | model_material_variants | Cho phép đổi màu hoặc chất liệu ngay trên cùng một mô hình 3D khi người xem chọn biến thể khác, không cần tải lại mô hình mới. |
-| 28 | ar_sessions | Thống kê mỗi lượt xem 3D hoặc AR (của cả người dùng và khách vãng lai): thiết bị, hệ điều hành, nền tảng AR, thời gian xem, có đặt được sản phẩm vào không gian hay không, có chụp ảnh hay không và có thêm sản phẩm vào giỏ hàng sau đó hay không. Dùng để đánh giá hiệu quả của tính năng AR. |
-| 29 | ar_snapshots | Ảnh người dùng (đã đăng nhập) chụp khi đặt sản phẩm vào không gian thật bằng AR. Người dùng có thể chọn công khai để hiển thị trong mục "Khách hàng đã trải nghiệm". |
 
 #### 6. Giỏ hàng và đơn hàng (9 bảng)
 
@@ -81,6 +81,30 @@ Luồng tổng quát: một không gian mẫu (spaces) gồm nhiều ảnh 360°
 | 39 | spaces | Lưu thông tin một không gian mẫu hoàn chỉnh, ví dụ "Phòng khách tối giản 20m²". Phân loại theo loại phòng (phòng khách, phòng ngủ, nhà bếp…) và phong cách (ví dụ Scandinavian) để người dùng lọc và duyệt. Gắn vào hệ thống danh mục chung để sắp xếp theo bộ sưu tập. Có trạng thái nháp, đã đăng, lưu trữ giống sản phẩm và trang tĩnh. Có bộ đếm lượt xem tự động tăng mỗi khi có lượt xem mới. Hỗ trợ tìm kiếm tiếng Việt không dấu, ví dụ gõ "phong khach" vẫn tìm ra "Phòng khách". |
 | 40 | space_panoramas | Lưu các ảnh 360° của một không gian mẫu. Một không gian có thể có nhiều ảnh 360° để tạo tour tham quan nhiều góc hoặc nhiều phòng trong cùng một căn. Mỗi ảnh lưu tham chiếu tới tệp ảnh đã tải lên, cùng góc nhìn mặc định khi mở (góc ngang, góc dọc, độ rộng khung nhìn) để không gian luôn hiển thị ở góc đẹp nhất. Mỗi không gian có đúng một ảnh mở đầu tiên. |
 | 41 | space_hotspots | Lưu các điểm bấm tương tác đặt tại một vị trí trên ảnh 360°. Có 3 loại điểm bấm: **sản phẩm** (bấm để mở thông tin sản phẩm, phục vụ tính năng "mua theo phong cách phòng"); **điều hướng** (bấm để chuyển sang ảnh 360° khác, dùng cho tour nhiều phòng); **thông tin** (chỉ hiện ghi chú, ví dụ mô tả vật liệu tường). Cơ sở dữ liệu tự kiểm tra dữ liệu phải khớp với từng loại, ví dụ điểm bấm loại sản phẩm bắt buộc phải có sản phẩm. |
-| 42 | space_product_placements | Đặt mô hình 3D thật của sản phẩm vào ảnh 360° với đúng phối cảnh. Khác với điểm bấm chỉ là ghim 2D, bảng này lưu vị trí đặt trong ảnh, khoảng cách tới máy ảnh để tính kích thước hiển thị đúng tỉ lệ thật, góc xoay và tỉ lệ để mô hình khớp với không gian. Có thể chọn biến thể hoặc mô hình cụ thể; nếu không chọn sẽ dùng mô hình chính của sản phẩm. Cho phép người dùng thử đổi món đồ khác ngay trong phòng mẫu mà không cần dùng AR tại nhà. |
+| 42 | space_product_placements | Đặt mô hình 3D thật của sản phẩm vào ảnh 360° với đúng phối cảnh. Khác với điểm bấm chỉ là ghim 2D, bảng này lưu vị trí đặt trong ảnh, khoảng cách tới máy ảnh để tính kích thước hiển thị đúng tỉ lệ thật, góc xoay và tỉ lệ để mô hình khớp với không gian. Có thể chọn biến thể hoặc mô hình cụ thể; nếu không chọn sẽ dùng mô hình chính của sản phẩm. Cho phép người dùng thử đổi món đồ khác ngay trong phòng mẫu mà không cần thử tại nhà. |
 | 43 | space_bookmarks | Lưu danh sách không gian mẫu yêu thích của từng người dùng để xem lại sau, tương tự danh sách sản phẩm yêu thích. |
 | 44 | space_views | Ghi nhận mỗi lượt xem không gian mẫu để đo hiệu quả. Lưu sản phẩm mà người dùng đã đi từ đó vào không gian mẫu (để biết sản phẩm nào dẫn lượt truy cập tới phòng mẫu), số lần bấm điểm tương tác và có thêm sản phẩm vào giỏ hay không. Dùng để đo hành trình xem phòng → bấm điểm tương tác → thêm vào giỏ, từ đó đánh giá phòng mẫu nào bán hàng tốt. Mỗi lượt xem mới sẽ tự động tăng bộ đếm lượt xem của không gian tương ứng. |
+
+#### 8. Mở rộng (17 bảng)
+
+Bảng ngoài bộ chuẩn nhưng dự án cần và đang dùng (lý do giữ từng bảng ở [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), nhóm 8).
+
+| STT | Tên bảng | Chức năng |
+| --- | --- | --- |
+| 45 | product_specs | Bảng thông số kỹ thuật của sản phẩm (tab "Thông số"). |
+| 46 | product_360_configs | Cấu hình xem 360° (xoay ảnh) của sản phẩm: bật/tắt, tự xoay, tốc độ, số frame. |
+| 47 | product_360_frames | Từng ảnh frame của 360° theo màu. |
+| 48 | review_images | Ảnh đính kèm đánh giá (tối đa 5 ảnh). |
+| 49 | product_questions | Hỏi đáp sản phẩm: khách đặt câu hỏi, quản trị viên trả lời và ẩn/hiện. |
+| 50 | coupon_scopes | Phạm vi áp dụng mã giảm giá theo sản phẩm, danh mục hoặc không gian mẫu. |
+| 51 | user_coupons | "Mã đã lưu" của khách hàng. |
+| 52 | code_counters | Bộ đếm cấp mã đơn/phiếu (`ALV-YYYYMMDD-NNNN`, `RT…`, phiếu kho, phiếu chi) không trùng khi đặt hàng đồng thời. |
+| 53 | return_requests | Yêu cầu đổi/trả hàng và hoàn tiền của khách. |
+| 54 | return_request_items | Các dòng hàng trong yêu cầu đổi/trả (có thể đổi sang biến thể khác). |
+| 55 | return_request_images | Ảnh minh chứng đính kèm yêu cầu đổi/trả. |
+| 56 | stock_receipts | Phiếu nhập/xuất kho (nháp, hoàn tất, đã hủy); hoàn tất phiếu mới ghi biến động tồn. |
+| 57 | stock_receipt_items | Dòng hàng của phiếu kho (biến thể, số lượng, giá vốn). |
+| 58 | expenses | Phiếu chi: hoàn tiền tự sinh khi duyệt đổi trả, giá vốn khi nhập kho hoàn tất, chi phí nhập tay. |
+| 59 | banners | Banner trang chủ (vị trí, thời gian hiển thị, thứ tự). |
+| 60 | posts | Bài viết/blog (Markdown, chuyên mục, ảnh bìa, lượt xem). |
+| 61 | contact_messages | Tin nhắn từ form Liên hệ và trạng thái đã xử lý. |

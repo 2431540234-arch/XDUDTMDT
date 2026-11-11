@@ -29,6 +29,6 @@ export class ModelProcessingProcessor extends WorkerHost {
     if (!job) return;
     const finalFailure =
       err instanceof UnrecoverableError || job.attemptsMade >= (job.opts.attempts ?? JOB_ATTEMPTS);
-    if (finalFailure) await this.service.markFailed(job.data.modelId, err.message);
+    if (finalFailure) await this.service.markFailed(job.data, err.message);
   }
 }

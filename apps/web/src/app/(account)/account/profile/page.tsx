@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import AddressFormModal from '@/components/account/AddressFormModal';
+import DeleteAccountSection from '@/components/account/DeleteAccountSection';
 import { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -19,7 +20,7 @@ import { cn } from '@/lib/cn';
 import { formatCurrency, formatDate, initials } from '@/lib/format';
 import { orderStatusInfo } from '@/lib/status';
 import { applyApiErrors, errorMessage, phoneSchema, requiredText } from '@/lib/validators';
-import { addressApi, userApi } from '@/services/auth.api';
+import { addressApi, authApi, userApi } from '@/services/auth.api';
 import { orderApi } from '@/services/cart.api';
 import { useAuthStore } from '@/store/authStore';
 import { toast } from '@/store/uiStore';
@@ -38,6 +39,14 @@ function ProfileCard() {
   const patchUser = useAuthStore((s) => s.patchUser);
   const me = useQuery({ queryKey: ['me'], queryFn: userApi.me });
   const [edit, setEdit] = useState(false);
+  const resend = useMutation({
+    mutationFn: authApi.resendVerification,
+    onSuccess: (r) =>
+      toast.success(
+        r.verified ? 'Email của bạn đã được xác thực.' : 'Đã gửi email xác thực. Vui lòng kiểm tra hộp thư.',
+      ),
+    onError: (e) => toast.error(errorMessage(e)),
+  });
   const f = useForm<Values>({ resolver: zodResolver(schema) });
   useEffect(() => {
     if (me.data)
@@ -96,6 +105,19 @@ function ProfileCard() {
           </Button>
         )}
       </div>
+      {me.data && !me.data.emailVerifiedAt && (
+        <div
+          role="status"
+          className="mb-5 flex flex-wrap items-center gap-3 rounded-btn bg-amber-50 px-4 py-3 text-sm text-amber-900"
+        >
+          <span className="flex-1">
+            Email <b>{me.data.email}</b> chưa được xác thực. Bạn cần xác thực email để đánh giá sản phẩm.
+          </span>
+          <Button size="sm" variant="outline" loading={resend.isPending} onClick={() => resend.mutate()}>
+            Gửi lại email xác thực
+          </Button>
+        </div>
+      )}
       <div className="grid gap-6 md:grid-cols-[180px_1fr]">
         <div className="flex flex-col items-center text-center">
           <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-primary text-3xl font-bold text-white">
@@ -350,6 +372,7 @@ export default function ProfilePage() {
       <ProfileCard />
       <Addresses />
       <RecentOrders />
+      <DeleteAccountSection />
     </div>
   );
 }

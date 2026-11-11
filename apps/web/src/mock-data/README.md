@@ -2,6 +2,10 @@
 
 Thư mục này cho phép chạy và kiểm tra **toàn bộ giao diện mà không cần backend**. Nằm ở `apps/web/src/mock-data/` (import bằng alias `@/mock-data/...`).
 
+> Cập nhật lần cuối: 2026-11-11.
+>
+> **Chỉ dùng khi `NEXT_PUBLIC_USE_MOCK=true`.** Mọi lời gọi API đi qua `request()` ở `src/services/api-client.ts`; khi biến này `true` nó chuyển vào mock trong trình duyệt, ngược lại gọi `fetch` tới API thật. Biến `NEXT_PUBLIC_*` được **nhúng vào mã lúc build**, vì vậy **`next build` (production) THẤT BẠI nếu `NEXT_PUBLIC_USE_MOCK=true`** (`apps/web/next.config.js`); mock chỉ dành cho `next dev` và test giao diện. `apps/web/.env.example` đặt mặc định `true` (chạy giao diện không cần backend); `infra/docker/Dockerfile.web` mặc định `false`. Dữ liệu mock cũng là nguồn seed cho DB demo/test (`SEED_SOURCE=mock`, `node scripts/db-reset.mjs aurelia_demo`). Xem [docs/ARCHITECTURE.md](../../../../docs/ARCHITECTURE.md) mục 4 và [docs/ENVIRONMENT.md](../../../../docs/ENVIRONMENT.md).
+
 ## Chạy giao diện với dữ liệu giả
 
 ```bash
@@ -26,7 +30,7 @@ Mọi thay đổi (giỏ hàng, đơn hàng, CRUD admin…) được **lưu vào
 |---|---|---|---|
 | Khách hàng | `khachhang@aurelia.vn` | `123456` | Có sẵn giỏ hàng (3 SP), 9 đơn đủ trạng thái, 9 mã giảm giá, 16+ thông báo, yêu thích |
 | Doanh nghiệp (admin) | `admin@aurelia.vn` | `admin123` | Vào `/admin` (đăng nhập tại `/admin/login`) |
-| Quên mật khẩu | – | OTP luôn là `123456` | Mọi email đều nhận OTP giả lập |
+| Quên mật khẩu | – | liên kết đặt lại | Mock trả thêm `devResetLink` để thử không cần email; API thật gửi liên kết `/reset-password?token=…` qua email (không còn OTP). Mật khẩu mới phải ≥ 8 ký tự có chữ hoa, chữ thường, chữ số |
 
 Ngoài ra có 32 khách hàng khác (mật khẩu `123456`), trong đó 3 tài khoản tạm khóa và 1 tài khoản bị cấm (đăng nhập sẽ báo lỗi). Hệ thống **chỉ có 2 vai trò** `admin` (Doanh nghiệp) và `user` (Khách hàng) – không có nhân viên.
 
@@ -54,7 +58,7 @@ mock-data/
 | `categories` | 22 | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá |
 | `brands`, `attributes`, `attribute_values` | 6 / 3 / 30 | màu (kèm mã hex), kích thước, chất liệu |
 | `products`, `product_variants`, `variant_attribute_values`, `product_images` | 52 / 200+ | giá gốc/sale, tồn kho (có hết hàng/sắp hết), 4–5 ảnh/SP |
-| `product_3d_models`, `model_files` | 30+ | GLB thật dùng được; một số USDZ giữ chỗ |
+| `product_3d_models`, `model_files` | 30+ | GLB thật dùng được; vài bản ghi USDZ giữ chỗ (hệ thống chỉ nhận GLB, USDZ ⇒ 415; AR đã loại bỏ) |
 | `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`, `space_bookmarks`, `space_views` | 24 / 48 / … | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId) |
 | `carts`, `cart_items`, `wishlists` | | giỏ hàng/yêu thích cho tài khoản test |
 | `coupons`, `coupon_usages` | 14 / … | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc |
@@ -63,7 +67,7 @@ mock-data/
 | `reviews` | 80+ | chỉ gắn đơn đã giao; có chờ duyệt / bị ẩn |
 | `notifications`, `activity_logs` | 16+ (khách test) / 25+ | |
 | `pages`, `settings` | 7 / 3 | Về chúng tôi + 6 chính sách; cửa hàng, thanh toán, phí vận chuyển |
-| **Chưa có trong DB (`// TODO: chưa có trong DB`)** | | |
+| **Bảng mở rộng** (đã có trong DB/API: xem `docs/DATABASE_SCHEMA.md` nhóm 8; riêng `suppliers` chỉ có ở mock, BE lưu tên nhà cung cấp dạng chữ trong `stock_receipts`) | | |
 | `return_requests` | 13 | đổi trả đủ trạng thái |
 | `product_questions` | 34 | hỏi đáp: chưa trả lời / đã trả lời / ẩn |
 | `user_coupons` | | mã giảm giá đã lưu của khách (chưa dùng / đã dùng / hết hạn) |

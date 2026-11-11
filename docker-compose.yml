@@ -58,10 +58,10 @@ services:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:-aurelia}
       MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-aurelia123}
       # Trình duyệt (web http://localhost:3000) PUT thẳng lên MinIO bằng presigned URL nên cần CORS
-      MINIO_API_CORS_ALLOW_ORIGIN: ${CORS_ORIGINS:-http://localhost:3000}
+      MINIO_API_CORS_ALLOW_ORIGIN: ${MINIO_CORS_ORIGINS:-http://localhost:3000,http://localhost:3100}
     ports:
       - '${MINIO_PORT:-9000}:9000' # S3 API
-      - '${MINIO_CONSOLE_PORT:-9001}:9001' # Console web
+      - '${MINIO_CONSOLE_PORT:-9011}:9001' # Console web (9011: cổng 9001 thường bị chương trình khác, vd. Mosquitto, chiếm)
     volumes:
       - minio-data:/bitnami/minio/data
     healthcheck:
@@ -96,6 +96,10 @@ services:
         echo "MinIO sẵn sàng: $$S3_BUCKET_PUBLIC (public), $$S3_BUCKET_PRIVATE (private)"
 
   api:
+    # LEGACY (đã chọn cách (b), xem docs/BE_PROGRESS.md "Hạ tầng Mốc 3"): bản API khung cũ chạy trên aurelia_dev, từng
+    # chiếm cổng 4000. Đưa vào profile riêng nên `docker compose up` KHÔNG tự chạy nó nữa. API mới chạy bằng
+    # `npm run start:dev -w @aurelia-living/api` (cổng 4000, DB aurelia_demo). Muốn chạy bản cũ: docker compose --profile legacy up api
+    profiles: ['legacy']
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.api
@@ -167,6 +171,12 @@ services:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.web
+      # NEXT_PUBLIC_* được NHÚNG vào mã lúc build (env_file/environment lúc chạy KHÔNG có tác dụng): truyền bằng build args.
+      # Thiếu NEXT_PUBLIC_API_URL ⇒ build thất bại với thông báo rõ ràng; NEXT_PUBLIC_USE_MOCK=true bị cấm khi build production.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_USE_MOCK: ${NEXT_PUBLIC_USE_MOCK:-false}
+        NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED: ${NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED:-false}
     restart: unless-stopped
     env_file: .env
     ports:

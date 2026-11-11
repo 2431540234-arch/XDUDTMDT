@@ -494,13 +494,61 @@ const NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   shipping: ['completed'],
 };
 
+/** Hoàn tất đơn khi vận đơn delivered (UC-ADM-25): sold_count, COD đã thanh toán, lịch sử, thông báo */
+function completeOrderMock(ctx: Ctx, o: Db['orders'][number], at: string) {
+  const db = ctx.db;
+  if (o.status !== 'shipping')
+    throw new ApiFail(
+      'INVALID_STATE',
+      'Chỉ đánh dấu đã giao khi đơn đang ở trạng thái "Đang giao". Hãy chuyển đơn sang "Đang giao" trước.',
+    );
+  for (const it of db.orderItems.filter((x) => x.orderId === o.id && x.variantId)) {
+    const v = db.productVariants.find((x) => x.id === it.variantId);
+    const p = v && db.products.find((x) => x.id === v.productId);
+    if (p) p.soldCount += it.quantity;
+  }
+  const pay = db.payments.find((p) => p.orderId === o.id);
+  if (o.paymentMethod === 'cod' && pay && pay.status !== 'success') {
+    pay.status = 'success';
+    pay.paidAt = at;
+    o.paymentStatus = 'paid';
+  }
+  o.status = 'completed';
+  o.updatedAt = at;
+  db.orderStatusHistory.push({
+    id: nextId(db.orderStatusHistory),
+    orderId: o.id,
+    fromStatus: 'shipping',
+    toStatus: 'completed',
+    changedBy: ADMIN_ID,
+    note: 'Giao hàng thành công',
+    createdAt: at,
+  });
+  notify(
+    db,
+    o.userId,
+    `Đơn ${o.orderCode} đã giao thành công`,
+    'order',
+    `Đơn hàng ${o.orderCode} đã được giao thành công.`,
+    `/account/orders/${o.orderCode}`,
+  );
+}
+
 export function setOrderStatus(ctx: Ctx): Result {
   const db = ctx.db;
   const o = orderFrom(ctx);
   const to = ctx.body?.status as OrderStatus;
   if (to === 'cancelled') return cancelOrder(ctx);
+  if (to === 'completed') throw new ApiFail('INVALID_STATE', 'Hoàn tất khi vận đơn được đánh dấu đã giao.');
   if (!NEXT[o.status]?.includes(to))
     throw new ApiFail('INVALID_STATE', `Không thể chuyển đơn từ "${o.status}" sang "${to}".`);
+  if (
+    to === 'shipping' &&
+    !db.shipments.some((s) => s.orderId === o.id && !['failed', 'returned'].includes(s.status))
+  )
+    throw new ApiFail('BAD_REQUEST', 'Cần tạo vận đơn trước khi chuyển đơn sang "Đang giao".', {
+      shipment: ['Chưa có vận đơn.'],
+    });
   const from = o.status;
   const at = nowIso();
   o.status = to;
@@ -514,33 +562,6 @@ export function setOrderStatus(ctx: Ctx): Result {
     note: ctx.body?.note ?? null,
     createdAt: at,
   });
-  if (to === 'shipping' && !db.shipments.some((s) => s.orderId === o.id)) {
-    db.shipments.push({
-      id: nextId(db.shipments),
-      orderId: o.id,
-      carrier: 'ghn',
-      trackingCode: `GHN${Math.floor(100_000_000 + Math.random() * 899_999_999)}`,
-      status: 'in_transit',
-      fee: o.shippingFee,
-      shippedAt: at,
-      deliveredAt: null,
-      createdAt: at,
-      updatedAt: at,
-    });
-  }
-  if (to === 'completed') {
-    const sh = db.shipments.find((s) => s.orderId === o.id);
-    if (sh) {
-      sh.status = 'delivered';
-      sh.deliveredAt = at;
-    }
-    const pay = db.payments.find((p) => p.orderId === o.id);
-    if (pay && pay.status !== 'success') {
-      pay.status = 'success';
-      pay.paidAt = at;
-      o.paymentStatus = 'paid'; // D-N14: COD tự ghi nhận thanh toán khi giao thành công
-    }
-  }
   const label: Record<string, string> = {
     confirmed: 'đã được xác nhận',
     processing: 'đang được xử lý',
@@ -561,7 +582,9 @@ export function setOrderStatus(ctx: Ctx): Result {
 
 export function cancelOrder(ctx: Ctx): Result {
   const o = orderFrom(ctx);
-  const reason = String(ctx.body?.reason ?? ctx.body?.note ?? '').trim() || 'Doanh nghiệp hủy đơn hàng';
+  const reason = String(ctx.body?.reason ?? ctx.body?.note ?? '').trim();
+  if (reason.length < 5 || reason.length > 500)
+    throw validation({ reason: 'Lý do hủy đơn từ 5 đến 500 ký tự.' });
   cancelOrderCore(ctx.db, o.id, ADMIN_ID, reason, true);
   log(ctx, 'order.cancel', 'order', o.id, { orderCode: o.orderCode });
   return ok(orderView(ctx.db, o, { customer: true }));
@@ -603,30 +626,82 @@ export function refundOrder(ctx: Ctx): Result {
   return ok(orderView(db, o, { customer: true }));
 }
 
-export function updateShipment(ctx: Ctx): Result {
+const SHIP_NEXT: Record<string, string[]> = {
+  pending: ['picked_up'],
+  picked_up: ['in_transit'],
+  in_transit: ['delivered', 'failed', 'returned'],
+  failed: ['in_transit', 'returned'],
+  delivered: [],
+  returned: [],
+};
+const CARRIERS = ['ghn', 'ghtk', 'viettel_post', 'other'];
+
+export function createShipment(ctx: Ctx): Result {
   const db = ctx.db;
   const o = orderFrom(ctx);
   const b = ctx.body ?? {};
-  let sh = db.shipments.find((s) => s.orderId === o.id);
-  if (!sh) {
-    sh = {
-      id: nextId(db.shipments),
-      orderId: o.id,
-      carrier: 'ghn',
-      trackingCode: null,
-      status: 'pending',
-      fee: o.shippingFee,
-      shippedAt: null,
-      deliveredAt: null,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    db.shipments.push(sh);
+  const errs: Record<string, string> = {};
+  if (!CARRIERS.includes(String(b.carrier))) errs.carrier = 'Đơn vị vận chuyển không hợp lệ.';
+  if (String(b.trackingCode ?? '').length > 100) errs.trackingCode = 'Mã vận đơn tối đa 100 ký tự.';
+  if (b.fee !== undefined && b.fee !== '' && !(Number(b.fee) >= 0))
+    errs.fee = 'Phí vận chuyển phải là số không âm.';
+  if (Object.keys(errs).length) throw validation(errs);
+  if (!['processing', 'shipping'].includes(o.status))
+    throw new ApiFail('INVALID_STATE', 'Chỉ tạo vận đơn cho đơn đang "Đang xử lý" hoặc "Đang giao".');
+  // failed còn giao lại được nên vẫn là vận đơn đang hoạt động; chỉ returned mới cho tạo vận đơn mới
+  if (db.shipments.some((s) => s.orderId === o.id && s.status !== 'returned'))
+    throw new ApiFail('INVALID_STATE', 'Đơn hàng đã có vận đơn đang hoạt động.');
+  const at = nowIso();
+  const sh = {
+    id: nextId(db.shipments),
+    orderId: o.id,
+    carrier: b.carrier,
+    trackingCode: String(b.trackingCode ?? '').trim() || null,
+    status: 'pending',
+    fee: b.fee !== undefined && b.fee !== '' ? Number(b.fee) : o.shippingFee,
+    shippedAt: null,
+    deliveredAt: null,
+    createdAt: at,
+    updatedAt: at,
+  } as Db['shipments'][number];
+  db.shipments.push(sh);
+  log(ctx, 'shipment.create', 'shipment', sh.id, { orderCode: o.orderCode });
+  return created({ shipment: sh, order: orderView(db, o, { customer: true }), warnings: [] });
+}
+
+export function updateShipmentStatus(ctx: Ctx): Result {
+  const db = ctx.db;
+  const sh = db.shipments.find((s) => s.id === Number(ctx.params.id));
+  if (!sh) throw notFound('Vận đơn');
+  const o = db.orders.find((x) => x.id === sh.orderId)!;
+  const b = ctx.body ?? {};
+  const to = b.status as string | undefined;
+  if (to !== undefined && !(to in SHIP_NEXT))
+    throw validation({ status: 'Trạng thái vận đơn không hợp lệ.' });
+  const changing = to !== undefined && to !== sh.status;
+  if (
+    SHIP_NEXT[sh.status].length === 0 &&
+    (changing || b.carrier || b.trackingCode !== undefined || b.fee !== undefined)
+  )
+    throw new ApiFail('INVALID_STATE', 'Vận đơn đã kết thúc, không thể cập nhật.');
+  if (to && to !== sh.status && !SHIP_NEXT[sh.status].includes(to))
+    throw new ApiFail('INVALID_STATE', `Không thể chuyển vận đơn từ "${sh.status}" sang "${to}".`);
+  const at = nowIso();
+  if (to === 'delivered') completeOrderMock(ctx, o, at); // lỗi ⇒ vận đơn giữ nguyên
+  if (b.carrier && CARRIERS.includes(String(b.carrier))) sh.carrier = b.carrier;
+  if (b.trackingCode !== undefined) sh.trackingCode = String(b.trackingCode).trim() || null;
+  if (b.fee !== undefined && Number(b.fee) >= 0) sh.fee = Number(b.fee);
+  if (to && to !== sh.status) {
+    sh.status = to as typeof sh.status;
+    if (to === 'picked_up') sh.shippedAt = at;
+    if (to === 'delivered') {
+      sh.deliveredAt = at;
+      sh.shippedAt ??= at;
+    }
   }
-  if (b.carrier) sh.carrier = b.carrier;
-  if (b.trackingCode !== undefined) sh.trackingCode = b.trackingCode || null;
-  sh.updatedAt = nowIso();
-  return ok(orderView(db, o, { customer: true }));
+  sh.updatedAt = at;
+  log(ctx, 'shipment.update_status', 'shipment', sh.id, { orderCode: o.orderCode, to });
+  return ok({ shipment: sh, order: orderView(db, o, { customer: true }), warnings: [] });
 }
 
 export function confirmPayment(ctx: Ctx): Result {
@@ -637,6 +712,14 @@ export function confirmPayment(ctx: Ctx): Result {
   if (!pay) throw notFound('Giao dịch');
   const o = db.orders.find((x) => x.id === pay.orderId)!;
   if (o.paymentStatus === 'paid') throw new ApiFail('INVALID_STATE', 'Đơn hàng đã được thanh toán.');
+  if (pay.method !== 'bank_transfer')
+    throw new ApiFail('INVALID_STATE', 'Chỉ giao dịch chuyển khoản mới xác nhận thủ công.');
+  if (pay.status !== 'pending' && !(o.status === 'cancelled' && pay.status === 'failed'))
+    throw new ApiFail('INVALID_STATE', 'Chỉ giao dịch đang chờ mới xử lý được.');
+  const code = String(ctx.body?.transactionCode ?? '').trim();
+  if (code && db.payments.some((p) => p.id !== pay.id && p.transactionCode === code))
+    throw new ApiFail('CONFLICT', 'Mã giao dịch đã được dùng cho giao dịch khác.');
+  if (code) pay.transactionCode = code;
   pay.status = 'success';
   pay.paidAt = nowIso();
   pay.updatedAt = nowIso();
@@ -653,6 +736,19 @@ export function confirmPayment(ctx: Ctx): Result {
       createdAt: nowIso(),
     });
   }
+  return ok(orderView(db, o, { customer: true }));
+}
+
+export function failPayment(ctx: Ctx): Result {
+  const db = ctx.db;
+  const pay = db.payments.find((p) => p.id === Number(ctx.params.id));
+  if (!pay) throw notFound('Giao dịch');
+  const o = db.orders.find((x) => x.id === pay.orderId)!;
+  if (pay.method !== 'bank_transfer' || pay.status !== 'pending' || o.paymentStatus === 'paid')
+    throw new ApiFail('INVALID_STATE', 'Chỉ giao dịch chuyển khoản đang chờ mới đánh dấu thất bại được.');
+  pay.status = 'failed';
+  pay.updatedAt = nowIso();
+  o.paymentStatus = 'failed';
   return ok(orderView(db, o, { customer: true }));
 }
 
@@ -690,6 +786,41 @@ export function createExpense(ctx: Ctx): Result {
 }
 
 // ===================== Đổi trả =====================
+export function adminPayments(ctx: Ctx): Result {
+  const { db, query: q } = ctx;
+  const status = qStr(q, 'status');
+  const method = qStr(q, 'method');
+  const search = fold(qStr(q, 'q'));
+  const list = db.payments
+    .map((p) => {
+      const o = db.orders.find((x) => x.id === p.orderId)!;
+      const u = db.users.find((x) => x.id === o.userId);
+      return {
+        id: p.id,
+        orderId: o.id,
+        orderCode: o.orderCode,
+        orderStatus: o.status,
+        orderPaymentStatus: o.paymentStatus,
+        customerName: u?.fullName ?? o.recipientName,
+        customerEmail: u?.email ?? null,
+        method: p.method,
+        amount: Number(p.amount),
+        status: p.status,
+        transactionCode: p.transactionCode,
+        paidAt: p.paidAt,
+        createdAt: p.createdAt,
+      };
+    })
+    .filter(
+      (p) =>
+        (!status || p.status === status) &&
+        (!method || p.method === method) &&
+        (!search || fold(`${p.orderCode} ${p.transactionCode ?? ''}`).includes(search)),
+    )
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id);
+  return paginate(list, q, 10);
+}
+
 export function adminReturns(ctx: Ctx): Result {
   const q = ctx.query;
   const status = qStr(q, 'status');
@@ -1117,7 +1248,6 @@ export function createProduct(ctx: Ctx): Result {
     ratingCount: 0,
     soldCount: 0,
     has3dModel: false,
-    hasAr: false,
     metaTitle: null,
     metaDescription: null,
     deletedAt: null,
@@ -1149,7 +1279,7 @@ export function deleteProduct(ctx: Ctx): Result {
   return done();
 }
 
-// ===================== Ảnh 360° của sản phẩm (TODO: cần thêm vào DB/API) =====================
+// ===================== Ảnh 360° của sản phẩm =====================
 export function adminProduct360(ctx: Ctx): Result {
   const p = ctx.db.products.find((x) => x.id === Number(ctx.params.id) && !x.deletedAt);
   if (!p) throw notFound('Sản phẩm');
@@ -1395,17 +1525,20 @@ function modelRows(db: Db): Model3DAdminRow[] {
     rows.push({
       ...model3DView(db, m),
       id: f.id, // id dòng = id của tệp
+      modelId: m.id,
+      fileId: f.id,
+      failureReason: null,
+      lod: f.lod,
       productName: p.name,
       productThumbnailUrl: mediaPath(
         db,
         db.productImages.find((i) => i.productId === p.id && i.isPrimary)?.mediaId,
       ),
-      format: f.format,
+      format: 'glb' as const,
       fileName: md.fileName,
       sizeMB: Math.round((md.fileSize / 1024 / 1024) * 10) / 10,
       uploadedAt: f.createdAt,
       glbUrl: f.format === 'glb' ? md.filePath : model3DView(db, m).glbUrl,
-      usdzUrl: f.format === 'usdz' ? md.filePath : model3DView(db, m).usdzUrl,
     });
   }
   return rows;
@@ -1437,7 +1570,7 @@ export function uploadModel(ctx: Ctx): Result {
   const errs: Record<string, string> = {};
   const p = db.products.find((x) => x.id === Number(b.productId));
   if (!p) errs.productId = 'Vui lòng chọn sản phẩm liên kết.';
-  if (!['glb', 'usdz'].includes(b.format)) errs.format = 'Chỉ hỗ trợ GLB, GLTF hoặc USDZ.';
+  if (b.format !== 'glb') errs.format = 'Hệ thống chỉ hỗ trợ tệp GLB';
   if (!(Number(b.sizeMB) > 0) || Number(b.sizeMB) > 50) errs.file = 'Tệp phải nhỏ hơn hoặc bằng 50MB.';
   if (Object.keys(errs).length) throw validation(errs);
   let m = db.product3dModels.find((x) => x.productId === p!.id && x.isPrimary);
@@ -1455,7 +1588,7 @@ export function uploadModel(ctx: Ctx): Result {
       widthMm: w,
       heightMm: h,
       placement: 'floor',
-      allowScaling: !b.allowAr,
+      allowScaling: true,
       viewerConfig: { autoRotate: true, exposure: 1 },
       posterMediaId: db.productImages.find((i) => i.productId === p!.id && i.isPrimary)?.mediaId ?? null,
       status: 'ready',
@@ -1469,21 +1602,18 @@ export function uploadModel(ctx: Ctx): Result {
   }
   const spec = productSpecs.find((s) => s.name === p!.name);
   const modelKey = (spec && modelFor(spec)) ?? 'sofa';
-  const filePath =
-    b.format === 'glb'
-      ? `/mock/models/${modelKey}.glb?u=${Date.now()}`
-      : `/mock/models/placeholder.usdz?u=${Date.now()}`;
+  const filePath = `/mock/models/${modelKey}.glb?u=${Date.now()}`;
   const mediaId = mediaFrom(
     db,
     filePath,
     String(b.fileName),
-    b.format === 'glb' ? 'model/gltf-binary' : 'model/vnd.usdz+zip',
+    'model/gltf-binary',
     Math.round(Number(b.sizeMB) * 1024 * 1024),
   );
   const f = {
     id: nextId(db.modelFiles),
     modelId: m.id,
-    format: b.format as 'glb' | 'usdz',
+    format: 'glb' as const,
     lod: 'high' as const,
     mediaId,
     polygonCount: b.format === 'glb' ? 42_000 : null,
@@ -1495,10 +1625,37 @@ export function uploadModel(ctx: Ctx): Result {
   };
   db.modelFiles.push(f);
   p!.has3dModel = true;
-  p!.hasAr = Boolean(b.allowAr);
-  m.allowScaling = !b.allowAr;
   log(ctx, 'model.upload', 'product3dmodel', m.id, { fileName: b.fileName });
   return created(modelRows(db).find((r) => r.id === f.id));
+}
+
+/** Mock: mô hình luôn ready (không có hàng đợi), nên chỉ trả kết quả hợp lệ để giao diện không lỗi */
+export function reprocessModel(ctx: Ctx): Result {
+  const m = ctx.db.product3dModels.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Mô hình');
+  if (m.status !== 'failed')
+    throw new ApiFail('INVALID_STATE', 'Chỉ xử lý lại được mô hình đang ở trạng thái lỗi.');
+  m.status = 'ready';
+  return ok({ modelId: m.id, jobId: 'mock', status: 'processing' });
+}
+
+export function setPrimaryModel(ctx: Ctx): Result {
+  const db = ctx.db;
+  const m = db.product3dModels.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Mô hình');
+  if (m.status !== 'ready')
+    throw new ApiFail('INVALID_STATE', 'Chỉ đặt làm mô hình chính khi mô hình đã xử lý xong (ready).');
+  for (const x of db.product3dModels) if (x.productId === m.productId) x.isPrimary = x.id === m.id;
+  return ok({ modelId: m.id, productId: m.productId, isPrimary: true });
+}
+
+export function deleteModelById(ctx: Ctx): Result {
+  const db = ctx.db;
+  const m = db.product3dModels.find((x) => x.id === Number(ctx.params.modelId));
+  if (!m) throw notFound('Mô hình');
+  db.modelFiles = db.modelFiles.filter((x) => x.modelId !== m.id);
+  db.product3dModels.splice(db.product3dModels.indexOf(m), 1);
+  return done();
 }
 
 export function deleteModel(ctx: Ctx): Result {
@@ -1513,7 +1670,6 @@ export function deleteModel(ctx: Ctx): Result {
       const p = db.products.find((x) => x.id === m.productId);
       if (p) {
         p.has3dModel = false;
-        p.hasAr = false;
       }
     }
   }
@@ -1960,6 +2116,51 @@ export function deletePost(ctx: Ctx): Result {
 
 export const adminPages = (ctx: Ctx): Result => ok(ctx.db.pages);
 
+const CORE_PAGE_SLUGS = [
+  'about',
+  've-chung-toi',
+  'chinh-sach-mua-hang',
+  'chinh-sach-doi-tra',
+  'chinh-sach-bao-hanh',
+  'chinh-sach-bao-mat',
+  'dieu-khoan-su-dung',
+  'chinh-sach-van-chuyen',
+];
+
+/** Mock của POST /admin/pages (giống BE: tiêu đề ≥ 2 ký tự, slug tự sinh, trùng ⇒ 409 kèm lỗi trường slug) */
+export function createPage(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  const title = String(b.title ?? '').trim();
+  if (title.length < 2) throw validation({ title: 'Vui lòng nhập tiêu đề trang.' });
+  const slug = slugify(String(b.slug || title));
+  if (!slug) throw validation({ slug: 'Slug không hợp lệ.' });
+  if (ctx.db.pages.some((x) => x.slug === slug))
+    throw new ApiFail('CONFLICT', 'Dữ liệu bị trùng.', { slug: ['Slug đã tồn tại.'] });
+  const status = b.status ? String(b.status) : 'draft';
+  const row = {
+    id: nextId(ctx.db.pages),
+    title,
+    slug,
+    type: b.type === 'policy' ? 'policy' : 'static',
+    content: String(b.content ?? ''),
+    status,
+    publishedAt: status === 'published' ? nowIso() : null,
+    updatedAt: nowIso(),
+  } as unknown as Db['pages'][number];
+  ctx.db.pages.push(row);
+  return created(row);
+}
+
+/** Mock của DELETE /admin/pages/:id: trang hệ thống ⇒ 409 */
+export function deletePage(ctx: Ctx): Result {
+  const i = ctx.db.pages.findIndex((x) => x.id === Number(ctx.params.id));
+  if (i < 0) throw notFound('Trang');
+  if (CORE_PAGE_SLUGS.includes(ctx.db.pages[i].slug))
+    throw new ApiFail('RESOURCE_IN_USE', 'Không thể xóa trang hệ thống (Về chúng tôi, chính sách).');
+  ctx.db.pages.splice(i, 1);
+  return done();
+}
+
 export function savePage(ctx: Ctx): Result {
   const p = ctx.db.pages.find((x) => x.id === Number(ctx.params.id));
   if (!p) throw notFound('Trang');
@@ -2001,21 +2202,261 @@ export function resetMock(): Result {
   return done();
 }
 
+// ===================== Thư viện media =====================
+function mediaAdminView(db: Db, m: Db['media'][number]) {
+  const required = db.productImages.filter((x) => x.mediaId === m.id).length;
+  const optional =
+    db.categories.filter((c) => c.imageMediaId === m.id).length +
+    db.brands.filter((b) => b.logoMediaId === m.id).length +
+    db.spaces.filter((s) => s.coverMediaId === m.id).length;
+  return {
+    id: m.id,
+    fileName: m.fileName,
+    url: m.filePath,
+    mimeType: m.mimeType,
+    fileSize: m.fileSize,
+    altText: m.altText ?? null,
+    uploadedByName: 'Nguyễn Văn A',
+    createdAt: m.createdAt,
+    usage: { required, optional },
+  };
+}
+export function adminMedia(ctx: Ctx): Result {
+  const q = fold(qStr(ctx.query, 'q'));
+  let rows = [...ctx.db.media]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
+    .filter((m) => !q || fold(`${m.fileName} ${m.altText ?? ''}`).includes(q))
+    .map((m) => mediaAdminView(ctx.db, m));
+  if (qStr(ctx.query, 'usage') === 'unused')
+    rows = rows.filter((m) => m.usage.required + m.usage.optional === 0);
+  return paginate(rows, ctx.query, 24);
+}
+export function createMedia(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(b.mimeType)))
+    throw new ApiFail('UNSUPPORTED_MEDIA_TYPE', 'Chỉ hỗ trợ ảnh JPEG, PNG, WebP.');
+  if (Number(b.fileSize) > 5 * 1024 * 1024) throw new ApiFail('PAYLOAD_TOO_LARGE', 'Ảnh vượt quá 5 MB.');
+  const id = mediaFrom(
+    ctx.db,
+    String(b.fileData),
+    String(b.fileName),
+    String(b.mimeType),
+    Number(b.fileSize),
+  );
+  const m = ctx.db.media.find((x) => x.id === id)!;
+  m.altText = null;
+  return created(mediaAdminView(ctx.db, m));
+}
+export function updateMedia(ctx: Ctx): Result {
+  const m = ctx.db.media.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Tệp');
+  const alt = String(ctx.body?.altText ?? '').trim();
+  if (alt.length > 255) throw validation({ altText: 'Mô tả ảnh tối đa 255 ký tự.' });
+  m.altText = alt || null;
+  return ok(mediaAdminView(ctx.db, m));
+}
+export function deleteMedia(ctx: Ctx): Result {
+  const m = ctx.db.media.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Tệp');
+  if (mediaAdminView(ctx.db, m).usage.required > 0)
+    throw new ApiFail('RESOURCE_IN_USE', 'Tệp đang được sử dụng nên không thể xóa.');
+  ctx.db.media = ctx.db.media.filter((x) => x.id !== m.id);
+  for (const c of ctx.db.categories) if (c.imageMediaId === m.id) c.imageMediaId = null;
+  for (const b of ctx.db.brands) if (b.logoMediaId === m.id) b.logoMediaId = null;
+  return ok({ id: m.id });
+}
+
+// ===================== Thuộc tính =====================
+const SYSTEM_ATTR = ['color', 'size', 'material'];
+function attrView(db: Db, a: Db['attributes'][number]) {
+  return {
+    id: a.id,
+    code: a.code,
+    name: a.name,
+    isSystem: SYSTEM_ATTR.includes(a.code),
+    values: db.attributeValues
+      .filter((v) => v.attributeId === a.id)
+      .map((v) => ({
+        id: v.id,
+        attributeId: v.attributeId,
+        value: v.value,
+        colorHex: a.code === 'color' ? (db.colorHexByValueId[v.id] ?? null) : null,
+        usageCount: db.variantAttributeValues.filter((x) => x.attributeValueId === v.id).length,
+        frameCount: 0,
+      })),
+  };
+}
+const conflict = (field: string, msg: string) => new ApiFail('CONFLICT', msg, { [field]: [msg] });
+export const adminAttributes = (ctx: Ctx): Result => ok(ctx.db.attributes.map((a) => attrView(ctx.db, a)));
+export function createAttribute(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  const code = String(b.code ?? '').trim();
+  const name = String(b.name ?? '').trim();
+  const errs: Record<string, string> = {};
+  if (!/^[a-z][a-z0-9_]*$/.test(code)) errs.code = 'Mã chỉ gồm chữ thường không dấu, số và gạch dưới.';
+  if (!name) errs.name = 'Vui lòng nhập tên thuộc tính.';
+  if (Object.keys(errs).length) throw validation(errs);
+  if (ctx.db.attributes.some((a) => a.code === code)) throw conflict('code', 'Mã thuộc tính đã tồn tại.');
+  if (ctx.db.attributes.some((a) => a.name === name)) throw conflict('name', 'Tên thuộc tính đã tồn tại.');
+  const row = { id: nextId(ctx.db.attributes), code, name, createdAt: nowIso(), updatedAt: nowIso() };
+  ctx.db.attributes.push(row);
+  return created(attrView(ctx.db, row));
+}
+export function updateAttribute(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  if (!a) throw notFound('Thuộc tính');
+  const b = ctx.body ?? {};
+  if (b.name !== undefined) {
+    const name = String(b.name).trim();
+    if (!name) throw validation({ name: 'Vui lòng nhập tên thuộc tính.' });
+    if (ctx.db.attributes.some((x) => x.name === name && x.id !== a.id))
+      throw conflict('name', 'Tên thuộc tính đã tồn tại.');
+    a.name = name;
+  }
+  if (b.code !== undefined && b.code !== a.code) {
+    if (SYSTEM_ATTR.includes(a.code))
+      throw validation({ code: 'Mã của thuộc tính hệ thống không đổi được.' });
+    if (ctx.db.attributes.some((x) => x.code === b.code)) throw conflict('code', 'Mã thuộc tính đã tồn tại.');
+    a.code = String(b.code);
+  }
+  return ok(attrView(ctx.db, a));
+}
+export function deleteAttribute(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  if (!a) throw notFound('Thuộc tính');
+  if (SYSTEM_ATTR.includes(a.code))
+    throw new ApiFail('RESOURCE_IN_USE', 'Không xóa được thuộc tính hệ thống.');
+  ctx.db.attributeValues = ctx.db.attributeValues.filter((v) => v.attributeId !== a.id);
+  ctx.db.attributes = ctx.db.attributes.filter((x) => x.id !== a.id);
+  return ok({ id: a.id });
+}
+export function addAttributeValue(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  if (!a) throw notFound('Thuộc tính');
+  const value = String(ctx.body?.value ?? '').trim();
+  if (!value) throw validation({ value: 'Vui lòng nhập giá trị.' });
+  if (ctx.db.attributeValues.some((v) => v.attributeId === a.id && v.value === value))
+    throw conflict('value', 'Giá trị này đã có trong thuộc tính.');
+  const row = {
+    id: nextId(ctx.db.attributeValues),
+    attributeId: a.id,
+    value,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+  } as Db['attributeValues'][number];
+  ctx.db.attributeValues.push(row);
+  if (a.code === 'color' && ctx.body?.colorHex)
+    ctx.db.colorHexByValueId[row.id] = String(ctx.body.colorHex).toUpperCase();
+  return created(attrView(ctx.db, a).values.find((v) => v.id === row.id)!);
+}
+export function updateAttributeValue(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const v = ctx.db.attributeValues.find(
+    (x) => x.id === Number(ctx.params.valueId) && x.attributeId === a?.id,
+  );
+  if (!a || !v) throw notFound('Giá trị thuộc tính');
+  if (ctx.body?.value !== undefined) {
+    const value = String(ctx.body.value).trim();
+    if (!value) throw validation({ value: 'Vui lòng nhập giá trị.' });
+    if (ctx.db.attributeValues.some((x) => x.attributeId === a.id && x.value === value && x.id !== v.id))
+      throw conflict('value', 'Giá trị này đã có trong thuộc tính.');
+    v.value = value;
+  }
+  if (a.code === 'color' && ctx.body?.colorHex)
+    ctx.db.colorHexByValueId[v.id] = String(ctx.body.colorHex).toUpperCase();
+  return ok(attrView(ctx.db, a).values.find((x) => x.id === v.id)!);
+}
+export function deleteAttributeValue(ctx: Ctx): Result {
+  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const v = ctx.db.attributeValues.find(
+    (x) => x.id === Number(ctx.params.valueId) && x.attributeId === a?.id,
+  );
+  if (!a || !v) throw notFound('Giá trị thuộc tính');
+  const used = ctx.db.variantAttributeValues.filter((x) => x.attributeValueId === v.id).length;
+  if (used)
+    throw new ApiFail(
+      'RESOURCE_IN_USE',
+      `Giá trị "${v.value}" đang được ${used} biến thể sử dụng, không thể xóa.`,
+    );
+  ctx.db.attributeValues = ctx.db.attributeValues.filter((x) => x.id !== v.id);
+  return ok({ id: v.id });
+}
+
+// ===================== Thương hiệu =====================
+const brandAdminView = (db: Db, b: Db['brands'][number]) => ({
+  id: b.id,
+  name: b.name,
+  slug: b.slug,
+  logoUrl: mediaPath(db, b.logoMediaId),
+  isActive: b.isActive,
+  productCount: db.products.filter((p) => p.brandId === b.id && !p.deletedAt).length,
+});
+export function adminBrands(ctx: Ctx): Result {
+  const q = fold(qStr(ctx.query, 'q'));
+  return ok(
+    ctx.db.brands
+      .filter((b) => !q || fold(`${b.name} ${b.slug}`).includes(q))
+      .map((b) => brandAdminView(ctx.db, b)),
+  );
+}
+function brandInput(ctx: Ctx, self?: Db['brands'][number]) {
+  const b = ctx.body ?? {};
+  const name = String(b.name ?? self?.name ?? '').trim();
+  if (!name) throw validation({ name: 'Vui lòng nhập tên thương hiệu.' });
+  const slug = fold(String(b.slug || self?.slug || name))
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  if (ctx.db.brands.some((x) => x.slug === slug && x.id !== self?.id))
+    throw new ApiFail('CONFLICT', 'Slug đã được dùng cho thương hiệu khác.', {
+      slug: ['Slug đã được dùng cho thương hiệu khác.'],
+    });
+  return { name, slug, b };
+}
+export function createBrand(ctx: Ctx): Result {
+  const { name, slug, b } = brandInput(ctx);
+  const row = {
+    id: nextId(ctx.db.brands),
+    name,
+    slug,
+    logoMediaId: b.logoUrl ? mediaFrom(ctx.db, b.logoUrl, `brand-${slug}.png`) : null,
+    isActive: b.isActive !== false,
+  } as Db['brands'][number];
+  ctx.db.brands.push(row);
+  return created(brandAdminView(ctx.db, row));
+}
+export function updateBrand(ctx: Ctx): Result {
+  const row = ctx.db.brands.find((x) => x.id === Number(ctx.params.id));
+  if (!row) throw notFound('Thương hiệu');
+  const { name, slug, b } = brandInput(ctx, row);
+  row.name = name;
+  row.slug = slug;
+  if (typeof b.isActive === 'boolean') row.isActive = b.isActive;
+  if (b.logoUrl === null) row.logoMediaId = null;
+  else if (b.logoUrl) row.logoMediaId = mediaFrom(ctx.db, b.logoUrl, `brand-${slug}.png`);
+  return ok(brandAdminView(ctx.db, row));
+}
+export function deleteBrand(ctx: Ctx): Result {
+  const i = ctx.db.brands.findIndex((x) => x.id === Number(ctx.params.id));
+  if (i < 0) throw notFound('Thương hiệu');
+  const id = ctx.db.brands[i].id;
+  let n = 0;
+  for (const p of ctx.db.products)
+    if (p.brandId === id) {
+      p.brandId = null;
+      n++;
+    }
+  ctx.db.brands.splice(i, 1);
+  return ok({ id, productsDetached: n });
+}
+
 // ===================== Kho hàng =====================
 export function inventoryRows(db: Db): InventoryRow[] {
-  const reserved = new Map<number, number>();
-  for (const it of db.orderItems) {
-    const o = db.orders.find((x) => x.id === it.orderId);
-    if (o && ['pending', 'confirmed', 'processing'].includes(o.status) && it.variantId)
-      reserved.set(it.variantId, (reserved.get(it.variantId) ?? 0) + it.quantity);
-  }
   return db.productVariants
     .filter((v) => v.isActive)
     .map((v) => {
       const p = db.products.find((x) => x.id === v.productId)!;
       const ex = db.productExtras.find((e) => e.productId === p.id);
       const cat = db.categories.find((c) => c.id === p.categoryId);
-      const held = reserved.get(v.id) ?? 0;
       const minStock = ex?.minStock ?? 5;
       const available = v.stockQuantity;
       return {
@@ -2026,8 +2467,7 @@ export function inventoryRows(db: Db): InventoryRow[] {
         sku: v.sku,
         categoryName: cat?.name ?? '—',
         costPrice: Math.round(effectivePrice(v) * (ex?.costRatio ?? 0.62)),
-        stockQuantity: v.stockQuantity + held,
-        reservedQty: held,
+        stockQuantity: v.stockQuantity,
         available,
         minStock,
         state:
@@ -2038,6 +2478,40 @@ export function inventoryRows(db: Db): InventoryRow[] {
               : ('in_stock' as const),
       };
     });
+}
+
+/** Mock của POST /admin/inventory/movements (giống BE: số nguyên khác 0, giảm quá tồn ⇒ 409, không đổi gì) */
+export function recordMovement(ctx: Ctx): Result {
+  const b = ctx.body ?? {};
+  const db = ctx.db;
+  const errs: Record<string, string> = {};
+  const v = db.productVariants.find((x) => x.id === Number(b.variantId));
+  if (!v) errs.variantId = 'Vui lòng chọn biến thể.';
+  const type = String(b.type ?? '');
+  if (!['import', 'adjustment', 'return'].includes(type))
+    errs.type = 'Loại biến động phải là import, adjustment hoặc return.';
+  const qty = Number(b.quantityChange);
+  if (!Number.isInteger(qty) || qty === 0)
+    errs.quantityChange = 'Số lượng thay đổi phải là số nguyên khác 0.';
+  else if (type !== 'adjustment' && qty < 0)
+    errs.quantityChange = 'Nhập kho/hàng trả phải có số lượng dương.';
+  const reason = String(b.reason ?? '').trim();
+  if (reason.length > 255) errs.reason = 'Lý do tối đa 255 ký tự.';
+  if (Object.keys(errs).length) throw validation(errs);
+  if (v!.stockQuantity + qty < 0)
+    throw new ApiFail('CONFLICT', `Không thể giảm quá số đang tồn (${v!.stockQuantity}).`);
+  v!.stockQuantity += qty;
+  db.inventoryMovements.push({
+    id: nextId(db.inventoryMovements),
+    variantId: v!.id,
+    type: type as 'import' | 'adjustment' | 'return',
+    quantityChange: qty,
+    reason: reason || null,
+    referenceCode: null,
+    performedBy: ADMIN_ID,
+    createdAt: nowIso(),
+  } as never);
+  return created({ variantId: v!.id, stockQuantity: v!.stockQuantity });
 }
 
 export function adminInventory(ctx: Ctx): Result {
@@ -2077,8 +2551,48 @@ export function inventorySummary(ctx: Ctx): Result {
 }
 
 export const receipts = (ctx: Ctx): Result =>
-  ok([...ctx.db.stockReceipts].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
-export const suppliers = (ctx: Ctx): Result => ok(ctx.db.suppliers);
+  ok(
+    [...ctx.db.stockReceipts]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((r) => {
+        const { _items: _i, ...view } = r as typeof r & { _items?: unknown };
+        return view;
+      }),
+  );
+
+type ReceiptLine = { variantId: number; quantity: number; costPrice: number };
+type MockReceipt = Db['stockReceipts'][number] & { _items?: ReceiptLine[] };
+
+/** Áp phiếu vào tồn kho (xác nhận): movement mang mã phiếu; phiếu nhập sinh phiếu chi giá vốn; phiếu xuất thiếu hàng ⇒ 409 */
+function applyReceipt(db: Db, row: MockReceipt, items: ReceiptLine[], at: string) {
+  for (const it of items) {
+    const v = db.productVariants.find((x) => x.id === it.variantId);
+    if (!v) throw notFound('Biến thể');
+    if (row.type === 'out' && v.stockQuantity < it.quantity)
+      throw new ApiFail('OUT_OF_STOCK', `Không đủ tồn kho cho ${v.sku}.`, {
+        variantId: v.id,
+        available: v.stockQuantity,
+      });
+  }
+  let total = 0;
+  for (const it of items) {
+    const v = db.productVariants.find((x) => x.id === it.variantId)!;
+    v.stockQuantity += row.type === 'in' ? it.quantity : -it.quantity;
+    total += it.quantity * it.costPrice;
+    db.inventoryMovements.push({
+      id: nextId(db.inventoryMovements),
+      variantId: v.id,
+      type: row.type === 'in' ? 'import' : 'adjustment',
+      quantityChange: row.type === 'in' ? it.quantity : -it.quantity,
+      reason: row.type === 'in' ? `Nhập kho theo phiếu ${row.code}` : `Xuất kho theo phiếu ${row.code}`,
+      referenceCode: row.code,
+      performedBy: ADMIN_ID,
+      createdAt: at,
+    });
+  }
+  row.status = 'completed';
+  if (row.type === 'in') addExpense(db, 'cogs', total, `Giá vốn phiếu nhập ${row.code}`);
+}
 
 export function createReceipt(ctx: Ctx): Result {
   const db = ctx.db;
@@ -2086,50 +2600,76 @@ export function createReceipt(ctx: Ctx): Result {
   if (!['in', 'out'].includes(b.type)) throw validation({ type: 'Loại phiếu không hợp lệ.' });
   if (!Array.isArray(b.items) || !b.items.length)
     throw validation({ items: 'Vui lòng thêm ít nhất một sản phẩm.' });
-  if (b.type === 'in' && !b.supplierId) throw validation({ supplierId: 'Vui lòng chọn nhà cung cấp.' });
-  const at = nowIso();
-  let total = 0;
+  const supplierName = String(b.supplierName ?? '').trim();
+  if (b.type === 'in' && !supplierName) throw validation({ supplierName: 'Vui lòng nhập nhà cung cấp.' });
+  const items: ReceiptLine[] = [];
   for (const it of b.items as Array<{ variantId: number; quantity: number; costPrice: number }>) {
-    const v = db.productVariants.find((x) => x.id === Number(it.variantId));
-    if (!v) throw notFound('Biến thể');
+    if (!db.productVariants.find((x) => x.id === Number(it.variantId))) throw notFound('Biến thể');
     const qty = Math.floor(Number(it.quantity));
     if (!(qty >= 1)) throw validation({ items: 'Số lượng phải từ 1 trở lên.' });
-    if (b.type === 'out' && v.stockQuantity < qty)
-      throw new ApiFail('OUT_OF_STOCK', `Không đủ tồn kho cho ${v.sku}.`, {
-        variantId: v.id,
-        available: v.stockQuantity,
-      });
-    v.stockQuantity += b.type === 'in' ? qty : -qty;
-    total += qty * (Number(it.costPrice) || 0);
-    const code = `${b.type === 'in' ? 'PN' : 'PX'}${String(nextId(db.stockReceipts)).padStart(4, '0')}`;
-    db.inventoryMovements.push({
-      id: nextId(db.inventoryMovements),
-      variantId: v.id,
-      type: b.type === 'in' ? 'import' : 'adjustment',
-      quantityChange: b.type === 'in' ? qty : -qty,
-      reason: b.type === 'in' ? 'Nhập kho' : 'Xuất kho',
-      referenceCode: code,
-      performedBy: ADMIN_ID,
-      createdAt: at,
-    });
+    items.push({ variantId: Number(it.variantId), quantity: qty, costPrice: Number(it.costPrice) || 0 });
   }
+  const at = nowIso();
   const id = nextId(db.stockReceipts);
-  const sup = db.suppliers.find((s) => s.id === Number(b.supplierId));
-  const row = {
+  const row: MockReceipt = {
     id,
     code: `${b.type === 'in' ? 'PN' : 'PX'}${String(id).padStart(4, '0')}`,
     type: b.type as 'in' | 'out',
-    supplierId: sup?.id ?? null,
-    supplierName: sup?.name ?? null,
+    supplierId: null,
+    supplierName: b.type === 'in' ? supplierName : null,
     orderCode: null,
-    itemCount: b.items.length,
-    total,
-    status: 'completed' as const,
+    itemCount: items.length,
+    total: items.reduce((s, i) => s + i.quantity * i.costPrice, 0),
+    status: 'draft',
     createdAt: at,
   };
+  if (b.status === 'draft') row._items = items;
+  else applyReceipt(db, row, items, at);
   db.stockReceipts.push(row);
-  if (b.type === 'in') addExpense(db, 'cogs', total, `Giá vốn phiếu nhập ${row.code}`); // phiếu nhập hoàn tất → phiếu chi giá vốn
-  return created(row);
+  const { _items: _i, ...view } = row;
+  return created(view);
+}
+
+function receiptAction(ctx: Ctx, kind: 'confirm' | 'cancel'): Result {
+  const row = ctx.db.stockReceipts.find((r) => r.id === Number(ctx.params.id)) as MockReceipt | undefined;
+  if (!row) throw notFound('Phiếu kho');
+  if (row.status !== 'draft')
+    throw new ApiFail(
+      'INVALID_STATE',
+      kind === 'confirm' ? 'Chỉ phiếu nháp mới xác nhận được.' : 'Chỉ phiếu nháp mới hủy được.',
+    );
+  if (kind === 'confirm') applyReceipt(ctx.db, row, row._items ?? [], nowIso());
+  else row.status = 'cancelled';
+  const { _items: _i, ...view } = row;
+  return ok(view);
+}
+export const confirmReceipt = (ctx: Ctx): Result => receiptAction(ctx, 'confirm');
+export const cancelReceipt = (ctx: Ctx): Result => receiptAction(ctx, 'cancel');
+
+export function stockMovements(ctx: Ctx): Result {
+  const db = ctx.db;
+  const type = qStr(ctx.query, 'type');
+  const variantId = qNum(ctx.query, 'variantId', 0);
+  const list = db.inventoryMovements
+    .filter((m) => (!type || m.type === type) && (!variantId || m.variantId === variantId))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
+    .map((m) => {
+      const v = db.productVariants.find((x) => x.id === m.variantId);
+      const p = db.products.find((x) => x.id === v?.productId);
+      return {
+        id: m.id,
+        variantId: m.variantId,
+        sku: v?.sku ?? '—',
+        productName: p?.name ?? '—',
+        type: m.type,
+        quantityChange: m.quantityChange,
+        reason: m.reason ?? null,
+        referenceCode: m.referenceCode ?? null,
+        performedByName: 'Nguyễn Văn A',
+        createdAt: m.createdAt,
+      };
+    });
+  return paginate(list, ctx.query, 10);
 }
 
 // ===================== Thông báo & tìm kiếm của admin =====================

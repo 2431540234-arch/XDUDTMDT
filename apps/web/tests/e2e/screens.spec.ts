@@ -1,33 +1,7 @@
-import { expect, test, type ConsoleMessage, type Page, type Response } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { visit } from './helpers/visit';
 
-// Duyệt lần lượt các màn hình (chạy với dữ liệu giả): không lỗi console, không request lỗi, không ảnh vỡ.
-
-async function visit(page: Page, path: string, expectText?: string | RegExp) {
-  const errors: string[] = [];
-  const onConsole = (m: ConsoleMessage) => m.type() === 'error' && errors.push(`console: ${m.text()}`);
-  const onPage = (e: Error) => errors.push(`pageerror: ${e.message}`);
-  const onResp = (r: Response) => r.status() >= 400 && errors.push(`HTTP ${r.status()} ${r.url()}`);
-  page.on('console', onConsole);
-  page.on('pageerror', onPage);
-  page.on('response', onResp);
-  // dev server có thể reload khi biên dịch route mới → thử lại một lần nếu điều hướng bị hủy
-  await page.goto(path, { waitUntil: 'domcontentloaded' }).catch(async () => {
-    await page.waitForTimeout(1500);
-    await page.goto(path, { waitUntil: 'domcontentloaded' });
-  });
-  errors.length = 0;
-  if (expectText) await expect(page.getByText(expectText).first()).toBeVisible({ timeout: 30_000 });
-  await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => undefined);
-  const broken = await page.evaluate(() =>
-    Array.from(document.images)
-      .filter((i) => i.complete && i.naturalWidth === 0 && i.src)
-      .map((i) => i.src),
-  );
-  page.off('console', onConsole);
-  page.off('pageerror', onPage);
-  page.off('response', onResp);
-  expect([...errors, ...broken.map((b) => `ảnh vỡ: ${b}`)], path).toEqual([]);
-}
+// Duyệt lần lượt các màn hình: không lỗi console (kể cả hydration), không request lỗi, không ảnh vỡ. Hàm visit ở helpers/visit.ts.
 
 test.describe.configure({ mode: 'serial' });
 
@@ -44,12 +18,123 @@ test('storefront công khai', async ({ page }) => {
   await visit(page, '/login', 'ĐĂNG NHẬP');
   await visit(page, '/register', 'ĐĂNG KÝ');
   await visit(page, '/forgot-password', 'QUÊN MẬT KHẨU');
-  await visit(page, '/reset-password?email=khachhang@aurelia.vn', 'ĐẶT LẠI MẬT KHẨU');
+  await visit(page, '/reset-password?token=' + 'a'.repeat(64), 'ĐẶT LẠI MẬT KHẨU');
   await visit(page, '/about', 'Giá trị cốt lõi');
   await visit(page, '/contact', 'Liên hệ với chúng tôi');
   await visit(page, '/faq', 'Câu hỏi thường gặp');
   await visit(page, '/policies/chinh-sach-doi-tra', 'Chính sách đổi trả');
   await visit(page, '/wishlist', /Đăng nhập để xem/);
+});
+
+// Luồng thật: cần API thật (E2E_USE_MOCK=false) và Mailpit đang chạy (mặc định http://localhost:8025)
+test('quên mật khẩu bằng liên kết: email (Mailpit) → đặt mật khẩu mới → đăng nhập; liên kết chỉ dùng một lần', async ({
+  page,
+  request,
+}) => {
+  test.skip(process.env.E2E_USE_MOCK !== 'false', 'chỉ chạy với API thật');
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const mailpit = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
+  const email = `reset${Date.now()}@example.com`;
+  const reg = await request.post(`${api}/api/auth/register`, {
+    data: {
+      fullName: 'Khách Đặt Lại',
+      email,
+      phone: '0912345678',
+      password: 'Matkhau-cu-1',
+      confirmPassword: 'Matkhau-cu-1',
+    },
+  });
+  expect(reg.status()).toBe(201);
+
+  await page.goto('/forgot-password');
+  await page.locator('input[name="email"]').fill(email);
+  await page.getByRole('button', { name: 'Gửi liên kết đặt lại mật khẩu' }).click();
+  await expect(page.getByText('vừa được gửi')).toBeVisible({ timeout: 30_000 });
+
+  let token = '';
+  await expect
+    .poll(
+      async () => {
+        const found = await request.get(`${mailpit}/api/v1/search`, { params: { query: `to:${email}` } });
+        const list = (await found.json()) as { messages?: Array<{ ID: string }> };
+        if (!list.messages?.length) return '';
+        const msg = await request.get(`${mailpit}/api/v1/message/${list.messages[0].ID}`);
+        const text = ((await msg.json()) as { Text?: string }).Text ?? '';
+        token = /token=([0-9a-f]{64})/.exec(text)?.[1] ?? '';
+        return token;
+      },
+      { timeout: 30_000 },
+    )
+    .toMatch(/^[0-9a-f]{64}$/);
+
+  await page.goto(`/reset-password?token=${token}`);
+  await page.getByLabel(/^Mật khẩu mới/).fill('Matkhau-moi-2');
+  await page.getByLabel(/^Xác nhận mật khẩu mới/).fill('Matkhau-moi-2');
+  await page.getByRole('button', { name: 'Đặt lại mật khẩu' }).click();
+  await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
+
+  const okLogin = await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-moi-2' } });
+  expect(okLogin.status()).toBe(200);
+  const oldLogin = await request.post(`${api}/api/auth/login`, { data: { email, password: 'Matkhau-cu-1' } });
+  expect(oldLogin.status()).toBe(401);
+
+  // dùng lại cùng liên kết ⇒ báo lỗi
+  await page.goto(`/reset-password?token=${token}`);
+  await page.getByLabel(/^Mật khẩu mới/).fill('Matkhau-khac-3');
+  await page.getByLabel(/^Xác nhận mật khẩu mới/).fill('Matkhau-khac-3');
+  await page.getByRole('button', { name: 'Đặt lại mật khẩu' }).click();
+  await expect(page.getByText('không đúng hoặc đã hết hạn')).toBeVisible({ timeout: 30_000 });
+});
+
+test('xác thực email: đăng ký ⇒ email (Mailpit) ⇒ mở liên kết ⇒ tài khoản được đánh dấu đã xác thực', async ({
+  page,
+  request,
+}) => {
+  test.skip(process.env.E2E_USE_MOCK !== 'false', 'chỉ chạy với API thật');
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const mailpit = process.env.E2E_MAILPIT_URL ?? 'http://localhost:8025';
+  const email = `verify${Date.now()}@example.com`;
+  const reg = await request.post(`${api}/api/auth/register`, {
+    data: {
+      fullName: 'Khách Xác Thực',
+      email,
+      phone: '0912345678',
+      password: 'Matkhau-12345',
+      confirmPassword: 'Matkhau-12345',
+    },
+  });
+  expect(reg.status()).toBe(201);
+  const access = (await reg.json()).data.tokens.accessToken as string;
+  const me = async () =>
+    (
+      await (
+        await request.get(`${api}/api/users/me`, { headers: { Authorization: `Bearer ${access}` } })
+      ).json()
+    ).data as { emailVerifiedAt: string | null };
+  expect((await me()).emailVerifiedAt).toBeNull();
+
+  let token = '';
+  await expect
+    .poll(
+      async () => {
+        const found = await request.get(`${mailpit}/api/v1/search`, { params: { query: `to:${email}` } });
+        const list = (await found.json()) as { messages?: Array<{ ID: string }> };
+        if (!list.messages?.length) return '';
+        const msg = await request.get(`${mailpit}/api/v1/message/${list.messages[0].ID}`);
+        const text = ((await msg.json()) as { Text?: string }).Text ?? '';
+        token = /verify-email\?token=([\w.-]+)/.exec(text)?.[1] ?? '';
+        return token;
+      },
+      { timeout: 30_000 },
+    )
+    .toMatch(/^[\w-]+\.[\w-]+\.[\w-]+$/);
+
+  await page.goto(`/verify-email?token=${token}`);
+  await expect(page.getByText('XÁC THỰC THÀNH CÔNG')).toBeVisible({ timeout: 30_000 });
+  expect((await me()).emailVerifiedAt).not.toBeNull();
+
+  await page.goto('/verify-email?token=khong-hop-le');
+  await expect(page.getByText('XÁC THỰC KHÔNG THÀNH CÔNG')).toBeVisible({ timeout: 30_000 });
 });
 
 test('trang 404', async ({ page }) => {

@@ -1,13 +1,15 @@
 # Aurelia Living
 
-Website thương mại điện tử nội thất, tích hợp xem 3D, AR và không gian mẫu 360°. Monorepo (npm workspaces + Turborepo) gồm:
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`. Triển khai thật: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+Website thương mại điện tử nội thất, tích hợp xem 3D, xoay 360° và không gian mẫu 360° (AR đã loại bỏ hoàn toàn, D-P16). Monorepo (npm workspaces + Turborepo) gồm:
 
 - `apps/web`: Next.js 14, React 18, Tailwind, React Three Fiber, model-viewer.
 - `apps/api`: NestJS 10, Prisma 5 + PostgreSQL 16, Redis (BullMQ 4 hàng đợi, cache, giới hạn tốc độ), MinIO (S3 ở production), Mailpit khi dev.
 - `apps/mobile`: Android (Kotlin, Jetpack Compose, CameraX); phạm vi tối thiểu (xem danh mục, camera overlay, chụp ảnh ghép), làm sau M07.
 - `packages/shared-types`: kiểu dùng chung, sinh từ `schema.prisma`.
 
-**Trạng thái:** môi trường phát triển đã cấu hình xong (2026-10-09); nền tảng backend có test; các module nghiệp vụ (144 endpoint theo thiết kế, mới cài 6 route) và giao diện chưa làm, bắt đầu từ M02. Chi tiết: [docs/TIEN_DO.md](docs/TIEN_DO.md).
+**Trạng thái:** môi trường phát triển đã cấu hình xong (2026-10-09); nền tảng backend có test; các module nghiệp vụ (144 endpoint theo thiết kế, mới cài 6 route) và giao diện chưa làm, bắt đầu từ M02. Chi tiết: [docs/TIEN_DO.md](docs/archive/TIEN_DO.md).
 
 ## Chạy từ đầu trên máy mới
 
@@ -39,7 +41,7 @@ Không cần `apps/api/.env`: API, Prisma CLI (qua `dotenv-cli` trong các scrip
 Sửa trong `.env`:
 
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: chuỗi ngẫu nhiên tối thiểu 16 ký tự (`openssl rand -hex 32`). Backend **từ chối khởi động** nếu thiếu/ngắn và in rõ biến nào sai. Web từ chối khởi động nếu thiếu `NEXT_PUBLIC_API_URL`.
-- Cổng mặc định: **API 4000, web 3000, Redis 6379, MinIO API 9000, MinIO Console 9001**. Máy đã có Redis khác chiếm 6379: đặt `REDIS_PORT=6380` (cả `.env` lẫn compose đọc biến này). Nếu bị chiếm, đổi đồng bộ `PORT`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `STORAGE_PUBLIC_URL`, `CORS_ORIGINS`. PostgreSQL: `POSTGRES_PORT` và cổng trong `DATABASE_URL`; Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
+- Cổng mặc định: **API 4000, web 3000, Redis 6379, MinIO API 9000, MinIO Console 9011**. Máy đã có Redis khác chiếm 6379: đặt `REDIS_PORT=6380` (cả `.env` lẫn compose đọc biến này). Nếu bị chiếm, đổi đồng bộ `PORT`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `STORAGE_PUBLIC_URL`, `CORS_ORIGINS`. PostgreSQL: `POSTGRES_PORT` và cổng trong `DATABASE_URL`; Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
 - Biến `VNPAY_*` để trống cho tới khi làm module thanh toán. Mọi biến, kiểu, mặc định và module dùng: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 
 `.env` đã nằm trong `.gitignore`: **không commit**. Giải thích từng biến: [.env.example](.env.example).
@@ -59,7 +61,7 @@ npm run db:seed       # vai trò, quyền, cấu hình, admin (+ dữ liệu m�
 | Dịch vụ                   | Địa chỉ                                                       | Tài khoản dev                                                      |
 | ------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------ |
 | API                       | http://localhost:4000 (Swagger: `/docs`, kiểm tra: `/health`) | admin: bảng mục 7                                                  |
-| MinIO Console             | http://localhost:9001                                         | `aurelia` / `aurelia123` (= `S3_ACCESS_KEY` / `S3_SECRET_KEY`)     |
+| MinIO Console             | http://localhost:9011                                         | `aurelia` / `aurelia123` (= `S3_ACCESS_KEY` / `S3_SECRET_KEY`)     |
 | MinIO S3 API              | http://localhost:9000                                         | như trên; bucket `aurelia-public` (đọc ẩn danh), `aurelia-private` |
 | Redis                     | `localhost:6379` (máy này 6380)                               | không mật khẩu                                                     |
 | Web (Next.js)             | http://localhost:3000 (admin: `/admin/...`)                   | không                                                              |
@@ -124,6 +126,13 @@ npm run mobile:build          # mọi hệ điều hành (cmd, PowerShell, Linux
 | user    | `nguyenvana@example.com` | `User@123456`  |
 | user    | `tranthib@example.com`   | `User@123456`  |
 
+#### Seed ở production
+
+Mật khẩu mặc định ở bảng trên **chỉ dùng ngoài production**. Khi `NODE_ENV=production`, `npm run db:seed` dừng và báo lỗi nếu:
+
+- thiếu `SEED_ADMIN_PASSWORD` (hoặc rỗng): hãy tự đặt mật khẩu mạnh, ví dụ `SEED_ADMIN_EMAIL=admin@congty.vn SEED_ADMIN_PASSWORD="…" SEED_SAMPLE=false npm run db:seed`;
+- không đặt `SEED_SAMPLE=false`: dữ liệu mẫu/mock có tài khoản mẫu với mật khẩu công khai nên không được nạp ở production.
+
 ### 8. Script npm (thư mục gốc)
 
 | Lệnh                                     | Tác dụng                                                                                                                                                                                                |
@@ -159,15 +168,18 @@ Quy trình làm việc nhóm: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Tài liệu
 
+**Mục lục đầy đủ: [docs/README.md](docs/README.md).** Các tài liệu chính:
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): kiến trúc (thư mục, module BE, nhóm trang FE, luồng xác thực, cách FE gọi API, chế độ mock)
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): build, biến bắt buộc ở production, seed production, Swagger
 - [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md): bảng biến môi trường (bắt buộc/tùy chọn, mặc định, module dùng)
-- [docs/CONG_NGHE.md](docs/CONG_NGHE.md): đối chiếu công nghệ và bảng công nghệ nộp giảng viên
-- [docs/ENV_SETUP_REPORT.md](docs/ENV_SETUP_REPORT.md): báo cáo cấu hình môi trường phát triển
-- [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md): định dạng response/lỗi, mã lỗi, phân trang, phân quyền
-- [docs/TIEN_DO.md](docs/TIEN_DO.md): tiến độ theo module và theo từng use case
-- [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật (Redis + MinIO + BullMQ, VNPay sandbox, ...)
-- [docs/MODULE_ENV_REPORT.md](docs/MODULE_ENV_REPORT.md): 14 module và tình trạng môi trường (báo cáo chụp thời điểm 2026-10-08, đã lỗi thời một phần)
-- [docs/DOC_SYNC_REPORT.md](docs/DOC_SYNC_REPORT.md): đợt đồng bộ tài liệu (mâu thuẫn còn lại, việc tồn đọng)
+- [docs/API_CONTRACT.md](docs/API_CONTRACT.md), [docs/API_CONVENTIONS.md](docs/API_CONVENTIONS.md) và [docs/api/openapi.json](docs/api/openapi.json) (sinh từ code): hợp đồng API, định dạng response/lỗi, mã lỗi, phân trang, phân quyền
+- [docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](docs/DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) và [docs/DOI_CHIEU_UC.md](docs/DOI_CHIEU_UC.md): đặc tả 80 UC và trạng thái triển khai 70 UC trong phạm vi
+- [docs/CONG_NGHE.md](docs/CONG_NGHE.md): đối chiếu công nghệ
+- [docs/DECISIONS.md](docs/DECISIONS.md): nhật ký quyết định nghiệp vụ và kỹ thuật
 - [docs/SHARED_TYPES_SYNC.md](docs/SHARED_TYPES_SYNC.md): kiểu dùng chung FE/BE sinh từ Prisma
+- [docs/KNOWN_ISSUES.md](docs/KNOWN_ISSUES.md): lỗi đã biết và việc còn tồn đọng
+- Tài liệu cũ đã lưu trữ (không còn đúng hiện trạng): [docs/archive/](docs/archive/README.md)
 
 ## Tài liệu CSDL
 
@@ -185,7 +197,30 @@ npm run dev -w @aurelia-living/web                          # http://localhost:3
 ```
 
 - Tắt mock: đặt `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL` (không phải sửa code giao diện).
-- Tài khoản: khách `khachhang@aurelia.vn` / `123456`; doanh nghiệp (admin) `admin@aurelia.vn` / `admin123` (đăng nhập tại `/admin/login`); OTP quên mật khẩu luôn `123456`.
+- **Build production (`next build`) thất bại nếu `NEXT_PUBLIC_USE_MOCK=true`** (`apps/web/next.config.js`); mock chỉ dùng cho `next dev` và test giao diện.
+- Tài khoản: khách `khachhang@aurelia.vn` / `123456`; doanh nghiệp (admin) `admin@aurelia.vn` / `admin123` (đăng nhập tại `/admin/login`); quên mật khẩu bằng liên kết gửi qua email (mock in ra màn hình/Mailpit).
 - Khôi phục dữ liệu mẫu: mở URL kèm `?resetMock=1` hoặc Admin → Cài đặt → Dữ liệu giả lập.
 - Trang nên xem trước: `/`, `/products/sofa-nordic`, `/products/sofa-nordic/3d`, `/spaces`, `/cart`, `/admin`.
 - Chi tiết: `apps/web/src/mock-data/README.md`.
+
+## Backend thật + kiểm thử (Mốc 1–3)
+
+| Việc | Lệnh |
+|---|---|
+| Hạ tầng dev (Postgres, Redis, MinIO, Mailpit) | `npm run docker:up` (service `api` cũ nằm trong profile `legacy`, không tự chạy) |
+| Tạo/seed DB demo từ mock-data | `node scripts/db-reset.mjs aurelia_demo` (chỉ chấp nhận `aurelia_demo` hoặc `aurelia_test`) |
+| Chạy API (cổng 4000, DB `aurelia_demo`) | `DATABASE_URL=postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public npm run start:dev -w @aurelia-living/api` |
+| FE dùng API thật | `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL=http://localhost:4000` trong `apps/web/.env.development.local` |
+| Swagger (bật mặc định ở dev/test, **tắt mặc định ở production**; spec xuất sẵn ở [docs/api/openapi.json](docs/api/openapi.json), cách xuất lại ở [docs/api/README.md](docs/api/README.md)) | http://localhost:4000/docs |
+| **Build web production** (cần `NEXT_PUBLIC_USE_MOCK=false` và `NEXT_PUBLIC_API_URL`; trên máy gặp lỗi "Failed to patch lockfile … 'os'" thì thêm `NEXT_IGNORE_INCORRECT_LOCKFILE=1`) | `NEXT_IGNORE_INCORRECT_LOCKFILE=1 NEXT_PUBLIC_USE_MOCK=false NEXT_PUBLIC_API_URL=http://localhost:4000 npm run build -w @aurelia-living/web` |
+| Build API | `npm run build -w @aurelia-living/api` |
+| Email dev (đặt lại mật khẩu, xác thực email) | Mailpit http://localhost:8025 |
+| Unit test API | `npm test -w @aurelia-living/api` |
+| E2E API (supertest, DB `aurelia_test`) | `node scripts/db-reset.mjs aurelia_test && npm run test:e2e:db` |
+| **Playwright với API thật (một lệnh)** | `npm run test:e2e:real` – tự reset `aurelia_test`, build + chạy API test, chạy tuần tự các nhóm, tự dọn tiến trình (`E2E_ONLY=admin-m3` để chạy một nhóm) |
+
+Tài khoản: `admin@aurelia.vn` / `admin123`, `khachhang@aurelia.vn` / `123456`. **Không** chạy seed/reset trên `aurelia_dev`. Chi tiết: `docs/BE_PROGRESS.md`.
+
+**Chạy demo:** xem `docs/HUONG_DAN_DEMO.md` (khởi động, tài khoản, kịch bản từng bước).
+
+**Tài liệu chuẩn** (không tự sửa): `docs/CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`, `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`. Phần dự án giữ/làm thêm ngoài chuẩn và các chỗ lệch tạm thời: **`docs/CHUAN_MO_RONG.md`**.

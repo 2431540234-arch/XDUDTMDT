@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { activityLogContext } from './activity-log.context';
 
 export interface ActivityLogInput {
   actorId?: number | null;
@@ -20,6 +21,9 @@ export class ActivityLogService {
 
   /** Truyền `tx` để ghi trong cùng transaction với thao tác chính. */
   log(input: ActivityLogInput, tx: Prisma.TransactionClient = this.prisma) {
+    // đánh dấu cho ActivityLogInterceptor: request này đã có nhật ký từ service, không ghi trùng
+    const ctx = activityLogContext.getStore();
+    if (ctx) ctx.logged = true;
     return tx.activityLog.create({
       data: {
         actorId: input.actorId ?? null,

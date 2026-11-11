@@ -4,16 +4,8 @@ import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 interface ModelViewerAttributes extends HTMLAttributes<HTMLElement> {
   class?: string;
   src?: string;
-  /** Tệp USDZ cho iOS Quick Look */
-  'ios-src'?: string;
   alt?: string;
   poster?: string;
-  ar?: boolean;
-  /** Thứ tự chế độ AR: webxr, scene-viewer (Android), quick-look (iOS) */
-  'ar-modes'?: string;
-  /** fixed: khóa tỉ lệ (khớp allowScaling = false); auto: cho phóng/thu */
-  'ar-scale'?: 'auto' | 'fixed';
-  'ar-placement'?: 'floor' | 'wall';
   'camera-controls'?: boolean;
   'camera-orbit'?: string;
   'auto-rotate'?: boolean;

@@ -30,8 +30,8 @@ const rng = makeRng(606);
 // ---------------- Đánh giá ----------------
 export interface ReviewExtra {
   reviewId: number;
-  images: string[]; // TODO: chưa có trong DB
-  tags: string[]; // TODO: chưa có trong DB
+  images: string[];
+  tags: string[];
 }
 
 export const reviews: Review[] = [];

@@ -2,6 +2,39 @@
 
 import Button from '@/components/ui/Button';
 
+/**
+ * Đăng nhập Google CHƯA được làm ở BE (POST /auth/google luôn 503 khi chưa cấu hình OAuth). Nút và dấu phân cách chỉ hiện khi
+ * đặt NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED=true (đọc trực tiếp để Next nhúng giá trị lúc build).
+ */
+export function googleLoginEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED === 'true';
+}
+
+/** Dấu phân cách + nút Google; không render gì khi đăng nhập Google chưa bật */
+export function GoogleSection({
+  divider,
+  label,
+  loading,
+  onClick,
+}: {
+  divider: string;
+  label: string;
+  loading?: boolean;
+  onClick: () => void;
+}) {
+  if (!googleLoginEnabled()) return null;
+  return (
+    <>
+      <div className="my-5 flex items-center gap-3 text-xs text-muted">
+        <span className="h-px flex-1 bg-line" />
+        {divider}
+        <span className="h-px flex-1 bg-line" />
+      </div>
+      <GoogleButton label={label} loading={loading} onClick={onClick} />
+    </>
+  );
+}
+
 /** Nút Google (giả lập: BE chưa có đăng nhập Google) */
 export default function GoogleButton({
   label,

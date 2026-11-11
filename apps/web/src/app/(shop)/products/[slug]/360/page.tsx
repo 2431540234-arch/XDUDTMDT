@@ -472,7 +472,7 @@ export default function Product360Page() {
             size="sm"
             className={d.product.model ? '' : 'hidden'}
           >
-            <Icon name="cube" size={15} /> Xem mô hình 3D / AR
+            <Icon name="cube" size={15} /> Xem mô hình 3D
           </LinkButton>
         </aside>
       </div>

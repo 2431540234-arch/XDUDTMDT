@@ -10,20 +10,20 @@ export interface FaqTopic {
 }
 
 export const contentApi = {
-  banners: () => http.get<Banner[]>('/banners'), // TODO: chưa có trong BE
-  posts: () => http.get<Post[]>('/posts'), // TODO: chưa có trong BE
+  banners: () => http.get<Banner[]>('/banners'),
+  posts: () => http.get<Post[]>('/posts'),
   page: (slug: string) => http.get<Page>(`/pages/${slug}`),
-  policies: () => http.get<Array<Pick<Page, 'slug' | 'title'>>>('/pages', { type: 'policy' }), // TODO: chưa có trong BE
-  faq: () => http.get<FaqTopic[]>('/faq'), // TODO: chưa có trong BE
+  policies: () => http.get<Array<Pick<Page, 'slug' | 'title'>>>('/pages', { type: 'policy' }),
+  faq: () => http.get<FaqTopic[]>('/faq'),
   contact: (body: { fullName: string; phone: string; email: string; subject: string; content: string }) =>
-    http.post<null>('/contact', body), // TODO: chưa có trong BE
+    http.post<null>('/contact', body),
   settings: () => http.get<StoreSettings>('/settings/public'),
 };
 
 export const notificationApi = {
   list: (q: { type?: string; page?: number; pageSize?: number } = {}) =>
     http.list<NotificationView>('/notifications', q),
-  unreadCount: () => http.get<{ count: number }>('/notifications/unread-count'), // TODO: chưa có trong BE
+  unreadCount: () => http.get<{ count: number }>('/notifications/unread-count'),
   markRead: (id: number) => http.patch<NotificationView>(`/notifications/${id}/read`),
   markAllRead: () => http.patch<null>('/notifications/read-all'),
 };

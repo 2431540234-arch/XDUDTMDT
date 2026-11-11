@@ -4,12 +4,14 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
+import { ActivityLogInterceptor } from './activity-log/activity-log.interceptor';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { CacheModule } from './cache/cache.module';
 import { AuthCoreModule } from './common/auth/auth-core.module';
 import { AUTH_THROTTLE_KEY, AUTH_THROTTLER } from './common/decorators/throttle.decorators';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { PermissionsGuard, PermissionsService } from './common/guards/permissions.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { TransformResponseInterceptor } from './common/interceptors/transform-response.interceptor';
 import { AppConfig } from './config/app-config.service';
@@ -19,6 +21,7 @@ import { MailModule } from './mail/mail.module';
 import { FEATURE_MODULES } from './modules';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ViewsModule } from './common/views/views.module';
 import { StorageModule } from './storage/storage.module';
 
 // ValidationPipe được gắn trong app.setup.ts (cần cho cả app thật lẫn test e2e).
@@ -26,6 +29,7 @@ import { StorageModule } from './storage/storage.module';
   imports: [
     ConfigModule,
     PrismaModule,
+    ViewsModule,
     // Giới hạn tốc độ dùng chung giữa các tiến trình nhờ lưu bộ đếm trong Redis (M02 siết chặt hơn bằng @Throttle)
     ThrottlerModule.forRootAsync({
       inject: [AppConfig],
@@ -50,7 +54,9 @@ import { StorageModule } from './storage/storage.module';
           new Redis({
             host: config.get('REDIS_HOST'),
             port: config.get('REDIS_PORT'),
-            keyPrefix: config.get('NODE_ENV') === 'test' ? 'throttle-test:' : 'throttle:',
+            keyPrefix:
+              config.get('THROTTLE_PREFIX') ??
+              (config.get('NODE_ENV') === 'test' ? 'throttle-test:' : 'throttle:'),
           }),
         ),
       }),
@@ -67,11 +73,16 @@ import { StorageModule } from './storage/storage.module';
   ],
   providers: [
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    // ngoài cùng: bọc handler để biết service đã ghi nhật ký chưa (lưới an toàn, không thay log trong service)
+    { provide: APP_INTERCEPTOR, useClass: ActivityLogInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TransformResponseInterceptor },
-    // Thứ tự quan trọng: giới hạn tốc độ, xác thực, rồi phân quyền
+    // Thứ tự quan trọng: giới hạn tốc độ, xác thực, vai trò, rồi quyền chi tiết
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // Sau JwtAuthGuard và RolesGuard: quyền chi tiết theo role_permissions (@RequirePermission)
+    PermissionsService,
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

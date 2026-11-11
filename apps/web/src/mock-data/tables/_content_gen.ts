@@ -31,7 +31,7 @@ const pageDefs: Array<{ slug: string; title: string; content: string }> = [
         [
           '- Chất lượng: vật liệu chọn lọc, kiểm tra 5 bước.',
           '- Minh bạch: giá niêm yết rõ ràng, đổi trả dễ dàng.',
-          '- Sáng tạo: công nghệ 3D/AR giúp chọn đồ chính xác.',
+          '- Sáng tạo: công nghệ 3D giúp chọn đồ chính xác.',
           '- Tận tâm: đồng hành cùng bạn từ tư vấn đến lắp đặt.',
         ],
       ],
@@ -200,7 +200,7 @@ export const faqTopics = [
   },
   {
     key: '3d-ar',
-    label: 'Sản phẩm 3D/AR',
+    label: 'Sản phẩm 3D',
     items: [
       [
         'Làm sao để xem sản phẩm 3D?',

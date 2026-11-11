@@ -141,7 +141,8 @@ function seed() {
     expenses: clone(expenses),
     contactMessages: clone(contactMessages),
     /** Mã OTP đặt lại mật khẩu theo email (mock: luôn 123456) */
-    otps: {} as Record<string, { code: string; expiresAt: string }>,
+    // token đặt lại mật khẩu (mock thay cho email): token -> email + hạn
+    resetTokens: {} as Record<string, { email: string; expiresAt: string }>,
   };
   recomputeAggregates(db);
   return db;
@@ -170,7 +171,6 @@ export function recomputeAggregates(db: Db) {
       .reduce((s, it) => s + it.quantity, 0);
     const model = db.product3dModels.find((m) => m.productId === p.id && m.isPrimary && m.status === 'ready');
     p.has3dModel = Boolean(model);
-    p.hasAr = Boolean(model) && !['Thảm', 'Gương'].some((k) => p.name.startsWith(k));
   }
   for (const c of db.coupons) c.usedCount = db.couponUsages.filter((u) => u.couponId === c.id).length;
 }

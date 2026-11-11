@@ -1,2 +1,2 @@
-// Tin nhắn liên hệ – TODO: chưa có trong DB
+// Tin nhắn liên hệ
 export { contactMessages } from './_content_gen';

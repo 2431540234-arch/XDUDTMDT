@@ -11,10 +11,10 @@ const rng = makeRng(101);
 /** Thông tin chỉ có ở mock (không có trong bảng users) – xem types/api.ts UserView */
 export interface UserProfileExtra {
   userId: number;
-  gender: 'male' | 'female' | 'other' | null; // TODO: chưa có trong DB
-  birthday: string | null; // TODO: chưa có trong DB
-  loyaltyPoints: number; // TODO: chưa có trong DB
-  adminNote: string | null; // TODO: chưa có trong DB
+  gender: 'male' | 'female' | 'other' | null;
+  birthday: string | null;
+  loyaltyPoints: number;
+  adminNote: string | null;
 }
 
 export const TEST_CUSTOMER_ID = 2;

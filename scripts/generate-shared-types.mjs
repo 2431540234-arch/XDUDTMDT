@@ -31,7 +31,12 @@ for (const m of text.matchAll(/^enum (\w+) \{\n([\s\S]*?)^\}/gm)) {
   const values = m[2]
     .split('\n')
     .map((l) => l.trim())
-    .filter((l) => l && !l.startsWith('@@') && !l.startsWith('//'));
+    .filter((l) => l && !l.startsWith('@@') && !l.startsWith('//'))
+    .map((l) => {
+      // `ident @map("giá-trị-DB")` -> khóa là ident, giá trị là chuỗi trong DB
+      const mm = l.match(/^(\w+)\s+@map\("([^"]+)"\)/);
+      return mm ? { key: mm[1], value: mm[2] } : { key: l, value: l };
+    });
   enums.push({ name: m[1], values });
 }
 const enumNames = new Set(enums.map((e) => e.name));
@@ -50,7 +55,7 @@ for (const m of text.matchAll(/^model (\w+) \{\n([\s\S]*?)^\}/gm)) {
     const [, fname, ftype, mod] = fm;
     if (modelNames.includes(ftype)) continue; // bỏ quan hệ
     if ((SENSITIVE[name] ?? []).includes(fname)) continue;
-    fields.push({ name: fname, type: ftype, optional: mod === '?' });
+    fields.push({ name: fname, type: ftype, optional: mod === '?', list: mod === '[]' });
   }
   models.push({ name, fields });
 }
@@ -72,11 +77,46 @@ const enumsOut =
   enums
     .map(
       (e) =>
-        `export const ${e.name} = {\n${e.values.map((v) => `  ${v}: '${v}',`).join('\n')}\n} as const;\n` +
+        `export const ${e.name} = {\n${e.values.map((v) => `  ${v.key}: '${v.value}',`).join('\n')}\n} as const;\n` +
         `export type ${e.name} = (typeof ${e.name})[keyof typeof ${e.name}];\n`,
     )
     .join('\n');
 
+const BACKEND_EXTRA = new Set([
+  'User.gender',
+  'User.birthday',
+  'User.loyaltyPoints',
+  'User.adminNote',
+  'PasswordReset.otpHash',
+  'PasswordReset.attempts',
+  'PasswordReset.lastSentAt',
+  'Address.label',
+  'Category.description',
+  'Category.isFeatured',
+  'Product.style',
+  'Product.features',
+  'ProductVariant.costPrice',
+  'ProductVariant.minStock',
+  'ProductVariant.reservedQuantity',
+  'ProductVariant.lengthCm',
+  'ProductVariant.widthCm',
+  'ProductVariant.heightCm',
+  'AttributeValue.colorHex',
+  'Review.tags',
+  'Review.isAnonymous',
+  'Coupon.name',
+  'Coupon.description',
+  'Coupon.appliesTo',
+  'Coupon.appliesToLabel',
+  'Cart.couponId',
+  'Order.internalNote',
+  'OrderItem.variantLabel',
+  'OrderItem.imageMediaId',
+  'OrderItem.costPrice',
+  'Page.type',
+  'Space.comboDiscountPercent',
+  'Product360Config.defaultColorId',
+]);
 const usedEnums = new Set();
 const body = models
   .map((mo) => {
@@ -87,7 +127,10 @@ const body = models
         t = f.type;
         usedEnums.add(f.type);
       }
-      return `  ${f.name}: ${t}${f.optional ? ' | null' : ''};`;
+      if (f.list) t = `${t}[]`;
+      // Cột bổ sung của backend (migration add_backend_extras): khai báo tùy chọn để mock-data của FE (chưa có các trường này) vẫn biên dịch
+      const opt = BACKEND_EXTRA.has(`${mo.name}.${f.name}`) ? '?' : '';
+      return `  ${f.name}${opt}: ${t}${f.optional ? ' | null' : ''};`;
     });
     return `export interface ${mo.name} {\n${lines.join('\n')}\n}\n`;
   })

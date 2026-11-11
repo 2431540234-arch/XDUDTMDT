@@ -1,11 +1,11 @@
 'use client';
 
-// Chi tiết không gian mẫu (WIREFRAME 7.6): viewer 360° + hotspot | sản phẩm trong không gian + giá combo
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+// Chi tiết không gian mẫu (WIREFRAME 7.6): viewer 360° + hotspot | sản phẩm trong không gian + tổng giá thật (đặc tả không có giá combo)
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import SpaceCard from '@/components/product/SpaceCard';
 import Breadcrumb from '@/components/ui/Breadcrumb';
 import Button, { LinkButton } from '@/components/ui/Button';
@@ -16,12 +16,14 @@ import { queryKeys } from '@/hooks/useCart';
 import { useSpace } from '@/hooks/useSpaces';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
+import { getVisitorId } from '@/lib/visitor';
 import { roomTypeLabel } from '@/lib/status';
 import { ApiClientError } from '@/services/api-client';
 import { cartApi } from '@/services/cart.api';
 import { spaceApi } from '@/services/space.api';
 import { toast } from '@/store/uiStore';
-import type { PanoramaView } from '@/types/api';
+import type { PlacementOverride } from '@/components/viewer/SpacePanorama';
+import type { PanoramaView, PlacementView } from '@/types/api';
 
 const SpacePanorama = dynamic(() => import('@/components/viewer/SpacePanorama'), {
   ssr: false,
@@ -43,6 +45,17 @@ export default function SpaceDetailPage() {
   const [panoId, setPanoId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Hotspot | null>(null);
   const [checked, setChecked] = useState<number[]>([]);
+  // UC-SPACE-05: món đang chọn trong ảnh và các món "Đổi món" thử (chỉ ở client, KHÔNG lưu)
+  const [placement, setPlacement] = useState<PlacementView | null>(null);
+  const [swapOpen, setSwapOpen] = useState(false);
+  const [swaps, setSwaps] = useState<Record<number, PlacementOverride & { slug: string }>>({});
+  const alternatives = useQuery({
+    queryKey: ['space-alternatives', slug, placement?.id],
+    queryFn: () => spaceApi.alternatives(slug, placement!.id),
+    enabled: Boolean(placement) && swapOpen,
+    staleTime: 60_000,
+  });
+  const search = useSearchParams();
 
   useEffect(() => {
     if (!s) return;
@@ -50,22 +63,62 @@ export default function SpaceDetailPage() {
     setChecked(s.products.map((p) => p.id));
   }, [s?.id]);
 
+  // Lượt xem (UC-SPACE-06): gom số lần bấm hotspot + cờ đã thêm vào giỏ, rồi gửi ĐÚNG MỘT lần khi rời trang
+  // (tab ẩn / pagehide / chuyển trang trong ứng dụng) bằng sendBeacon. ?from=<slug sản phẩm> là sản phẩm dẫn tới.
+  const stats = useRef({ clicks: 0, added: false, sent: false });
+  const from = search.get('from') ?? undefined;
+  useEffect(() => {
+    if (!s) return;
+    stats.current = { clicks: 0, added: false, sent: false };
+    const send = () => {
+      const st = stats.current;
+      if (st.sent) return;
+      st.sent = true;
+      spaceApi.sendViewBeacon(slug, {
+        visitorId: getVisitorId(),
+        sourceProductId: from,
+        hotspotClickCount: st.clicks,
+        addedToCart: st.added,
+      });
+    };
+    const onHide = () => document.visibilityState === 'hidden' && send();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('pagehide', send);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('pagehide', send);
+      send(); // rời trang bằng điều hướng trong ứng dụng (không có pagehide)
+    };
+  }, [s?.id]);
+
   const pano = s?.panoramas.find((p) => p.id === panoId) ?? s?.panoramas[0];
   const chosen = useMemo(() => s?.products.filter((p) => checked.includes(p.id)) ?? [], [s, checked]);
   const original = chosen.reduce((sum, p) => sum + (p.salePrice ?? p.price), 0);
-  const combo = Math.round((original * (100 - (s?.comboDiscountPercent ?? 10))) / 100 / 1000) * 1000;
 
   const addAll = useMutation({
-    mutationFn: async () => {
-      let cart = null;
-      for (const p of chosen) cart = await cartApi.addItem({ variantId: p.defaultVariantId, quantity: 1 });
-      return cart;
-    },
-    onSuccess: (cart) => {
-      if (cart) qc.setQueryData(queryKeys.cart, cart);
+    // MỘT request tới POST /spaces/:slug/add-to-cart (transaction ở BE): có món hết hàng thì KHÔNG món nào được thêm
+    mutationFn: () =>
+      spaceApi.addToCart(
+        slug,
+        chosen.map((p) => p.id),
+      ),
+    onSuccess: ({ cart }) => {
+      qc.setQueryData(queryKeys.cart, cart);
+      stats.current.added = true;
       toast.success(`Đã thêm ${chosen.length} sản phẩm vào giỏ hàng.`);
     },
-    onError: (e) => toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ hàng.'),
+    onError: (e) => {
+      if (e instanceof ApiClientError && e.code === 'CONFLICT') {
+        const list = (e.details?.unavailable as Array<{ name?: string; reason?: string }> | undefined) ?? [];
+        toast.error(
+          list.length
+            ? `Chưa thêm sản phẩm nào vào giỏ. ${list.map((u) => `${u.name ?? 'Sản phẩm'}: ${u.reason ?? 'không thể thêm'}`).join('; ')}`
+            : e.message,
+        );
+        return;
+      }
+      toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ hàng.');
+    },
   });
   const bookmark = useMutation({
     mutationFn: () => (s!.isBookmarked ? spaceApi.unbookmark(s!.slug) : spaceApi.bookmark(s!.slug)),
@@ -100,12 +153,122 @@ export default function SpaceDetailPage() {
   if (!s || !pano) return null;
 
   const onHotspot = (h: Hotspot) => {
+    stats.current.clicks += 1;
     if (h.type === 'navigation' && h.targetPanoramaId) {
       setPanoId(h.targetPanoramaId);
       setSelected(null);
-    } else setSelected(h);
+      setPlacement(null);
+    } else {
+      setSelected(h);
+      setPlacement(null);
+    }
+  };
+  const onPlacement = (p: PlacementView) => {
+    setSelected(null);
+    setSwapOpen(false);
+    setPlacement(p);
   };
   const firstModelProduct = s.products.find((p) => p.has3dModel);
+
+  const swap = placement ? swaps[placement.id] : undefined;
+  const placementPopover = placement && (
+    <div
+      className="absolute bottom-16 left-4 z-30 w-[min(92%,340px)] rounded-card bg-white p-3 shadow-xl"
+      role="dialog"
+      aria-label="Món đặt trong không gian"
+      data-testid="placement-popover"
+    >
+      <button
+        type="button"
+        aria-label="Đóng"
+        onClick={() => {
+          setPlacement(null);
+          setSwapOpen(false);
+        }}
+        className="absolute right-2 top-2 text-muted hover:text-ink"
+      >
+        <Icon name="close" size={16} />
+      </button>
+      <p className="pr-5 text-sm font-bold" data-testid="placement-name">
+        {swap?.name ?? placement.product?.name ?? 'Sản phẩm'}
+      </p>
+      {swap && <p className="text-xs text-primary">Đang xem thử — không được lưu lại</p>}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => setSwapOpen((o) => !o)} aria-expanded={swapOpen}>
+          Đổi món
+        </Button>
+        <LinkButton
+          size="sm"
+          variant="ghost"
+          href={`/products/${swap?.slug ?? placement.product?.slug ?? ''}`}
+        >
+          Xem sản phẩm
+        </LinkButton>
+        {swap && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              setSwaps((m) => {
+                const { [placement.id]: _drop, ...rest } = m;
+                void _drop;
+                return rest;
+              })
+            }
+          >
+            Về món gốc
+          </Button>
+        )}
+      </div>
+      {swapOpen && (
+        <div className="mt-3" data-testid="alternatives">
+          {alternatives.isLoading && <p className="text-xs text-muted">Đang tìm món cùng loại…</p>}
+          {alternatives.isError && (
+            <p role="alert" className="text-xs text-danger">
+              Không tải được danh sách món. Vui lòng thử lại.
+            </p>
+          )}
+          {alternatives.data && alternatives.data.length === 0 && (
+            <p className="text-xs text-muted">Chưa có món cùng loại có mô hình 3D.</p>
+          )}
+          <ul className="flex max-h-44 flex-col gap-1 overflow-y-auto">
+            {alternatives.data?.map((a) => (
+              <li key={a.id}>
+                <button
+                  type="button"
+                  data-testid={`alt-${a.id}`}
+                  onClick={() => {
+                    setSwaps((m) => ({
+                      ...m,
+                      [placement.id]: {
+                        productId: a.id,
+                        name: a.name,
+                        slug: a.slug,
+                        variantId: a.variantId,
+                        model: a.model,
+                      },
+                    }));
+                    setSwapOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md border border-line p-1.5 text-left text-sm hover:border-primary"
+                >
+                  <span className="h-10 w-10 shrink-0 overflow-hidden rounded bg-surface-muted">
+                    {a.thumbnailUrl && (
+                      <img src={a.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="line-clamp-1 font-semibold">{a.name}</span>
+                    <span className="text-xs text-danger">{formatCurrency(a.salePrice ?? a.price)}</span>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
 
   const popover = selected && (
     <div
@@ -148,6 +311,7 @@ export default function SpaceDetailPage() {
                       quantity: 1,
                     });
                     qc.setQueryData(queryKeys.cart, c);
+                    stats.current.added = true;
                     toast.success('Đã thêm vào giỏ hàng.');
                   } catch (e) {
                     toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ.');
@@ -192,7 +356,11 @@ export default function SpaceDetailPage() {
               panorama={pano}
               onSelect={onHotspot}
               selectedId={selected?.id}
-              overlay={popover}
+              overlay={popover || placementPopover}
+              placements={pano.placements}
+              overrides={swaps}
+              selectedPlacementId={placement?.id ?? null}
+              onSelectPlacement={onPlacement}
             />
           </div>
           <div className="mt-3 flex gap-2 overflow-x-auto">
@@ -203,6 +371,7 @@ export default function SpaceDetailPage() {
                 onClick={() => {
                   setPanoId(p.id);
                   setSelected(null);
+                  setPlacement(null);
                 }}
                 aria-current={p.id === pano.id}
                 className={cn(
@@ -293,20 +462,9 @@ export default function SpaceDetailPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-3 border-t border-line pt-3 text-sm">
-              <div className="flex justify-between text-muted">
-                <span>Giá gốc ({chosen.length} sản phẩm)</span>
-                <span className="line-through">{formatCurrency(original)}</span>
-              </div>
-              <div className="mt-1 flex items-baseline justify-between">
-                <span className="font-semibold">
-                  Giá combo{' '}
-                  <span className="text-xs font-normal text-danger">
-                    (-{s.comboDiscountPercent}% khi mua trọn bộ)
-                  </span>
-                </span>
-                <span className="text-xl font-extrabold text-danger">{formatCurrency(combo)}</span>
-              </div>
+            <div className="mt-3 flex items-baseline justify-between border-t border-line pt-3 text-sm">
+              <span className="font-semibold">Tổng cộng ({chosen.length} sản phẩm)</span>
+              <span className="text-xl font-extrabold text-danger">{formatCurrency(original)}</span>
             </div>
             <Button
               block

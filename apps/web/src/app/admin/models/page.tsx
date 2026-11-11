@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
 import DataTable, { type Column } from '@/components/admin/DataTable';
 import FilterBar, { PageHeader } from '@/components/admin/FilterBar';
+import MaterialVariantsModal from '@/components/admin/MaterialVariantsModal';
 import UploadDropzone from '@/components/admin/UploadDropzone';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -23,13 +24,25 @@ import type { Model3DAdminRow } from '@/types/api';
 
 const ModelPreview = dynamic(() => import('@/components/viewer/ModelPreview'), { ssr: false });
 
+/** Xem trước ĐÚNG tệp GLB người dùng đang chọn: dựng URL tạm (blob:) từ File, thu hồi khi đổi tệp/đóng */
+function ChosenFilePreview({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url ? <ModelPreview src={url} alt={`Xem trước ${file.name}`} /> : null;
+}
+
 interface UploadItem {
   id: number;
   name: string;
   sizeMB: number;
-  format: 'glb' | 'usdz';
-  progress: number;
-  file?: File;
+  format: 'glb';
+  file: File;
+  /** % đã tải lên kho (chỉ khi tải thẳng lên MinIO) */
+  progress?: number;
 }
 
 function UploadModal({
@@ -46,7 +59,7 @@ function UploadModal({
   const [productId, setProductId] = useState(defaultProductId ?? '');
   const [scale, setScale] = useState('1');
   const [unit, setUnit] = useState('mm');
-  const [ar, setAr] = useState(true);
+  const [createNew, setCreateNew] = useState(false);
   const [err, setErr] = useState<Record<string, string>>({});
   const seq = useRef(1);
   const products = useQuery({
@@ -58,45 +71,28 @@ function UploadModal({
   useEffect(() => {
     if (open) {
       setFiles([]);
+      setCreateNew(false);
       setErr({});
       setProductId(defaultProductId ?? '');
     }
   }, [open, defaultProductId]);
-  // tiến trình tải lên giả lập
-  useEffect(() => {
-    if (!files.some((f) => f.progress < 100)) return;
-    const t = setInterval(
-      () =>
-        setFiles((fs) =>
-          fs.map((f) =>
-            f.progress < 100
-              ? { ...f, progress: Math.min(100, f.progress + 20 + Math.round(Math.random() * 20)) }
-              : f,
-          ),
-        ),
-      350,
-    );
-    return () => clearInterval(t);
-  }, [files]);
-
   const add = (list: File[]) => {
     const ok: UploadItem[] = [];
     for (const f of list) {
       const ext = f.name.split('.').pop()?.toLowerCase();
-      if (!ext || !['glb', 'gltf', 'usdz'].includes(ext)) {
-        toast.error(`“${f.name}” không đúng định dạng (GLB, GLTF, USDZ).`);
+      if (ext !== 'glb') {
+        toast.error('Hệ thống chỉ hỗ trợ tệp GLB');
         continue;
       }
-      if (f.size > 50 * 1024 * 1024) {
-        toast.error(`“${f.name}” vượt quá 50MB.`);
+      if (f.size > 100 * 1024 * 1024) {
+        toast.error(`“${f.name}” vượt quá 100MB.`);
         continue;
       }
       ok.push({
         id: seq.current++,
         name: f.name,
         sizeMB: Math.max(0.1, Math.round((f.size / 1048576) * 10) / 10),
-        format: ext === 'usdz' ? 'usdz' : 'glb',
-        progress: 0,
+        format: 'glb',
         file: f,
       });
     }
@@ -106,17 +102,18 @@ function UploadModal({
   const save = useMutation({
     mutationFn: async () => {
       for (const f of files)
-        await adminApi.models.upload({
+        await adminApi.models.upload(f.file, {
           productId: Number(productId),
-          fileName: f.name,
-          sizeMB: f.sizeMB,
           format: f.format,
-          allowAr: ar,
           scale: Number(scale) || 1,
+          unit,
+          createNew,
+          onProgress: (percent) =>
+            setFiles((cur) => cur.map((x) => (x.id === f.id ? { ...x, progress: percent } : x))),
         });
     },
     onSuccess: () => {
-      toast.success('Đã tải lên và lưu mô hình 3D.');
+      toast.success('Đã nhận tệp. Mô hình 3D đang được xử lý nền, trạng thái sẽ tự cập nhật.');
       qc.invalidateQueries({ queryKey: ['admin', 'models'] });
       qc.invalidateQueries({ queryKey: ['admin', 'products'] });
       onClose();
@@ -127,7 +124,6 @@ function UploadModal({
     const x: Record<string, string> = {};
     if (!productId) x.productId = 'Vui lòng chọn sản phẩm liên kết.';
     if (!files.length) x.file = 'Vui lòng chọn ít nhất một tệp mô hình.';
-    else if (files.some((f) => f.progress < 100)) x.file = 'Vui lòng chờ tải lên hoàn tất.';
     setErr(x);
     if (!Object.keys(x).length) save.mutate();
   };
@@ -144,7 +140,7 @@ function UploadModal({
             Hủy
           </Button>
           <Button loading={save.isPending} onClick={submit}>
-            Tải lên & lưu
+            Tải lên
           </Button>
         </>
       }
@@ -153,10 +149,10 @@ function UploadModal({
         <div className="space-y-4">
           <UploadDropzone
             label="Tệp mô hình"
-            accept=".glb,.gltf,.usdz"
-            maxMB={50}
+            accept=".glb"
+            maxMB={100}
             multiple
-            hint="Kéo thả hoặc click để chọn – GLB, GLTF, USDZ (tối đa 50MB)"
+            hint="Kéo thả hoặc click để chọn – chỉ GLB (tối đa 100MB)"
             onFiles={add}
             onError={toast.error}
           />
@@ -172,37 +168,17 @@ function UploadModal({
                   <span className="min-w-0 truncate font-medium">{f.name}</span>
                   <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
                     {f.sizeMB} MB
-                    {f.progress >= 100 ? (
-                      <span className="flex items-center gap-1 text-emerald-600">
-                        <Icon name="check" size={14} /> Hoàn tất
-                      </span>
-                    ) : (
-                      `${f.progress}%`
-                    )}
+                    {f.progress !== undefined && <span data-testid="upload-progress">{f.progress}%</span>}
                     <button
                       type="button"
                       aria-label="Bỏ tệp"
                       onClick={() => setFiles(files.filter((x) => x.id !== f.id))}
                       className="text-muted hover:text-danger"
                     >
-                      <Icon name={f.progress >= 100 ? 'trash' : 'close'} size={14} />
+                      <Icon name="close" size={14} />
                     </button>
                   </span>
                 </div>
-                {f.progress < 100 && (
-                  <div
-                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-line"
-                    role="progressbar"
-                    aria-valuenow={f.progress}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                  >
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${f.progress}%` }}
-                    />
-                  </div>
-                )}
               </li>
             ))}
           </ul>
@@ -220,15 +196,17 @@ function UploadModal({
           <div>
             <p className="mb-1.5 text-sm font-medium">Xem trước 360°</p>
             <div className="h-44 overflow-hidden rounded-btn border border-line bg-surface-muted/50">
-              {files.some((f) => f.format === 'glb') ? (
-                <ModelPreview src="/mock/models/sofa.glb" alt="Xem trước mô hình" />
+              {files.find((f) => f.format === 'glb') ? (
+                <ChosenFilePreview file={files.find((f) => f.format === 'glb')!.file} />
               ) : (
                 <div className="flex h-full items-center justify-center text-xs text-muted">
                   Chọn tệp GLB để xem trước
                 </div>
               )}
             </div>
-            <p className="mt-1 text-xs text-muted">Bản xem trước mô phỏng (mô hình mẫu).</p>
+            <p className="mt-1 text-xs text-muted">
+              Xem trước trực tiếp từ tệp GLB đang chọn (tệp đầu tiên).
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Input
@@ -251,12 +229,11 @@ function UploadModal({
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
-              role="switch"
-              checked={ar}
-              onChange={(e) => setAr(e.target.checked)}
+              checked={createNew}
+              onChange={(e) => setCreateNew(e.target.checked)}
               className="h-4 w-4 accent-primary"
             />{' '}
-            Cho phép xem AR
+            Tạo mô hình mới (không thay thế mô hình chính hiện có)
           </label>
         </div>
       </div>
@@ -277,6 +254,7 @@ function Content() {
   const q = useDebounced(st.q);
   const [upload, setUpload] = useState(false);
   const [preview, setPreview] = useState<Model3DAdminRow | null>(null);
+  const [materials, setMaterials] = useState<Model3DAdminRow | null>(null);
   const [del, setDel] = useState<Model3DAdminRow | null>(null);
   const products = useQuery({
     queryKey: ['admin', 'products', 'pick'],
@@ -293,13 +271,36 @@ function Content() {
         productId: st.productId,
         format: st.format,
       }),
+    // còn mô hình đang xử lý nền ⇒ tự cập nhật trạng thái mỗi 2 giây (UC-ADM-13)
+    refetchInterval: (query) =>
+      query.state.data?.items.some((r) => r.status === 'processing' || r.status === 'uploading')
+        ? 2000
+        : false,
   });
   const remove = useMutation({
-    mutationFn: (id: number) => adminApi.models.remove(id),
+    mutationFn: (r: Model3DAdminRow) =>
+      r.fileId === null ? adminApi.models.removeModel(r.modelId) : adminApi.models.remove(r.fileId),
     onSuccess: () => {
       toast.success('Đã xóa tệp mô hình.');
       setDel(null);
       qc.invalidateQueries({ queryKey: ['admin', 'models'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const reprocess = useMutation({
+    mutationFn: (modelId: number) => adminApi.models.reprocess(modelId),
+    onSuccess: () => {
+      toast.success('Đã đưa mô hình vào hàng đợi xử lý lại.');
+      qc.invalidateQueries({ queryKey: ['admin', 'models'] });
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const makePrimary = useMutation({
+    mutationFn: (modelId: number) => adminApi.models.setPrimary(modelId),
+    onSuccess: () => {
+      toast.success('Đã đặt làm mô hình chính của sản phẩm.');
+      qc.invalidateQueries({ queryKey: ['admin', 'models'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'products'] });
     },
     onError: (e) => toast.error(errorMessage(e)),
   });
@@ -319,7 +320,12 @@ function Content() {
       key: 'name',
       header: 'Tên mô hình',
       sortKey: 'fileName',
-      render: (r) => <code className="text-xs font-semibold">{r.fileName}</code>,
+      render: (r) => (
+        <span>
+          <code className="text-xs font-semibold">{r.fileName}</code>
+          {r.lod && <span className="ml-1.5 text-xs text-muted">LOD {r.lod}</span>}
+        </span>
+      ),
     },
     { key: 'product', header: 'Sản phẩm', render: (r) => r.productName },
     {
@@ -331,7 +337,44 @@ function Content() {
     },
     { key: 'size', header: 'Kích thước', sortKey: 'sizeMB', render: (r) => `${r.sizeMB} MB` },
     { key: 'date', header: 'Ngày tải lên', sortKey: 'uploadedAt', render: (r) => formatDate(r.uploadedAt) },
-    { key: 'status', header: 'Trạng thái', render: (r) => <StatusBadge info={modelStatusInfo[r.status]} /> },
+    {
+      key: 'status',
+      header: 'Trạng thái',
+      render: (r) => (
+        <div data-testid="model-status" data-status={r.status} className="space-y-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <StatusBadge info={modelStatusInfo[r.status]} />
+            {r.isPrimary && <StatusBadge label="Mô hình chính" tone="blue" />}
+          </div>
+          {r.status === 'processing' && <p className="text-xs text-muted">Đang xử lý nền…</p>}
+          {r.status === 'failed' && (
+            <>
+              <p className="max-w-xs text-xs text-danger" role="note">
+                {r.failureReason ?? 'Xử lý mô hình thất bại.'}
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                loading={reprocess.isPending && reprocess.variables === r.modelId}
+                onClick={() => reprocess.mutate(r.modelId)}
+              >
+                Xử lý lại
+              </Button>
+            </>
+          )}
+          {r.status === 'ready' && !r.isPrimary && (
+            <Button
+              size="sm"
+              variant="ghost"
+              loading={makePrimary.isPending && makePrimary.variables === r.modelId}
+              onClick={() => makePrimary.mutate(r.modelId)}
+            >
+              Đặt làm mô hình chính
+            </Button>
+          )}
+        </div>
+      ),
+    },
   ];
   return (
     <div>
@@ -351,10 +394,7 @@ function Content() {
             placeholder: 'Tất cả loại tệp',
             value: st.format,
             onChange: (v) => patch({ format: v }),
-            options: [
-              { value: 'glb', label: 'GLB' },
-              { value: 'usdz', label: 'USDZ' },
-            ],
+            options: [{ value: 'glb', label: 'GLB' }],
           },
         ]}
         actions={
@@ -380,9 +420,11 @@ function Content() {
         unit="mô hình"
         actions={[
           { label: 'Xem trước 3D', hidden: (r) => !r.glbUrl || r.format !== 'glb', onClick: setPreview },
+          { label: 'Vật liệu theo biến thể', hidden: (r) => r.status !== 'ready', onClick: setMaterials },
           { label: 'Xóa', danger: true, onClick: setDel },
         ]}
       />
+      <MaterialVariantsModal model={materials} onClose={() => setMaterials(null)} />
       <UploadModal open={upload} onClose={() => setUpload(false)} defaultProductId={st.productId} />
       <Modal open={Boolean(preview)} onClose={() => setPreview(null)} title={preview?.fileName} width={640}>
         <div className="h-80 overflow-hidden rounded-btn bg-surface-muted">
@@ -399,14 +441,17 @@ function Content() {
             <Button variant="ghost" onClick={() => setDel(null)}>
               Hủy
             </Button>
-            <Button variant="danger" loading={remove.isPending} onClick={() => del && remove.mutate(del.id)}>
+            <Button variant="danger" loading={remove.isPending} onClick={() => del && remove.mutate(del)}>
               Xóa
             </Button>
           </>
         }
       >
         <p className="text-sm">
-          Xóa tệp <b>{del?.fileName}</b>? Nếu là tệp cuối cùng, sản phẩm sẽ không còn mô hình 3D/AR.
+          Xóa <b>{del?.fileName}</b>?{' '}
+          {del?.fileId === null
+            ? 'Mô hình này chưa có tệp nào.'
+            : 'Nếu là tệp cuối cùng, sản phẩm sẽ không còn mô hình 3D.'}
         </p>
       </Modal>
     </div>

@@ -175,11 +175,11 @@ export default function HomePage() {
         <section className="overflow-hidden rounded-2xl bg-surface-muted">
           <div className="grid items-center gap-6 md:grid-cols-2">
             <div className="p-8 sm:p-12">
-              <p className="text-xs font-semibold tracking-[0.25em] text-primary">CÔNG NGHỆ 3D · AR</p>
+              <p className="text-xs font-semibold tracking-[0.25em] text-primary">CÔNG NGHỆ 3D</p>
               <h2 className="mt-2 text-2xl font-extrabold uppercase sm:text-3xl">Trải nghiệm sản phẩm 3D</h2>
               <p className="mt-3 max-w-md text-sm text-muted">
-                Xoay, phóng to và quan sát sản phẩm từ mọi góc 360° ngay trên website, đặt thử vào căn phòng
-                của bạn bằng AR trước khi quyết định mua.
+                Xoay, phóng to và quan sát sản phẩm từ mọi góc 360° ngay trên website trước khi quyết định
+                mua.
               </p>
               <LinkButton href="/products?has3d=true" size="lg" className="mt-5">
                 TRẢI NGHIỆM NGAY <Icon name="arrowRight" size={16} />

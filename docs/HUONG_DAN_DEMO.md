@@ -1,0 +1,88 @@
+> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+
+# Hướng dẫn demo Aurelia Living (web)
+
+Dành cho người trình bày. Chạy bằng **API thật + DB `aurelia_demo`** (đã nạp dữ liệu mẫu). Không dùng `aurelia_dev` (dữ liệu của bạn) và không chạy seed/reset trên đó.
+
+## 1. Khởi động
+
+Yêu cầu: Node ≥ 22, Docker Desktop, đã chạy `npm install` ở thư mục gốc.
+
+| Bước | Lệnh (thư mục gốc dự án) | Kết quả |
+|---|---|---|
+| 1. Hạ tầng | `npm run docker:up` | Postgres (cổng host **55432**), Redis (**6380**), Mailpit (UI **http://localhost:8025**) và **MinIO** (S3 **http://localhost:9000**, console **http://localhost:9011**, đăng nhập `aurelia` / `aurelia123`, 2 bucket `aurelia-public`, `aurelia-private`). Không tạo lại container đang chạy |
+| 2. (Chỉ khi cần dữ liệu sạch) | `node scripts/db-reset.mjs aurelia_demo` | Xóa và nạp lại **chỉ** `aurelia_demo` từ dữ liệu mẫu. Lệnh từ chối mọi DB khác |
+| 3. API + Web | `npm run demo` | API cổng **4000** (Swagger http://localhost:4000/docs) và web cổng **3000** (admin: http://localhost:3000/admin/login), tệp lưu ở **MinIO**. Chỉ API: `npm run demo:api`. **Dự phòng khi MinIO trục trặc: `npm run demo:local`** (tệp lưu trên đĩa, không cần MinIO). Dừng: Ctrl+C |
+
+`npm run demo` tự đặt `DATABASE_URL` = `aurelia_demo`, `STORAGE_DRIVER=minio` (hoặc `local` với `demo:local`), `STORAGE_PUBLIC_URL`, `PAYMENT_SANDBOX_FAKE=true` và `NEXT_PUBLIC_USE_MOCK=false` chỉ cho hai tiến trình này; **không sửa `.env`** (khóa JWT… vẫn lấy từ `.env`) và không bao giờ dùng `aurelia_dev`. Nếu chưa bật MinIO, lệnh dừng ngay và chỉ cách bật hoặc chuyển sang `demo:local`.
+
+**Kiểm tra MinIO:** `curl http://localhost:9000/minio/health/live` trả 200; mở console http://localhost:9011 thấy 2 bucket; `docker ps` có `xdudtmdt-minio-1` (healthy). Cổng console là **9011** (9001 hay bị chương trình khác chiếm). **Sau khi `db-reset aurelia_demo`** chạy thêm `npm run minio:sync` để chép tệp mẫu lên MinIO (giữ nguyên khóa, không xóa gì; chạy lại an toàn).
+
+Kiểm tra nhanh: mở http://localhost:3000 thấy trang chủ có banner và sản phẩm; http://localhost:4000/docs mở được Swagger.
+
+Lưu ý:
+- Ảnh demo nằm ở MinIO và vẫn còn bản ở thư mục `apps/api/uploads` (dùng cho `demo:local` và để chép lại bằng `npm run minio:sync`); **đừng xóa** thư mục này.
+- Email (xác thực, đặt lại mật khẩu) xem ở Mailpit http://localhost:8025.
+- Khi đăng ký/đặt lại/đổi mật khẩu, mật khẩu mới phải ≥ 8 ký tự có chữ hoa, chữ thường, chữ số và nhập lại khớp (đăng nhập không áp quy tắc này nên tài khoản demo cũ vẫn vào được). **Thanh toán** có trang riêng `/admin/payments` (lọc, xác nhận chuyển khoản, đánh dấu thất bại).
+- Mỗi lần thao tác thử làm thay đổi dữ liệu demo (đơn, giỏ…). Muốn trở về trạng thái ban đầu: dừng API rồi chạy bước 2.
+
+## 2. Tài khoản
+
+| Vai trò | Email | Mật khẩu | Ghi chú |
+|---|---|---|---|
+| Khách | `khachhang@aurelia.vn` | `123456` | Đã xác thực email; có sẵn giỏ, đơn ở nhiều trạng thái, mã đã lưu, thông báo |
+| Quản trị | `admin@aurelia.vn` | `admin123` | Đăng nhập tại `/admin/login` |
+
+Mã giảm giá để thử: `WELCOME10` (10%, đơn từ 500.000đ), `GIAM200K` (giảm 200.000đ, đơn từ 2.000.000đ), `FREESHIP` (miễn phí ship, đơn từ 1.000.000đ), `NOITHAT20` (20%, đơn từ 5.000.000đ).
+
+Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có xem 360°, ví dụ `sofa-nordic`, `sofa-luxury`, `sofa-goc-hien-dai`, `ghe-thu-gian`), 21 không gian mẫu 360° có điểm tương tác (ví dụ `phong-lam-viec-toi-gian`, `phong-khach-hien-dai`), 15 mã giảm giá, 83 đơn ở đủ trạng thái (chờ xác nhận, đang xử lý, đang giao, hoàn tất, hủy, hoàn tiền), yêu cầu đổi trả ở nhiều trạng thái, 16 phiếu kho, 59 phiếu chi, 7 banner.
+
+## 3. Kịch bản: phía khách (đăng nhập khách, khoảng 8–10 phút)
+
+1. **Duyệt**: trang chủ (banner, danh mục, sản phẩm nổi bật) → *Sản phẩm*: lọc theo danh mục, khoảng giá, sắp xếp, tìm kiếm có dấu/không dấu.
+2. **Xem 360° sản phẩm**: mở `/products/sofa-nordic` → bấm nút **"360°"** (trên ảnh lớn hoặc ô "360°" ở hàng ảnh nhỏ). Ở trang 360°: kéo chuột / phím ← → để xoay, cuộn để phóng to, bấm "Tự xoay"; đổi **màu** và **kích thước** (xoay giữ nguyên góc, URL đổi theo biến thể); thử biến thể hết hàng (Sofa Nordic màu Xám + 4 chỗ); tab "Chính sách" và "Thông số". Nút Back quay về trang chi tiết đúng biến thể.
+3. **Xem không gian 360°**: *Không gian mẫu* → mở `phong-lam-viec-toi-gian`. Kéo để xoay ảnh 360°; bấm **hotspot sản phẩm** (thẻ giá, nút "Thêm" vào giỏ / "Xem" chi tiết); bấm hotspot **thông tin**; xoay tới hotspot **điều hướng** để đổi sang góc khác (hoặc bấm ảnh thu nhỏ). Cột bên phải liệt kê sản phẩm trong không gian: tick chọn từng món, hiển thị **tổng giá thật**, bấm **"Thêm cả bộ vào giỏ hàng"**. Bấm **"Lưu không gian"** (bookmark) và "Chia sẻ".
+4. **Giỏ hàng**: đổi số lượng, xóa món, nhập **mã giảm giá** (`GIAM200K`) → xem giảm giá và phí vận chuyển theo địa chỉ.
+5. **Đặt hàng COD**: *Thanh toán* → chọn địa chỉ → "Thanh toán khi nhận hàng" → đặt → trang thành công → *Tài khoản → Đơn hàng* thấy đơn "Chờ xác nhận".
+6. **Thanh toán giả lập**: đặt thêm một đơn, chọn **VNPAY / thẻ / ví**. Hệ thống giả lập luôn **thành công** (đơn chuyển "Đã xác nhận", đã thanh toán). Muốn trình bày thất bại: ghi chú đơn có chữ `[fail]` → trang "Thanh toán thất bại" → bấm **Thanh toán lại** (thành công). Khách không tự chọn được kết quả.
+7. **Đánh giá**: *Đơn hàng* → mở một đơn **đã hoàn tất** (ví dụ `ALV-20261028-0001`) → *Đánh giá* sản phẩm (sao, nội dung, ảnh). Đánh giá chờ admin duyệt (xem mục 4.5). Với đơn vừa tạo: nhờ admin chuyển đơn tới "Hoàn tất" rồi đánh giá.
+8. (Tùy chọn) **Hỏi đáp sản phẩm**, **yêu thích**, **yêu cầu đổi trả** ở đơn đã hoàn tất, **quên mật khẩu** (email ở Mailpit).
+
+## 4. Kịch bản: phía quản trị (đăng nhập admin)
+
+1. **Tổng quan** (`/admin`): doanh thu, đơn, biểu đồ theo ngày, sản phẩm bán chạy, hoạt động gần đây.
+2. **Duyệt đơn và vận chuyển** (`/admin/orders`): tab "Chờ xác nhận" → mở đơn → *Xác nhận đơn hàng → Chuyển sang "Đang xử lý"*. Nút "Chuyển sang Đang giao" bị khóa cho tới khi **tạo vận đơn** (khối "Vận đơn" bên phải: chọn đơn vị, mã vận đơn, phí → *Tạo vận đơn*). Rồi: *Chuyển sang "Đang giao"* → ở vận đơn bấm *Đã lấy hàng → Đang vận chuyển → Đánh dấu đã giao*: đơn **tự hoàn tất** (COD tự đã thanh toán, tăng số đã bán, khách nhận thông báo). Không còn nút "Hoàn tất" thủ công. *Giao thất bại / Hoàn hàng*: đơn giữ "Đang giao", tạo vận đơn mới để giao lại. Có thể hủy đơn khi chưa giao.
+3. **Kho** (`/admin/inventory`): KPI tồn, lọc "Sắp hết/Hết hàng"; **Tạo phiếu nhập** (nhà cung cấp, sản phẩm, số lượng, giá vốn) → *Lưu nháp* (chưa đổi tồn) rồi **Xác nhận** trong bảng phiếu ⇒ tồn tăng, ghi dòng trong "Lịch sử biến động tồn kho" và sinh phiếu chi giá vốn; **Tạo phiếu xuất** (xuất quá tồn bị từ chối); hủy phiếu nháp. **Điều chỉnh tồn trực tiếp:** ở mỗi dòng biến thể bấm "⋯" → **Điều chỉnh tồn**, nhập số lượng thay đổi (dương để tăng, âm để giảm) và **lý do** (bắt buộc); hộp thoại hiện "Tồn sau điều chỉnh"; giảm quá số đang tồn bị từ chối; thành công ⇒ ghi dòng loại "Điều chỉnh" trong lịch sử biến động.
+4. **Thu chi** (`/admin/reports`): chọn khoảng ngày; xem doanh thu, chi phí, lợi nhuận, biểu đồ, cơ cấu chi, sổ thu chi, công nợ phải trả (phiếu nhập nháp). **Thêm phiếu chi** (marketing, vận chuyển…) → số liệu và sổ cập nhật. Quy ước: doanh thu = đơn đã giao thành công theo ngày giao; giá vốn = phiếu nhập; hoàn tiền tự sinh phiếu chi (chi tiết trong `docs/CHUAN_MO_RONG.md`).
+5. **Đánh giá** (`/admin/reviews`): duyệt/ẩn đánh giá vừa tạo ở bước 3.7. **Hỏi đáp** (`/admin/questions`): trả lời câu hỏi.
+6. **Đổi trả** (`/admin/returns`): mở yêu cầu "Chờ duyệt" → duyệt → lấy hàng → kiểm tra → hoàn tiền/đổi hàng (tồn kho và phiếu chi tự cập nhật; đổi hàng thiếu hàng sẽ báo lỗi).
+7. **Banner & nội dung** (`/admin/content`): thêm/sửa banner trang chủ, bài viết, trang tĩnh (soạn bằng Markdown). Tab **Trang tĩnh**: nút **Tạo trang** (tiêu đề, slug tự sinh nếu để trống, loại, nội dung, trạng thái; slug trùng báo lỗi ngay dưới ô), **Sửa nội dung**, và biểu tượng thùng rác **Xóa trang** (hộp thoại xác nhận). Trang hệ thống (Về chúng tôi, chính sách, điều khoản) không có nút xóa. Trang mới đã xuất bản hiển thị tại `/policies/<slug>`.
+8. **Không gian mẫu** (`/admin/spaces`): *Thêm không gian mẫu* — 5 tab: thông tin, **ảnh 360°** (tải ảnh tỉ lệ 2:1), **điểm tương tác** (bấm lên ảnh để đặt hotspot: sản phẩm / điều hướng / thông tin), sản phẩm gợi ý, hiển thị → lưu → mở trang khách để xem. Ô **slug** chỉ đổi khi bạn sửa trực tiếp.
+9. **Sản phẩm** (`/admin/products`): sửa sản phẩm → tab **Ảnh 360°** (bật 360°, tải nhiều frame theo màu, đổi thứ tự, xem trước xoay, tối đa 2 MB/ảnh); tab **Biến thể** chọn màu/kích thước từ danh sách thuộc tính; ô **Thương hiệu** lấy từ trang Thương hiệu.
+10. **Danh mục, Thương hiệu, Thuộc tính, Thư viện media**: `/admin/categories`; `/admin/brands` (thêm/sửa/tắt, slug trùng báo lỗi, xóa có cảnh báo số sản phẩm bị gỡ thương hiệu); `/admin/attributes` (Màu sắc/Kích thước/Chất liệu và giá trị; giá trị đang được biến thể dùng không xóa được); `/admin/media` (tải ảnh ≤ 5 MB, sửa mô tả, xóa tệp chưa dùng).
+10b. **Khuyến mãi** (`/admin/promotions`), **Khách hàng** (`/admin/customers`).
+10c. **Mô hình 3D – xử lý nền** (`/admin/models`): bấm *Tải lên mô hình*, chọn sản phẩm và một tệp GLB (chỉ nhận GLB; USDZ bị từ chối "Hệ thống chỉ hỗ trợ tệp GLB"; có thể dùng `apps/api/test/fixtures/sphere.glb`) → *Tải lên*. Tệp được nhận ngay (thông báo "đang được xử lý nền") và dòng mô hình hiện **Đang xử lý nền…**; trang tự cập nhật (không cần tải lại) sang **Sẵn sàng** với 3 dòng LOD *high / medium / low*. Mở `/products/<slug>/3d` để xem: máy tính dùng LOD medium, điện thoại (thu hẹp cửa sổ < 768 px rồi tải lại) dùng LOD low. Thử thêm: tải `apps/api/test/fixtures/broken.glb` → trạng thái **Lỗi** kèm lý do và nút **Xử lý lại**; tải lên mô hình thứ hai cho cùng sản phẩm (tick *Tạo mô hình mới*) rồi bấm **Đặt làm mô hình chính**. Cần Redis (`npm run docker:up`). Giới hạn 100 MB; mỗi LOD phải ≤ 5 MB, vượt thì báo lỗi và gửi thông báo cho admin.
+10d. **Mở rộng nhẹ:** *Nhật ký hoạt động* (`/admin/activity-logs`): lọc theo quản trị viên/hành động/ngày, dòng "Tự động" là dòng do hệ thống ghi bù. *Vai trò & quyền* (`/admin/roles`, chỉ xem) và mục **Vai trò** ở chi tiết khách hàng: gán/gỡ admin (không tự gỡ của mình, không gỡ admin cuối cùng). *Gửi thông báo* (`/admin/notifications`): gửi cho một khách hoặc tất cả, khách thấy ở chuông/`/account/notifications`. Phía khách: *Phiên đăng nhập* (`/account/sessions`, đăng xuất thiết bị khác) và *Xóa tài khoản* ở cuối trang hồ sơ (cần mật khẩu; còn đơn đang xử lý thì không xóa được).
+10e. **Trình bày "đăng xuất thiết bị khác" (UC-ACC-03):** mở hai trình duyệt (hoặc một cửa sổ thường và một cửa sổ ẩn danh) và đăng nhập cùng một tài khoản khách. Ở trình duyệt A mở `/account/sessions`: thấy 2 dòng, dòng của A có nhãn **Thiết bị này**. Bấm **Đăng xuất thiết bị** ở dòng còn lại (B), rồi ở trình duyệt B thao tác bất kỳ (tải lại trang, mở giỏ hàng): B **bị đăng xuất ngay** vì access token của phiên đã bị thu hồi bị từ chối (401), không phải đợi hết hạn. Cách này đúng cả khi demo vì `npm run demo` dùng access token **15 phút** như production. Tương tự, gỡ vai trò admin của một người (mục Vai trò ở chi tiết khách hàng) làm request admin kế tiếp của họ bị 403 ngay.
+10f. **Đổi chất liệu trên mô hình 3D (UC-ADM-14, UC-3D-03):** (1) Vào `/admin/models`, dòng của *Sofa Nordic* ⇒ **Thao tác** ⇒ **Vật liệu theo biến thể**: mỗi biến thể có vật liệu (chọn từ tên có trong GLB) và màu, bấm **Lưu** sau khi đổi. (2) Mở `/products/sofa-nordic/3d`, bấm lần lượt các màu (Be, Kem, Xám): mô hình đổi màu ngay, không tải lại, Network không có yêu cầu mới.
+10g. **Mô hình 3D trong phòng 360° (UC-ADM-17, UC-SPACE-04/05):** (1) Khách: mở `/spaces/phong-khach-hien-dai` (3 không gian đầu đã đặt sẵn đồ 3D): ảnh 360° hiện trước, vài giây sau mô hình hiện đúng chỗ (có chữ "Đang tải mô hình 3D…" khi đang tải). Bấm ghim hình khối trên một món ⇒ **Đổi món** ⇒ chọn món cùng loại: mô hình đổi tại chỗ, có nhãn "Đang xem thử"; tải lại trang thì về món gốc (không lưu). (2) Admin: `/admin/spaces/<id>` ⇒ tab **Đặt sản phẩm 3D** ⇒ **Đặt sản phẩm 3D** ⇒ chọn sản phẩm ⇒ **Thêm vào ảnh**, kéo ghim hoặc chỉnh số/thanh trượt, xem trước ngay, **Lưu vị trí**. Không gian khác (vd. `/spaces/phong-an-co-dien`) chưa đặt gì nên xem như bình thường.
+10h. **Phễu không gian mẫu (UC-ADM-29):** đăng nhập admin ⇒ menu **Hiệu quả không gian** (`/admin/reports/spaces`): mặc định 30 ngày gần nhất đã có số (≈ 350 lượt xem demo). Đọc biểu đồ theo từng không gian: *Người xem → Bấm hotspot → Thêm vào giỏ* (tỉ lệ trong ngoặc), bảng bên dưới có thêm "Dẫn tới từ" (sản phẩm nguồn: lượt xem mở bằng đường dẫn có `?from=<slug sản phẩm>`, vd. `/spaces/phong-khach-hien-dai?from=sofa-nordic`; hiện chưa có liên kết nào trong giao diện tự gắn tham số này). Để thấy số tăng: mở một không gian ở cửa sổ khách, bấm vài hotspot, thêm vào giỏ rồi rời trang (lượt xem được gửi khi rời trang), quay lại trang này và tải lại. Người đã đăng nhập và khách chung trình duyệt chỉ tính một người.
+11. **Cài đặt** (`/admin/settings`): thông tin cửa hàng (tên, email, hotline… kiểm tra dữ liệu), **thanh toán** (bật/tắt phương thức — phương thức tắt bị ẩn ở trang thanh toán và bị từ chối khi đặt), **vận chuyển** (phí theo vùng). Thay đổi có hiệu lực ngay ở phía khách.
+
+## 5. Chưa làm (nói rõ khi trình bày)
+
+- **Đăng nhập Google: ĐÃ HOÃN.** Nút "Đăng nhập/Đăng ký với Google" **ẩn** mặc định (chỉ hiện khi đặt `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED=true`, và API vẫn trả 503 vì chưa làm OAuth). Không bấm/nhắc nút này khi demo.
+- **AR (xem sản phẩm trong phòng thật) đã bị LOẠI BỎ hoàn toàn** (D-P16; 6 use case AR, UC-ADM-29 còn phần phễu không gian). Trang mới `/account/saved-spaces` (Không gian đã lưu) và chi tiết đơn admin có ô mã giao dịch / nút "Đánh dấu thất bại" / hủy đơn khi hàng hoàn về. Web chỉ có trình xem 3D và xem 360°; hệ thống chỉ hỗ trợ tệp mô hình GLB.
+- **Ứng dụng Android** (`apps/mobile`): tạm hoãn (D-P09).
+- **VNPAY thật**: đã làm URL có chữ ký, Return URL, IPN, thanh toán lại và đã kiểm bằng khóa giả; chưa có khóa sandbox nên demo dùng chế độ **giả lập**. MoMo/ZaloPay chỉ giả lập.
+- Giá combo của không gian không áp dụng (đặc tả không có); `loyalty_points`, `carts.coupon_id` giữ nguyên cột theo chuẩn DB nhưng chưa có chức năng điểm tích lũy.
+
+## 6. Xử lý sự cố nhanh
+
+| Hiện tượng | Cách xử lý |
+|---|---|
+| Thanh toán online báo "Cổng thanh toán chưa được cấu hình" | API không chạy bằng `npm run demo` (thiếu `PAYMENT_SANDBOX_FAKE=true`) |
+| Ảnh sản phẩm/không gian bị vỡ | Chưa chép tệp lên MinIO (chạy `npm run minio:sync`), MinIO chưa bật (`npm run docker:up`), hoặc thiếu `apps/api/uploads`. Cần chạy ngay không MinIO: `npm run demo:local` |
+| Web báo lỗi mạng | API chưa chạy ở cổng 4000 hoặc `NEXT_PUBLIC_API_URL` sai |
+| Đăng nhập báo hết phiên | Phiên tự làm mới; nếu vẫn lỗi, đăng nhập lại |
+| Dữ liệu demo đã bị sửa nhiều | Dừng API, chạy `node scripts/db-reset.mjs aurelia_demo`, chạy lại API |

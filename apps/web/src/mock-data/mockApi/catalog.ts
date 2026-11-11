@@ -75,7 +75,6 @@ export function filterProducts(ctx: Ctx, q: Query, opts: { ignoreCategory?: bool
   const min = qNum(q, 'minPrice', -1);
   const max = qNum(q, 'maxPrice', -1);
   const has3d = qBool(q, 'has3d');
-  const hasAr = qBool(q, 'hasAr');
   const featured = qBool(q, 'featured');
   const brand = qStr(q, 'brand');
   const scored: Array<{ p: Product; score: number }> = [];
@@ -85,7 +84,6 @@ export function filterProducts(ctx: Ctx, q: Query, opts: { ignoreCategory?: bool
     if (!opts.ignoreCategory && catIds.size && !(p.categoryId && catIds.has(p.categoryId))) continue;
     if (brand && String(p.brandId) !== brand) continue;
     if (has3d !== undefined && p.has3dModel !== has3d) continue;
-    if (hasAr !== undefined && p.hasAr !== hasAr) continue;
     if (featured !== undefined && p.isFeatured !== featured) continue;
     const li = productListItem(db, p);
     const price = li.salePrice ?? li.price;
@@ -415,8 +413,15 @@ export function spaceFacets(ctx: Ctx): Result {
 export function spaceBySlug(ctx: Ctx): Result {
   const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug && x.status === 'published');
   if (!s) throw notFound('Không gian mẫu');
-  s.viewCount += 1;
   return ok(spaceDetail(ctx.db, s, ctx.user?.id));
+}
+
+/** Ghi lượt xem (BE thật chèn space_views, trigger tăng view_count) */
+export function recordSpaceView(ctx: Ctx): Result {
+  const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug && x.status === 'published');
+  if (!s) throw notFound('Không gian mẫu');
+  s.viewCount += 1;
+  return done();
 }
 
 export function bookmarkSpace(ctx: Ctx): Result {

@@ -3,7 +3,7 @@ import type { Coupon } from '@aurelia-living/shared-types';
 import { categories } from './categories';
 
 export interface CouponExtra {
-  // TODO: chưa có trong DB (name, mô tả, phạm vi, loại freeship)
+  // cột mở rộng (đã có trong DB): name, mô tả, phạm vi, loại freeship
   couponId: number;
   name: string;
   description: string;
