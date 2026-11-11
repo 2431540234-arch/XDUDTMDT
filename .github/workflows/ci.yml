@@ -83,5 +83,16 @@ jobs:
           JWT_REFRESH_SECRET: ci-only-refresh-secret-0123456789
           REDIS_HOST: 127.0.0.1
           S3_ENDPOINT: http://127.0.0.1:9000
+      # Giữ bằng chứng khi E2E đỏ (trace, ảnh chụp, log response >= 400 của API) vì runner bị xóa sau khi job kết thúc
+      - name: Lưu log và trace E2E khi lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-evidence
+          path: |
+            .e2e-logs/
+            apps/web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Build (shared-types, api, web)
         run: npm run build

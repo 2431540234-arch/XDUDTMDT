@@ -16,7 +16,24 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        // Máy chủ CI không có GPU: ép WebGL chạy bằng phần mềm (SwiftShader) để phòng 360° và mô hình 3D (React Three Fiber) vẽ được.
+        // Không có các cờ này thì <canvas> không tạo được ngữ cảnh WebGL và các test xem không gian/đặt mô hình 3D báo "không thấy phần tử".
+        launchOptions: {
+          args: [
+            '--use-angle=swiftshader',
+            '--use-gl=angle',
+            '--enable-unsafe-swiftshader',
+            '--ignore-gpu-blocklist',
+          ],
+        },
+      },
+    },
+  ],
   webServer: {
     command: `npx next dev -p ${PORT}`,
     // Mặc định chạy giao diện với dữ liệu giả (không cần backend)
