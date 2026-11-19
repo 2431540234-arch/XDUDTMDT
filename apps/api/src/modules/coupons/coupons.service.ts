@@ -72,8 +72,6 @@ export class CouponsService {
       ...serialize(c),
       name: c.name ?? c.code,
       description: c.description ?? null,
-      appliesTo: (c.appliesTo ?? 'all') as 'all' | 'category' | 'product' | 'space',
-      appliesToLabel: c.appliesToLabel ?? 'Tất cả sản phẩm',
       kind: c.type as CouponKind,
     };
   }

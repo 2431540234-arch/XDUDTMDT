@@ -252,8 +252,6 @@ export interface OrderView extends Order {
 export interface CouponView extends Coupon {
   name: string;
   description: string | null;
-  appliesTo: 'all' | 'category' | 'product' | 'space';
-  appliesToLabel: string;
   kind: 'percent' | 'fixed' | 'freeship'; // 'freeship' = coupon_type freeship (mã giảm phí vận chuyển)
 }
 

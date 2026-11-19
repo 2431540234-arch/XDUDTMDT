@@ -7,8 +7,6 @@ export interface CouponExtra {
   name: string;
   description: string;
   kind: 'percent' | 'fixed' | 'freeship';
-  appliesTo: 'all' | 'category' | 'product' | 'space';
-  appliesToLabel: string;
 }
 
 interface Def {
@@ -243,6 +241,4 @@ export const couponExtras: CouponExtra[] = defs.map((d, i) => ({
   name: d.name,
   description: d.description,
   kind: d.kind,
-  appliesTo: 'all',
-  appliesToLabel: 'Tất cả sản phẩm',
 }));

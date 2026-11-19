@@ -104,8 +104,6 @@ export interface Coupon {
   code: string;
   name?: string | null;
   description?: string | null;
-  appliesTo?: string;
-  appliesToLabel?: string | null;
   type: CouponType;
   value: number;
   maxDiscount: number | null;

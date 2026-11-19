@@ -421,16 +421,10 @@ async function main() {
             type: x?.kind === 'freeship' ? ('freeship' as const) : c.type,
             name: x?.name ?? null,
             description: x?.description ?? null,
-            appliesTo: x?.appliesTo ?? 'all',
-            appliesToLabel: x?.appliesToLabel ?? 'Tất cả sản phẩm',
           };
         }),
         skipDuplicates: true,
       });
-      for (const c of db.coupons) {
-        const x = cx.get(c.id);
-        if (x) await rawTx.coupon.update({ where: { id: c.id }, data: { appliesToLabel: x.appliesToLabel } });
-      }
 
       // đơn hàng
       await tx.order.createMany({

@@ -131,7 +131,7 @@ test('thêm cả bộ vào giỏ: số lượng theo ô chọn, bỏ chọn mộ
   await expect(header).toContainText('(5)');
   await expect(page.getByText('Tổng cộng (5 sản phẩm)')).toBeVisible();
   await expect(page.getByText(/Giá combo/)).toHaveCount(0);
-  await page.getByRole('checkbox', { name: 'Chọn Thảm lông tròn' }).uncheck();
+  await page.getByRole('checkbox', { name: 'Chọn Thảm len họa tiết' }).uncheck();
   await expect(page.getByText('Tổng cộng (4 sản phẩm)')).toBeVisible();
   const badge = page.getByRole('link', { name: 'Giỏ hàng' });
   const n0 = Number((await badge.innerText()) || 0);

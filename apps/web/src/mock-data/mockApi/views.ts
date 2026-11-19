@@ -340,8 +340,6 @@ export function couponView(db: Db, c: Db['coupons'][number]): CouponView {
     ...c,
     name: ex.name,
     description: ex.description,
-    appliesTo: ex.appliesTo,
-    appliesToLabel: ex.appliesToLabel,
     kind: ex.kind,
   };
 }

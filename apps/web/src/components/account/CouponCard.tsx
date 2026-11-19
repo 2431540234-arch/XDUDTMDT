@@ -36,7 +36,6 @@ export default function CouponCard({ coupon: c, onUse }: { coupon?: CouponView; 
             Mã: <span className="font-mono font-semibold text-ink">{c.code}</span>
           </p>
           <p className="text-xs text-muted">HSD: {c.endsAt ? formatDate(c.endsAt) : 'Không giới hạn'}</p>
-          <p className="text-xs text-muted">Áp dụng cho: {c.appliesToLabel}</p>
         </div>
         <div className="flex shrink-0 flex-row items-center gap-3 sm:flex-col sm:items-end">
           {onUse ? (

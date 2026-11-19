@@ -1487,27 +1487,11 @@ function saveCoupon(ctx: Ctx, c: Db['coupons'][number] | null, b: Body) {
     isActive: b.isActive !== false,
     updatedAt: at,
   });
-  const scopeIds: number[] = Array.isArray(b.categoryIds) ? b.categoryIds.map(Number) : [];
-  const labels: Record<string, string> = {
-    all: 'Tất cả sản phẩm',
-    category: scopeIds.length
-      ? `Danh mục: ${scopeIds
-          .map((id) => db.categories.find((c2) => c2.id === id)?.name)
-          .filter(Boolean)
-          .join(', ')}`
-      : 'Theo danh mục',
-    product: 'Theo sản phẩm',
-    space: 'Theo không gian mẫu',
-  };
-  const appliesTo = b.appliesTo ?? 'all';
   const extra = {
     couponId: row.id,
     name: String(b.name).trim(),
     description: String(b.description ?? ''),
     kind: b.kind,
-    appliesTo,
-    appliesToLabel: labels[appliesTo] ?? 'Tất cả sản phẩm',
-    categoryIds: appliesTo === 'category' ? scopeIds : [],
   };
   const idx = db.couponExtras.findIndex((e) => e.couponId === row.id);
   if (idx >= 0) db.couponExtras[idx] = extra;

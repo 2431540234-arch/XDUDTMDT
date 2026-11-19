@@ -106,8 +106,6 @@ const BACKEND_EXTRA = new Set([
   'Review.isAnonymous',
   'Coupon.name',
   'Coupon.description',
-  'Coupon.appliesTo',
-  'Coupon.appliesToLabel',
   'Cart.couponId',
   'Order.internalNote',
   'OrderItem.variantLabel',

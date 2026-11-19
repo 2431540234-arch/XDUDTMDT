@@ -98,8 +98,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       updatedAt: '',
       name: f.name || 'Tên chương trình khuyến mãi',
       description: f.description,
-      appliesTo: 'all' as const,
-      appliesToLabel: 'Tất cả sản phẩm',
       kind: f.kind,
     }),
     [f, today],
