@@ -20,7 +20,6 @@ test('storefront công khai', async ({ page }) => {
   await visit(page, '/forgot-password', 'QUÊN MẬT KHẨU');
   await visit(page, '/reset-password?token=' + 'a'.repeat(64), 'ĐẶT LẠI MẬT KHẨU');
   await visit(page, '/about', 'Giá trị cốt lõi');
-  await visit(page, '/contact', 'Liên hệ với chúng tôi');
   await visit(page, '/faq', 'Câu hỏi thường gặp');
   await visit(page, '/policies/chinh-sach-doi-tra', 'Chính sách đổi trả');
   await visit(page, '/wishlist', /Đăng nhập để xem/);
@@ -169,11 +168,9 @@ test('khách hàng: đăng nhập → giỏ → mã giảm giá → đặt hàng
   for (const [path, text] of [
     ['/account/profile', 'Thông tin cá nhân'],
     ['/account/orders', 'Đơn hàng của tôi'],
-    ['/account/coupons', 'Mã giảm giá của tôi'],
     ['/account/reviews', 'Đánh giá của tôi'],
     ['/account/notifications', 'Thông báo'],
     ['/account/password', 'Đổi mật khẩu'],
-    ['/account/returns', 'Đổi trả & hoàn tiền'],
     ['/wishlist', 'Sản phẩm yêu thích'],
   ] as const) {
     await visit(page, path, text);
@@ -220,17 +217,14 @@ test('admin: đăng nhập và duyệt mọi màn hình quản trị', async ({ 
     ['/admin/spaces/1', /Sửa:/],
     ['/admin/categories', 'Quản lý danh mục'],
     ['/admin/orders', 'Theo dõi và xử lý đơn hàng'],
-    ['/admin/returns', 'Duyệt và xử lý yêu cầu đổi trả'],
     ['/admin/customers', 'Quản lý tài khoản khách hàng'],
     ['/admin/customers/2', 'Trần Thu Hà'],
     ['/admin/reviews', 'Duyệt và quản lý đánh giá'],
-    ['/admin/questions', 'Trả lời câu hỏi của khách hàng'],
     ['/admin/models', 'Quản lý các mô hình 3D'],
     ['/admin/promotions', 'Tạo và quản lý mã giảm giá'],
     ['/admin/promotions/new', 'Tạo khuyến mãi'],
-    ['/admin/content', 'Banner & slider'],
     ['/admin/inventory', 'Theo dõi tồn kho'],
-    ['/admin/reports', 'Báo cáo thu chi'],
+    ['/admin/reports', 'Báo cáo doanh thu'],
     ['/admin/settings', 'Cấu hình cửa hàng'],
   ];
   for (const [path, text] of pages) await visit(page, path, text);

@@ -53,10 +53,6 @@ export default function NotFound() {
             ·{' '}
             <Link href="/faq" className="text-primary hover:underline">
               Câu hỏi thường gặp
-            </Link>{' '}
-            ·{' '}
-            <Link href="/contact" className="text-primary hover:underline">
-              Liên hệ
             </Link>
           </p>
         </div>

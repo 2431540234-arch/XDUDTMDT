@@ -1,5 +1,5 @@
-// UC-ADM-09 – Quản trị sản phẩm: /admin/products (chỉ role admin), gồm tab Ảnh 360°: GET|PUT /admin/products/:id/360
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query } from '@nestjs/common';
+// UC-ADM-09 – Quản trị sản phẩm: /admin/products (chỉ role admin)
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
@@ -34,19 +34,6 @@ export class AdminProductsController {
   @Get(':id')
   get(@Param('id', ParseIntPipe) id: number) {
     return this.products.get(id);
-  }
-
-  @Get(':id/360')
-  get360(@Param('id', ParseIntPipe) id: number) {
-    return this.products.get360(id);
-  }
-
-  @Put(':id/360')
-  @ApiOperation({
-    summary: 'Lưu ảnh 360°: { enabled, autoRotate, colors:[{name,hex,frames[]}] } (mỗi frame ≤ 2MB)',
-  })
-  save360(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
-    return this.products.save360(adminId, id, body);
   }
 
   @Patch(':id')

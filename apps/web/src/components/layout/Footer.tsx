@@ -55,7 +55,6 @@ export default function Footer() {
         {col('Hỗ trợ', [
           ['Hướng dẫn mua hàng', '/policies/chinh-sach-mua-hang'],
           ['Câu hỏi thường gặp', '/faq'],
-          ['Liên hệ', '/contact'],
         ])}
         <div>
           <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-ink">Liên hệ</h3>

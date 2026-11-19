@@ -168,7 +168,7 @@ describe('ActivityLogInterceptor (aurelia_test)', () => {
       resource: 'brands',
       action: 'brands.delete',
     });
-    expect(describeRoute('PATCH', '/api/admin/banners/reorder').action).toBe('banners.reorder');
+    expect(describeRoute('PATCH', '/api/admin/categories/reorder').action).toBe('categories.reorder');
     expect(describeRoute('PUT', '/api/admin/faq').action).toBe('faq.update');
     expect(describeRoute('POST', '/api/admin/orders/:id/shipments').action).toBe('orders.shipments');
   });

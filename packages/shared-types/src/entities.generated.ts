@@ -1,7 +1,7 @@
 // FILE SINH TỰ ĐỘNG từ apps/api/prisma/schema.prisma bằng scripts/generate-shared-types.mjs
 // KHÔNG SỬA TAY. Sửa schema.prisma rồi chạy: npm run types:generate
 
-import type { BannerPosition, ContentStatus, CouponType, ExpenseCategory, HotspotType, InventoryMovementType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, QuestionStatus, ReturnReason, ReturnStatus, ReturnType, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, StockReceiptStatus, StockReceiptType, UserStatus } from './enums.generated';
+import type { ContentStatus, CouponType, HotspotType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, UserStatus } from './enums.generated';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -120,17 +120,6 @@ export interface Coupon {
   updatedAt: string;
 }
 
-export interface InventoryMovement {
-  id: number;
-  variantId: number;
-  type: InventoryMovementType;
-  quantityChange: number;
-  reason: string | null;
-  referenceCode: string | null;
-  performedBy: number | null;
-  createdAt: string;
-}
-
 export interface Media {
   id: number;
   fileName: string;
@@ -223,20 +212,6 @@ export interface Order {
   note: string | null;
   cancelReason: string | null;
   internalNote?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Page {
-  id: number;
-  title: string;
-  slug: string;
-  type?: string;
-  content: string | null;
-  status: ContentStatus;
-  metaTitle: string | null;
-  metaDescription: string | null;
-  publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -392,13 +367,6 @@ export interface Shipment {
   updatedAt: string;
 }
 
-export interface SpaceBookmark {
-  id: number;
-  userId: number;
-  spaceId: number;
-  createdAt: string;
-}
-
 export interface SpaceHotspot {
   id: number;
   panoramaId: number;
@@ -444,17 +412,6 @@ export interface SpaceProductPlacement {
   updatedAt: string;
 }
 
-export interface SpaceView {
-  id: number;
-  spaceId: number;
-  userId: number | null;
-  visitorId: string | null;
-  sourceProductId: number | null;
-  hotspotClickCount: number;
-  addedToCart: boolean;
-  createdAt: string;
-}
-
 export interface Space {
   id: number;
   uuid: string;
@@ -466,7 +423,6 @@ export interface Space {
   categoryId: number | null;
   coverMediaId: number | null;
   status: ContentStatus;
-  viewCount: number;
   comboDiscountPercent?: number;
   publishedAt: string | null;
   createdAt: string;
@@ -520,172 +476,5 @@ export interface Wishlist {
   id: number;
   userId: number;
   productId: number;
-  createdAt: string;
-}
-
-export interface ProductSpec {
-  id: number;
-  productId: number;
-  label: string;
-  value: string;
-  sortOrder: number;
-}
-
-export interface Product360Config {
-  id: number;
-  productId: number;
-  enabled: boolean;
-  autoRotate: boolean;
-  rotationSpeed: number;
-  defaultColorId?: number | null;
-  frameCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Product360Frame {
-  id: number;
-  configId: number;
-  attributeValueId: number;
-  frameIndex: number;
-  mediaId: number;
-}
-
-export interface ReviewImage {
-  id: number;
-  reviewId: number;
-  mediaId: number;
-  sortOrder: number;
-}
-
-export interface ProductQuestion {
-  id: number;
-  productId: number;
-  userId: number;
-  content: string;
-  answer: string | null;
-  answeredBy: string | null;
-  answeredAt: string | null;
-  isPublic: boolean;
-  status: QuestionStatus;
-  createdAt: string;
-}
-
-export interface CouponScope {
-  id: number;
-  couponId: number;
-  targetType: string;
-  targetId: number;
-}
-
-export interface UserCoupon {
-  id: number;
-  userId: number;
-  couponId: number;
-  savedAt: string;
-}
-
-export interface CodeCounter {
-  key: string;
-  value: string;
-}
-
-export interface ReturnRequest {
-  id: number;
-  code: string;
-  orderId: number;
-  userId: number;
-  type: ReturnType;
-  reason: ReturnReason;
-  description: string;
-  status: ReturnStatus;
-  refundAmount: number;
-  adminNote: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ReturnRequestItem {
-  id: number;
-  requestId: number;
-  orderItemId: number;
-  quantity: number;
-  exchangeVariantId: number | null;
-}
-
-export interface ReturnRequestImage {
-  id: number;
-  requestId: number;
-  mediaId: number;
-}
-
-export interface StockReceipt {
-  id: number;
-  code: string;
-  type: StockReceiptType;
-  supplierName: string | null;
-  orderCode: string | null;
-  status: StockReceiptStatus;
-  createdBy: number | null;
-  createdAt: string;
-}
-
-export interface StockReceiptItem {
-  id: number;
-  receiptId: number;
-  variantId: number;
-  quantity: number;
-  costPrice: number;
-}
-
-export interface Expense {
-  id: number;
-  code: string;
-  category: ExpenseCategory;
-  amount: number;
-  note: string;
-  date: string;
-  orderId: number | null;
-  receiptId: number | null;
-  createdAt: string;
-}
-
-export interface Banner {
-  id: number;
-  title: string;
-  subtitle: string | null;
-  imageMediaId: number;
-  link: string;
-  position: BannerPosition;
-  startAt: string;
-  endAt: string | null;
-  sortOrder: number;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface Post {
-  id: number;
-  title: string;
-  slug: string;
-  category: string;
-  coverMediaId: number;
-  content: string;
-  authorName: string;
-  status: ContentStatus;
-  views: number;
-  publishedAt: string | null;
-  createdAt: string;
-}
-
-export interface ContactMessage {
-  id: number;
-  fullName: string;
-  phone: string;
-  email: string;
-  subject: string;
-  content: string;
-  handledAt: string | null;
-  handledBy: number | null;
   createdAt: string;
 }

@@ -1,4 +1,4 @@
-// Sinh: reviews, product_questions, return_requests, user_coupons, notifications, activity_logs, wishlists, carts, cart_items
+// Sinh: reviews, notifications, activity_logs, wishlists, carts, cart_items
 import type {
   ActivityLog,
   Cart,
@@ -8,21 +8,10 @@ import type {
   ReviewStatus,
   Wishlist,
 } from '@aurelia-living/shared-types';
-import type { ProductQuestion, ReturnRequest } from '@/types/api';
-import { productImg } from '../utils/img';
 import { addDays, addHours, iso, makeRng, MOCK_NOW } from '../utils/rng';
-import {
-  answerTexts,
-  questionTexts,
-  reviewNegative,
-  reviewNeutral,
-  reviewPositive,
-  reviewTags,
-} from '../utils/vi';
-import { COLORS } from './attributes';
-import { couponExtras, coupons } from './coupons';
+import { reviewNegative, reviewNeutral, reviewPositive, reviewTags } from '../utils/vi';
 import { deliveredAtByOrder, orderItems, orders } from './_orders_gen';
-import { productExtras, productVariants, products } from './_products_gen';
+import { productVariants, products } from './_products_gen';
 import { ADMIN_ID, TEST_CUSTOMER_ID, users } from './users';
 
 const rng = makeRng(606);
@@ -30,7 +19,6 @@ const rng = makeRng(606);
 // ---------------- Đánh giá ----------------
 export interface ReviewExtra {
   reviewId: number;
-  images: string[];
   tags: string[];
 }
 
@@ -81,13 +69,9 @@ for (const job of rng.shuffle(lineJobs)) {
     createdAt: iso(at),
     updatedAt: iso(at),
   });
-  const p = products.find((x) => x.id === job.productId)!;
-  const ex = productExtras.find((x) => x.productId === p.id)!;
-  const nImg = rng.chance(0.35) ? rng.int(1, 4) : 0;
   reviewExtras.push({
     reviewId: id,
     tags: rating >= 4 ? rng.sample(reviewTags, rng.int(1, 3)) : [],
-    images: Array.from({ length: nImg }, (_, k) => productImg(ex.type, rng.pick(COLORS).hex, 4 + (k % 2))),
   });
 }
 // Bảo đảm tối thiểu 80 đánh giá: bổ sung thêm đánh giá cho dòng hàng còn lại (khác đơn, cùng sản phẩm)
@@ -111,174 +95,13 @@ for (const job of lineJobs) {
     createdAt: iso(at),
     updatedAt: iso(at),
   });
-  reviewExtras.push({ reviewId: id, tags: rng.sample(reviewTags, 2), images: [] });
+  reviewExtras.push({ reviewId: id, tags: rng.sample(reviewTags, 2) });
 }
 reviews.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 const oldIds = reviews.map((r) => r.id);
 const idMap = new Map(oldIds.map((oid, i) => [oid, i + 1]));
 reviews.forEach((r, i) => (r.id = i + 1));
 reviewExtras.forEach((e) => (e.reviewId = idMap.get(e.reviewId) ?? e.reviewId));
-
-// ---------------- Hỏi đáp (chưa có trong DB) ----------------
-export const productQuestions: ProductQuestion[] = [];
-{
-  const customers = users.filter((u) => u.id > 1 && u.status === 'active');
-  for (let i = 0; i < 34; i++) {
-    const p = rng.pick(products);
-    const u = rng.pick(customers);
-    const at = addDays(new Date('2026-02-01T08:00:00.000Z'), rng.int(0, 250));
-    const state = i % 10 < 3 ? 'unanswered' : i % 10 === 9 ? 'hidden' : 'answered';
-    productQuestions.push({
-      id: i + 1,
-      productId: p.id,
-      productName: p.name,
-      productSlug: p.slug,
-      productImageUrl: null,
-      userId: u.id,
-      userName: u.fullName,
-      content: questionTexts[i % questionTexts.length],
-      answer: state === 'answered' ? answerTexts[i % answerTexts.length] : null,
-      answeredBy: state === 'answered' ? 'Aurelia Living' : null,
-      answeredAt: state === 'answered' ? iso(addHours(at, rng.int(2, 30))) : null,
-      isPublic: state !== 'hidden',
-      status: state,
-      createdAt: iso(at),
-    });
-  }
-  productQuestions.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  productQuestions.forEach((q, i) => (q.id = i + 1));
-}
-
-// ---------------- Đổi trả (chưa có trong DB) ----------------
-export const returnRequests: ReturnRequest[] = [];
-{
-  const reasons: ReturnRequest['reason'][] = [
-    'defect',
-    'wrong_item',
-    'not_as_described',
-    'missing_accessory',
-    'change_mind',
-  ];
-  const reasonText: Record<ReturnRequest['reason'], string> = {
-    defect: 'Sản phẩm bị lỗi/hư hỏng khi nhận hàng, có vết nứt ở chân.',
-    wrong_item: 'Giao sai mẫu/màu so với đơn đặt hàng.',
-    not_as_described: 'Sản phẩm không đúng mô tả, màu sắc khác nhiều so với ảnh.',
-    missing_accessory: 'Thiếu phụ kiện lắp ráp (ốc vít, chân đế).',
-    change_mind: 'Tôi đổi ý, không còn nhu cầu sử dụng.',
-  };
-  const statuses: ReturnRequest['status'][] = [
-    'pending',
-    'pending',
-    'pending',
-    'picking',
-    'picking',
-    'inspecting',
-    'inspecting',
-    'refunded',
-    'refunded',
-    'refunded',
-    'exchanged',
-    'rejected',
-    'rejected',
-  ];
-  const pool = completedOrders
-    .filter((o) => o.userId !== TEST_CUSTOMER_ID)
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 13);
-  const testOld = completedOrders.find(
-    (o) => o.userId === TEST_CUSTOMER_ID && o.createdAt.startsWith('2026-05'),
-  );
-  const picked = testOld ? [...pool.slice(0, 12), testOld] : pool;
-  picked.forEach((o, i) => {
-    const its = orderItems.filter((x) => x.orderId === o.id).slice(0, 1);
-    const user = users.find((u) => u.id === o.userId)!;
-    const delivered = new Date(deliveredAtByOrder.get(o.id) ?? o.updatedAt);
-    const created = addDays(delivered, rng.int(1, 5));
-    const status = o === testOld ? 'refunded' : statuses[i % statuses.length];
-    const refund = its.reduce((s, x) => s + x.lineTotal!, 0);
-    const reason = reasons[i % reasons.length];
-    returnRequests.push({
-      id: i + 1,
-      code: `RT${String(12 + i).padStart(4, '0')}`,
-      orderId: o.id,
-      orderCode: o.orderCode,
-      userId: user.id,
-      customerName: user.fullName,
-      items: its.map((x) => {
-        const v = productVariants.find((y) => y.id === x.variantId)!;
-        return {
-          productId: v.productId,
-          productName: x.productName,
-          imageUrl: null,
-          variantLabel: '',
-          quantity: 1,
-          unitPrice: x.unitPrice,
-        };
-      }),
-      type: i % 4 === 3 ? 'exchange' : 'refund',
-      reason,
-      description: reasonText[reason],
-      images: [productImg('sofa', 'C9B8A0', 3)],
-      refundAmount: refund,
-      status: i % 4 === 3 && status === 'refunded' ? 'exchanged' : status,
-      adminNote:
-        status === 'rejected' ? 'Sản phẩm đã qua sử dụng, không đủ điều kiện đổi trả theo chính sách.' : null,
-      createdAt: iso(created),
-      updatedAt: iso(addDays(created, 1)),
-    });
-  });
-  returnRequests.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  returnRequests.forEach((r, i) => (r.id = i + 1));
-}
-
-// ---------------- Mã giảm giá của khách (chưa có bảng) ----------------
-export interface UserCouponRow {
-  id: number;
-  userId: number;
-  couponId: number;
-  status: 'unused' | 'used' | 'expired';
-  savedAt: string;
-}
-export const userCoupons: UserCouponRow[] = [];
-{
-  const code = (c: string) => coupons.find((x) => x.code === c)!.id;
-  const plan: Array<[string, UserCouponRow['status']]> = [
-    ['WELCOME10', 'used'],
-    ['FREESHIP', 'unused'],
-    ['NOITHAT20', 'unused'],
-    ['GIAM200K', 'used'],
-    ['GIAM500K', 'unused'],
-    ['SOFA12', 'unused'],
-    ['VIP20', 'used'],
-    ['PHONGNGU150', 'unused'],
-    ['NEWYEAR2026', 'expired'],
-  ];
-  plan.forEach(([c, status], i) =>
-    userCoupons.push({
-      id: userCoupons.length + 1,
-      userId: TEST_CUSTOMER_ID,
-      couponId: code(c),
-      status,
-      savedAt: iso(addDays(new Date('2026-02-01T08:00:00.000Z'), i * 25)),
-    }),
-  );
-  for (const u of users.filter((x) => x.id > 2 && x.status === 'active').slice(0, 12)) {
-    for (const c of rng.sample(
-      coupons.filter((x) => x.isActive && x.code !== 'GIAM1TR'),
-      rng.int(1, 3),
-    )) {
-      const exp = c.endsAt && new Date(c.endsAt) < MOCK_NOW;
-      userCoupons.push({
-        id: userCoupons.length + 1,
-        userId: u.id,
-        couponId: c.id,
-        status: exp ? 'expired' : rng.chance(0.3) ? 'used' : 'unused',
-        savedAt: iso(addDays(new Date('2026-03-01T08:00:00.000Z'), rng.int(0, 200))),
-      });
-    }
-  }
-}
-void couponExtras;
 
 // ---------------- Giỏ hàng, yêu thích ----------------
 export const carts: Cart[] = [];

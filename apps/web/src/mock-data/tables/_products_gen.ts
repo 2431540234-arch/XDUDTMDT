@@ -27,7 +27,6 @@ export interface ProductExtra {
   costRatio: number; // tham số sinh dữ liệu giả: giá vốn / giá bán, dùng cho mọi biến thể (không có cột DB)
   minStock: number;
   features: string[];
-  specs: Array<{ label: string; value: string }>;
   type: ProductSpec['type'];
   modelKey: ProductSpec['model'];
 }
@@ -220,26 +219,6 @@ productSpecs.forEach((s, idx) => {
     ),
     minStock: 5,
     features: [...(featurePool[s.material] ?? featurePool['Gỗ']), ...commonFeatures].slice(0, 5),
-    specs: [
-      { label: 'Kích thước (D × R × C)', value: `${l} × ${w} × ${h} mm` },
-      { label: 'Chất liệu', value: s.material },
-      { label: 'Màu sắc', value: s.colors.join(', ') },
-      { label: 'Phong cách', value: s.style },
-      {
-        label: 'Thương hiệu',
-        value: [
-          '',
-          'Aurelia Home',
-          'Nordic Living',
-          'Oak & Co',
-          'Maison Luxe',
-          'Japandi Studio',
-          'Urban Nest',
-        ][s.brand],
-      },
-      { label: 'Xuất xứ', value: 'Việt Nam' },
-      { label: 'Bảo hành', value: `${s.warrantyMonths ?? 12} tháng` },
-    ],
     type: s.type,
     modelKey: modelFor(s),
   });

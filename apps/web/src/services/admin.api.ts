@@ -2,28 +2,20 @@
 import type { Coupon, OrderStatus, ReviewStatus } from '@aurelia-living/shared-types';
 import type {
   AdminMaterialVariant,
-  Banner,
   MaterialConfig,
-  SpaceFunnel,
   PlacementView,
   CategoryNode,
   CouponView,
   DashboardStats,
-  Expense,
   FinanceReport,
   InventoryRow,
   Model3DAdminRow,
   OrderView,
-  Post,
-  Product360AdminData,
   ProductDetail,
   ProductListItem,
-  ProductQuestion,
-  ReturnRequest,
   ReviewView,
   SpaceDetail,
   SpaceListItem,
-  StockReceipt,
   StoreSettings,
   ActivityLogOptions,
   ActivityLogRow,
@@ -34,7 +26,6 @@ import type {
   MediaAdmin,
   AttributeValueAdmin,
   BrandAdmin,
-  StockMovement,
   UserView,
 } from '@/types/api';
 import { readAsDataUrl } from '@/components/admin/UploadDropzone';
@@ -66,8 +57,6 @@ export const adminApi = {
   },
   stats: (q: { from?: string; to?: string }) => http.get<DashboardStats>('/admin/stats/overview', q),
   finance: (q: { from?: string; to?: string }) => http.get<FinanceReport>('/admin/stats/finance', q),
-  /** Phễu không gian mẫu (cần quyền manage_content) */
-  spaceFunnel: (q: { from?: string; to?: string }) => http.get<SpaceFunnel>('/admin/stats/spaces', q),
 
   products: {
     list: (q: Query) => http.list<ProductListItem>('/admin/products', q),
@@ -76,12 +65,6 @@ export const adminApi = {
     update: (id: number, body: Record<string, unknown>) =>
       http.patch<ProductDetail>(`/admin/products/${id}`, body),
     remove: (id: number) => http.delete(`/admin/products/${id}`),
-    /** Ảnh 360° */
-    get360: (id: number) => http.get<Product360AdminData>(`/admin/products/${id}/360`),
-    save360: (
-      id: number,
-      body: { enabled: boolean; autoRotate: boolean; colors: Product360AdminData['colors'] },
-    ) => http.put<Product360AdminData>(`/admin/products/${id}/360`, body),
   },
   categories: {
     tree: () => http.get<CategoryNode[]>('/admin/categories'),
@@ -118,11 +101,6 @@ export const adminApi = {
       http.patch<OrderView>(`/admin/payments/${id}/fail`, body),
     saveNote: (id: number, note: string) => http.patch<OrderView>(`/admin/orders/${id}/note`, { note }),
   },
-  returns: {
-    list: (q: Query) => http.list<ReturnRequest>('/admin/returns', q),
-    update: (id: number, body: { status: ReturnRequest['status']; adminNote?: string }) =>
-      http.patch<ReturnRequest>(`/admin/returns/${id}`, body),
-  },
   customers: {
     list: (q: Query) => http.list<UserView>('/admin/users', q),
     get: (id: number) =>
@@ -145,12 +123,6 @@ export const adminApi = {
     list: (q: Query) => http.list<ReviewView>('/admin/reviews', q),
     setStatus: (id: number, status: ReviewStatus) =>
       http.patch<ReviewView>(`/admin/reviews/${id}/status`, { status }),
-  },
-  questions: {
-    list: (q: Query) => http.list<ProductQuestion>('/admin/questions', q),
-    answer: (id: number, body: { answer: string; isPublic: boolean }) =>
-      http.patch<ProductQuestion>(`/admin/questions/${id}`, body),
-    hide: (id: number) => http.patch<ProductQuestion>(`/admin/questions/${id}`, { status: 'hidden' }),
   },
   models: {
     list: (q: Query) => http.list<Model3DAdminRow>('/admin/models', q),
@@ -248,41 +220,6 @@ export const adminApi = {
     remove: (panoramaId: number, id: number) =>
       http.delete(`/admin/panoramas/${panoramaId}/placements/${id}`),
   },
-  content: {
-    banners: () => http.get<Banner[]>('/admin/banners'),
-    saveBanner: (body: Partial<Banner>) =>
-      body.id
-        ? http.patch<Banner>(`/admin/banners/${body.id}`, body)
-        : http.post<Banner>('/admin/banners', body),
-    removeBanner: (id: number) => http.delete(`/admin/banners/${id}`),
-    posts: () => http.get<Post[]>('/admin/posts'),
-    savePost: (body: Partial<Post>) =>
-      body.id ? http.patch<Post>(`/admin/posts/${body.id}`, body) : http.post<Post>('/admin/posts', body),
-    removePost: (id: number) => http.delete(`/admin/posts/${id}`),
-    pages: () =>
-      http.get<
-        Array<{
-          id: number;
-          slug: string;
-          title: string;
-          content: string | null;
-          status: string;
-          updatedAt: string;
-        }>
-      >('/admin/pages'),
-    savePage: (id: number, body: { title?: string; content?: string; status?: string }) =>
-      http.patch(`/admin/pages/${id}`, body),
-    /** Tạo trang tĩnh/chính sách mới (UC-ADM-07); slug trùng ⇒ 409 kèm lỗi theo trường slug */
-    createPage: (body: {
-      title: string;
-      slug?: string;
-      type: 'static' | 'policy';
-      content: string;
-      status: string;
-    }) => http.post<{ id: number; slug: string }>('/admin/pages', body),
-    /** Xóa trang; trang hệ thống (Về chúng tôi, chính sách) ⇒ 409 */
-    removePage: (id: number) => http.delete(`/admin/pages/${id}`),
-  },
   settings: {
     get: () => http.get<StoreSettings>('/admin/settings'),
     save: (body: Partial<StoreSettings>) => http.put<StoreSettings>('/admin/settings/store', body),
@@ -290,29 +227,10 @@ export const adminApi = {
   },
   inventory: {
     rows: (q: Query) => http.list<InventoryRow>('/admin/inventory', q),
-    /** Điều chỉnh tồn trực tiếp (UC-ADM-12): quantityChange ± khác 0; giảm quá tồn ⇒ 409, không đổi gì */
-    adjust: (body: { variantId: number; quantityChange: number; reason: string }) =>
-      http.post<{ variantId: number; stockQuantity: number }>('/admin/inventory/movements', {
-        ...body,
-        type: 'adjustment',
-      }),
     summary: () =>
       http.get<{ totalStock: number; stockValue: number; lowCount: number; outCount: number }>(
         '/admin/inventory/summary',
       ),
-    receipts: () => http.get<StockReceipt[]>('/admin/inventory/receipts'),
-    createReceipt: (body: {
-      type: 'in' | 'out';
-      supplierName?: string;
-      status?: 'draft' | 'completed';
-      items: Array<{ variantId: number; quantity: number; costPrice: number }>;
-    }) => http.post<StockReceipt>('/admin/inventory/receipts', body),
-    confirmReceipt: (id: number) => http.post<StockReceipt>(`/admin/inventory/receipts/${id}/confirm`),
-    cancelReceipt: (id: number) => http.post<StockReceipt>(`/admin/inventory/receipts/${id}/cancel`),
-    movements: (q: Query) => http.list<StockMovement>('/admin/inventory/movements', q),
-  },
-  expenses: {
-    create: (body: Omit<Expense, 'id' | 'code'>) => http.post<Expense>('/admin/expenses', body),
   },
   /** UC-ADM-27: nhật ký hoạt động (chỉ đọc) */
   activityLogs: {

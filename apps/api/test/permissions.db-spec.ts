@@ -93,11 +93,11 @@ describe('PermissionsGuard (aurelia_test)', () => {
           missing.push(route);
       }
     }
-    expect(scanned).toBeGreaterThan(100);
+    expect(scanned).toBeGreaterThan(90);
     expect(missing).toEqual([]);
   });
 
-  it('gỡ manage_products ⇒ route sản phẩm 403 (tiếng Việt), route đơn hàng/nội dung vẫn chạy', async () => {
+  it('gỡ manage_products ⇒ route sản phẩm 403 (tiếng Việt), route đơn hàng vẫn chạy', async () => {
     expect((await call('get', '/admin/products')).status).toBe(200);
     await without('manage_products', async () => {
       const r = await call('get', '/admin/products');
@@ -107,7 +107,6 @@ describe('PermissionsGuard (aurelia_test)', () => {
       expect((await call('get', '/admin/models')).status).toBe(403);
       expect((await call('get', '/admin/brands')).status).toBe(403);
       expect((await call('get', '/admin/orders')).status).toBe(200);
-      expect((await call('get', '/admin/banners')).status).toBe(200);
     });
     expect((await call('get', '/admin/products')).status).toBe(200); // đã khôi phục
   });
@@ -128,7 +127,6 @@ describe('PermissionsGuard (aurelia_test)', () => {
         (await call('patch', '/admin/orders/99999999/status').send({ status: 'confirmed' })).status,
       ).toBe(403);
       expect((await call('post', '/admin/orders/99999999/cancel').send({ reason: 'x' })).status).toBe(403);
-      expect((await call('get', '/admin/returns')).status).toBe(403);
       // UC-ADM-24: danh sách, xác nhận và đánh dấu thất bại giao dịch đều cần process_orders
       expect((await call('get', '/admin/payments')).status).toBe(403);
       expect((await call('patch', '/admin/payments/99999999/confirm')).status).toBe(403);

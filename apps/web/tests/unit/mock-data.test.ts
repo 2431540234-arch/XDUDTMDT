@@ -13,18 +13,15 @@ describe('mock-data: số lượng theo yêu cầu', () => {
     expect(db.roles.map((r) => r.code).sort()).toEqual(['admin', 'user']);
     expect(db.users.some((u) => u.status !== 'active')).toBe(true);
   });
-  it('sản phẩm, 3D, không gian, đơn, đánh giá, hỏi đáp, coupon, đổi trả, thông báo', () => {
+  it('sản phẩm, 3D, không gian, đơn, đánh giá, coupon, thông báo', () => {
     expect(db.products.length).toBeGreaterThanOrEqual(48);
     expect(db.product3dModels.length).toBeGreaterThanOrEqual(20);
     expect(db.spaces.length).toBeGreaterThanOrEqual(12);
     expect(db.orders.length).toBeGreaterThanOrEqual(60);
     expect(db.reviews.length).toBeGreaterThanOrEqual(80);
-    expect(db.productQuestions.length).toBeGreaterThanOrEqual(30);
     expect(db.coupons.length).toBeGreaterThanOrEqual(12);
-    expect(db.returnRequests.length).toBeGreaterThanOrEqual(12);
     expect(db.notifications.filter((n) => n.userId === 2).length).toBeGreaterThanOrEqual(15);
     expect(db.activityLogs.length).toBeGreaterThanOrEqual(20);
-    expect(db.posts.length).toBeGreaterThanOrEqual(6);
   });
   it('đơn hàng đủ mọi trạng thái và phương thức thanh toán', () => {
     const statuses = new Set(db.orders.map((o) => o.status));
@@ -70,7 +67,6 @@ describe('mock-data: toàn vẹn dữ liệu', () => {
     for (const c of db.cartItems)
       expect(has(db.carts, c.cartId) && has(db.productVariants, c.variantId)).toBe(true);
     for (const u of db.users) expect(has(db.media, u.avatarMediaId)).toBe(true);
-    for (const r of db.returnRequests) expect(has(db.orders, r.orderId)).toBe(true);
   });
   it('mỗi khách đúng 1 địa chỉ mặc định; mỗi SP đúng 1 ảnh chính; mỗi không gian đúng 1 ảnh bắt đầu', () => {
     for (const u of db.users.filter((x) => x.id > 1))
@@ -88,66 +84,9 @@ describe('mock-data: toàn vẹn dữ liệu', () => {
     for (const c of db.coupons)
       expect(c.usedCount).toBe(db.couponUsages.filter((u) => u.couponId === c.id).length);
   });
-  it('tồn kho = nhập − bán + trả', () => {
-    for (const v of db.productVariants) {
-      const net = db.inventoryMovements
-        .filter((m) => m.variantId === v.id)
-        .reduce((s, m) => s + m.quantityChange, 0);
-      expect(net, v.sku).toBe(v.stockQuantity);
-    }
-  });
   it('mỗi khách có tối đa 1 giỏ; ngày nằm trong năm 2026', () => {
     expect(new Set(db.carts.map((c) => c.userId)).size).toBe(db.carts.length);
     for (const o of db.orders) expect(o.createdAt.startsWith('2026-')).toBe(true);
-  });
-});
-
-describe('mock-data: xem 360°', () => {
-  it('≥ 8 sản phẩm bật 360°, mỗi màu 36 frame, 3–4 màu, 2–3 kích thước, có tổ hợp hết hàng', () => {
-    const on = db.product360.filter((x) => x.enabled);
-    expect(on.length).toBeGreaterThanOrEqual(8);
-    let outOfStock = 0;
-    for (const c of on) {
-      const frames = db.product360Frames.filter((f) => f.productId === c.productId);
-      expect(frames.length).toBeGreaterThanOrEqual(3);
-      expect(frames.length).toBeLessThanOrEqual(4);
-      for (const f of frames) expect(f.frames).toHaveLength(36);
-      const variants = db.productVariants.filter((v) => v.productId === c.productId);
-      const sizes = new Set(
-        variants.map(
-          (v) =>
-            db.variantAttributeValues.find((a) => a.variantId === v.id && a.attributeId === 2)
-              ?.attributeValueId,
-        ),
-      );
-      expect(sizes.size).toBeGreaterThanOrEqual(2);
-      expect(sizes.size).toBeLessThanOrEqual(3);
-      outOfStock += variants.filter((v) => v.stockQuantity === 0).length;
-    }
-    expect(outOfStock).toBeGreaterThan(0);
-  });
-  it('API /products/:slug/360 trả frames, biến thể, chính sách; sản phẩm không bật trả 404', async () => {
-    const ok = await handleMockRequest({
-      method: 'GET',
-      path: '/products/sofa-nordic/360',
-      query: {},
-      body: undefined,
-      token: null,
-    });
-    const d = (
-      ok.body as { data: { colors: Array<{ frames: string[] }>; variants: unknown[]; policies: unknown[] } }
-    ).data;
-    expect(ok.status).toBe(200);
-    expect(d.colors[0].frames).toHaveLength(36);
-    expect(d.policies).toHaveLength(4);
-    const no = await handleMockRequest({
-      method: 'GET',
-      path: '/products/ke-tivi-hien-dai/360',
-      query: {},
-      body: undefined,
-      token: null,
-    });
-    expect(no.status).toBe(404);
   });
 });
 

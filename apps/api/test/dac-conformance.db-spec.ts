@@ -759,69 +759,6 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       (await api('post', '/admin/products', (await customer('adm09')).token, baseProd())).status,
       403,
     );
-    // ADM-12 kho
-    const v = await stockVariant(5);
-    expectStatus(
-      'UC-ADM-12',
-      'quantityChange = 0',
-      (
-        await api('post', '/admin/inventory/movements', admin, {
-          variantId: v.id,
-          type: 'adjustment',
-          quantityChange: 0,
-        })
-      ).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-12',
-      'điều chỉnh âm làm tồn < 0',
-      (
-        await api('post', '/admin/inventory/movements', admin, {
-          variantId: v.id,
-          type: 'adjustment',
-          quantityChange: -(v.stockQuantity + 1000),
-        })
-      ).status,
-      409,
-    );
-    expectStatus(
-      'UC-ADM-12',
-      'biến thể không tồn tại',
-      (
-        await api('post', '/admin/inventory/movements', admin, {
-          variantId: 999999999,
-          type: 'adjustment',
-          quantityChange: 1,
-        })
-      ).status,
-      [400, 404],
-    );
-    expectStatus(
-      'UC-ADM-12',
-      'type ngoài enum',
-      (
-        await api('post', '/admin/inventory/movements', admin, {
-          variantId: v.id,
-          type: 'khong-co',
-          quantityChange: 1,
-        })
-      ).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-12',
-      'lý do 256 ký tự',
-      (
-        await api('post', '/admin/inventory/movements', admin, {
-          variantId: v.id,
-          type: 'adjustment',
-          quantityChange: 1,
-          reason: 'x'.repeat(256),
-        })
-      ).status,
-      400,
-    );
     // ADM-18
     expectStatus(
       'UC-ADM-18',
@@ -1002,12 +939,6 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       (await api('get', '/spaces/khong-co-khong-gian')).status,
       404,
     );
-    expectStatus(
-      'UC-SPACE-04',
-      'chưa đăng nhập',
-      (await api('put', '/spaces/khong-co/bookmark')).status,
-      401,
-    );
     flush();
   });
 
@@ -1122,87 +1053,10 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       ).status,
       404,
     );
-    const page = await prisma.page.findFirst({ where: { status: 'published' } });
-    if (page) {
-      await prisma.page.update({ where: { id: page.id }, data: { status: 'draft' } });
-      try {
-        expectStatus('UC-CAT-05', 'trang nháp', (await api('get', `/pages/${page.slug}`)).status, 404);
-      } finally {
-        await prisma.page.update({ where: { id: page.id }, data: { status: 'published' } });
-      }
-    }
-    expectStatus('UC-CAT-05', 'trang không tồn tại', (await api('get', '/pages/khong-co-trang')).status, 404);
     flush();
   });
 
-  it('nhóm 4: UC-ADM-07/15/16/26/27/28, UC-SPACE-06', async () => {
-    // ADM-07 trang tĩnh
-    const pslug = `trang-dac-${tag}`;
-    const page = (over: Record<string, unknown> = {}) => ({
-      title: `Trang DAC ${tag}`,
-      slug: pslug,
-      content: 'Nội dung',
-      status: 'published',
-      type: 'policy',
-      ...over,
-    });
-    expectStatus('UC-ADM-07', 'tạo trang', (await api('post', '/admin/pages', admin, page())).status, 201);
-    expectStatus('UC-ADM-07', 'slug trùng', (await api('post', '/admin/pages', admin, page())).status, 409);
-    expectStatus(
-      'UC-ADM-07',
-      'title 256 ký tự',
-      (await api('post', '/admin/pages', admin, page({ slug: `${pslug}-2`, title: 'x'.repeat(256) }))).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-07',
-      'thiếu title',
-      (await api('post', '/admin/pages', admin, page({ slug: `${pslug}-3`, title: '' }))).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-07',
-      'status ngoài enum',
-      (await api('post', '/admin/pages', admin, page({ slug: `${pslug}-4`, status: 'khong-co' }))).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-07',
-      'khách ghi trang',
-      (await api('post', '/admin/pages', (await customer('adm07')).token, page({ slug: `${pslug}-5` })))
-        .status,
-      403,
-    );
-    // ADM-07: trang hệ thống (Về chúng tôi = slug about, các chính sách) KHÔNG xóa được; trang tự tạo xóa được
-    for (const sysSlug of ['about', 'chinh-sach-doi-tra']) {
-      const sys = await prisma.page.findUnique({ where: { slug: sysSlug } });
-      if (!sys) {
-        issues.push(`UC-ADM-07: thiếu trang hệ thống ${sysSlug} trong dữ liệu seed`);
-        continue;
-      }
-      expectStatus(
-        'UC-ADM-07',
-        `xóa trang hệ thống ${sysSlug}`,
-        (await api('delete', `/admin/pages/${sys.id}`, admin)).status,
-        409,
-      );
-      if (!(await prisma.page.findUnique({ where: { slug: sysSlug } })))
-        issues.push(`UC-ADM-07: trang hệ thống ${sysSlug} bị xóa`);
-    }
-    const mine = await prisma.page.findUnique({ where: { slug: pslug } });
-    if (mine)
-      expectStatus(
-        'UC-ADM-07',
-        'xóa trang tự tạo',
-        (await api('delete', `/admin/pages/${mine.id}`, admin)).status,
-        200,
-      );
-    expectStatus(
-      'UC-ADM-07',
-      'xóa trang không tồn tại',
-      (await api('delete', '/admin/pages/999999999', admin)).status,
-      404,
-    );
+  it('nhóm 4: UC-ADM-15/16/26/27/28', async () => {
     // ADM-15 không gian
     expectStatus(
       'UC-ADM-15',
@@ -1270,27 +1124,6 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       'UC-ADM-15',
       'không gian không tồn tại',
       (await api('get', '/admin/spaces/999999999', admin)).status,
-      404,
-    );
-    // SPACE-06: ghi lượt xem không gian chưa đăng / không có
-    expectStatus(
-      'UC-SPACE-06',
-      'không gian không tồn tại',
-      (
-        await api('post', '/spaces/khong-co-khong-gian/views', undefined, {
-          visitorId: '8a1c1f3e-0b1e-4c8c-9d3b-2f6f7c9a1b11',
-        })
-      ).status,
-      404,
-    );
-    expectStatus(
-      'UC-SPACE-06',
-      'không gian nháp',
-      (
-        await api('post', `/spaces/kg-dac-${tag}/views`, undefined, {
-          visitorId: '8a1c1f3e-0b1e-4c8c-9d3b-2f6f7c9a1b11',
-        })
-      ).status,
       404,
     );
     // ADM-26 thông báo
@@ -1593,20 +1426,6 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       'thiếu dữ liệu',
       (await api('post', '/admin/panoramas/999999999/placements', admin, {})).status,
       [400, 404],
-    );
-    // ADM-29: phễu chỉ cho quyền nội dung; ngày sai ⇒ 400
-    expectStatus(
-      'UC-ADM-29',
-      'khách xem phễu',
-      (await api('get', '/admin/stats/spaces', u.token)).status,
-      403,
-    );
-    expectStatus('UC-ADM-29', 'phễu hợp lệ', (await api('get', '/admin/stats/spaces', admin)).status, 200);
-    expectStatus(
-      'UC-ADM-29',
-      'ngày sai định dạng',
-      (await api('get', '/admin/stats/spaces?from=abc&to=xyz', admin)).status,
-      [200, 400],
     );
     flush();
   });

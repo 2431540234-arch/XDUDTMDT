@@ -241,18 +241,7 @@ export class OrdersService {
           if (found) {
             await tx.$queryRaw`SELECT id FROM coupons WHERE id = ${found.id} FOR UPDATE`;
           }
-          const r = await this.coupons.evaluate(
-            codeToUse,
-            p.userId,
-            lines.map((l) => ({
-              productId: l.pr.id,
-              categoryId: l.pr.categoryId,
-              lineTotal: l.unit * l.w.quantity,
-            })),
-            subtotal,
-            shippingFee,
-            tx,
-          );
+          const r = await this.coupons.evaluate(codeToUse, p.userId, subtotal, shippingFee, tx);
           couponId = r.coupon.id;
           discount = r.discount;
         }
@@ -307,16 +296,6 @@ export class OrdersService {
           await tx.productVariant.update({
             where: { id: l.v.id },
             data: { stockQuantity: { decrement: l.w.quantity } },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              variantId: l.v.id,
-              type: 'sale',
-              quantityChange: -l.w.quantity,
-              reason: 'Bán hàng',
-              referenceCode: orderCode,
-              performedBy: p.actorId,
-            },
           });
         }
         await tx.payment.create({
@@ -449,16 +428,6 @@ export class OrdersService {
           await tx.productVariant.update({
             where: { id: it.variantId },
             data: { stockQuantity: { increment: it.quantity } },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              variantId: it.variantId,
-              type: 'return',
-              quantityChange: it.quantity,
-              reason: 'Hủy đơn hàng',
-              referenceCode: o.order_code,
-              performedBy: actorId,
-            },
           });
         }
       }

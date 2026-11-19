@@ -81,10 +81,6 @@ export default function OrderDetailPage() {
   o.history.forEach((h) => (times[h.toStatus] = h.createdAt));
   const canCancel = o.status === 'pending' || o.status === 'confirmed';
   const done = o.status === 'completed';
-  const returnOpen = done && o.canReturnUntil && new Date(o.canReturnUntil) > new Date();
-  const daysLeft = o.canReturnUntil
-    ? Math.max(0, Math.ceil((new Date(o.canReturnUntil).getTime() - Date.now()) / 86_400_000))
-    : 0;
   const canPayAgain =
     (o.status === 'pending' || o.status === 'confirmed') &&
     o.paymentStatus !== 'paid' &&
@@ -121,21 +117,8 @@ export default function OrderDetailPage() {
               Đánh giá sản phẩm
             </Button>
           )}
-          {done &&
-            (returnOpen ? (
-              <LinkButton href={`/account/returns/new?order=${o.orderCode}`} size="sm" variant="outline">
-                Yêu cầu đổi trả
-              </LinkButton>
-            ) : (
-              <span className="text-xs text-muted">Đã quá hạn đổi trả 7 ngày</span>
-            ))}
         </div>
       </div>
-      {returnOpen && (
-        <p className="rounded-btn bg-primary-soft px-3 py-2 text-sm">
-          Còn <b>{daysLeft} ngày</b> để gửi yêu cầu đổi trả (chính sách 7 ngày).
-        </p>
-      )}
 
       <section className="card p-5">
         <OrderStepper status={o.status} times={times} />
@@ -174,9 +157,6 @@ export default function OrderDetailPage() {
               <Button variant="outline" size="sm" loading={rebuy.isPending} onClick={() => rebuy.mutate()}>
                 Mua lại
               </Button>
-              <LinkButton href="/contact" variant="ghost" size="sm">
-                Liên hệ hỗ trợ
-              </LinkButton>
             </div>
           </section>
           <section className="card p-5">

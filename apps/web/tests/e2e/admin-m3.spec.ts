@@ -1,6 +1,6 @@
 import { expect, test, type ConsoleMessage, type Page, type Response } from '@playwright/test';
 
-// Màn hình admin của Mốc 3: Đánh giá, Hỏi đáp, Đổi trả, Mô hình 3D, Không gian mẫu, Nội dung.
+// Màn hình admin của Mốc 3: Đánh giá, Mô hình 3D, Không gian mẫu.
 // Chạy với API thật: npm run test:e2e:real (hoặc E2E_USE_MOCK=false E2E_API_URL=http://localhost:4002).
 
 async function visit(page: Page, path: string, expectText: string | RegExp) {
@@ -39,38 +39,17 @@ async function adminLogin(page: Page) {
 
 test.describe.configure({ mode: 'serial' });
 
-test('admin Mốc 3: các màn hình tương tác khách hàng & nội dung mở được, không lỗi console/HTTP/ảnh vỡ', async ({
+test('admin Mốc 3: các màn hình tương tác khách hàng mở được, không lỗi console/HTTP/ảnh vỡ', async ({
   page,
 }) => {
   test.setTimeout(400_000);
   await adminLogin(page);
   const pages: Array<[string, string | RegExp]> = [
     ['/admin/reviews', 'Duyệt và quản lý đánh giá'],
-    ['/admin/questions', 'Trả lời câu hỏi của khách hàng'],
-    ['/admin/returns', 'Duyệt và xử lý yêu cầu đổi trả'],
     ['/admin/models', 'Quản lý các mô hình 3D'],
     ['/admin/spaces', 'Quản lý các không gian'],
     ['/admin/spaces/new', 'Thêm không gian mẫu'],
     ['/admin/spaces/1', /Sửa:/],
-    ['/admin/content', 'Banner & slider'],
   ];
   for (const [path, text] of pages) await visit(page, path, text);
-});
-
-test('admin: xử lý yêu cầu đổi trả đầu tiên (Chờ duyệt → Đang lấy hàng)', async ({ page }) => {
-  test.setTimeout(120_000);
-  await adminLogin(page);
-  await page.goto('/admin/returns');
-  await expect(page.getByText('Duyệt và xử lý yêu cầu đổi trả')).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('tab', { name: /Chờ duyệt/ }).click();
-  await page.getByRole('row').nth(1).click();
-  await page.getByRole('button', { name: /Duyệt & tạo lệnh lấy hàng/ }).click();
-  await expect(page.getByText(/Đã cập nhật yêu cầu RT/)).toBeVisible({ timeout: 30_000 });
-});
-
-test('admin: tab Nội dung hiển thị banner, bài viết, trang tĩnh từ API', async ({ page }) => {
-  await adminLogin(page);
-  await page.goto('/admin/content');
-  await expect(page.getByText('Banner & slider')).toBeVisible({ timeout: 30_000 });
-  await expect(page.locator('img').first()).toBeVisible();
 });

@@ -4,16 +4,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
-import { QuestionsService } from './questions.service';
 import { ReviewsService } from './reviews.service';
 
 @ApiTags('reviews')
 @Controller()
 export class ReviewsController {
-  constructor(
-    private readonly reviews: ReviewsService,
-    private readonly questions: QuestionsService,
-  ) {}
+  constructor(private readonly reviews: ReviewsService) {}
 
   @Public()
   @Get('products/:slug/reviews')
@@ -28,20 +24,6 @@ export class ReviewsController {
   @ApiOperation({ summary: 'Viết đánh giá (chỉ sản phẩm thuộc đơn đã giao của bạn)' })
   create(@CurrentUser('id') uid: number, @Param('slug') slug: string, @Body() body: unknown) {
     return this.reviews.create(uid, slug, body);
-  }
-
-  @Public()
-  @Get('products/:slug/questions')
-  @ApiOperation({ summary: 'Hỏi đáp đã trả lời (công khai)' })
-  questionList(@Param('slug') slug: string) {
-    return this.questions.publicList(slug);
-  }
-
-  @ApiBearerAuth()
-  @Post('products/:slug/questions')
-  @ApiOperation({ summary: 'Đặt câu hỏi: { content } (tối thiểu 10 ký tự)' })
-  ask(@CurrentUser('id') uid: number, @Param('slug') slug: string, @Body() body: unknown) {
-    return this.questions.ask(uid, slug, body);
   }
 
   @ApiBearerAuth()

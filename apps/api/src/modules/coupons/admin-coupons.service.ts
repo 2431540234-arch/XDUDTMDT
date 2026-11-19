@@ -7,7 +7,7 @@ import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
 import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
-import { FieldErrors, conflictError, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, conflictError, asBody, str } from '../../common/utils/validate';
 import { parseVnDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -35,19 +35,12 @@ export class AdminCouponsService {
     private readonly activity: ActivityLogService,
   ) {}
 
-  private view(c: Prisma.CouponGetPayload<{ include: { scopes: true } }>) {
-    const { scopes, ...base } = c;
-    const ids = (type: string) => scopes.filter((s) => s.targetType === type).map((s) => s.targetId);
-    return {
-      ...this.coupons.view(base),
-      categoryIds: ids('category'),
-      productIds: ids('product'),
-      spaceIds: ids('space'),
-    };
+  private view(c: Prisma.CouponGetPayload<object>) {
+    return this.coupons.view(c);
   }
 
   async list(q: RawQuery) {
-    const all = await this.prisma.coupon.findMany({ include: { scopes: true } });
+    const all = await this.prisma.coupon.findMany();
     const now = new Date();
     const counts = {
       all: all.length,
@@ -81,7 +74,7 @@ export class AdminCouponsService {
   }
 
   async get(id: number) {
-    const c = await this.prisma.coupon.findUnique({ where: { id }, include: { scopes: true } });
+    const c = await this.prisma.coupon.findUnique({ where: { id } });
     if (!c) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Khuyến mãi không tồn tại.');
     return this.view(c);
   }
@@ -123,44 +116,10 @@ export class AdminCouponsService {
     return code;
   }
 
-  /** Nhãn phạm vi hiển thị (giống mock) */
-  private async label(appliesTo: string, categoryIds: number[], productIds: number[], spaceIds: number[]) {
-    if (appliesTo === 'category') {
-      const cats = await this.prisma.category.findMany({ where: { id: { in: categoryIds } } });
-      return cats.length ? `Danh mục: ${cats.map((c) => c.name).join(', ')}` : 'Theo danh mục';
-    }
-    if (appliesTo === 'product') {
-      const ps = await this.prisma.product.findMany({
-        where: { id: { in: productIds } },
-        select: { name: true },
-        take: 3,
-      });
-      return ps.length
-        ? `Sản phẩm: ${ps.map((p) => p.name).join(', ')}${productIds.length > 3 ? '…' : ''}`
-        : 'Theo sản phẩm';
-    }
-    if (appliesTo === 'space') {
-      const ss = await this.prisma.space.findMany({
-        where: { id: { in: spaceIds } },
-        select: { title: true },
-        take: 3,
-      });
-      return ss.length ? `Không gian: ${ss.map((s) => s.title).join(', ')}` : 'Theo không gian mẫu';
-    }
-    return 'Tất cả sản phẩm';
-  }
-
   private async save(id: number | null, b: Record<string, unknown>, adminId: number) {
     const cur = id ? await this.prisma.coupon.findUnique({ where: { id } }) : null;
     const code = await this.validate(b, id ?? undefined, cur?.usedCount ?? 0);
     const kind = str(b.kind) as 'percent' | 'fixed' | 'freeship';
-    const appliesTo = ['all', 'category', 'product', 'space'].includes(str(b.appliesTo))
-      ? str(b.appliesTo)
-      : 'all';
-    const ids = (k: string) => (Array.isArray(b[k]) ? (b[k] as unknown[]).map(toId).filter(Boolean) : []);
-    const categoryIds = appliesTo === 'category' ? ids('categoryIds') : [];
-    const productIds = appliesTo === 'product' ? ids('productIds') : [];
-    const spaceIds = appliesTo === 'space' ? ids('spaceIds') : [];
     const data = {
       code,
       type: kind,
@@ -181,18 +140,9 @@ export class AdminCouponsService {
       isActive: b.isActive !== false,
       name: str(b.name).trim(),
       description: str(b.description) || null,
-      appliesTo,
-      appliesToLabel: await this.label(appliesTo, categoryIds, productIds, spaceIds),
     };
     const saved = await this.prisma.$transaction(async (tx) => {
       const row = id ? await tx.coupon.update({ where: { id }, data }) : await tx.coupon.create({ data });
-      await tx.couponScope.deleteMany({ where: { couponId: row.id } });
-      const scopes = [
-        ...categoryIds.map((targetId) => ({ couponId: row.id, targetType: 'category', targetId })),
-        ...productIds.map((targetId) => ({ couponId: row.id, targetType: 'product', targetId })),
-        ...spaceIds.map((targetId) => ({ couponId: row.id, targetType: 'space', targetId })),
-      ];
-      if (scopes.length) await tx.couponScope.createMany({ data: scopes, skipDuplicates: true });
       await this.activity.log(
         {
           actorId: adminId,

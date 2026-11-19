@@ -1,8 +1,7 @@
-// Sinh dữ liệu giao dịch: orders, order_items, order_status_history, payments, shipments, coupon_usages, inventory_movements.
+// Sinh dữ liệu giao dịch: orders, order_items, order_status_history, payments, shipments, coupon_usages.
 // 74 đơn trải đều tháng 01–11/2026, đủ mọi trạng thái; tạm tính − giảm giá + phí ship = tổng (tính đúng).
 import type {
   CouponUsage,
-  InventoryMovement,
   Order,
   OrderItem,
   OrderPaymentStatus,
@@ -28,7 +27,6 @@ export const orderStatusHistory: OrderStatusHistory[] = [];
 export const payments: Payment[] = [];
 export const shipments: Shipment[] = [];
 export const couponUsages: CouponUsage[] = [];
-export const inventoryMovements: InventoryMovement[] = [];
 /** Thời điểm giao thành công của đơn (để tính hạn đổi trả 7 ngày) */
 export const deliveredAtByOrder = new Map<number, string>();
 
@@ -222,13 +220,6 @@ plans.forEach((plan, i) => {
       if (new Date(c.startsAt) > t0 || (c.endsAt && new Date(c.endsAt) < t0)) return false;
       if (subtotal < c.minOrderValue) return false;
       if (ex.kind === 'freeship' && shippingFee === 0) return false;
-      if (
-        ex.categoryIds.length &&
-        !lines.some((l) =>
-          ex.categoryIds.includes(products.find((p) => p.id === l.v.productId)!.categoryId ?? -1),
-        )
-      )
-        return false;
       if ((usedByUserCoupon.get(`${user.id}:${c.id}`) ?? 0) >= (c.perUserLimit ?? 99)) return false;
       return true;
     });
@@ -458,48 +449,5 @@ plans.forEach((plan, i) => {
       createdAt: iso(t0),
     });
 });
-
-// ---- Nhập kho ban đầu + biến động tồn kho (import − sale ⇒ đúng tồn hiện tại) ----
-productVariants.forEach((v) => {
-  const p = products.find((x) => x.id === v.productId)!;
-  const sold = soldQtyByVariant.get(v.id) ?? 0;
-  inventoryMovements.push({
-    id: inventoryMovements.length + 1,
-    variantId: v.id,
-    type: 'import',
-    quantityChange: v.stockQuantity + sold,
-    reason: 'Nhập kho ban đầu',
-    referenceCode: `PN-${String(p.id).padStart(3, '0')}`,
-    performedBy: ADMIN_ID,
-    createdAt: p.createdAt,
-  });
-});
-orderItems.forEach((it) => {
-  const o = orders[it.orderId - 1];
-  if (o.status === 'cancelled') return;
-  inventoryMovements.push({
-    id: inventoryMovements.length + 1,
-    variantId: it.variantId!,
-    type: 'sale',
-    quantityChange: -it.quantity,
-    reason: 'Bán hàng',
-    referenceCode: o.orderCode,
-    performedBy: null,
-    createdAt: o.createdAt,
-  });
-  if (o.status === 'refunded')
-    inventoryMovements.push({
-      id: inventoryMovements.length + 1,
-      variantId: it.variantId!,
-      type: 'return',
-      quantityChange: it.quantity,
-      reason: 'Hoàn hàng',
-      referenceCode: o.orderCode,
-      performedBy: ADMIN_ID,
-      createdAt: o.updatedAt,
-    });
-});
-inventoryMovements.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-inventoryMovements.forEach((m, i) => (m.id = i + 1));
 
 void productExtras;

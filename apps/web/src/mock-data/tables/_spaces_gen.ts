@@ -1,12 +1,10 @@
-// Sinh các bảng không gian mẫu: spaces, space_panoramas, space_hotspots, space_product_placements, space_bookmarks, space_views
+// Sinh các bảng không gian mẫu: spaces, space_panoramas, space_hotspots, space_product_placements
 import type {
   RoomType,
   Space,
-  SpaceBookmark,
   SpaceHotspot,
   SpacePanorama,
   SpaceProductPlacement,
-  SpaceView,
 } from '@aurelia-living/shared-types';
 import { slugify } from '@/lib/format';
 import { panoImg, roomImg } from '../utils/img';
@@ -14,7 +12,6 @@ import { registerMedia } from '../utils/media-registry';
 import { addDays, iso, makeRng } from '../utils/rng';
 import { categories } from './categories';
 import { product3dModels, productExtras, products } from './_products_gen';
-import { TEST_CUSTOMER_ID, users } from './users';
 
 const rng = makeRng(404);
 
@@ -54,8 +51,6 @@ export const spaces: Space[] = [];
 export const spacePanoramas: SpacePanorama[] = [];
 export const spaceHotspots: SpaceHotspot[] = [];
 export const spaceProductPlacements: SpaceProductPlacement[] = [];
-export const spaceBookmarks: SpaceBookmark[] = [];
-export const spaceViews: SpaceView[] = [];
 
 const catIdBySlug = new Map(categories.map((c) => [c.slug, c.id]));
 const styleOf = (productId: number) => productExtras.find((e) => e.productId === productId)?.style;
@@ -102,7 +97,6 @@ for (const style of STYLES) {
       categoryId: catIdBySlug.get('phong-khach') ?? null,
       coverMediaId,
       status,
-      viewCount: rng.int(120, 4200),
       publishedAt: status === 'published' ? at : null,
       createdAt: at,
       updatedAt: at,
@@ -211,29 +205,4 @@ for (const style of STYLES) {
       updatedAt: at,
     });
   }
-}
-
-// Khách test lưu 3 không gian yêu thích
-[1, 6, 9].forEach((spaceId, i) =>
-  spaceBookmarks.push({
-    id: i + 1,
-    userId: TEST_CUSTOMER_ID,
-    spaceId,
-    createdAt: '2026-09-12T10:00:00.000Z',
-  }),
-);
-// Lượt xem không gian
-for (let i = 0; i < 60; i++) {
-  const sp = rng.pick(spaces.filter((s) => s.status === 'published'));
-  const byUser = rng.chance(0.5);
-  spaceViews.push({
-    id: i + 1,
-    spaceId: sp.id,
-    userId: byUser ? rng.pick(users.filter((u) => u.id > 1)).id : null,
-    visitorId: byUser ? null : `v-${rng.int(1000, 9999)}`,
-    sourceProductId: rng.chance(0.3) ? rng.int(1, products.length) : null,
-    hotspotClickCount: rng.int(0, 6),
-    addedToCart: rng.chance(0.2),
-    createdAt: iso(addDays(new Date('2026-03-01T08:00:00.000Z'), rng.int(0, 230))),
-  });
 }

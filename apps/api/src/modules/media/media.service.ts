@@ -175,14 +175,7 @@ export class MediaService {
   // ---------------------------------------------------------------- UC-ADM-04: thư viện media
   private view(m: MediaRow) {
     const c = m._count;
-    const required =
-      c.productImages +
-      c.spacePanoramas +
-      c.modelFiles +
-      c.product360Frames +
-      c.reviewImages +
-      c.returnRequestImages +
-      c.product3dModels;
+    const required = c.productImages + c.spacePanoramas + c.modelFiles + c.product3dModels;
     const optional = c.brands + c.categories + c.spaces + c.usersAsAvatarMedia;
     return {
       id: m.id,
@@ -314,9 +307,6 @@ const MEDIA_INCLUDE = {
       productImages: true,
       spacePanoramas: true,
       modelFiles: true,
-      product360Frames: true,
-      reviewImages: true,
-      returnRequestImages: true,
       product3dModels: true,
       brands: true,
       categories: true,

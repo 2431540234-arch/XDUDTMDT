@@ -115,24 +115,6 @@ export function couponStatus(
   return { label: 'Đang diễn ra', tone: 'green' };
 }
 
-export const userCouponStatusInfo: Record<'unused' | 'used' | 'expired', StatusInfo> = {
-  unused: { label: 'Chưa sử dụng', tone: 'green' },
-  used: { label: 'Đã sử dụng', tone: 'gray' },
-  expired: { label: 'Hết hạn', tone: 'red' },
-};
-
-export const returnStatusInfo: Record<
-  'pending' | 'picking' | 'inspecting' | 'refunded' | 'exchanged' | 'rejected',
-  StatusInfo
-> = {
-  pending: { label: 'Chờ duyệt', tone: 'orange' },
-  picking: { label: 'Đang lấy hàng', tone: 'blue' },
-  inspecting: { label: 'Đang kiểm tra', tone: 'purple' },
-  refunded: { label: 'Đã hoàn tiền', tone: 'green' },
-  exchanged: { label: 'Đã đổi', tone: 'green' },
-  rejected: { label: 'Từ chối', tone: 'red' },
-};
-
 export const roomTypeLabel: Record<RoomType, string> = {
   living_room: 'Phòng khách',
   bedroom: 'Phòng ngủ',
@@ -146,14 +128,3 @@ export const roomTypeLabel: Record<RoomType, string> = {
 /** Luồng 5 bước hiển thị ở stepper đơn hàng */
 export const ORDER_FLOW: OrderStatus[] = ['pending', 'confirmed', 'processing', 'shipping', 'completed'];
 export const orderStepLabels = ['Đặt hàng', 'Đã xác nhận', 'Đang xử lý', 'Đang giao', 'Đã giao'];
-
-export const returnReasonLabel: Record<
-  'defect' | 'wrong_item' | 'not_as_described' | 'missing_accessory' | 'change_mind',
-  string
-> = {
-  defect: 'Sản phẩm bị lỗi/hư hỏng',
-  wrong_item: 'Giao sai mẫu/màu',
-  not_as_described: 'Không đúng mô tả',
-  missing_accessory: 'Thiếu phụ kiện',
-  change_mind: 'Đổi ý, không muốn mua nữa',
-};

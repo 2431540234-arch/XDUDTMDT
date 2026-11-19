@@ -13,7 +13,6 @@ const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@aurelia.vn';
 // Mật khẩu mặc định CHỈ dùng ngoài production; production bắt buộc đặt SEED_ADMIN_PASSWORD (kiểm tra ở main())
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin@123456';
 const SAMPLE_USER_PASSWORD = process.env.SEED_SAMPLE_USER_PASSWORD ?? 'User@123456';
-const VISITOR_ID = '5b3f1c1e-8a47-4c0e-9d5f-0c6b7d1e2a33';
 
 const PERMISSIONS = [
   ['manage_users', 'Quản lý người dùng', 'Xem, khóa, mở khóa, cấm tài khoản; gán vai trò'],
@@ -37,27 +36,6 @@ const SETTINGS: [string, unknown, string][] = [
   ['free_shipping_threshold', 5000000, 'Miễn phí vận chuyển cho đơn từ mức này (VND)'],
   ['maintenance_mode', false, 'Chế độ bảo trì'],
 ];
-
-/**
- * Trang tĩnh mặc định (idempotent, KHÔNG ghi đè nội dung admin đã sửa): trang /about đọc nội dung từ trang slug "about" nên bản cài
- * không có dữ liệu mẫu (production, SEED_SAMPLE=false) vẫn có trang giới thiệu trung tính thay vì 404. Chỉ chạy khi KHÔNG seed từ mock-data
- * (mock-data đã có trang about riêng).
- */
-async function seedDefaultPages() {
-  await prisma.page.upsert({
-    where: { slug: 'about' },
-    update: {},
-    create: {
-      title: 'Về chúng tôi',
-      slug: 'about',
-      type: 'static',
-      content:
-        '## Về Aurelia Living\n\nAurelia Living là website thương mại điện tử nội thất, tích hợp xem sản phẩm 3D, xoay 360° và không gian mẫu 360°.\n\nNội dung giới thiệu chi tiết sẽ được cập nhật trong trang quản trị (Nội dung → Trang tĩnh).',
-      status: 'published',
-      publishedAt: new Date(),
-    },
-  });
-}
 
 async function seedCore(createAdmin = true) {
   const adminRole = await prisma.role.upsert({
@@ -551,56 +529,6 @@ async function seedSample() {
       await prisma.order.update({ where: { id: order.id }, data: { status } });
     }
     // Trừ kho + sold_count (việc của tầng Service; ghi tay cho dữ liệu mẫu nhất quán)
-    await prisma.inventoryMovement.createMany({
-      data: [
-        {
-          variantId: vSofaXam.id,
-          type: 'import',
-          quantityChange: 20,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vSofaBe.id,
-          type: 'import',
-          quantityChange: 20,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vBanSoi.id,
-          type: 'import',
-          quantityChange: 15,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vBanOc.id,
-          type: 'import',
-          quantityChange: 15,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vSofaXam.id,
-          type: 'sale',
-          quantityChange: -1,
-          reason: 'Bán hàng',
-          referenceCode: orderCode,
-        },
-        {
-          variantId: vBanOc.id,
-          type: 'sale',
-          quantityChange: -1,
-          reason: 'Bán hàng',
-          referenceCode: orderCode,
-        },
-      ],
-    });
     await prisma.productVariant.updateMany({
       where: { id: { in: [vSofaXam.id, vBanOc.id] } },
       data: { stockQuantity: { decrement: 1 } },
@@ -637,46 +565,6 @@ async function seedSample() {
     where: { userId_productId: { userId: u1.id, productId: table.id } },
     update: {},
     create: { userId: u1.id, productId: table.id },
-  });
-  await prisma.spaceBookmark.upsert({
-    where: { userId_spaceId: { userId: u1.id, spaceId: space.id } },
-    update: {},
-    create: { userId: u1.id, spaceId: space.id },
-  });
-
-  // Lượt xem space: chỉ tạo một lần (nhật ký, không có khóa tự nhiên)
-  if (!(await prisma.spaceView.findFirst({ where: { spaceId: space.id } }))) {
-    // Khách vãng lai: userId NULL + visitorId; trigger tăng spaces.view_count
-    await prisma.spaceView.create({
-      data: {
-        spaceId: space.id,
-        visitorId: VISITOR_ID,
-        sourceProductId: sofa.id,
-        hotspotClickCount: 1,
-        addedToCart: false,
-      },
-    });
-    await prisma.spaceView.create({
-      data: {
-        spaceId: space.id,
-        userId: u1.id,
-        sourceProductId: sofa.id,
-        hotspotClickCount: 3,
-        addedToCart: true,
-      },
-    });
-  }
-
-  await prisma.page.upsert({
-    where: { slug: 'chinh-sach-doi-tra' },
-    update: {},
-    create: {
-      title: 'Chính sách đổi trả',
-      slug: 'chinh-sach-doi-tra',
-      content: '<p>Đổi trả trong 7 ngày nếu sản phẩm lỗi do nhà sản xuất.</p>',
-      status: 'published',
-      publishedAt: new Date(),
-    },
   });
   if (
     !(await prisma.activityLog.findFirst({
@@ -726,7 +614,6 @@ async function main() {
   // SEED_SOURCE=legacy giữ bộ dữ liệu mẫu cũ; SEED_SAMPLE=false chỉ seed phần bắt buộc.
   const useMock = process.env.SEED_SAMPLE !== 'false' && (process.env.SEED_SOURCE ?? 'mock') === 'mock';
   await seedCore(!useMock); // seed mock có tài khoản admin riêng (admin@aurelia.vn / admin123)
-  if (!useMock) await seedDefaultPages();
   if (useMock) {
     const { seedFromMock } = await import('./seed-mock');
     await seedFromMock();

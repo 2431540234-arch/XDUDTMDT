@@ -3,13 +3,12 @@
 // Bảng: coupons, coupon_usages
 // TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
-import { CouponsController } from './coupons.controller';
 import { AdminCouponsController } from './admin-coupons.controller';
 import { AdminCouponsService } from './admin-coupons.service';
 import { CouponsService } from './coupons.service';
 
 @Module({
-  controllers: [CouponsController, AdminCouponsController],
+  controllers: [AdminCouponsController],
   providers: [CouponsService, AdminCouponsService],
   exports: [CouponsService, AdminCouponsService],
 })

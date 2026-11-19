@@ -10,13 +10,13 @@ import { FieldErrors, asBody, str } from '../../common/utils/validate';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
 
-/** Thuộc tính hệ thống: code được mã nguồn dùng để dựng nhãn biến thể/màu 360° ⇒ không đổi code, không xóa */
+/** Thuộc tính hệ thống: code được mã nguồn dùng để dựng nhãn biến thể/màu ⇒ không đổi code, không xóa */
 export const SYSTEM_ATTRIBUTE_CODES = ['color', 'size', 'material'];
 
 const INCLUDE = {
   attributeValues: {
     orderBy: { id: 'asc' },
-    include: { _count: { select: { variantAttributeValues: true, product360Frames: true } } },
+    include: { _count: { select: { variantAttributeValues: true } } },
   },
 } satisfies Prisma.AttributeInclude;
 type Row = Prisma.AttributeGetPayload<{ include: typeof INCLUDE }>;
@@ -43,7 +43,6 @@ export class AttributesService {
         value: v.value,
         colorHex: v.colorHex,
         usageCount: v._count.variantAttributeValues,
-        frameCount: v._count.product360Frames,
       })),
     };
   }
@@ -155,10 +154,7 @@ export class AttributesService {
         ErrorCode.RESOURCE_IN_USE,
         'Không xóa được thuộc tính hệ thống (màu sắc, kích thước, chất liệu).',
       );
-    const used = cur.attributeValues.reduce(
-      (s, v) => s + v._count.variantAttributeValues + v._count.product360Frames,
-      0,
-    );
+    const used = cur.attributeValues.reduce((s, v) => s + v._count.variantAttributeValues, 0);
     if (used)
       throw new AppException(
         ErrorCode.RESOURCE_IN_USE,
@@ -204,7 +200,7 @@ export class AttributesService {
   private async valueOf(attributeId: number, valueId: number) {
     const v = await this.prisma.attributeValue.findFirst({
       where: { id: valueId, attributeId },
-      include: { _count: { select: { variantAttributeValues: true, product360Frames: true } } },
+      include: { _count: { select: { variantAttributeValues: true } } },
     });
     if (!v) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Giá trị thuộc tính không tồn tại.');
     return v;
@@ -272,14 +268,11 @@ export class AttributesService {
     await this.one(attributeId);
     const cur = await this.valueOf(attributeId, valueId);
     const inVariants = cur._count.variantAttributeValues;
-    const inFrames = cur._count.product360Frames;
-    if (inVariants || inFrames) {
+    if (inVariants) {
       throw new AppException(
         ErrorCode.RESOURCE_IN_USE,
-        inVariants
-          ? `Giá trị "${cur.value}" đang được ${inVariants} biến thể sử dụng, không thể xóa.`
-          : `Giá trị "${cur.value}" đang được dùng cho ảnh xoay 360° của sản phẩm, không thể xóa.`,
-        { variants: inVariants, frames: inFrames },
+        `Giá trị "${cur.value}" đang được ${inVariants} biến thể sử dụng, không thể xóa.`,
+        { variants: inVariants },
       );
     }
     await this.prisma.$transaction(async (tx) => {

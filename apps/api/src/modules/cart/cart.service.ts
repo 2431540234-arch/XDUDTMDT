@@ -139,17 +139,7 @@ export class CartService {
     } | null = null;
     if (cart.coupon && !isSubset && views.length) {
       try {
-        const r = await this.coupons.evaluate(
-          cart.coupon.code,
-          userId,
-          lines.map((l) => ({
-            productId: l.view.productId,
-            categoryId: l.categoryId,
-            lineTotal: l.view.lineTotal,
-          })),
-          subtotal,
-          shippingFee,
-        );
+        const r = await this.coupons.evaluate(cart.coupon.code, userId, subtotal, shippingFee);
         discountAmount = r.discount;
         coupon = { id: r.coupon.id, code: r.coupon.code, type: r.kind, value: Number(r.coupon.value) };
       } catch {
@@ -297,22 +287,7 @@ export class CartService {
     if (!code) new FieldErrors().add('code', 'Vui lòng nhập mã giảm giá.').throwIfAny();
     const view = await this.view(userId);
     if (!view.items.length) throw new AppException(ErrorCode.COUPON_INVALID, 'Giỏ hàng đang trống.');
-    const cats = await this.prisma.product.findMany({
-      where: { id: { in: view.items.map((i) => i.productId) } },
-      select: { id: true, categoryId: true },
-    });
-    const catOf = new Map(cats.map((c) => [c.id, c.categoryId]));
-    const r = await this.coupons.evaluate(
-      code,
-      userId,
-      view.items.map((i) => ({
-        productId: i.productId,
-        categoryId: catOf.get(i.productId) ?? null,
-        lineTotal: i.lineTotal,
-      })),
-      view.subtotal,
-      view.shippingFee,
-    );
+    const r = await this.coupons.evaluate(code, userId, view.subtotal, view.shippingFee);
     await this.prisma.cart.update({ where: { userId }, data: { couponId: r.coupon.id } });
     return this.view(userId);
   }

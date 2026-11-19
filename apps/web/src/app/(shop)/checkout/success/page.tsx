@@ -5,37 +5,24 @@ import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import Breadcrumb from '@/components/ui/Breadcrumb';
-import Button, { LinkButton } from '@/components/ui/Button';
+import { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useRequireCustomer } from '@/hooks/useAuth';
 import { addDays, format } from '@/lib/date';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { paymentMethodShort, paymentStatusInfo } from '@/lib/status';
-import { cartApi, couponApi, orderApi } from '@/services/cart.api';
-import { toast } from '@/store/uiStore';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { cartApi, orderApi } from '@/services/cart.api';
 
 void cartApi;
 
 function Content() {
   const { ready } = useRequireCustomer();
   const code = useSearchParams().get('order') ?? '';
-  const qc = useQueryClient();
   const q = useQuery({
     queryKey: ['order', code],
     queryFn: () => orderApi.detail(code),
     enabled: ready && Boolean(code),
-  });
-  const gift = useQuery({ queryKey: ['coupon-suggested'], queryFn: couponApi.suggested, enabled: ready });
-  const g = gift.data?.find((c) => c.code === 'FLASH11') ?? gift.data?.[0];
-  const save = useMutation({
-    mutationFn: () => couponApi.save(g!.code),
-    onSuccess: () => {
-      toast.success('Đã lưu mã vào ví voucher của bạn.');
-      qc.invalidateQueries({ queryKey: ['coupon-suggested'] });
-    },
-    onError: () => toast.info('Mã này đã có trong ví voucher của bạn.'),
   });
 
   if (!ready || q.isLoading)
@@ -127,20 +114,6 @@ function Content() {
             Tiếp tục mua sắm <Icon name="arrowRight" size={16} />
           </LinkButton>
         </div>
-        {g && (
-          <div className="mt-6 flex flex-col items-center justify-between gap-3 rounded-card border border-dashed border-primary bg-primary-soft/50 p-4 text-left sm:flex-row">
-            <div className="flex items-center gap-3">
-              <Icon name="gift" size={28} className="text-primary" />
-              <div>
-                <p className="font-bold">Quà tặng cho đơn tiếp theo: mã {g.code}</p>
-                <p className="text-xs text-muted">{g.description}</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" loading={save.isPending} onClick={() => save.mutate()}>
-              Lưu mã
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );

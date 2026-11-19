@@ -4,8 +4,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import SpaceCard from '@/components/product/SpaceCard';
 import Breadcrumb from '@/components/ui/Breadcrumb';
 import Button, { LinkButton } from '@/components/ui/Button';
@@ -16,7 +16,6 @@ import { queryKeys } from '@/hooks/useCart';
 import { useSpace } from '@/hooks/useSpaces';
 import { cn } from '@/lib/cn';
 import { formatCurrency } from '@/lib/format';
-import { getVisitorId } from '@/lib/visitor';
 import { roomTypeLabel } from '@/lib/status';
 import { ApiClientError } from '@/services/api-client';
 import { cartApi } from '@/services/cart.api';
@@ -55,40 +54,11 @@ export default function SpaceDetailPage() {
     enabled: Boolean(placement) && swapOpen,
     staleTime: 60_000,
   });
-  const search = useSearchParams();
 
   useEffect(() => {
     if (!s) return;
     setPanoId(s.panoramas.find((p) => p.isStart)?.id ?? s.panoramas[0]?.id ?? null);
     setChecked(s.products.map((p) => p.id));
-  }, [s?.id]);
-
-  // Lượt xem (UC-SPACE-06): gom số lần bấm hotspot + cờ đã thêm vào giỏ, rồi gửi ĐÚNG MỘT lần khi rời trang
-  // (tab ẩn / pagehide / chuyển trang trong ứng dụng) bằng sendBeacon. ?from=<slug sản phẩm> là sản phẩm dẫn tới.
-  const stats = useRef({ clicks: 0, added: false, sent: false });
-  const from = search.get('from') ?? undefined;
-  useEffect(() => {
-    if (!s) return;
-    stats.current = { clicks: 0, added: false, sent: false };
-    const send = () => {
-      const st = stats.current;
-      if (st.sent) return;
-      st.sent = true;
-      spaceApi.sendViewBeacon(slug, {
-        visitorId: getVisitorId(),
-        sourceProductId: from,
-        hotspotClickCount: st.clicks,
-        addedToCart: st.added,
-      });
-    };
-    const onHide = () => document.visibilityState === 'hidden' && send();
-    document.addEventListener('visibilitychange', onHide);
-    window.addEventListener('pagehide', send);
-    return () => {
-      document.removeEventListener('visibilitychange', onHide);
-      window.removeEventListener('pagehide', send);
-      send(); // rời trang bằng điều hướng trong ứng dụng (không có pagehide)
-    };
   }, [s?.id]);
 
   const pano = s?.panoramas.find((p) => p.id === panoId) ?? s?.panoramas[0];
@@ -104,7 +74,6 @@ export default function SpaceDetailPage() {
       ),
     onSuccess: ({ cart }) => {
       qc.setQueryData(queryKeys.cart, cart);
-      stats.current.added = true;
       toast.success(`Đã thêm ${chosen.length} sản phẩm vào giỏ hàng.`);
     },
     onError: (e) => {
@@ -120,14 +89,6 @@ export default function SpaceDetailPage() {
       toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ hàng.');
     },
   });
-  const bookmark = useMutation({
-    mutationFn: () => (s!.isBookmarked ? spaceApi.unbookmark(s!.slug) : spaceApi.bookmark(s!.slug)),
-    onSuccess: () => {
-      toast.success(s!.isBookmarked ? 'Đã bỏ lưu không gian.' : 'Đã lưu không gian mẫu.');
-      qc.invalidateQueries({ queryKey: ['space', slug] });
-    },
-  });
-
   if (q.isLoading)
     return (
       <div className="container-page py-8">
@@ -153,7 +114,6 @@ export default function SpaceDetailPage() {
   if (!s || !pano) return null;
 
   const onHotspot = (h: Hotspot) => {
-    stats.current.clicks += 1;
     if (h.type === 'navigation' && h.targetPanoramaId) {
       setPanoId(h.targetPanoramaId);
       setSelected(null);
@@ -311,7 +271,6 @@ export default function SpaceDetailPage() {
                       quantity: 1,
                     });
                     qc.setQueryData(queryKeys.cart, c);
-                    stats.current.added = true;
                     toast.success('Đã thêm vào giỏ hàng.');
                   } catch (e) {
                     toast.error(e instanceof ApiClientError ? e.message : 'Không thể thêm vào giỏ.');
@@ -408,9 +367,6 @@ export default function SpaceDetailPage() {
               </span>
             </div>
             <h1 className="mt-2 text-2xl font-extrabold">{s.title}</h1>
-            <p className="mt-1 flex items-center gap-1.5 text-sm text-muted">
-              <Icon name="eye" size={15} /> {s.viewCount.toLocaleString('vi-VN')} lượt xem
-            </p>
             <p className="mt-3 text-sm leading-relaxed text-muted">{s.description}</p>
           </div>
           <section className="card p-4">
@@ -481,24 +437,7 @@ export default function SpaceDetailPage() {
             >
               <Icon name="cart" size={18} /> Thêm cả bộ vào giỏ hàng
             </Button>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={() =>
-                  user
-                    ? bookmark.mutate()
-                    : (toast.info('Vui lòng đăng nhập để lưu không gian.'),
-                      router.push(`/login?next=/spaces/${slug}`))
-                }
-              >
-                <Icon
-                  name="heart"
-                  size={16}
-                  filled={s.isBookmarked}
-                  className={s.isBookmarked ? 'text-danger' : ''}
-                />{' '}
-                {s.isBookmarked ? 'Đã lưu' : 'Lưu không gian'}
-              </Button>
+            <div className="mt-2 grid grid-cols-1 gap-2">
               <Button
                 variant="outline"
                 onClick={async () => {

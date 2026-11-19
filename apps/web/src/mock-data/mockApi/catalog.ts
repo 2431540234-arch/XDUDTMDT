@@ -1,4 +1,4 @@
-// Mock API: danh mục, sản phẩm, đánh giá, hỏi đáp, yêu thích, không gian mẫu, nội dung công khai, thông báo
+// Mock API: danh mục, sản phẩm, đánh giá, yêu thích, không gian mẫu, nội dung công khai (FAQ, cài đặt), thông báo
 import type { Product } from '@aurelia-living/shared-types';
 import type { ProductFacets } from '@/types/api';
 import { nextId, type Db } from '../db';
@@ -25,18 +25,14 @@ import {
   categoryIdsWithChildren,
   categoryTree,
   colorOfVariant,
-  couponView,
   effectivePrice,
-  mediaPath,
   model3DView,
   notificationView,
   productDetail,
-  product360View,
   productListItem,
   reviewView,
   spaceDetail,
   spaceListItem,
-  userCouponView,
 } from './views';
 
 export const categories = (ctx: Ctx): Result => ok(categoryTree(ctx.db));
@@ -178,13 +174,6 @@ export function productModel(ctx: Ctx): Result {
   return ok(m ? model3DView(ctx.db, m) : null);
 }
 
-export function product360(ctx: Ctx): Result {
-  const p = productBySlug(ctx);
-  const v = product360View(ctx.db, p, ctx.user?.id);
-  if (!v) throw notFound('Ảnh 360° của sản phẩm');
-  return ok(v);
-}
-
 export function relatedProducts(ctx: Ctx): Result {
   const p = productBySlug(ctx);
   const same = visibleProducts(ctx.db).filter((x) => x.id !== p.id && x.categoryId === p.categoryId);
@@ -249,7 +238,6 @@ export function createReview(ctx: Ctx): Result {
   ctx.db.reviewExtras.push({
     reviewId: id,
     tags: Array.isArray(b.tags) ? b.tags : [],
-    images: Array.isArray(b.images) ? b.images : [],
   });
   ctx.db.activityLogs.push({
     id: nextId(ctx.db.activityLogs),
@@ -302,44 +290,6 @@ export function deleteReview(ctx: Ctx): Result {
   return done();
 }
 
-// ---------------- Hỏi đáp ----------------
-export function productQuestions(ctx: Ctx): Result {
-  const p = productBySlug(ctx);
-  return ok(
-    ctx.db.productQuestions
-      .filter((q) => q.productId === p.id && q.status === 'answered' && q.isPublic)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
-  );
-}
-
-export function askQuestion(ctx: Ctx): Result {
-  const p = productBySlug(ctx);
-  const content = String(ctx.body?.content ?? '').trim();
-  if (content.length < 10) throw validation({ content: 'Câu hỏi tối thiểu 10 ký tự.' });
-  const id = nextId(ctx.db.productQuestions);
-  const row = {
-    id,
-    productId: p.id,
-    productName: p.name,
-    productSlug: p.slug,
-    productImageUrl: mediaPath(
-      ctx.db,
-      ctx.db.productImages.find((i) => i.productId === p.id && i.isPrimary)?.mediaId,
-    ),
-    userId: ctx.user!.id,
-    userName: ctx.user!.fullName,
-    content,
-    answer: null,
-    answeredBy: null,
-    answeredAt: null,
-    isPublic: true,
-    status: 'unanswered' as const,
-    createdAt: nowIso(),
-  };
-  ctx.db.productQuestions.push(row);
-  return created(row);
-}
-
 // ---------------- Yêu thích ----------------
 export const wishlist = (ctx: Ctx): Result =>
   ok(
@@ -376,21 +326,17 @@ export function spaces(ctx: Ctx): Result {
   const search = fold(qStr(q, 'q'));
   const room = qStr(q, 'roomType');
   const style = qStr(q, 'style');
-  const only = qBool(q, 'bookmarked');
   let list = ctx.db.spaces.filter((s) => s.status === 'published');
   if (search)
     list = list.filter((s) => fold(`${s.title} ${s.style ?? ''} ${s.description ?? ''}`).includes(search));
   if (room) list = list.filter((s) => s.roomType === room);
   if (style) list = list.filter((s) => s.style === style);
-  let items = list.map((s) => spaceListItem(ctx.db, s, ctx.user?.id));
-  if (only) items = items.filter((s) => s.isBookmarked);
+  let items = list.map((s) => spaceListItem(ctx.db, s));
   const sort = qStr(q, 'sort') || 'newest';
   items =
-    sort === 'popular'
-      ? items.sort((a, b) => b.viewCount - a.viewCount)
-      : sort === 'title'
-        ? items.sort((a, b) => a.title.localeCompare(b.title, 'vi'))
-        : items.sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
+    sort === 'title'
+      ? items.sort((a, b) => a.title.localeCompare(b.title, 'vi'))
+      : items.sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? ''));
   return paginate(items, q, 12);
 }
 
@@ -416,87 +362,8 @@ export function spaceBySlug(ctx: Ctx): Result {
   return ok(spaceDetail(ctx.db, s, ctx.user?.id));
 }
 
-/** Ghi lượt xem (BE thật chèn space_views, trigger tăng view_count) */
-export function recordSpaceView(ctx: Ctx): Result {
-  const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug && x.status === 'published');
-  if (!s) throw notFound('Không gian mẫu');
-  s.viewCount += 1;
-  return done();
-}
-
-export function bookmarkSpace(ctx: Ctx): Result {
-  const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug);
-  if (!s) throw notFound('Không gian mẫu');
-  if (!ctx.db.spaceBookmarks.some((b) => b.spaceId === s.id && b.userId === ctx.user!.id))
-    ctx.db.spaceBookmarks.push({
-      id: nextId(ctx.db.spaceBookmarks),
-      userId: ctx.user!.id,
-      spaceId: s.id,
-      createdAt: nowIso(),
-    });
-  return done();
-}
-
-export function unbookmarkSpace(ctx: Ctx): Result {
-  const s = ctx.db.spaces.find((x) => x.slug === ctx.params.slug);
-  if (s)
-    ctx.db.spaceBookmarks = ctx.db.spaceBookmarks.filter(
-      (b) => !(b.spaceId === s.id && b.userId === ctx.user!.id),
-    );
-  return done();
-}
-
 // ---------------- Nội dung công khai ----------------
-export function banners(ctx: Ctx): Result {
-  const t = new Date();
-  return ok(
-    ctx.db.banners
-      .filter((b) => b.isActive && new Date(b.startAt) <= t && (!b.endAt || new Date(b.endAt) >= t))
-      .sort((a, b) => a.position.localeCompare(b.position) || a.sortOrder - b.sortOrder),
-  );
-}
-
-export const posts = (ctx: Ctx): Result =>
-  ok(
-    ctx.db.posts
-      .filter((p) => p.status === 'published')
-      .sort((a, b) => (b.publishedAt ?? '').localeCompare(a.publishedAt ?? '')),
-  );
-
-export function pageBySlug(ctx: Ctx): Result {
-  const p = ctx.db.pages.find((x) => x.slug === ctx.params.slug && x.status === 'published');
-  if (!p) throw notFound('Trang');
-  return ok(p);
-}
-
-export const policies = (ctx: Ctx): Result =>
-  ok(
-    ctx.db.pages
-      .filter((p) => p.slug.startsWith('chinh-sach') || p.slug.startsWith('dieu-khoan'))
-      .map((p) => ({ slug: p.slug, title: p.title })),
-  );
 export const faq = (ctx: Ctx): Result => ok(ctx.db.faqTopics);
-
-export function contact(ctx: Ctx): Result {
-  const b = ctx.body ?? {};
-  const errs: Record<string, string> = {};
-  if (String(b.fullName ?? '').trim().length < 2) errs.fullName = 'Vui lòng nhập họ và tên.';
-  if (!/^0\d{9}$/.test(String(b.phone ?? ''))) errs.phone = 'Số điện thoại phải gồm 10 chữ số.';
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(b.email ?? ''))) errs.email = 'Email không hợp lệ.';
-  if (!String(b.subject ?? '')) errs.subject = 'Vui lòng chọn chủ đề.';
-  if (String(b.content ?? '').trim().length < 10) errs.content = 'Nội dung tối thiểu 10 ký tự.';
-  if (Object.keys(errs).length) throw validation(errs);
-  ctx.db.contactMessages.push({
-    id: nextId(ctx.db.contactMessages),
-    fullName: b.fullName,
-    phone: b.phone,
-    email: b.email,
-    subject: b.subject,
-    content: b.content,
-    createdAt: nowIso(),
-  });
-  return created(null);
-}
 
 export const publicSettings = (ctx: Ctx): Result => ok(settingsView(ctx.db));
 
@@ -535,54 +402,6 @@ export function markAllRead(ctx: Ctx): Result {
     .filter((n) => n.userId === ctx.user!.id && !n.readAt)
     .forEach((n) => (n.readAt = nowIso()));
   return done();
-}
-
-// ---------------- Mã giảm giá của tôi ----------------
-export function myCoupons(ctx: Ctx): Result {
-  const status = qStr(ctx.query, 'status');
-  return ok(
-    ctx.db.userCoupons
-      .filter((u) => u.userId === ctx.user!.id)
-      .map((u) => userCouponView(ctx.db, u))
-      .filter((u) => !status || u.status === status),
-  );
-}
-
-export function suggestedCoupons(ctx: Ctx): Result {
-  const have = new Set(ctx.db.userCoupons.filter((u) => u.userId === ctx.user!.id).map((u) => u.couponId));
-  const t = new Date();
-  return ok(
-    ctx.db.coupons
-      .filter(
-        (c) =>
-          c.isActive &&
-          !have.has(c.id) &&
-          new Date(c.startsAt) <= t &&
-          (!c.endsAt || new Date(c.endsAt) >= t),
-      )
-      .slice(0, 4)
-      .map((c) => couponView(ctx.db, c)),
-  );
-}
-
-export function saveCoupon(ctx: Ctx): Result {
-  const code = String(ctx.body?.code ?? '').trim();
-  if (!code) throw validation({ code: 'Vui lòng nhập mã giảm giá.' });
-  const c = ctx.db.coupons.find((x) => x.code.toLowerCase() === code.toLowerCase());
-  if (!c) throw new ApiFail('COUPON_INVALID', 'Mã giảm giá không tồn tại.');
-  if (!c.isActive || (c.endsAt && new Date(c.endsAt) < new Date()))
-    throw new ApiFail('COUPON_INVALID', 'Mã giảm giá đã hết hạn.');
-  if (ctx.db.userCoupons.some((u) => u.userId === ctx.user!.id && u.couponId === c.id))
-    throw new ApiFail('CONFLICT', 'Bạn đã lưu mã giảm giá này rồi.');
-  const row = {
-    id: nextId(ctx.db.userCoupons),
-    userId: ctx.user!.id,
-    couponId: c.id,
-    status: 'unused' as const,
-    savedAt: nowIso(),
-  };
-  ctx.db.userCoupons.push(row);
-  return created(userCouponView(ctx.db, row));
 }
 
 void colorOfVariant;

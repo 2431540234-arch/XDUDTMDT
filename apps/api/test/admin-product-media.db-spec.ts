@@ -334,7 +334,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
 
   // ------------------------------------------------------------------ UC-ADM-10 biến thể
   describe('UC-ADM-10 biến thể sản phẩm', () => {
-    it('tạo biến thể: SKU, giá, tồn ban đầu ghi movement import; thuộc tính (màu, kích thước, chất liệu) được gắn', async () => {
+    it('tạo biến thể: SKU, giá, tồn ban đầu; thuộc tính (màu, kích thước, chất liệu) được gắn', async () => {
       const p = await create('bt', {
         images: [{ url: PNG }],
         variants: [
@@ -346,13 +346,6 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
       const va = await prisma.productVariant.findFirstOrThrow({ where: { sku: `VAR-${tag}-1A` } });
       expect(Number(va.salePrice)).toBe(1_200_000);
       expect(va.stockQuantity).toBe(7);
-      expect(
-        await prisma.inventoryMovement.count({
-          where: { variantId: va.id, type: 'import', quantityChange: 7 },
-        }),
-      ).toBe(1);
-      const vb = await prisma.productVariant.findFirstOrThrow({ where: { sku: `VAR-${tag}-1B` } });
-      expect(await prisma.inventoryMovement.count({ where: { variantId: vb.id } })).toBe(0); // tồn 0 ⇒ không có phiếu nhập
       const attrs = await prisma.variantAttributeValue.findMany({
         where: { variantId: va.id },
         include: { attributeValue: true },
@@ -409,7 +402,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
       expect(await prisma.product.count({ where: { name: { contains: `trung3 ${tag}` } } })).toBe(0); // giao dịch hoàn tác
     });
 
-    it('sửa tồn kho qua biến thể ghi movement adjustment đúng chênh lệch; sửa giá/khuyến mãi lưu đúng', async () => {
+    it('sửa tồn kho qua biến thể; sửa giá/khuyến mãi lưu đúng', async () => {
       const p = await create('ton', {
         images: [{ url: PNG }],
         variants: [variantBody(`TON-${tag}`, { stockQuantity: 10 })],
@@ -424,19 +417,9 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
       expect(r.status).toBe(200);
       const v = await prisma.productVariant.findUniqueOrThrow({ where: { id } });
       expect([v.stockQuantity, Number(v.price), Number(v.salePrice)]).toEqual([4, 2_000_000, 1_800_000]);
-      const adj = await prisma.inventoryMovement.findMany({ where: { variantId: id, type: 'adjustment' } });
-      expect(adj.map((m) => m.quantityChange)).toEqual([-6]);
-      // không đổi tồn ⇒ không thêm phiếu
-      await api('patch', `/admin/products/${p.id}`, admin, {
-        ...baseBody('ton'),
-        variants: [
-          variantBody(`TON-${tag}`, { id, stockQuantity: 4, price: 2_000_000, salePrice: 1_800_000 }),
-        ],
-      });
-      expect(await prisma.inventoryMovement.count({ where: { variantId: id, type: 'adjustment' } })).toBe(1);
     });
 
-    it('bỏ biến thể khỏi danh sách ⇒ isActive=false (không xóa); giữ lịch sử kho và dòng đơn hàng; xóa khỏi giỏ; gửi lại id thì bán lại', async () => {
+    it('bỏ biến thể khỏi danh sách ⇒ isActive=false (không xóa); giữ dòng đơn hàng; xóa khỏi giỏ; gửi lại id thì bán lại', async () => {
       const p = await create('lichsu', {
         images: [{ url: PNG }],
         variants: [
@@ -471,8 +454,6 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
       expect(order.status).toBe(201);
       await api('post', '/cart/items', tok, { variantId: vb.id, quantity: 1 });
       expect(await prisma.cartItem.count({ where: { variantId: vb.id } })).toBe(1);
-      const movements = await prisma.inventoryMovement.count({ where: { variantId: vb.id } });
-      expect(movements).toBeGreaterThan(0);
 
       const r = await api('patch', `/admin/products/${p.id}`, admin, {
         ...baseBody('lichsu'),
@@ -481,7 +462,6 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
       expect(r.status).toBe(200);
       const vbRow = await prisma.productVariant.findUniqueOrThrow({ where: { id: vb.id } });
       expect(vbRow.isActive).toBe(false); // KHÔNG bị xóa
-      expect(await prisma.inventoryMovement.count({ where: { variantId: vb.id } })).toBe(movements); // lịch sử kho còn nguyên
       expect(await prisma.orderItem.count({ where: { variantId: vb.id } })).toBe(1); // đơn cũ vẫn trỏ tới biến thể
       expect(await prisma.cartItem.count({ where: { variantId: vb.id } })).toBe(0); // giỏ hàng bị dọn
       // công khai chỉ thấy biến thể đang bán; quản trị vẫn thấy đủ (kèm cờ isActive) để có thể bán lại

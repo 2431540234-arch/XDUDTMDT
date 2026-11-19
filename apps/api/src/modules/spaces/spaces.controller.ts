@@ -1,16 +1,5 @@
-// M15 – Không gian mẫu (công khai + lưu yêu thích): /spaces. Quản trị ở admin-spaces.
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  ParseIntPipe,
-  Post,
-  Put,
-  Query,
-} from '@nestjs/common';
+// M15 – Không gian mẫu (công khai): /spaces. Quản trị ở admin-spaces.
+import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
@@ -26,10 +15,10 @@ export class SpacesController {
   @Get()
   @ApiOperation({
     summary:
-      'Danh sách không gian mẫu (lọc roomType, style, q, bookmarked, product = slug sản phẩm có trong không gian; sắp xếp newest|popular|title)',
+      'Danh sách không gian mẫu (lọc roomType, style, q, product = slug sản phẩm có trong không gian; sắp xếp newest|title)',
   })
-  async list(@Query() q: RawQuery, @CurrentUser('id') userId?: number) {
-    const r = await this.spaces.list(q, userId ?? null);
+  async list(@Query() q: RawQuery) {
+    const r = await this.spaces.list(q);
     return paginated(r.items, r.page, r.pageSize, r.total);
   }
 
@@ -56,17 +45,6 @@ export class SpacesController {
     return this.spaces.alternatives(slug, placementId);
   }
 
-  @Public()
-  @Post(':slug/views')
-  @HttpCode(204)
-  @ApiOperation({
-    summary:
-      'Ghi MỘT lượt xem khi rời trang (sendBeacon): { visitorId, sourceProductId? (id hoặc slug), hotspotClickCount?, addedToCart?, accessToken? } ⇒ 204',
-  })
-  view(@Param('slug') slug: string, @Body() body: unknown, @CurrentUser('id') userId?: number) {
-    return this.spaces.recordView(slug, userId ?? null, body);
-  }
-
   @ApiBearerAuth()
   @Post(':slug/add-to-cart')
   @HttpCode(200)
@@ -76,17 +54,5 @@ export class SpacesController {
   })
   addToCart(@CurrentUser('id') uid: number, @Param('slug') slug: string, @Body() body: unknown) {
     return this.spaces.addAllToCart(uid, slug, body);
-  }
-
-  @ApiBearerAuth()
-  @Put(':slug/bookmark')
-  bookmark(@CurrentUser('id') uid: number, @Param('slug') slug: string) {
-    return this.spaces.bookmark(uid, slug);
-  }
-
-  @ApiBearerAuth()
-  @Delete(':slug/bookmark')
-  unbookmark(@CurrentUser('id') uid: number, @Param('slug') slug: string) {
-    return this.spaces.unbookmark(uid, slug);
   }
 }

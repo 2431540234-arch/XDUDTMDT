@@ -8,21 +8,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class AdminMiscService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Việc cần xử lý: đơn chờ xác nhận, đổi trả chờ duyệt, câu hỏi chưa trả lời, đánh giá chờ duyệt */
+  /** Việc cần xử lý: đơn chờ xác nhận, đánh giá chờ duyệt */
   async notifications() {
-    const [orders, returns, questions, reviews] = await Promise.all([
+    const [orders, reviews] = await Promise.all([
       this.prisma.order.findMany({ where: { status: 'pending' }, orderBy: { createdAt: 'desc' }, take: 3 }),
-      this.prisma.returnRequest.findMany({
-        where: { status: 'pending' },
-        orderBy: { createdAt: 'desc' },
-        take: 2,
-      }),
-      this.prisma.productQuestion.findMany({
-        where: { status: 'unanswered' },
-        orderBy: { createdAt: 'desc' },
-        take: 2,
-        include: { product: { select: { name: true } } },
-      }),
       this.prisma.review.findMany({ where: { status: 'pending' }, orderBy: { createdAt: 'desc' }, take: 2 }),
     ]);
     const out: Array<{ id: number; text: string; createdAt: string; link: string }> = [
@@ -31,18 +20,6 @@ export class AdminMiscService {
         text: `Đơn mới ${o.orderCode} đang chờ xác nhận`,
         createdAt: o.createdAt.toISOString(),
         link: `/admin/orders/${o.orderCode}`,
-      })),
-      ...returns.map((r) => ({
-        id: 1000 + r.id,
-        text: `Yêu cầu đổi trả ${r.code} chờ duyệt`,
-        createdAt: r.createdAt.toISOString(),
-        link: '/admin/returns',
-      })),
-      ...questions.map((x) => ({
-        id: 2000 + x.id,
-        text: `Câu hỏi mới về "${x.product.name}"`,
-        createdAt: x.createdAt.toISOString(),
-        link: '/admin/questions',
       })),
       ...reviews.map((r) => ({
         id: 3000 + r.id,

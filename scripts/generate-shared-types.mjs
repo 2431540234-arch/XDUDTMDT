@@ -113,9 +113,7 @@ const BACKEND_EXTRA = new Set([
   'OrderItem.variantLabel',
   'OrderItem.imageMediaId',
   'OrderItem.costPrice',
-  'Page.type',
   'Space.comboDiscountPercent',
-  'Product360Config.defaultColorId',
 ]);
 const usedEnums = new Set();
 const body = models

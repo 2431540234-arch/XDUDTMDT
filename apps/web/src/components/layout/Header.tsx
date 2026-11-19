@@ -179,7 +179,6 @@ function AccountMenu() {
     { href: '/account/profile', label: 'Thông tin cá nhân' },
     { href: '/account/orders', label: 'Đơn hàng của tôi' },
     { href: '/wishlist', label: 'Sản phẩm yêu thích' },
-    { href: '/account/coupons', label: 'Mã giảm giá của tôi' },
   ];
   return (
     <div className="relative" ref={ref}>

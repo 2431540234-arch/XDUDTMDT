@@ -16,22 +16,14 @@ const items: Array<{ href: string; label: string; icon: IconName; match?: (p: st
     icon: 'receipt',
     match: (p) => p.startsWith('/account/orders'),
   },
-  {
-    href: '/account/returns',
-    label: 'Đổi trả & hoàn tiền',
-    icon: 'refresh',
-    match: (p) => p.startsWith('/account/returns'),
-  },
   { href: '/wishlist', label: 'Sản phẩm yêu thích', icon: 'heart' },
-  { href: '/account/saved-spaces', label: 'Không gian đã lưu', icon: 'home' },
-  { href: '/account/coupons', label: 'Mã giảm giá của tôi', icon: 'tag' },
   { href: '/account/reviews', label: 'Đánh giá của tôi', icon: 'star' },
   { href: '/account/notifications', label: 'Thông báo', icon: 'bell' },
   { href: '/account/password', label: 'Đổi mật khẩu', icon: 'lock' },
   { href: '/account/sessions', label: 'Phiên đăng nhập', icon: 'shield' },
 ];
 
-/** Sidebar tài khoản – 11 mục (WIREFRAME 1.7 bản đầy đủ) */
+/** Sidebar tài khoản (WIREFRAME 1.7) */
 export default function AccountSidebar() {
   const pathname = usePathname();
   const router = useRouter();

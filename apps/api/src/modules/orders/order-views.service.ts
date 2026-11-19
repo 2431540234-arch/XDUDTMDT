@@ -6,8 +6,6 @@ import { CatalogViews, PRODUCT_INCLUDE } from '../../common/views/catalog-views.
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 
-export const RETURN_WINDOW_DAYS = 7;
-
 export const ORDER_INCLUDE = {
   orderItems: {
     orderBy: { id: 'asc' },
@@ -129,10 +127,6 @@ export class OrderViewsService {
         : null,
       internalNote: o.internalNote ?? null,
       deliveredAt: delivered,
-      canReturnUntil:
-        o.status === 'completed' && delivered
-          ? new Date(delivered.getTime() + RETURN_WINDOW_DAYS * 86_400_000).toISOString()
-          : null,
     };
   }
 }

@@ -46,10 +46,10 @@ describe('Loại bỏ AR (D-P16) và giữ nguyên 3D/360° (aurelia_test)', () 
     expect(
       (
         await rows(
-          `SELECT table_name AS n FROM information_schema.tables WHERE table_name IN ('product_3d_models','model_files','product_360_frames')`,
+          `SELECT table_name AS n FROM information_schema.tables WHERE table_name IN ('product_3d_models','model_files')`,
         )
       ).length,
-    ).toBe(3);
+    ).toBe(2);
     expect(
       (
         await rows(
@@ -82,7 +82,7 @@ describe('Loại bỏ AR (D-P16) và giữ nguyên 3D/360° (aurelia_test)', () 
     expect(r2.body.meta.total).toBe(r.body.meta.total);
   });
 
-  it('3D/360° và không gian mẫu vẫn hoạt động', async () => {
+  it('3D và không gian mẫu vẫn hoạt động', async () => {
     const list = await http.get('/api/products?has3d=true&pageSize=100');
     expect(list.status).toBe(200);
     expect(list.body.meta.total).toBeGreaterThan(0);
@@ -91,12 +91,6 @@ describe('Loại bỏ AR (D-P16) và giữ nguyên 3D/360° (aurelia_test)', () 
     expect(model.status).toBe(200);
     expect(model.body.data).toHaveProperty('glbUrl');
     expect(model.body.data).not.toHaveProperty('usdzUrl');
-    const has360 = await prisma.product.findFirst({
-      where: { product360: { isNot: null }, status: 'published', deletedAt: null },
-    });
-    expect(has360).not.toBeNull();
-    const r360 = await http.get(`/api/products/${has360!.slug}/360`);
-    expect(r360.status).toBe(200);
     const spaces = await http.get('/api/spaces?pageSize=100');
     expect(spaces.status).toBe(200);
     expect(spaces.body.data.length).toBeGreaterThan(0);

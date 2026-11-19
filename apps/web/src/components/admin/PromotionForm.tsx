@@ -10,7 +10,6 @@ import { PageHeader } from '@/components/admin/FilterBar';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Input, { Select, Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
-import { useCategories } from '@/hooks/useProducts';
 import { cn } from '@/lib/cn';
 import { toInputDate, toVnInputDate } from '@/lib/date';
 import { ApiClientError } from '@/services/api-client';
@@ -24,12 +23,6 @@ const KINDS: Array<[Kind, string, string]> = [
   ['fixed', 'Giảm số tiền cố định', 'Trừ trực tiếp số tiền'],
   ['freeship', 'Miễn phí vận chuyển', 'Giảm đúng phí ship'],
 ];
-const SCOPES: Array<[CouponView['appliesTo'], string]> = [
-  ['all', 'Tất cả sản phẩm'],
-  ['category', 'Theo danh mục'],
-  ['product', 'Theo sản phẩm'],
-  ['space', 'Theo không gian mẫu'],
-];
 
 const randomCode = () => `AUR${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 const num = (s: string) => s.replace(/\D/g, '');
@@ -38,7 +31,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
   const router = useRouter();
   const qc = useQueryClient();
   const editing = Boolean(couponId);
-  const cats = useCategories();
   const cur = useQuery({
     queryKey: ['admin', 'coupon', couponId],
     queryFn: () => adminApi.coupons.get(couponId!),
@@ -53,8 +45,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
     value: '',
     maxDiscount: '',
     minOrderValue: '',
-    appliesTo: 'all' as CouponView['appliesTo'],
-    categoryIds: [] as number[],
     group: '',
     channel: '',
     startsAt: today,
@@ -76,8 +66,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       value: String(c.value || ''),
       maxDiscount: c.maxDiscount ? String(c.maxDiscount) : '',
       minOrderValue: c.minOrderValue ? String(c.minOrderValue) : '',
-      appliesTo: c.appliesTo,
-      categoryIds: [],
       group: '',
       channel: '',
       startsAt: toVnInputDate(c.startsAt),
@@ -110,8 +98,8 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       updatedAt: '',
       name: f.name || 'Tên chương trình khuyến mãi',
       description: f.description,
-      appliesTo: f.appliesTo,
-      appliesToLabel: SCOPES.find((s) => s[0] === f.appliesTo)?.[1] ?? '',
+      appliesTo: 'all' as const,
+      appliesToLabel: 'Tất cả sản phẩm',
       kind: f.kind,
     }),
     [f, today],
@@ -127,8 +115,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
         value: Number(f.value),
         maxDiscount: Number(f.maxDiscount) || null,
         minOrderValue: Number(f.minOrderValue) || 0,
-        appliesTo: f.appliesTo,
-        categoryIds: f.categoryIds,
         startsAt: f.startsAt,
         endsAt: f.endsAt,
         usageLimit: Number(f.usageLimit) || null,
@@ -164,7 +150,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
 
   if (editing && cur.isLoading) return <PageSkeleton />;
   if (editing && cur.isError) return <ErrorState onRetry={() => cur.refetch()} />;
-  const leafCats = (cats.data ?? []).flatMap((c) => [c, ...c.children]);
 
   return (
     <div>
@@ -286,53 +271,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
 
           <section className="card space-y-4 p-5">
             <h2 className="font-bold">Phạm vi áp dụng</h2>
-            <div className="flex flex-wrap gap-4">
-              {SCOPES.map(([k, t]) => (
-                <label key={k} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input
-                    type="radio"
-                    name="scope"
-                    className="accent-primary"
-                    checked={f.appliesTo === k}
-                    onChange={() => set('appliesTo', k)}
-                  />{' '}
-                  {t}
-                </label>
-              ))}
-            </div>
-            {f.appliesTo === 'category' && (
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Chọn danh mục">
-                {leafCats.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    aria-pressed={f.categoryIds.includes(c.id)}
-                    onClick={() =>
-                      set(
-                        'categoryIds',
-                        f.categoryIds.includes(c.id)
-                          ? f.categoryIds.filter((x) => x !== c.id)
-                          : [...f.categoryIds, c.id],
-                      )
-                    }
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium',
-                      f.categoryIds.includes(c.id)
-                        ? 'border-primary bg-primary text-white'
-                        : 'border-line hover:border-primary',
-                    )}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {(f.appliesTo === 'product' || f.appliesTo === 'space') && (
-              <p className="rounded-btn bg-surface-muted/60 p-3 text-xs text-muted">
-                Phạm vi theo {f.appliesTo === 'product' ? 'sản phẩm' : 'không gian mẫu'} được ghi nhận ở bản
-                mô phỏng; áp dụng thực tế khi backend hỗ trợ.
-              </p>
-            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <Select
                 label="Nhóm khách hàng"

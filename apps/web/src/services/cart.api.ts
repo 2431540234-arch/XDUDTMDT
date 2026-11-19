@@ -1,6 +1,6 @@
-// Service gọi API giỏ hàng, mã giảm giá, đặt hàng, thanh toán, đơn hàng, đổi trả
+// Service gọi API giỏ hàng, mã giảm giá, đặt hàng, thanh toán, đơn hàng
 import type { OrderStatus, PaymentMethod } from '@aurelia-living/shared-types';
-import type { CartView, CouponView, OrderView, ReturnRequest, ReviewView, UserCouponView } from '@/types/api';
+import type { CartView, OrderView, ReviewView } from '@/types/api';
 import { http } from './api-client';
 
 export const cartApi = {
@@ -33,24 +33,6 @@ export const orderApi = {
   checkout: (orderId: number) => http.post<{ redirectUrl: string }>(`/payments/${orderId}/checkout`),
   retryPayment: (orderId: number, method?: PaymentMethod) =>
     http.post<{ redirectUrl: string }>(`/payments/${orderId}/retry`, { method }),
-};
-
-export const returnApi = {
-  list: (q: { status?: string; page?: number } = {}) => http.list<ReturnRequest>('/returns', q),
-  create: (body: {
-    orderId: number;
-    items: Array<{ orderItemId: number; quantity: number }>;
-    type: 'refund' | 'exchange';
-    reason: ReturnRequest['reason'];
-    description: string;
-    images: string[];
-  }) => http.post<ReturnRequest>('/returns', body),
-};
-
-export const couponApi = {
-  mine: (q: { status?: string } = {}) => http.get<UserCouponView[]>('/coupons/me', q),
-  suggested: () => http.get<CouponView[]>('/coupons/suggested'),
-  save: (code: string) => http.post<UserCouponView>('/coupons/save', { code }),
 };
 
 export const myReviewApi = {

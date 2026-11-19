@@ -308,11 +308,6 @@ describe('Trạng thái vận đơn, hủy đơn khi hoàn hàng, hoàn tiền (
       expect(
         (await prisma.productVariant.findUniqueOrThrow({ where: { id: o.variantId } })).stockQuantity,
       ).toBe(stock0 + 2);
-      expect(
-        await prisma.inventoryMovement.count({
-          where: { variantId: o.variantId, type: 'return', referenceCode: o.code },
-        }),
-      ).toBe(1);
       const hist = await prisma.orderStatusHistory.findFirstOrThrow({
         where: { orderId: o.id, toStatus: 'cancelled' },
       });
@@ -324,11 +319,10 @@ describe('Trạng thái vận đơn, hủy đơn khi hoàn hàng, hoàn tiền (
       // COD chưa thanh toán ⇒ không có gì để hoàn
       const refund = await api('post', `/admin/orders/${o.id}/refund`, admin);
       expect(refund.status).toBe(409);
-      expect(await prisma.expense.count({ where: { orderId: o.id } })).toBe(0);
       expect(await notices(o.user.id, `Đơn ${o.code} đã được hủy`)).toBe(1);
     });
 
-    it('đã thanh toán: hủy → hoàn tiền đúng một lần (phiếu chi một lần, hoàn lần hai bị từ chối, đồng thời chỉ một thành công)', async () => {
+    it('đã thanh toán: hủy → hoàn tiền đúng một lần (hoàn lần hai bị từ chối, đồng thời chỉ một thành công)', async () => {
       const o = await place('bank_transfer');
       expect(
         (
@@ -353,10 +347,8 @@ describe('Trạng thái vận đơn, hủy đơn khi hoàn hàng, hoàn tiền (
       expect((await prisma.payment.findUniqueOrThrow({ where: { id: o.paymentId } })).status).toBe(
         'refunded',
       );
-      expect(await prisma.expense.count({ where: { orderId: o.id, category: 'refund' } })).toBe(1);
       expect(await notices(o.user.id, `Đơn ${o.code} đã được hoàn tiền`)).toBe(1);
       expect((await api('post', `/admin/orders/${o.id}/refund`, admin)).status).toBe(409);
-      expect(await prisma.expense.count({ where: { orderId: o.id, category: 'refund' } })).toBe(1);
     });
 
     it('quyền: khách và người chưa đăng nhập không đổi được vận đơn hay hủy đơn đang giao', async () => {

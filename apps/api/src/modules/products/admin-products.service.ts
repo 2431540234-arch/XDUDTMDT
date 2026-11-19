@@ -1,6 +1,6 @@
 // UC-ADM-09 – Quản trị sản phẩm: danh sách, chi tiết, thêm/sửa đủ 6 tab (cơ bản, hình ảnh, biến thể màu × kích thước, mô hình 3D,
 // thuộc tính/thông số, SEO), xóa (đã có trong đơn ⇒ chuyển sang "ngừng bán"), ảnh 360° theo màu.
-// Tồn kho: stock_quantity (đã trừ khi khách đặt hàng); admin sửa tồn ⇒ ghi inventory_movements (adjustment).
+// Tồn kho: stock_quantity (đã trừ khi khách đặt hàng); admin sửa tồn khi sửa biến thể.
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
@@ -220,7 +220,7 @@ export class AdminProductsService {
       if (own) {
         v = await tx.productVariant.update({
           where: { id: own.id },
-          // stock_quantity nhập trực tiếp; chênh lệch ghi inventory_movements (adjustment) bên dưới
+          // stock_quantity nhập trực tiếp
           data: {
             sku: vi.sku,
             price: vi.price,
@@ -230,18 +230,6 @@ export class AdminProductsService {
             ...dims,
           },
         });
-        if (vi.stockQuantity !== own.stockQuantity) {
-          await tx.inventoryMovement.create({
-            data: {
-              variantId: own.id,
-              type: 'adjustment',
-              quantityChange: vi.stockQuantity - own.stockQuantity,
-              reason: 'Điều chỉnh tồn khi sửa sản phẩm',
-              referenceCode: vi.sku,
-              performedBy: adminId,
-            },
-          });
-        }
       } else {
         v = await tx.productVariant.create({
           data: {
@@ -253,17 +241,6 @@ export class AdminProductsService {
             ...dims,
           },
         });
-        if (vi.stockQuantity > 0) {
-          await tx.inventoryMovement.create({
-            data: {
-              variantId: v.id,
-              type: 'import',
-              quantityChange: vi.stockQuantity,
-              reason: 'Nhập kho ban đầu',
-              referenceCode: vi.sku,
-            },
-          });
-        }
       }
       keep.push(v.id);
       await tx.variantAttributeValue.deleteMany({ where: { variantId: v.id } });
@@ -405,21 +382,6 @@ export class AdminProductsService {
       if (!primaryImages) errs.add('images', 'Cần có ảnh đại diện để đăng sản phẩm.');
       errs.throwIfAny();
     }
-    if (Array.isArray(b.specs)) {
-      await tx.productSpec.deleteMany({ where: { productId: id } });
-      const specs = (b.specs as Array<{ label: string; value: string }>).filter(
-        (s) => str(s.label).trim() && str(s.value).trim(),
-      );
-      if (specs.length)
-        await tx.productSpec.createMany({
-          data: specs.map((s, i) => ({
-            productId: id,
-            label: str(s.label).trim(),
-            value: str(s.value).trim(),
-            sortOrder: i,
-          })),
-        });
-    }
   }
 
   async create(adminId: number, raw: unknown) {
@@ -514,120 +476,5 @@ export class AdminProductsService {
     }
     await this.products.invalidate();
     return null;
-  }
-
-  // ------------------------------------------------------------ ảnh 360° (tab "Ảnh 360°")
-  async get360(id: number) {
-    const p = await this.row(id);
-    const cfg = await this.prisma.product360Config.findUnique({
-      where: { productId: id },
-      include: {
-        frames: {
-          orderBy: [{ attributeValueId: 'asc' }, { frameIndex: 'asc' }],
-          include: { media: true, color: true },
-        },
-      },
-    });
-    const byColor = new Map<number, { name: string; hex: string; frames: string[] }>();
-    for (const f of cfg?.frames ?? []) {
-      const c = byColor.get(f.attributeValueId) ?? {
-        name: f.color.value,
-        hex: f.color.colorHex ?? '#cccccc',
-        frames: [],
-      };
-      c.frames.push(this.views.url(f.media.filePath) ?? '');
-      byColor.set(f.attributeValueId, c);
-    }
-    const variantColors: Array<{ name: string; hex: string }> = [];
-    for (const v of p.productVariants) {
-      const c = this.views.color(v);
-      if (c && !variantColors.some((x) => x.name === c.name)) variantColors.push(c);
-    }
-    return {
-      enabled: Boolean(cfg?.enabled),
-      frameCount: cfg?.frameCount ?? 36,
-      autoRotate: cfg?.autoRotate ?? true,
-      colors: [...byColor.values()],
-      variantColors,
-    };
-  }
-
-  async save360(adminId: number, id: number, raw: unknown) {
-    await this.row(id);
-    const b = asBody(raw);
-    const colors = (Array.isArray(b.colors) ? b.colors : []) as Array<{
-      name: string;
-      hex: string;
-      frames: string[];
-    }>;
-    const filled = colors.filter((c) => Array.isArray(c.frames) && c.frames.length);
-    if (b.enabled && !filled.some((c) => c.frames.length >= 2)) {
-      new FieldErrors()
-        .add('colors', 'Cần ít nhất một màu có từ 2 ảnh trở lên để bật xem 360°.')
-        .throwIfAny();
-    }
-    // ảnh frame ≤ 2MB/ảnh; ingest ngoài transaction (có thể lâu), rồi ghi cấu hình nguyên tử
-    const resolved: Array<{ name: string; hex: string; mediaIds: number[] }> = [];
-    for (const c of filled) {
-      const mediaIds: number[] = [];
-      for (const u of c.frames)
-        mediaIds.push(
-          await this.ingest.ingestImage(str(u), {
-            userId: adminId,
-            folder: `product-360/${id}`,
-            maxMB: this.ingest.limits.frame,
-          }),
-        );
-      resolved.push({ name: str(c.name), hex: str(c.hex), mediaIds });
-    }
-    await this.prisma.$transaction(
-      async (tx) => {
-        const frameCount = resolved[0]?.mediaIds.length ?? 36;
-        const defColor = resolved[0]
-          ? await this.attrValue(tx, 'color', resolved[0].name, resolved[0].hex)
-          : null;
-        const cfg = await tx.product360Config.upsert({
-          where: { productId: id },
-          update: {
-            enabled: Boolean(b.enabled),
-            autoRotate: b.autoRotate !== false,
-            frameCount,
-            ...(defColor ? { defaultColorId: defColor.id } : {}),
-          },
-          create: {
-            productId: id,
-            enabled: Boolean(b.enabled),
-            autoRotate: b.autoRotate !== false,
-            frameCount,
-            defaultColorId: defColor?.id ?? null,
-          },
-        });
-        await tx.product360Frame.deleteMany({ where: { configId: cfg.id } });
-        for (const c of resolved) {
-          const color = await this.attrValue(tx, 'color', c.name, c.hex);
-          await tx.product360Frame.createMany({
-            data: c.mediaIds.map((mediaId, i) => ({
-              configId: cfg.id,
-              attributeValueId: color.id,
-              frameIndex: i,
-              mediaId,
-            })),
-          });
-        }
-        await this.activity.log(
-          {
-            actorId: adminId,
-            action: 'product.update_360',
-            targetType: 'product',
-            targetId: id,
-            changes: { enabled: Boolean(b.enabled) },
-          },
-          tx,
-        );
-      },
-      { timeout: 60_000 },
-    );
-    await this.products.invalidate();
-    return this.get360(id);
   }
 }

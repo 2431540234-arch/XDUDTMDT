@@ -1,4 +1,4 @@
-// E2E (supertest) Mốc 4 trên aurelia_test: Kho (tồn, biến động, phiếu nhập/xuất nháp-xác nhận-hủy), Thu chi + báo cáo,
+// E2E (supertest) Mốc 4 trên aurelia_test: Kho (tồn kho theo biến thể), báo cáo doanh thu,
 // Cài đặt hệ thống, VNPAY (URL + chữ ký, Return URL, IPN, thanh toán lại) kiểm bằng KHÓA GIẢ.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -15,7 +15,7 @@ const FAKE = {
 };
 const RETURN_URL = 'http://localhost:4000/api/payments/vnpay/return';
 
-describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
+describe('Mốc 4 – kho, doanh thu, cài đặt, VNPAY (aurelia_test)', () => {
   let app: INestApplication;
   let http: ReturnType<typeof request>;
   const prisma = new PrismaClient();
@@ -94,21 +94,13 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
     it.each([
       ['get', '/admin/inventory'],
       ['get', '/admin/inventory/summary'],
-      ['get', '/admin/inventory/movements'],
-      ['get', '/admin/inventory/receipts'],
       ['get', '/admin/stats/finance'],
-      ['get', '/admin/expenses'],
       ['get', '/admin/settings'],
     ] as const)('khách gọi %s %s ⇒ 403; chưa đăng nhập ⇒ 401', async (m, path) => {
       expect((await api(m, path, cust)).status).toBe(403);
       expect((await api(m, path)).status).toBe(401);
     });
-    it('khách ghi: tạo phiếu kho, phiếu chi, sửa cài đặt ⇒ 403', async () => {
-      expect((await api('post', '/admin/inventory/receipts', cust, { type: 'out', items: [] })).status).toBe(
-        403,
-      );
-      expect((await api('post', '/admin/inventory/movements', cust, {})).status).toBe(403);
-      expect((await api('post', '/admin/expenses', cust, {})).status).toBe(403);
+    it('khách ghi: sửa cài đặt ⇒ 403', async () => {
       expect((await api('put', '/admin/settings/store', cust, {})).status).toBe(403);
       expect((await api('put', '/admin/settings/site_name', cust, { value: 'x' })).status).toBe(403);
     });
@@ -229,7 +221,7 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
   });
 
   // ------------------------------------------------------------------------------------------ Kho
-  describe('kho hàng (UC-ADM-12, phương án b′)', () => {
+  describe('kho hàng (UC-ADM-12)', () => {
     it('danh sách tồn: phân trang, tìm, lọc trạng thái, sắp xếp; không còn reservedQty; summary khớp DB', async () => {
       const r = await api('get', '/admin/inventory?pageSize=5&sort=stockQuantity:desc', admin);
       expect(r.status).toBe(200);
@@ -267,291 +259,10 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
         all.filter((v) => v.stockQuantity > 0 && v.stockQuantity <= v.minStock).length,
       );
     });
-
-    it('ghi biến động: nhập +, điều chỉnh ±, hàng trả; đúng một movement; quá tồn ⇒ 409 không đổi gì; sai dữ liệu ⇒ 400/404', async () => {
-      const v = (await variantWithStock(10))!;
-      const s0 = await stockOf(v.id);
-      const m0 = await prisma.inventoryMovement.count({ where: { variantId: v.id } });
-      const imp = await api('post', '/admin/inventory/movements', admin, {
-        variantId: v.id,
-        type: 'import',
-        quantityChange: 7,
-        reason: 'Nhập thử',
-        referenceCode: 'CT-001',
-      });
-      expect(imp.status).toBe(201);
-      expect(imp.body.data.stockQuantity).toBe(s0 + 7);
-      expect(await stockOf(v.id)).toBe(s0 + 7);
-      expect(await prisma.inventoryMovement.count({ where: { variantId: v.id } })).toBe(m0 + 1);
-      const mv = await prisma.inventoryMovement.findFirstOrThrow({
-        where: { variantId: v.id },
-        orderBy: { id: 'desc' },
-      });
-      expect(mv).toMatchObject({
-        type: 'import',
-        quantityChange: 7,
-        referenceCode: 'CT-001',
-        reason: 'Nhập thử',
-      });
-      expect(mv.performedBy).toBe(1);
-
-      expect(
-        (
-          await api('post', '/admin/inventory/movements', admin, {
-            variantId: v.id,
-            type: 'adjustment',
-            quantityChange: -3,
-          })
-        ).status,
-      ).toBe(201);
-      expect(
-        (
-          await api('post', '/admin/inventory/movements', admin, {
-            variantId: v.id,
-            type: 'return',
-            quantityChange: 2,
-          })
-        ).status,
-      ).toBe(201);
-      expect(await stockOf(v.id)).toBe(s0 + 7 - 3 + 2);
-
-      const m1 = await prisma.inventoryMovement.count({ where: { variantId: v.id } });
-      const over = await api('post', '/admin/inventory/movements', admin, {
-        variantId: v.id,
-        type: 'adjustment',
-        quantityChange: -(s0 + 1000),
-      });
-      expect(over.status).toBe(409);
-      expect(over.body.error.code).toBe('OUT_OF_STOCK');
-      expect(await stockOf(v.id)).toBe(s0 + 6);
-      expect(await prisma.inventoryMovement.count({ where: { variantId: v.id } })).toBe(m1);
-
-      const post = (b: object) => api('post', '/admin/inventory/movements', admin, b);
-      expect((await post({ variantId: v.id, type: 'adjustment', quantityChange: 0 })).status).toBe(400);
-      expect((await post({ variantId: v.id, type: 'sale', quantityChange: -1 })).status).toBe(400); // sale chỉ do hệ thống
-      expect((await post({ variantId: v.id, type: 'import', quantityChange: -5 })).status).toBe(400);
-      expect((await post({ variantId: v.id, type: 'import', quantityChange: 1.5 })).status).toBe(400);
-      expect((await post({ variantId: 0, type: 'import', quantityChange: 1 })).status).toBe(400);
-      expect((await post({ variantId: 999999, type: 'import', quantityChange: 1 })).status).toBe(404);
-    });
-
-    it('lịch sử biến động: lọc theo biến thể/loại/ngày, mới nhất trước, có người thực hiện', async () => {
-      const v = (await variantWithStock(1))!;
-      await api('post', '/admin/inventory/movements', admin, {
-        variantId: v.id,
-        type: 'import',
-        quantityChange: 1,
-        reason: 'lịch sử',
-      });
-      const r = await api(
-        'get',
-        `/admin/inventory/movements?variantId=${v.id}&type=import&pageSize=5`,
-        admin,
-      );
-      expect(r.status).toBe(200);
-      expect(r.body.data[0]).toMatchObject({
-        variantId: v.id,
-        sku: v.sku,
-        type: 'import',
-        quantityChange: 1,
-        reason: 'lịch sử',
-        performedByName: expect.any(String),
-      });
-      const times = r.body.data.map((m: { createdAt: string }) => m.createdAt);
-      expect(times).toEqual([...times].sort().reverse());
-      expect(r.body.data.every((m: { type: string }) => m.type === 'import')).toBe(true);
-      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
-      expect(
-        (await api('get', `/admin/inventory/movements?variantId=${v.id}&from=${today}&to=${today}`, admin))
-          .body.data.length,
-      ).toBeGreaterThan(0);
-      expect(
-        (
-          await api(
-            'get',
-            `/admin/inventory/movements?variantId=${v.id}&from=2000-01-01&to=2000-01-02`,
-            admin,
-          )
-        ).body.data,
-      ).toHaveLength(0);
-    });
-
-    it('phiếu nhập hoàn tất: tăng tồn, movement import mang mã phiếu, cập nhật giá vốn, sinh phiếu chi giá vốn; thiếu nhà cung cấp ⇒ 400', async () => {
-      const a = (await variantWithStock(1, 0))!;
-      const b = (await variantWithStock(1, 1))!;
-      const sa = await stockOf(a.id);
-      const sb = await stockOf(b.id);
-      const noSup = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'in',
-        items: [{ variantId: a.id, quantity: 5, costPrice: 1000 }],
-      });
-      expect(noSup.status).toBe(400);
-      expect(noSup.body.error.details).toHaveProperty('supplierName');
-      expect(
-        (
-          await api('post', '/admin/inventory/receipts', admin, {
-            type: 'in',
-            supplierName: 'NCC',
-            items: [],
-          })
-        ).status,
-      ).toBe(400);
-      expect(
-        (
-          await api('post', '/admin/inventory/receipts', admin, {
-            type: 'in',
-            supplierName: 'NCC',
-            items: [{ variantId: a.id, quantity: 0, costPrice: 1 }],
-          })
-        ).status,
-      ).toBe(400);
-      expect(
-        (
-          await api('post', '/admin/inventory/receipts', admin, {
-            type: 'in',
-            supplierName: 'NCC',
-            items: [{ variantId: 999999, quantity: 1, costPrice: 1 }],
-          })
-        ).status,
-      ).toBe(404);
-
-      const r = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'in',
-        supplierName: 'Công ty Gỗ Việt',
-        items: [
-          { variantId: a.id, quantity: 10, costPrice: 1_200_000 },
-          { variantId: b.id, quantity: 4, costPrice: 800_000 },
-        ],
-      });
-      expect(r.status).toBe(201);
-      expect(r.body.data).toMatchObject({
-        type: 'in',
-        status: 'completed',
-        supplierName: 'Công ty Gỗ Việt',
-        itemCount: 2,
-        total: 10 * 1_200_000 + 4 * 800_000,
-      });
-      expect(r.body.data.code).toMatch(/^PN\d{4}$/);
-      expect(await stockOf(a.id)).toBe(sa + 10);
-      expect(await stockOf(b.id)).toBe(sb + 4);
-      const mvs = await prisma.inventoryMovement.findMany({
-        where: { referenceCode: r.body.data.code },
-        orderBy: { variantId: 'asc' },
-      });
-      expect(mvs.map((m) => [m.variantId, m.type, m.quantityChange])).toEqual(
-        [
-          [a.id, 'import', 10],
-          [b.id, 'import', 4],
-        ].sort((x, y) => (x[0] as number) - (y[0] as number)),
-      );
-      expect(Number((await prisma.productVariant.findUniqueOrThrow({ where: { id: a.id } })).costPrice)).toBe(
-        1_200_000,
-      );
-      const exp = await prisma.expense.findFirstOrThrow({ where: { receiptId: r.body.data.id } });
-      expect(exp).toMatchObject({ category: 'cogs' });
-      expect(Number(exp.amount)).toBe(10 * 1_200_000 + 4 * 800_000);
-      expect(exp.note).toContain(r.body.data.code);
-
-      const list = await api('get', '/admin/inventory/receipts', admin);
-      expect(list.body.data[0].code).toBe(r.body.data.code);
-      const detail = await api('get', `/admin/inventory/receipts/${r.body.data.id}`, admin);
-      expect(detail.body.data.items).toHaveLength(2);
-      expect(detail.body.data.items[0]).toMatchObject({
-        sku: expect.any(String),
-        quantity: expect.any(Number),
-      });
-      expect((await api('get', '/admin/inventory/receipts/999999', admin)).status).toBe(404);
-    });
-
-    it('phiếu nháp: không đổi tồn/không movement/không phiếu chi; xác nhận ⇒ áp dụng một lần; hủy nháp; không hủy phiếu đã hoàn tất', async () => {
-      const v = (await variantWithStock(5, 2))!;
-      const s0 = await stockOf(v.id);
-      const draft = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'in',
-        supplierName: 'NCC Nháp',
-        status: 'draft',
-        items: [{ variantId: v.id, quantity: 6, costPrice: 500_000 }],
-      });
-      expect(draft.status).toBe(201);
-      expect(draft.body.data.status).toBe('draft');
-      const id = draft.body.data.id;
-      const code = draft.body.data.code;
-      expect(await stockOf(v.id)).toBe(s0);
-      expect(await prisma.inventoryMovement.count({ where: { referenceCode: code } })).toBe(0);
-      expect(await prisma.expense.count({ where: { receiptId: id } })).toBe(0);
-
-      const conf = await api('post', `/admin/inventory/receipts/${id}/confirm`, admin);
-      expect(conf.status).toBe(200);
-      expect(conf.body.data.status).toBe('completed');
-      expect(await stockOf(v.id)).toBe(s0 + 6);
-      expect(await prisma.inventoryMovement.count({ where: { referenceCode: code } })).toBe(1);
-      expect(await prisma.expense.count({ where: { receiptId: id } })).toBe(1);
-      // xác nhận lần hai / hủy phiếu đã hoàn tất ⇒ 409, không đổi tồn
-      expect((await api('post', `/admin/inventory/receipts/${id}/confirm`, admin)).status).toBe(409);
-      expect((await api('post', `/admin/inventory/receipts/${id}/cancel`, admin)).status).toBe(409);
-      expect(await stockOf(v.id)).toBe(s0 + 6);
-
-      const d2 = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'out',
-        status: 'draft',
-        items: [{ variantId: v.id, quantity: 2, costPrice: 0 }],
-      });
-      expect(d2.body.data.code).toMatch(/^PX\d{4}$/);
-      const cancel = await api('post', `/admin/inventory/receipts/${d2.body.data.id}/cancel`, admin);
-      expect(cancel.status).toBe(200);
-      expect(cancel.body.data.status).toBe('cancelled');
-      expect((await api('post', `/admin/inventory/receipts/${d2.body.data.id}/confirm`, admin)).status).toBe(
-        409,
-      );
-      expect(await stockOf(v.id)).toBe(s0 + 6);
-      expect((await api('post', '/admin/inventory/receipts/999999/confirm', admin)).status).toBe(404);
-    });
-
-    it('phiếu xuất: giảm tồn bằng movement adjustment âm; thiếu hàng ⇒ 409 và hoàn tác cả phiếu; hai phiếu đồng thời không làm tồn âm', async () => {
-      const v = (await variantWithStock(5, 3))!;
-      const s0 = await stockOf(v.id);
-      const out = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'out',
-        orderCode: 'ALV-X',
-        items: [{ variantId: v.id, quantity: 2, costPrice: 0 }],
-      });
-      expect(out.status).toBe(201);
-      expect(await stockOf(v.id)).toBe(s0 - 2);
-      const mv = await prisma.inventoryMovement.findFirstOrThrow({
-        where: { referenceCode: out.body.data.code },
-      });
-      expect(mv).toMatchObject({ type: 'adjustment', quantityChange: -2 });
-      expect(await prisma.expense.count({ where: { receiptId: out.body.data.id } })).toBe(0); // phiếu xuất không sinh giá vốn
-
-      const receiptsBefore = await prisma.stockReceipt.count();
-      const big = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'out',
-        items: [{ variantId: v.id, quantity: s0 + 500, costPrice: 0 }],
-      });
-      expect(big.status).toBe(409);
-      expect(big.body.error.code).toBe('OUT_OF_STOCK');
-      expect(await prisma.stockReceipt.count()).toBe(receiptsBefore);
-      expect(await stockOf(v.id)).toBe(s0 - 2);
-
-      // đồng thời: tồn còn n, hai phiếu xuất cùng n ⇒ đúng một phiếu thành công
-      const cur = await stockOf(v.id);
-      const body = { type: 'out', items: [{ variantId: v.id, quantity: cur, costPrice: 0 }] };
-      const [x, y] = await Promise.all([
-        api('post', '/admin/inventory/receipts', admin, body),
-        api('post', '/admin/inventory/receipts', admin, body),
-      ]);
-      expect([x.status, y.status].sort()).toEqual([201, 409]);
-      expect(await stockOf(v.id)).toBe(0);
-      await api('post', '/admin/inventory/movements', admin, {
-        variantId: v.id,
-        type: 'import',
-        quantityChange: 20,
-      });
-    });
   });
 
-  // ------------------------------------------------------------------------------------------ Thu chi
-  describe('thu chi và báo cáo', () => {
+  // ------------------------------------------------------------------------------------------ Doanh thu
+  describe('báo cáo doanh thu', () => {
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
     const yesterday = new Date(Date.now() - 86_400_000).toLocaleDateString('sv-SE', {
       timeZone: 'Asia/Ho_Chi_Minh',
@@ -587,34 +298,7 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       return o as { id: number; orderCode: string; total: number };
     };
 
-    it('phiếu chi nhập tay: kiểm tra dữ liệu; hoàn tiền không nhập tay được; xóa chỉ với phiếu nhập tay', async () => {
-      const post = (b: object) => api('post', '/admin/expenses', admin, b);
-      const base = { category: 'marketing', amount: 250_000, note: 'Quảng cáo Facebook', date: today };
-      const bad = await post({ category: 'refund', amount: 0, note: ' ', date: 'hôm qua' });
-      expect(bad.status).toBe(400);
-      expect(Object.keys(bad.body.error.details).sort()).toEqual(['amount', 'category', 'date', 'note']);
-      expect((await post({ ...base, amount: -5 })).status).toBe(400);
-      expect((await post({ ...base, category: 'refund' })).status).toBe(400);
-      expect((await post({ ...base, date: '2026-13-45' })).status).toBe(400);
-      const ok = await post({ ...base, date: new Date(`${today}T00:00:00.000Z`).toISOString() }); // FE gửi ISO
-      expect(ok.status).toBe(201);
-      expect(ok.body.data).toMatchObject({
-        category: 'marketing',
-        amount: 250_000,
-        note: 'Quảng cáo Facebook',
-      });
-      expect(ok.body.data.code).toMatch(/^CH-\d{4}$/);
-      const row = await prisma.expense.findUniqueOrThrow({ where: { id: ok.body.data.id } });
-      expect(row.date.toISOString().slice(0, 10)).toBe(today);
-      const list = await api('get', '/admin/expenses?category=marketing&pageSize=5', admin);
-      expect(list.body.data.some((e: { id: number }) => e.id === ok.body.data.id)).toBe(true);
-      expect((await api('delete', `/admin/expenses/${ok.body.data.id}`, admin)).status).toBe(200);
-      expect((await api('delete', `/admin/expenses/${ok.body.data.id}`, admin)).status).toBe(404);
-      const auto = await prisma.expense.findFirstOrThrow({ where: { receiptId: { not: null } } }); // từ phiếu nhập ở trên
-      expect((await api('delete', `/admin/expenses/${auto.id}`, admin)).status).toBe(409);
-    });
-
-    it('doanh thu = đơn giao thành công theo ngày giao; đơn hủy/chưa giao không tính; phiếu chi làm giảm lợi nhuận', async () => {
+    it('doanh thu = đơn giao thành công theo ngày giao; đơn hủy/chưa giao không tính', async () => {
       const r0 = await report();
       const yest0 = await report(yesterday, yesterday);
       await deliveredOrder('cancelled'); // đơn hủy
@@ -640,181 +324,10 @@ describe('Mốc 4 – kho, thu chi, cài đặt, VNPAY (aurelia_test)', () => {
       // khoảng ngày khác (hôm qua) không bị ảnh hưởng
       expect((await report(yesterday, yesterday)).totalIncome).toBe(yest0.totalIncome);
 
-      const e = await api('post', '/admin/expenses', admin, {
-        category: 'shipping',
-        amount: 90_000,
-        note: 'Phí giao hàng đơn ' + o.orderCode,
-        date: today,
-      });
-      expect(e.status).toBe(201);
       const r2 = await report();
-      expect(r2.totalExpense).toBe(r1.totalExpense + 90_000);
-      expect(r2.profit).toBe(r2.totalIncome - r2.totalExpense);
-      expect(r2.income.profitBeforeTax).toBe(r2.profit);
-      expect(r2.expenseBreakdown.reduce((s: number, c: { amount: number }) => s + c.amount, 0)).toBe(
-        r2.totalExpense,
-      );
-      const shipping = r2.expenseBreakdown.find((c: { category: string }) => c.category === 'shipping');
-      expect(shipping.amount).toBe(
-        r1.expenseBreakdown.find((c: { category: string }) => c.category === 'shipping').amount + 90_000,
-      );
-      expect(
-        r2.ledger.some(
-          (l: { code: string; amount: number }) => l.code === e.body.data.code && l.amount === -90_000,
-        ),
-      ).toBe(true);
       expect(r2.topProducts.length).toBeGreaterThan(0);
-      expect(r2.deltas).toMatchObject({
-        income: expect.any(Number),
-        expense: expect.any(Number),
-        profit: expect.any(Number),
-        margin: expect.any(Number),
-      });
-      await api('delete', `/admin/expenses/${e.body.data.id}`, admin);
-    });
-
-    it('hoàn tiền tự sinh phiếu chi refund nên trừ vào lợi nhuận; đơn đã hoàn vẫn là doanh thu ngày giao, không nằm trong cơ cấu danh mục', async () => {
-      const r0 = await report();
-      const o = await deliveredOrder();
-      const item = await prisma.orderItem.findFirstOrThrow({ where: { orderId: o.id } });
-      const png =
-        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-      const ret = await api('post', '/returns', cust, {
-        orderId: o.id,
-        type: 'refund',
-        reason: 'defect',
-        description: 'Sản phẩm bị lỗi khi nhận hàng',
-        images: [png],
-        items: [{ orderItemId: item.id, quantity: item.quantity }],
-      });
-      expect(ret.status).toBe(201);
-      for (const st of ['picking', 'inspecting', 'refunded']) {
-        expect(
-          (await api('patch', `/admin/returns/${ret.body.data.id}`, admin, { status: st, adminNote: 'ok' }))
-            .status,
-        ).toBe(200);
-      }
-      const r1 = await report();
-      expect(r1.totalIncome).toBe(r0.totalIncome + Number(o.total)); // vẫn là doanh thu ngày giao
-      const refund = r1.expenseBreakdown.find((c: { category: string }) => c.category === 'refund').amount;
-      expect(refund).toBeGreaterThan(
-        r0.expenseBreakdown.find((c: { category: string }) => c.category === 'refund').amount,
-      );
-      expect(r1.profit).toBe(r1.totalIncome - r1.totalExpense);
-      expect(r1.income.discountAndRefund).toBeGreaterThanOrEqual(refund);
-    });
-
-    // Đồng hồ ĐƯỢC ĐÓNG BĂNG (jest fake timers) ở các mốc biên giờ Việt Nam của ngày `today`: kết quả không phụ thuộc giờ máy thật.
-    // 00:00:01, 00:30 và 06:59:59 giờ VN ⇒ ngày UTC còn là hôm trước (phiếu chi phải ghi NGÀY VN); 07:00:01 ⇒ cùng ngày UTC.
-    it.each([
-      ['00:00:01', 'T00:00:01+07:00'],
-      ['00:30:00', 'T00:30:00+07:00'],
-      ['06:59:59', 'T06:59:59+07:00'],
-      ['07:00:01', 'T07:00:01+07:00'],
-    ])(
-      'hoàn tiền lúc %s giờ VN (đồng hồ đóng băng) ghi phiếu chi đúng NGÀY VN và vào báo cáo ngày đó',
-      async (_label, suffix) => {
-        const o = await deliveredOrder();
-        const item = await prisma.orderItem.findFirstOrThrow({ where: { orderId: o.id } });
-        const png =
-          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-        const ret = await api('post', '/returns', cust, {
-          orderId: o.id,
-          type: 'refund',
-          reason: 'defect',
-          description: 'Sản phẩm bị lỗi khi nhận hàng',
-          images: [png],
-          items: [{ orderItemId: item.id, quantity: item.quantity }],
-        });
-        expect(ret.status).toBe(201);
-        for (const st of ['picking', 'inspecting'])
-          expect(
-            (await api('patch', `/admin/returns/${ret.body.data.id}`, admin, { status: st, adminNote: 'ok' }))
-              .status,
-          ).toBe(200);
-        const r0 = await report();
-        jest.useFakeTimers({
-          now: new Date(`${today}${suffix}`),
-          doNotFake: [
-            'hrtime',
-            'nextTick',
-            'performance',
-            'queueMicrotask',
-            'requestAnimationFrame',
-            'cancelAnimationFrame',
-            'requestIdleCallback',
-            'cancelIdleCallback',
-            'setImmediate',
-            'clearImmediate',
-            'setInterval',
-            'clearInterval',
-            'setTimeout',
-            'clearTimeout',
-          ],
-        });
-        try {
-          // Nguyên nhân lỗi cũ (đã tái hiện bằng đồng hồ +18 phút): access token admin sống 15 phút, cấp lúc bắt đầu tệp test; đồng hồ giả
-          // 00:30 giờ VN nằm SAU hạn token khi tệp chạy trước ~00:15 giờ VN ⇒ 401. Đăng nhập lại NGAY TRONG đồng hồ giả để token được cấp
-          // và kiểm tra trên cùng một dòng thời gian.
-          const fresh = await api('post', '/auth/login', undefined, {
-            email: 'admin@aurelia.vn',
-            password: 'admin123',
-            adminOnly: true,
-          });
-          expect(fresh.status).toBe(200);
-          const frozenAdmin = fresh.body.data.tokens.accessToken as string;
-          expect(
-            (
-              await api('patch', `/admin/returns/${ret.body.data.id}`, frozenAdmin, {
-                status: 'refunded',
-                adminNote: 'ok',
-              })
-            ).status,
-          ).toBe(200);
-        } finally {
-          jest.useRealTimers();
-        }
-        const exp = await prisma.expense.findFirstOrThrow({ where: { orderId: o.id, category: 'refund' } });
-        expect(exp.date.toISOString().slice(0, 10)).toBe(today); // NGÀY VN, không phải ngày UTC
-        const list = await api('get', `/admin/expenses?category=refund&from=${today}&to=${today}`, admin);
-        expect(list.body.data.map((e: { code: string }) => e.code)).toContain(exp.code);
-        const r1 = await report();
-        const refundOf = (r: { expenseBreakdown: Array<{ category: string; amount: number }> }) =>
-          r.expenseBreakdown.find((c) => c.category === 'refund')?.amount ?? 0;
-        expect(refundOf(r1)).toBe(refundOf(r0) + Number(exp.amount));
-      },
-    );
-
-    it('giá vốn chỉ trừ MỘT lần: phiếu nhập 10 × 1.200.000 = 12.000.000 làm giá vốn +12.000.000; đơn giao thành công không trừ thêm giá vốn', async () => {
-      const r0 = await report();
-      const v = (await variantWithStock(1))!;
-      const rec = await api('post', '/admin/inventory/receipts', admin, {
-        type: 'in',
-        supplierName: 'NCC giá vốn',
-        items: [{ variantId: v.id, quantity: 10, costPrice: 1_200_000 }],
-      });
-      expect(rec.status).toBe(201);
-      const r1 = await report();
-      expect(r1.income.cogs - r0.income.cogs).toBe(12_000_000);
-      expect(r1.totalExpense - r0.totalExpense).toBe(12_000_000);
-      expect(r1.income.opex).toBe(r0.income.opex); // giá vốn không lẫn vào chi phí vận hành
-      expect(r1.income.profitBeforeTax - r0.income.profitBeforeTax).toBe(-12_000_000); // trừ đúng một lần, không phải -24.000.000
-      expect(r1.profit - r0.profit).toBe(-12_000_000);
-
-      // giao một đơn: lợi nhuận chỉ tăng đúng bằng doanh thu đơn (giá vốn đã tính ở phiếu nhập, không tính lại theo giá vốn dòng hàng)
-      const o = await deliveredOrder();
-      const r2 = await report();
-      expect(r2.income.cogs).toBe(r1.income.cogs);
-      expect(r2.profit - r1.profit).toBe(Number(o.total));
-      expect(r2.income.profitBeforeTax - r1.income.profitBeforeTax).toBe(Number(o.total));
-    });
-
-    it('phí vận chuyển và phí cổng thanh toán KHÔNG tự sinh phiếu chi', async () => {
-      const before = await prisma.expense.count({ where: { category: { in: ['shipping', 'payment_fee'] } } });
-      await deliveredOrder();
-      expect(await prisma.expense.count({ where: { category: { in: ['shipping', 'payment_fee'] } } })).toBe(
-        before,
-      );
+      expect(r2.deltas).toMatchObject({ income: expect.any(Number) });
+      expect(r2).not.toHaveProperty('totalExpense');
     });
   });
 

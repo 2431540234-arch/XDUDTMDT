@@ -69,12 +69,6 @@ export default function AdminSpacesPage() {
     { key: 'pano', header: 'Số ảnh 360°', render: (s) => s.panoramaCount },
     { key: 'prod', header: 'Số sản phẩm', render: (s) => s.productCount },
     {
-      key: 'views',
-      header: 'Lượt xem',
-      sortKey: 'viewCount',
-      render: (s) => s.viewCount.toLocaleString('vi-VN'),
-    },
-    {
       key: 'status',
       header: 'Trạng thái',
       render: (s) => <StatusBadge info={contentStatusInfo[s.status]} />,

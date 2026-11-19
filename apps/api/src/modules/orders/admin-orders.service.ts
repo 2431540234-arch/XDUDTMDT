@@ -10,10 +10,8 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
-import { nextExpenseCode } from '../../common/utils/code-generator';
 import { qList, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { FieldErrors, asBody, cancelReasonError, str, toId } from '../../common/utils/validate';
-import { vnDbDate } from '../../common/utils/vn-date';
 import { foldVi } from '../../common/utils/vi-fold';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -272,16 +270,6 @@ export class AdminOrdersService {
       await this.orders.setActor(tx, adminId, 'Hoàn tiền thủ công');
       await tx.order.update({ where: { id: o.id }, data: { status: 'refunded', paymentStatus: 'refunded' } });
       await tx.payment.updateMany({ where: { orderId: o.id }, data: { status: 'refunded' } });
-      await tx.expense.create({
-        data: {
-          code: await nextExpenseCode(tx),
-          category: 'refund',
-          amount: o.total,
-          note: `Hoàn tiền đơn ${o.orderCode}`,
-          date: vnDbDate(), // cột DATE: ngày theo giờ Việt Nam
-          orderId: o.id,
-        },
-      });
       await this.notifications.notify(
         tx,
         o.userId,

@@ -1,17 +1,12 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import Icon from '@/components/ui/Icon';
-import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/cn';
 import { roomTypeLabel } from '@/lib/status';
-import { spaceApi } from '@/services/space.api';
-import { toast } from '@/store/uiStore';
 import type { SpaceListItem } from '@/types/api';
 
-/** Thẻ không gian mẫu: ảnh, ♡ lưu, tên, "N sản phẩm". `featured` = overlay + nút → tròn (WIREFRAME 2.14) */
+/** Thẻ không gian mẫu: ảnh, tên, "N sản phẩm". `featured` = overlay + nút → tròn (WIREFRAME 2.14) */
 export default function SpaceCard({
   space: s,
   featured,
@@ -21,25 +16,6 @@ export default function SpaceCard({
   featured?: boolean;
   layout?: 'grid' | 'list';
 }) {
-  const { user } = useAuth();
-  const router = useRouter();
-  const qc = useQueryClient();
-  const toggle = useMutation({
-    mutationFn: () => (s.isBookmarked ? spaceApi.unbookmark(s.slug) : spaceApi.bookmark(s.slug)),
-    onSuccess: () => {
-      toast.success(s.isBookmarked ? 'Đã bỏ lưu không gian.' : 'Đã lưu không gian mẫu.');
-      qc.invalidateQueries({ queryKey: ['spaces'] });
-      qc.invalidateQueries({ queryKey: ['space', s.slug] });
-    },
-  });
-  const onHeart = () => {
-    if (!user) {
-      toast.info('Vui lòng đăng nhập để lưu không gian mẫu.');
-      router.push('/login?next=/spaces');
-      return;
-    }
-    toggle.mutate();
-  };
   return (
     <article className={cn('card group overflow-hidden', layout === 'list' && 'flex')}>
       <div
@@ -61,20 +37,6 @@ export default function SpaceCard({
             <div className="absolute inset-0 bg-gradient-to-t from-ink/75 via-transparent to-transparent" />
           )}
         </Link>
-        <button
-          type="button"
-          onClick={onHeart}
-          aria-label={s.isBookmarked ? 'Bỏ lưu' : 'Lưu không gian'}
-          aria-pressed={s.isBookmarked}
-          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow hover:scale-110"
-        >
-          <Icon
-            name="heart"
-            size={17}
-            filled={s.isBookmarked}
-            className={s.isBookmarked ? 'text-danger' : ''}
-          />
-        </button>
         {featured && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between p-4 text-white">
             <div>

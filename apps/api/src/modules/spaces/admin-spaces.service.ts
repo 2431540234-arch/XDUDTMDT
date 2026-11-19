@@ -25,7 +25,7 @@ const ROOM_TYPES: RoomType[] = [
   'other',
 ];
 const STATUSES = ['draft', 'published', 'archived'];
-const SORTS = ['title', 'viewCount', 'createdAt'];
+const SORTS = ['title', 'createdAt'];
 
 interface HotspotInput {
   type?: string;
@@ -73,11 +73,7 @@ export class AdminSpacesService {
     const f = SORTS.includes(field) ? field : 'createdAt';
     const mul = dir === 'asc' ? 1 : -1;
     const get = (s: (typeof list)[number]): string | number =>
-      f === 'title'
-        ? s.title
-        : f === 'viewCount'
-          ? s.viewCount
-          : new Date(s.createdAt as unknown as string | Date).getTime();
+      f === 'title' ? s.title : new Date(s.createdAt as unknown as string | Date).getTime();
     list.sort((a, b) => (get(a) === get(b) ? 0 : get(a) < get(b) ? -1 : 1) * mul);
     const page = resolvePage(q, list.length, 10);
     return {
@@ -375,12 +371,9 @@ export class AdminSpacesService {
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
     const panoIds = s.spacePanoramas.map((p) => p.id);
     await this.prisma.$transaction([
-      this.prisma.couponScope.deleteMany({ where: { targetType: 'space', targetId: id } }),
       this.prisma.spaceHotspot.deleteMany({ where: { panoramaId: { in: panoIds } } }),
       this.prisma.spaceProductPlacement.deleteMany({ where: { panoramaId: { in: panoIds } } }),
       this.prisma.spacePanorama.deleteMany({ where: { spaceId: id } }),
-      this.prisma.spaceBookmark.deleteMany({ where: { spaceId: id } }),
-      this.prisma.spaceView.deleteMany({ where: { spaceId: id } }),
       this.prisma.space.delete({ where: { id } }),
     ]);
     await this.activity.log({ actorId: adminId, action: 'space.delete', targetType: 'space', targetId: id });

@@ -81,12 +81,10 @@ describe('Cache Redis công khai (aurelia_test)', () => {
       categoriesTree: 600,
       productsFeatured: 120,
       settingsPublic: 600,
-      page: 600,
       product: 60,
     });
     expect(CACHE_KEYS.categoriesTree).toBe('categories:tree');
     expect(CACHE_KEYS.settingsPublic).toBe('settings:public');
-    expect(CACHE_KEYS.page('gioi-thieu')).toBe('pages:gioi-thieu');
     expect(CACHE_KEYS.product('ghe')).toBe('products:ghe');
   });
 
@@ -157,33 +155,6 @@ describe('Cache Redis công khai (aurelia_test)', () => {
     await api('put', '/admin/settings/store', admin, { store: original.store }); // trả lại
   });
 
-  it('trang tĩnh: cache theo slug; admin sửa/xóa trang thì xóa cache; 404 không bị cache', async () => {
-    const n = uniq();
-    const page = await prisma.page.create({
-      data: {
-        title: `Trang cache ${n}`,
-        slug: `trang-cache-${n}`,
-        content: 'Nội dung',
-        status: 'published',
-        type: 'static',
-      },
-    });
-    expect((await api('get', '/pages/khong-co-trang-nay')).status).toBe(404);
-    expect(await cached('pages:khong-co-trang-nay')).toBeNull();
-
-    const r1 = await api('get', `/pages/${page.slug}`);
-    expect(r1.body.data.title).toBe(page.title);
-    expect(await cached(`pages:${page.slug}`)).not.toBeNull();
-    await prisma.page.update({ where: { id: page.id }, data: { title: 'Đổi thẳng DB' } });
-    expect((await api('get', `/pages/${page.slug}`)).body.data.title).toBe(page.title); // hit
-    const patch = await api('patch', `/admin/pages/${page.id}`, admin, { title: 'Đổi qua admin' });
-    expect(patch.status).toBe(200);
-    expect(await cached(`pages:${page.slug}`)).toBeNull();
-    expect((await api('get', `/pages/${page.slug}`)).body.data.title).toBe('Đổi qua admin');
-    expect((await api('delete', `/admin/pages/${page.id}`, admin)).status).toBe(200);
-    expect((await api('get', `/pages/${page.slug}`)).status).toBe(404);
-  });
-
   it('không cache dữ liệu theo người dùng: cờ yêu thích tính riêng từng người; không có khóa giỏ/đơn/yêu thích trong Redis', async () => {
     const { product } = await newProduct();
     expect((await api('get', `/products/${product.slug}`, cust)).body.data.isWishlisted).toBe(false);
@@ -199,7 +170,7 @@ describe('Cache Redis công khai (aurelia_test)', () => {
     expect(keys.length).toBeGreaterThan(0);
     for (const k of keys) {
       const bare = k.slice(String(process.env.CACHE_KEY_PREFIX).length);
-      expect(bare).toMatch(/^(products|categories|settings|pages|catalog):/); // chỉ dữ liệu công khai
+      expect(bare).toMatch(/^(products|categories|settings|catalog):/); // chỉ dữ liệu công khai
       expect(bare).not.toMatch(/cart|order|wishlist|user/);
     }
   });
