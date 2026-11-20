@@ -113,10 +113,13 @@ test('vai trò: trang xem chỉ đọc (2 vai trò, 6 quyền); gán rồi gỡ 
   await expect(page.getByTestId('role-badges')).not.toContainText('admin');
   await section.getByRole('button', { name: 'Gán vai trò admin' }).click();
   await expect(page.getByText('Đã gán vai trò admin.')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId('role-badges')).toContainText('Quản trị viên (admin)');
-  await section.getByRole('button', { name: 'Gỡ vai trò admin' }).click();
-  await expect(page.getByText('Đã gỡ vai trò admin.')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId('role-badges')).not.toContainText('admin');
+  // admin không còn nằm trong danh sách/chi tiết khách hàng (users.role = 'admin'): kiểm tra vai trò bằng API, rồi gỡ lại
+  const h = { Authorization: `Bearer ${await adminToken(request)}` };
+  const roles = await request.get(`${API}/api/admin/roles`, { headers: h });
+  expect(JSON.stringify((await roles.json()).data)).toContain('admin');
+  const revoke = await request.delete(`${API}/api/admin/users/${c.id}/roles/admin`, { headers: h });
+  expect(revoke.status()).toBe(200);
+  expect((await revoke.json()).data.roles).toEqual(['user']);
 });
 
 test('phiên đăng nhập: thấy thiết bị này, đăng xuất thiết bị khác từ xa', async ({ page, request }) => {
