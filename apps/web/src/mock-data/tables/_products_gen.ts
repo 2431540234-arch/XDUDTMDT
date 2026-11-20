@@ -15,7 +15,7 @@ import { mediaRows, registerMedia } from '../utils/media-registry';
 import { addDays, iso, makeRng, roundPrice } from '../utils/rng';
 import { COLORS, valueId } from './attributes';
 import { categories } from './categories';
-import { modelFor, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
+import { BRAND_NAMES, modelFor, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
 
 const rng = makeRng(303);
 
@@ -116,7 +116,7 @@ productSpecs.forEach((s, idx) => {
     shortDescription: `${s.name} – ${s.material.toLowerCase()} phong cách ${s.style.toLowerCase()}, thiết kế tinh tế, bền đẹp theo thời gian.`,
     description: desc,
     categoryId: cat.id,
-    brandId: s.brand,
+    brand: BRAND_NAMES[s.brand - 1] ?? null,
     status: 'published',
     isFeatured: Boolean(s.featured),
     ratingAvg: 0, // tính lại từ reviews khi khởi tạo db

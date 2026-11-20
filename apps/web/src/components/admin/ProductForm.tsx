@@ -47,7 +47,7 @@ interface Values {
   sku: string;
   categoryId: string;
   status: 'published' | 'draft' | 'archived';
-  brandId: string;
+  brand: string;
   price: string;
   originalPrice: string;
   stock: string;
@@ -64,7 +64,7 @@ const EMPTY: Values = {
   sku: '',
   categoryId: '',
   status: 'published',
-  brandId: '',
+  brand: '',
   price: '',
   originalPrice: '',
   stock: '',
@@ -156,8 +156,6 @@ export default function ProductForm({ productId }: { productId?: number }) {
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [features, setFeatures] = useState('');
   const cats = useCategories();
-  // ô chọn thương hiệu lấy từ API quản trị thương hiệu (UC-ADM-06): chỉ thương hiệu đang hoạt động (+ thương hiệu hiện tại của sản phẩm)
-  const brands = useQuery({ queryKey: ['admin', 'brands', 'pick'], queryFn: () => adminApi.brands.list({}) });
   const q = useQuery({
     queryKey: ['admin', 'product', productId],
     queryFn: () => adminApi.products.get(productId!),
@@ -172,7 +170,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
       sku: p.sku,
       categoryId: String(p.categoryId ?? ''),
       status: p.status,
-      brandId: String(p.brandId ?? ''),
+      brand: p.brand ?? '',
       price: String(p.salePrice ?? p.price),
       originalPrice: p.salePrice ? String(p.price) : '',
       stock: String(p.stockQuantity),
@@ -218,7 +216,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
         name: v.name,
         sku: v.sku,
         categoryId: Number(v.categoryId),
-        brandId: v.brandId ? Number(v.brandId) : null,
+        brand: v.brand.trim() || null,
         status: v.status,
         price: Number(v.price),
         originalPrice: Number(v.originalPrice) || undefined,
@@ -367,14 +365,11 @@ export default function ProductForm({ productId }: { productId?: number }) {
                   { value: 'archived', label: 'Ẩn' },
                 ]}
               />
-              <Select
+              <Input
                 label="Thương hiệu"
-                placeholder="Chọn thương hiệu"
-                value={v.brandId}
-                onChange={(e) => set('brandId', e.target.value)}
-                options={(brands.data ?? [])
-                  .filter((b) => b.isActive || String(b.id) === v.brandId)
-                  .map((b) => ({ value: b.id, label: b.isActive ? b.name : `${b.name} (đã tắt)` }))}
+                maxLength={150}
+                value={v.brand}
+                onChange={(e) => set('brand', e.target.value)}
               />
               <Input
                 label="Giá bán (đ)"

@@ -1,7 +1,6 @@
 // Điểm vào của mock-data: gom tất cả bảng. Component KHÔNG import file này – phải gọi API qua src/services.
 export * from './tables/addresses';
 export * from './tables/attributes';
-export * from './tables/brands';
 export * from './tables/categories';
 export * from './tables/coupons';
 export * from './tables/media';

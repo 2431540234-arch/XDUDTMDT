@@ -639,26 +639,6 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       (await api('delete', `/admin/categories/${catId}`, admin)).status,
       200,
     );
-    // ADM-06 thương hiệu
-    const bslug = `th-dac-${tag}`;
-    expectStatus(
-      'UC-ADM-06',
-      'tạo thương hiệu',
-      (await api('post', '/admin/brands', admin, { name: `TH DAC ${tag}`, slug: bslug })).status,
-      201,
-    );
-    expectStatus(
-      'UC-ADM-06',
-      'slug trùng',
-      (await api('post', '/admin/brands', admin, { name: 'Khác', slug: bslug })).status,
-      409,
-    );
-    expectStatus(
-      'UC-ADM-06',
-      'tên 151 ký tự',
-      (await api('post', '/admin/brands', admin, { name: 'x'.repeat(151) })).status,
-      400,
-    );
     // ADM-08 thuộc tính: loại thuộc tính cố định (enum), không còn tạo/sửa/xóa loại
     // ADM-09 sản phẩm
     const baseProd = (over: Record<string, unknown> = {}) => ({
@@ -698,8 +678,8 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
     );
     expectStatus(
       'UC-ADM-09',
-      'thương hiệu không tồn tại',
-      (await api('post', '/admin/products', admin, baseProd({ brandId: 999999999 }))).status,
+      'thương hiệu 151 ký tự',
+      (await api('post', '/admin/products', admin, baseProd({ brand: 'x'.repeat(151) }))).status,
       400,
     );
     expectStatus(

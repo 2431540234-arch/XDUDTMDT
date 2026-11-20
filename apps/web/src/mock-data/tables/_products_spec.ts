@@ -66,6 +66,16 @@ export const MODEL_BY_NAME: Record<string, ModelKey> = {
 export const modelFor = (spec: { name: string; type: string; model: ModelKey | null }): ModelKey | null =>
   MODEL_BY_NAME[spec.name] ?? MODEL_BY_TYPE[spec.type] ?? spec.model;
 
+/** Tên thương hiệu (cột products.brand là chữ, không còn bảng brands) */
+export const BRAND_NAMES = [
+  'Aurelia Home',
+  'Nordic Living',
+  'Oak & Co',
+  'Maison Luxe',
+  'Japandi Studio',
+  'Urban Nest',
+];
+
 export interface ProductSpec {
   name: string;
   cat: string; // slug danh mục lá
@@ -77,7 +87,7 @@ export interface ProductSpec {
   colors: string[]; // tên màu trong COLORS
   sizeSet: SizeSet;
   model: ModelKey | null;
-  brand: number; // brands.id
+  brand: number; // thứ tự (1..6) trong BRAND_NAMES
   featured?: boolean;
   dims: [number, number, number]; // dài × rộng × cao (mm)
   stock?: 'out' | 'low';

@@ -36,8 +36,6 @@ import {
 } from './views';
 
 export const categories = (ctx: Ctx): Result => ok(categoryTree(ctx.db));
-export const brands = (ctx: Ctx): Result =>
-  ok(ctx.db.brands.filter((b) => b.isActive).map((b) => ({ id: b.id, name: b.name, slug: b.slug })));
 
 // ---------------- Sản phẩm ----------------
 function visibleProducts(db: Db): Product[] {
@@ -78,7 +76,7 @@ export function filterProducts(ctx: Ctx, q: Query, opts: { ignoreCategory?: bool
     const score = matchesQuery(db, p, search);
     if (!score) continue;
     if (!opts.ignoreCategory && catIds.size && !(p.categoryId && catIds.has(p.categoryId))) continue;
-    if (brand && String(p.brandId) !== brand) continue;
+    if (brand && fold(p.brand ?? '') !== fold(brand)) continue;
     if (has3d !== undefined && p.has3dModel !== has3d) continue;
     if (featured !== undefined && p.isFeatured !== featured) continue;
     const li = productListItem(db, p);

@@ -8,7 +8,6 @@ import { serialize } from '../utils/serialize';
 
 export const PRODUCT_INCLUDE = {
   category: true,
-  brand: true,
   productVariants: {
     orderBy: { id: 'asc' },
     include: { variantAttributeValues: { include: { attributeValue: true } } },
@@ -93,7 +92,6 @@ export class CatalogViews {
     const primary = p.productImages.find((i) => i.isPrimary) ?? p.productImages[0];
     const {
       category,
-      brand,
       productVariants: _v,
       productImages: _i,
       ...base
@@ -108,7 +106,6 @@ export class CatalogViews {
       defaultVariantId: dv?.id ?? 0,
       thumbnailUrl: this.url(primary?.media.filePath),
       category: category ? { id: category.id, name: category.name, slug: category.slug } : null,
-      brand: brand ? { id: brand.id, name: brand.name } : null,
       colors,
       sizes,
       material: dv ? (this.attr(dv, 'material')?.value ?? null) : null,

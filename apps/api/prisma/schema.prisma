@@ -84,23 +84,6 @@ model AttributeValue {
   @@map("attribute_values")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model Brand {
-  id          Int       @id(map: "pk_brands") @default(autoincrement())
-  name        String    @db.VarChar(150)
-  slug        String    @unique(map: "uq_brands_slug") @db.VarChar(180)
-  logoMediaId Int?      @map("logo_media_id")
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
-  logoMedia   Media?    @relation(fields: [logoMediaId], references: [id], onUpdate: NoAction, map: "fk_brands_logo_media_id")
-  products    Product[]
-
-  @@index([isActive], map: "idx_brands_active")
-  @@index([logoMediaId], map: "idx_brands_logo_media_id")
-  @@map("brands")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model CartItem {
@@ -215,7 +198,6 @@ model Media {
   uploadedBy          Int?                 @map("uploaded_by")
   createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime             @default(now()) @map("updated_at") @db.Timestamptz(6)
-  brands              Brand[]
   categories          Category[]
   uploadedByUser      User?                @relation("MediaUploadedByUser", fields: [uploadedBy], references: [id], onUpdate: NoAction, map: "fk_media_uploaded_by")
   modelFiles          ModelFile[]
@@ -500,7 +482,7 @@ model Product {
   shortDescription       String?                 @map("short_description") @db.VarChar(500)
   description            String?
   categoryId             Int?                    @map("category_id")
-  brandId                Int?                    @map("brand_id")
+  brand                  String?                 @db.VarChar(150)
   status                 ContentStatus           @default(draft)
   isFeatured             Boolean                 @default(false) @map("is_featured")
   ratingAvg              Decimal                 @default(0) @map("rating_avg") @db.Decimal(3, 2)
@@ -517,14 +499,12 @@ model Product {
   product3dModels        Product3DModel[]
   productImages          ProductImage[]
   productVariants        ProductVariant[]
-  brand                  Brand?                  @relation(fields: [brandId], references: [id], onUpdate: NoAction, map: "fk_products_brand_id")
   category               Category?               @relation(fields: [categoryId], references: [id], onUpdate: NoAction, map: "fk_products_category_id")
   reviews                Review[]
   spaceHotspots          SpaceHotspot[]
   spaceProductPlacements SpaceProductPlacement[]
   wishlists              Wishlist[]
 
-  @@index([brandId], map: "idx_products_brand_id")
   @@index([categoryId, status], map: "idx_products_category_status")
   @@index([name(ops: raw("gin_trgm_ops"))], map: "idx_products_name_trgm", type: Gin)
   @@map("products")

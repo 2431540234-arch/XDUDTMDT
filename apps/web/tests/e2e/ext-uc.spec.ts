@@ -48,9 +48,9 @@ test('nhật ký hoạt động: lọc theo hành động; dòng do service ghi 
 }) => {
   const token = await adminToken(request);
   const h = { Authorization: `Bearer ${token}` };
-  const brand = `Thương hiệu nhật ký ${uniq()}`;
+  const value = `Chất liệu nhật ký ${uniq()}`;
   expect(
-    (await request.post(`${API}/api/admin/brands`, { headers: h, data: { name: brand } })).status(),
+    (await request.post(`${API}/api/admin/attributes/3/values`, { headers: h, data: { value } })).status(),
   ).toBe(201);
   // PATCH đặt mô hình chính khi mô hình ĐÃ là chính: service không ghi log ⇒ interceptor ghi dòng "Tự động"
   const models = (await (await request.get(`${API}/api/admin/models?pageSize=100`, { headers: h })).json())
@@ -68,28 +68,28 @@ test('nhật ký hoạt động: lọc theo hành động; dòng do service ghi 
   await page.goto('/admin/activity-logs');
   await expect(page.getByRole('heading', { name: 'Nhật ký hoạt động' })).toBeVisible({ timeout: 30_000 });
 
-  await page.getByLabel('Lọc theo hành động (vd. brand, order)…').fill('brand.create');
-  const service = page.getByTestId('log-action').filter({ hasText: 'brand.create' }).first();
+  await page.getByLabel('Lọc theo hành động (vd. product, order)…').fill('attribute_value.create');
+  const service = page.getByTestId('log-action').filter({ hasText: 'attribute_value.create' }).first();
   await expect(service).toBeVisible({ timeout: 30_000 });
   await expect(service).toHaveAttribute('data-auto', 'false');
   await expect(service).toContainText('Dịch vụ ghi');
   await expect(service).not.toContainText('Tự động');
 
-  await page.getByLabel('Lọc theo hành động (vd. brand, order)…').fill('models.primary');
+  await page.getByLabel('Lọc theo hành động (vd. product, order)…').fill('models.primary');
   const auto = page.getByTestId('log-action').filter({ hasText: 'models.primary' }).first();
   await expect(auto).toBeVisible({ timeout: 30_000 });
   await expect(auto).toHaveAttribute('data-auto', 'true');
   await expect(auto).toContainText('Tự động');
 
   // lọc theo quản trị viên + loại đối tượng
-  await page.getByLabel('Lọc theo hành động (vd. brand, order)…').fill('');
-  await page.getByLabel('Tất cả loại đối tượng').selectOption('brand');
+  await page.getByLabel('Lọc theo hành động (vd. product, order)…').fill('');
+  await page.getByLabel('Tất cả loại đối tượng').selectOption('attribute_value');
   await expect(page.getByTestId('log-action').first()).toBeVisible({ timeout: 30_000 });
   for (const t of await page
     .getByRole('row')
     .allInnerTexts()
     .then((x) => x.slice(1)))
-    expect(t).toContain('brand');
+    expect(t).toContain('attribute_value');
 });
 
 test('vai trò: trang xem chỉ đọc (2 vai trò, 6 quyền); gán rồi gỡ admin trong chi tiết khách hàng', async ({

@@ -25,7 +25,6 @@ import type {
   ShipmentResult,
   MediaAdmin,
   AttributeValueAdmin,
-  BrandAdmin,
   UserView,
 } from '@/types/api';
 import { readAsDataUrl } from '@/components/admin/UploadDropzone';
@@ -278,13 +277,6 @@ export const adminApi = {
       http.patch<AttributeValueAdmin>(`/admin/attributes/${id}/values/${valueId}`, body),
     removeValue: (id: number, valueId: number) =>
       http.delete<{ id: number }>(`/admin/attributes/${id}/values/${valueId}`),
-  },
-  brands: {
-    list: (q: Query) => http.get<BrandAdmin[]>('/admin/brands', q),
-    create: (body: Record<string, unknown>) => http.post<BrandAdmin>('/admin/brands', body),
-    update: (id: number, body: Record<string, unknown>) =>
-      http.patch<BrandAdmin>(`/admin/brands/${id}`, body),
-    remove: (id: number) => http.delete<{ id: number; productsDetached: number }>(`/admin/brands/${id}`),
   },
   notifications: () =>
     http.get<Array<{ id: number; text: string; createdAt: string; link: string }>>('/admin/notifications'),

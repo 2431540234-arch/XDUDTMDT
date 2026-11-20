@@ -44,8 +44,7 @@ describe('mock-data: toàn vẹn dữ liệu', () => {
   it('khóa ngoại trỏ tới bản ghi có thật', () => {
     const has = (rows: Array<{ id: number }>, id: number | null) =>
       id === null || rows.some((r) => r.id === id);
-    for (const p of db.products)
-      expect(has(db.categories, p.categoryId) && has(db.brands, p.brandId)).toBe(true);
+    for (const p of db.products) expect(has(db.categories, p.categoryId)).toBe(true);
     for (const v of db.productVariants) expect(has(db.products, v.productId)).toBe(true);
     for (const i of db.productImages)
       expect(has(db.media, i.mediaId) && has(db.products, i.productId)).toBe(true);

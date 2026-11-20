@@ -95,20 +95,20 @@ describe('ActivityLogInterceptor (aurelia_test)', () => {
     expect(rows[0].changes).toBeNull(); // không phải dòng tự động
   });
 
-  it('route thật có log trong service (POST /admin/brands) ⇒ đúng 1 dòng, không có dòng tự động', async () => {
-    const before = await prisma.activityLog.count({ where: { action: { startsWith: 'brands.' } } });
+  it('route thật có log trong service (POST /admin/attributes/3/values) ⇒ đúng 1 dòng, không có dòng tự động', async () => {
+    const before = await prisma.activityLog.count({ where: { action: { startsWith: 'attributes.' } } });
     const r = await http
-      .post('/api/admin/brands')
+      .post('/api/admin/attributes/3/values')
       .set('Authorization', `Bearer ${admin}`)
-      .send({ name: `Thương hiệu interceptor ${Date.now()}` });
+      .send({ value: `Chất liệu interceptor ${Date.now()}` });
     expect(r.status).toBe(201);
     const id = r.body.data.id as number;
     const rows = await prisma.activityLog.findMany({
-      where: { targetId: id, action: { contains: 'brand' } },
+      where: { targetId: id, action: { contains: 'attribute_value' } },
     });
     expect(rows).toHaveLength(1);
     expect(rows[0].changes).not.toMatchObject({ auto: true });
-    expect(await prisma.activityLog.count({ where: { action: { startsWith: 'brands.' } } })).toBe(before);
+    expect(await prisma.activityLog.count({ where: { action: { startsWith: 'attributes.' } } })).toBe(before);
   });
 
   it('route KHÔNG ghi log trong service ⇒ interceptor ghi đúng 1 dòng chung (actor, action theo route, target, IP)', async () => {

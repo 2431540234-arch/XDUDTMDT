@@ -60,7 +60,7 @@ describe('PermissionsGuard (aurelia_test)', () => {
           missing.push(route);
       }
     }
-    expect(scanned).toBeGreaterThan(90);
+    expect(scanned).toBeGreaterThan(80);
     expect(missing).toEqual([]);
   });
 

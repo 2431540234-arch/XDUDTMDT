@@ -303,7 +303,6 @@ async function main() {
         })),
         skipDuplicates: true,
       });
-      await tx.brand.createMany({ data: db.brands, skipDuplicates: true });
       await tx.attributeValue.createMany({ data: newVals, skipDuplicates: true });
       for (const h of hexUpdates) {
         await rawTx.attributeValue.update({ where: { id: h.id }, data: { colorHex: h.hex } });

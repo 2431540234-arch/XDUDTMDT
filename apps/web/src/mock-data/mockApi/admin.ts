@@ -988,7 +988,7 @@ function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body) {
   p.name = String(b.name).trim();
   if (b.slug) p.slug = slugify(String(b.slug));
   p.categoryId = Number(b.categoryId);
-  p.brandId = b.brandId ? Number(b.brandId) : null;
+  p.brand = String(b.brand ?? '').trim() || null;
   p.status = b.status ?? 'published';
   p.isFeatured = Boolean(b.isFeatured);
   p.shortDescription = String(b.shortDescription ?? '');
@@ -1068,7 +1068,7 @@ export function createProduct(ctx: Ctx): Result {
     shortDescription: null,
     description: null,
     categoryId: null,
-    brandId: null,
+    brand: null,
     status: 'published',
     isFeatured: false,
     ratingAvg: 0,
@@ -1759,7 +1759,6 @@ function mediaAdminView(db: Db, m: Db['media'][number]) {
   const required = db.productImages.filter((x) => x.mediaId === m.id).length;
   const optional =
     db.categories.filter((c) => c.imageMediaId === m.id).length +
-    db.brands.filter((b) => b.logoMediaId === m.id).length +
     db.spaces.filter((s) => s.coverMediaId === m.id).length;
   return {
     id: m.id,
@@ -1814,7 +1813,6 @@ export function deleteMedia(ctx: Ctx): Result {
     throw new ApiFail('RESOURCE_IN_USE', 'Tệp đang được sử dụng nên không thể xóa.');
   ctx.db.media = ctx.db.media.filter((x) => x.id !== m.id);
   for (const c of ctx.db.categories) if (c.imageMediaId === m.id) c.imageMediaId = null;
-  for (const b of ctx.db.brands) if (b.logoMediaId === m.id) b.logoMediaId = null;
   return ok({ id: m.id });
 }
 
@@ -1898,73 +1896,6 @@ export function deleteAttributeValue(ctx: Ctx): Result {
     );
   ctx.db.attributeValues = ctx.db.attributeValues.filter((x) => x.id !== v.id);
   return ok({ id: v.id });
-}
-
-// ===================== Thương hiệu =====================
-const brandAdminView = (db: Db, b: Db['brands'][number]) => ({
-  id: b.id,
-  name: b.name,
-  slug: b.slug,
-  logoUrl: mediaPath(db, b.logoMediaId),
-  isActive: b.isActive,
-  productCount: db.products.filter((p) => p.brandId === b.id && !p.deletedAt).length,
-});
-export function adminBrands(ctx: Ctx): Result {
-  const q = fold(qStr(ctx.query, 'q'));
-  return ok(
-    ctx.db.brands
-      .filter((b) => !q || fold(`${b.name} ${b.slug}`).includes(q))
-      .map((b) => brandAdminView(ctx.db, b)),
-  );
-}
-function brandInput(ctx: Ctx, self?: Db['brands'][number]) {
-  const b = ctx.body ?? {};
-  const name = String(b.name ?? self?.name ?? '').trim();
-  if (!name) throw validation({ name: 'Vui lòng nhập tên thương hiệu.' });
-  const slug = fold(String(b.slug || self?.slug || name))
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-|-$/g, '');
-  if (ctx.db.brands.some((x) => x.slug === slug && x.id !== self?.id))
-    throw new ApiFail('CONFLICT', 'Slug đã được dùng cho thương hiệu khác.', {
-      slug: ['Slug đã được dùng cho thương hiệu khác.'],
-    });
-  return { name, slug, b };
-}
-export function createBrand(ctx: Ctx): Result {
-  const { name, slug, b } = brandInput(ctx);
-  const row = {
-    id: nextId(ctx.db.brands),
-    name,
-    slug,
-    logoMediaId: b.logoUrl ? mediaFrom(ctx.db, b.logoUrl, `brand-${slug}.png`) : null,
-    isActive: b.isActive !== false,
-  } as Db['brands'][number];
-  ctx.db.brands.push(row);
-  return created(brandAdminView(ctx.db, row));
-}
-export function updateBrand(ctx: Ctx): Result {
-  const row = ctx.db.brands.find((x) => x.id === Number(ctx.params.id));
-  if (!row) throw notFound('Thương hiệu');
-  const { name, slug, b } = brandInput(ctx, row);
-  row.name = name;
-  row.slug = slug;
-  if (typeof b.isActive === 'boolean') row.isActive = b.isActive;
-  if (b.logoUrl === null) row.logoMediaId = null;
-  else if (b.logoUrl) row.logoMediaId = mediaFrom(ctx.db, b.logoUrl, `brand-${slug}.png`);
-  return ok(brandAdminView(ctx.db, row));
-}
-export function deleteBrand(ctx: Ctx): Result {
-  const i = ctx.db.brands.findIndex((x) => x.id === Number(ctx.params.id));
-  if (i < 0) throw notFound('Thương hiệu');
-  const id = ctx.db.brands[i].id;
-  let n = 0;
-  for (const p of ctx.db.products)
-    if (p.brandId === id) {
-      p.brandId = null;
-      n++;
-    }
-  ctx.db.brands.splice(i, 1);
-  return ok({ id, productsDetached: n });
 }
 
 // ===================== Kho hàng =====================

@@ -114,7 +114,6 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
   const dv = defaultVariant(db, p.id) ?? variants[0];
   const extra = db.productExtras.find((e) => e.productId === p.id);
   const cat = db.categories.find((c) => c.id === p.categoryId);
-  const brand = db.brands.find((b) => b.id === p.brandId);
   const colors: ColorOption[] = [];
   const sizes: string[] = [];
   for (const v of variants) {
@@ -132,7 +131,7 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
     defaultVariantId: dv?.id ?? 0,
     thumbnailUrl: mediaPath(db, primary?.mediaId),
     category: cat ? { id: cat.id, name: cat.name, slug: cat.slug } : null,
-    brand: brand ? { id: brand.id, name: brand.name } : null,
+    brand: p.brand,
     colors,
     sizes,
     material: dv ? attrValue(db, dv.id, 'material') : null,

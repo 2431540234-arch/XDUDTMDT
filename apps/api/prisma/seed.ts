@@ -129,13 +129,6 @@ async function seedSample() {
     create: { name: 'Bàn trà', slug: 'ban-tra', parentId: living.id, sortOrder: 2 },
   });
 
-  const logo = await media(admin.id, 'aurelia-home-logo.png', 'image/png', 20480, 'Logo Aurelia Home');
-  const brand = await prisma.brand.upsert({
-    where: { slug: 'aurelia-home' },
-    update: {},
-    create: { name: 'Aurelia Home', slug: 'aurelia-home', logoMediaId: logo.id },
-  });
-
   // Giá trị thuộc tính (loại thuộc tính là enum attribute_code)
   const av = async (attributeCode: 'color' | 'size' | 'material', value: string) =>
     prisma.attributeValue.upsert({
@@ -158,7 +151,7 @@ async function seedSample() {
       shortDescription: 'Sofa vải phong cách Scandinavian',
       description: 'Sofa 3 chỗ khung gỗ tự nhiên, bọc vải chống bám bụi.',
       categoryId: catSofa.id,
-      brandId: brand.id,
+      brand: 'Aurelia Home',
       status: 'published',
       isFeatured: true,
     },
@@ -172,7 +165,7 @@ async function seedSample() {
       shortDescription: 'Bàn trà gỗ mặt tròn',
       description: 'Bàn trà gỗ mặt tròn đường kính 80cm, chân gỗ thon.',
       categoryId: catTable.id,
-      brandId: brand.id,
+      brand: 'Aurelia Home',
       status: 'published',
     },
   });

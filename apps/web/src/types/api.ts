@@ -76,7 +76,7 @@ export interface ProductListItem extends Product {
   defaultVariantId: number;
   thumbnailUrl: string | null;
   category: { id: number; name: string; slug: string } | null;
-  brand: { id: number; name: string } | null;
+  brand: string | null;
   colors: ColorOption[];
   sizes: string[];
   material: string | null; // thuộc tính "material" của biến thể
@@ -384,16 +384,6 @@ export interface InventoryRow {
   available: number;
   minStock: number;
   state: 'in_stock' | 'low' | 'out';
-}
-
-/** Thương hiệu ở trang quản trị (GET /admin/brands) */
-export interface BrandAdmin {
-  id: number;
-  name: string;
-  slug: string;
-  logoUrl: string | null;
-  isActive: boolean;
-  productCount: number;
 }
 
 /** Thuộc tính và giá trị ở trang quản trị (GET /admin/attributes) */

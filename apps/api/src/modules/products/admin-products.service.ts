@@ -121,6 +121,7 @@ export class AdminProductsService {
     if (str(b.shortDescription).length > 500) errs.add('shortDescription', 'Mô tả ngắn tối đa 500 ký tự.');
     if (creating && !str(b.sku).trim() && !(Array.isArray(b.variants) && b.variants.length))
       errs.add('sku', 'Vui lòng nhập SKU.');
+    if (str(b.brand).trim().length > 150) errs.add('brand', 'Thương hiệu tối đa 150 ký tự.');
     if (!b.categoryId) errs.add('categoryId', 'Vui lòng chọn danh mục.');
     if (!Array.isArray(b.variants) || !b.variants.length) {
       if (!(Number(b.price) > 0)) errs.add('price', 'Giá bán phải lớn hơn 0.');
@@ -348,15 +349,14 @@ export class AdminProductsService {
     await tx.$queryRaw`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
     const category = await tx.category.findUnique({ where: { id: toId(b.categoryId) } });
     if (!category) new FieldErrors().add('categoryId', 'Danh mục không tồn tại.').throwIfAny();
-    if (b.brandId && !(await tx.brand.findUnique({ where: { id: toId(b.brandId) }, select: { id: true } })))
-      new FieldErrors().add('brandId', 'Thương hiệu không tồn tại.').throwIfAny();
+    const brand = str(b.brand).trim();
     await tx.product.update({
       where: { id },
       data: {
         name: str(b.name).trim(),
         slug,
         categoryId: toId(b.categoryId),
-        brandId: b.brandId ? toId(b.brandId) : null,
+        brand: brand || null,
         status: (str(b.status) || 'published') as never,
         isFeatured: Boolean(b.isFeatured),
         shortDescription: str(b.shortDescription),

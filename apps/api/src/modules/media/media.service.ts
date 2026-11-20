@@ -176,7 +176,7 @@ export class MediaService {
   private view(m: MediaRow) {
     const c = m._count;
     const required = c.productImages + c.spacePanoramas + c.modelFiles + c.product3dModels;
-    const optional = c.brands + c.categories + c.spaces + c.usersAsAvatarMedia;
+    const optional = c.categories + c.spaces + c.usersAsAvatarMedia;
     return {
       id: m.id,
       fileName: m.fileName,
@@ -308,7 +308,6 @@ const MEDIA_INCLUDE = {
       spacePanoramas: true,
       modelFiles: true,
       product3dModels: true,
-      brands: true,
       categories: true,
       spaces: true,
       usersAsAvatarMedia: true,

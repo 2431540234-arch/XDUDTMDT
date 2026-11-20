@@ -11,7 +11,6 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 import { AdminRolesModule } from './admin-roles/admin-roles.module';
 import { MediaModule } from './media/media.module';
 import { CategoriesModule } from './categories/categories.module';
-import { BrandsModule } from './brands/brands.module';
 import { AttributesModule } from './attributes/attributes.module';
 import { PagesModule } from './pages/pages.module';
 import { ProductsModule } from './products/products.module';
@@ -43,7 +42,6 @@ export const FEATURE_MODULES = [
   AdminRolesModule,
   MediaModule,
   CategoriesModule,
-  BrandsModule,
   AttributesModule,
   PagesModule,
   ProductsModule,

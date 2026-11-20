@@ -40,16 +40,6 @@ export interface AttributeValue {
   updatedAt: string;
 }
 
-export interface Brand {
-  id: number;
-  name: string;
-  slug: string;
-  logoMediaId: number | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface CartItem {
   id: number;
   cartId: number;
@@ -282,7 +272,7 @@ export interface Product {
   shortDescription: string | null;
   description: string | null;
   categoryId: number | null;
-  brandId: number | null;
+  brand: string | null;
   status: ContentStatus;
   isFeatured: boolean;
   ratingAvg: number;

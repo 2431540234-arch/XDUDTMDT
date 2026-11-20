@@ -73,10 +73,10 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
   // ---------------------------------------------------------------- UC-ADM-27
   describe('UC-ADM-27 nhật ký hoạt động', () => {
     it('lọc theo admin, hành động, loại đối tượng, ngày; phân trang; mới nhất trước; chỉ đọc', async () => {
-      const brandName = `Nhật ký ${uniq()}`;
-      const created = await api('post', '/admin/brands', admin, { name: brandName });
+      const valueName = `Nhật ký ${uniq()}`;
+      const created = await api('post', '/admin/attributes/3/values', admin, { value: valueName });
       expect(created.status).toBe(201);
-      const brandId = created.body.data.id as number;
+      const valueId = created.body.data.id as number;
 
       const all = await api('get', '/admin/activity-logs?pageSize=5', admin);
       expect(all.status).toBe(200);
@@ -87,21 +87,21 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
 
       const byAction = await api(
         'get',
-        `/admin/activity-logs?actorId=${adminId}&targetType=brand&action=brand`,
+        `/admin/activity-logs?actorId=${adminId}&targetType=attribute_value&action=attribute_value`,
         admin,
       );
       expect(byAction.status).toBe(200);
-      const row = byAction.body.data.find((r: { targetId: number }) => r.targetId === brandId);
-      expect(row).toMatchObject({ actorId: adminId, targetType: 'brand', auto: false });
+      const row = byAction.body.data.find((r: { targetId: number }) => r.targetId === valueId);
+      expect(row).toMatchObject({ actorId: adminId, targetType: 'attribute_value', auto: false });
       expect(row.actorEmail).toBe('admin@aurelia.vn');
 
       const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
       const ranged = await api(
         'get',
-        `/admin/activity-logs?from=${today}&to=${today}&targetType=brand`,
+        `/admin/activity-logs?from=${today}&to=${today}&targetType=attribute_value`,
         admin,
       );
-      expect(ranged.body.data.some((r: { targetId: number }) => r.targetId === brandId)).toBe(true);
+      expect(ranged.body.data.some((r: { targetId: number }) => r.targetId === valueId)).toBe(true);
       const old = await api('get', '/admin/activity-logs?from=2001-01-01&to=2001-01-02', admin);
       expect(old.body.data).toHaveLength(0);
 
