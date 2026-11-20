@@ -350,12 +350,8 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         where: { variantId: va.id },
         include: { attributeValue: true },
       });
-      const codes = await prisma.attribute.findMany({
-        where: { id: { in: attrs.map((a) => a.attributeId) } },
-      });
-      expect(codes.map((c) => c.code).sort()).toEqual(['color', 'material', 'size']);
-      const colorAttr = codes.find((c) => c.code === 'color')!;
-      expect(attrs.find((a) => a.attributeId === colorAttr.id)!.attributeValue.value).toBe('Kem');
+      expect(attrs.map((a) => a.attributeCode).sort()).toEqual(['color', 'material', 'size']);
+      expect(attrs.find((a) => a.attributeCode === 'color')!.attributeValue.value).toBe('Kem');
     });
 
     it('validation: SKU trống, giá ≤ 0, giá khuyến mãi > giá, tồn âm ⇒ 400 theo trường; SKU trùng ⇒ 409; không ghi gì', async () => {

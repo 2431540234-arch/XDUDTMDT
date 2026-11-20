@@ -11,7 +11,7 @@ export const PRODUCT_INCLUDE = {
   brand: true,
   productVariants: {
     orderBy: { id: 'asc' },
-    include: { variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } } },
+    include: { variantAttributeValues: { include: { attributeValue: true } } },
   },
   productImages: { orderBy: { sortOrder: 'asc' }, include: { media: true } },
 } satisfies Prisma.ProductInclude;
@@ -43,9 +43,7 @@ export class CatalogViews {
 
   // ---------------- biến thể ----------------
   attr(v: VariantRow, code: 'color' | 'size' | 'material') {
-    return (
-      v.variantAttributeValues.find((x) => x.attributeValue.attribute.code === code)?.attributeValue ?? null
-    );
+    return v.variantAttributeValues.find((x) => x.attributeCode === code)?.attributeValue ?? null;
   }
 
   color(v: VariantRow): ColorOption | null {
@@ -56,7 +54,7 @@ export class CatalogViews {
   variantLabel(v: Pick<VariantRow, 'variantAttributeValues'> | null | undefined): string {
     if (!v) return '—';
     const get = (code: string) =>
-      v.variantAttributeValues.find((x) => x.attributeValue.attribute.code === code)?.attributeValue.value;
+      v.variantAttributeValues.find((x) => x.attributeCode === code)?.attributeValue.value;
     const parts = [get('color'), get('size')].filter((x): x is string => Boolean(x) && x !== 'Tiêu chuẩn');
     return parts.length ? parts.join(' / ') : 'Tiêu chuẩn';
   }

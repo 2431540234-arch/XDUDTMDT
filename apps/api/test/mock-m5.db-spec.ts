@@ -156,10 +156,10 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
 
   // ------------------------------------------------------------------------------------------ UC-ADM-08 thuộc tính
   describe('thuộc tính và giá trị (UC-ADM-08)', () => {
+    const ATTR_ID = { color: 1, size: 2, material: 3 } as const;
     it('phân quyền: khách ⇒ 403, chưa đăng nhập ⇒ 401', async () => {
       for (const [m, p] of [
         ['get', '/admin/attributes'],
-        ['post', '/admin/attributes'],
         ['post', '/admin/attributes/1/values'],
         ['delete', '/admin/attributes/1/values/1'],
       ] as const) {
@@ -185,45 +185,10 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
       expect(color.values[0].usageCount).toBe(used);
     });
 
-    it('thêm thuộc tính: kiểm tra mã (chữ thường ≤ 50) và tên (≤ 100); trùng mã/tên ⇒ 409; nhật ký', async () => {
-      const bad = await api('post', '/admin/attributes', admin, { code: 'Mau Sac', name: '' });
-      expect(bad.status).toBe(400);
-      expect(Object.keys(bad.body.error.details).sort()).toEqual(['code', 'name']);
-      expect(
-        (await api('post', '/admin/attributes', admin, { code: 'a'.repeat(51), name: 'x' })).status,
-      ).toBe(400);
-      expect(
-        (await api('post', '/admin/attributes', admin, { code: 'ok', name: 'n'.repeat(101) })).status,
-      ).toBe(400);
-
-      const ok = await api('post', '/admin/attributes', admin, { code: 'finish', name: 'Hoàn thiện bề mặt' });
-      expect(ok.status).toBe(201);
-      expect(ok.body.data).toMatchObject({
-        code: 'finish',
-        name: 'Hoàn thiện bề mặt',
-        isSystem: false,
-        values: [],
-      });
-      expect(
-        await prisma.activityLog.findFirst({
-          where: { action: 'attribute.create', targetId: ok.body.data.id },
-        }),
-      ).not.toBeNull();
-
-      const dupCode = await api('post', '/admin/attributes', admin, { code: 'finish', name: 'Tên khác' });
-      expect(dupCode.status).toBe(409);
-      expect(dupCode.body.error.details).toHaveProperty('code');
-      const dupName = await api('post', '/admin/attributes', admin, {
-        code: 'finish2',
-        name: 'Hoàn thiện bề mặt',
-      });
-      expect(dupName.status).toBe(409);
-      expect(dupName.body.error.details).toHaveProperty('name');
-    });
-
-    it('giá trị: thêm/sửa/trùng (attributeId, value) ⇒ 409; màu cần #RRGGBB; chỉ thuộc tính màu có mã màu; 404', async () => {
-      const attr = (await api('post', '/admin/attributes', admin, { code: 'texture', name: 'Vân bề mặt' }))
-        .body.data;
+    it('giá trị: thêm/sửa/trùng (attributeCode, value) ⇒ 409; màu cần #RRGGBB; chỉ thuộc tính màu có mã màu; 404', async () => {
+      const attr = (await api('get', '/admin/attributes', admin)).body.data.find(
+        (x: { code: string }) => x.code === 'material',
+      );
       const a = await api('post', `/admin/attributes/${attr.id}/values`, admin, { value: 'Nhám' });
       expect(a.status).toBe(201);
       expect(a.body.data).toMatchObject({ value: 'Nhám', colorHex: null, usageCount: 0 });
@@ -300,7 +265,7 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
       });
       const res = await api(
         'delete',
-        `/admin/attributes/${vav.attributeValue.attributeId}/values/${vav.attributeValueId}`,
+        `/admin/attributes/${ATTR_ID[vav.attributeCode]}/values/${vav.attributeValueId}`,
         admin,
       );
       expect(res.status).toBe(409);
@@ -312,9 +277,9 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
       ).toBe(before);
 
       const attr = (await api('get', '/admin/attributes', admin)).body.data.find(
-        (x: { code: string }) => x.code === 'texture',
+        (x: { code: string }) => x.code === 'material',
       );
-      const free = attr.values[0];
+      const free = attr.values.find((v: { value: string }) => v.value === 'Bóng mờ');
       const del = await api('delete', `/admin/attributes/${attr.id}/values/${free.id}`, admin);
       expect(del.status).toBe(200);
       expect(await prisma.attributeValue.count({ where: { id: free.id } })).toBe(0);
@@ -324,28 +289,6 @@ describe('Mốc 5 (web) – thương hiệu, thuộc tính, media, vận chuyể
         }),
       ).not.toBeNull();
       expect((await api('delete', `/admin/attributes/${attr.id}/values/${free.id}`, admin)).status).toBe(404);
-    });
-
-    it('sửa/xóa thuộc tính: thuộc tính hệ thống không đổi mã/không xóa; thuộc tính tự tạo xóa được', async () => {
-      const list = (await api('get', '/admin/attributes', admin)).body.data;
-      const color = list.find((x: { code: string }) => x.code === 'color');
-      expect((await api('patch', `/admin/attributes/${color.id}`, admin, { code: 'mau' })).status).toBe(400);
-      expect((await api('patch', `/admin/attributes/${color.id}`, admin, { name: color.name })).status).toBe(
-        200,
-      );
-      expect((await api('delete', `/admin/attributes/${color.id}`, admin)).status).toBe(409);
-      const fin = list.find((x: { code: string }) => x.code === 'finish');
-      expect((await api('patch', `/admin/attributes/${fin.id}`, admin, { name: color.name })).status).toBe(
-        409,
-      ); // trùng tên
-      expect(
-        (await api('patch', `/admin/attributes/${fin.id}`, admin, { name: 'Bề mặt hoàn thiện' })).body.data
-          .name,
-      ).toBe('Bề mặt hoàn thiện');
-      const tex = list.find((x: { code: string }) => x.code === 'texture');
-      expect((await api('delete', `/admin/attributes/${tex.id}`, admin)).status).toBe(200);
-      expect(await prisma.attribute.count({ where: { code: 'texture' } })).toBe(0);
-      expect((await api('delete', `/admin/attributes/${tex.id}`, admin)).status).toBe(404);
     });
 
     it('giá trị mới dùng được ngay khi lưu biến thể; sau đó đang dùng ⇒ không xóa được', async () => {

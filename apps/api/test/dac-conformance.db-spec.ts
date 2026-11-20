@@ -659,38 +659,7 @@ describe('Đối chiếu DAC_TA ↔ API (aurelia_test)', () => {
       (await api('post', '/admin/brands', admin, { name: 'x'.repeat(151) })).status,
       400,
     );
-    // ADM-08 thuộc tính
-    const acode = `thuoctinh${String(Date.now()).slice(-8)}`;
-    expectStatus(
-      'UC-ADM-08',
-      'tạo thuộc tính',
-      (await api('post', '/admin/attributes', admin, { code: acode, name: `Thuộc tính ${acode}` })).status,
-      201,
-    );
-    expectStatus(
-      'UC-ADM-08',
-      'mã trùng',
-      (await api('post', '/admin/attributes', admin, { code: acode, name: 'Khác tên' })).status,
-      409,
-    );
-    expectStatus(
-      'UC-ADM-08',
-      'mã có chữ hoa',
-      (await api('post', '/admin/attributes', admin, { code: 'ChuHoa', name: 'X' })).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-08',
-      'mã 51 ký tự',
-      (await api('post', '/admin/attributes', admin, { code: 'a'.repeat(51), name: 'X' })).status,
-      400,
-    );
-    expectStatus(
-      'UC-ADM-08',
-      'tên 101 ký tự',
-      (await api('post', '/admin/attributes', admin, { code: `a${acode}`, name: 'x'.repeat(101) })).status,
-      400,
-    );
+    // ADM-08 thuộc tính: loại thuộc tính cố định (enum), không còn tạo/sửa/xóa loại
     // ADM-09 sản phẩm
     const baseProd = (over: Record<string, unknown> = {}) => ({
       name: `Sản phẩm DAC ${tag}-${++seq}`,

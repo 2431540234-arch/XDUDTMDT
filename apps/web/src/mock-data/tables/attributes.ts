@@ -1,13 +1,14 @@
-// Bảng `attributes` và `attribute_values`: Màu sắc, Kích thước, Chất liệu
-import type { Attribute, AttributeValue } from '@aurelia-living/shared-types';
+// Bảng `attribute_values`: Màu sắc, Kích thước, Chất liệu (loại thuộc tính là enum attribute_code, không còn bảng attributes)
+import type { AttributeCode, AttributeValue } from '@aurelia-living/shared-types';
 
 const at = '2026-01-02T08:00:00.000Z';
 
-export const attributes: Attribute[] = [
-  { id: 1, code: 'color', name: 'Màu sắc', createdAt: at, updatedAt: at },
-  { id: 2, code: 'size', name: 'Kích thước', createdAt: at, updatedAt: at },
-  { id: 3, code: 'material', name: 'Chất liệu', createdAt: at, updatedAt: at },
-];
+/** Ba loại thuộc tính (id giữ nguyên số cũ trong hợp đồng API) */
+export const ATTRIBUTE_INFO: Record<AttributeCode, { id: number; name: string }> = {
+  color: { id: 1, name: 'Màu sắc' },
+  size: { id: 2, name: 'Kích thước' },
+  material: { id: 3, name: 'Chất liệu' },
+};
 
 /** Màu: tên + mã hex (hex chưa có cột trong DB → giữ ở bảng riêng colorHex theo attributeValueId) */
 export const COLORS: Array<{ name: string; hex: string }> = [
@@ -49,17 +50,17 @@ export const attributeValues: AttributeValue[] = [];
 /** attributeValueId của màu → mã hex (attribute_values.color_hex) */
 export const colorHexByValueId: Record<number, string> = {};
 
-const push = (attributeId: number, value: string) => {
+const push = (attributeCode: AttributeCode, value: string) => {
   const id = attributeValues.length + 1;
-  attributeValues.push({ id, attributeId, value, createdAt: at, updatedAt: at });
+  attributeValues.push({ id, attributeCode, value, createdAt: at, updatedAt: at });
   return id;
 };
-COLORS.forEach((c) => (colorHexByValueId[push(1, c.name)] = c.hex));
-SIZES.forEach((s) => push(2, s));
-MATERIALS.forEach((m) => push(3, m));
+COLORS.forEach((c) => (colorHexByValueId[push('color', c.name)] = c.hex));
+SIZES.forEach((s) => push('size', s));
+MATERIALS.forEach((m) => push('material', m));
 
-export const valueId = (attributeId: number, value: string): number => {
-  const v = attributeValues.find((x) => x.attributeId === attributeId && x.value === value);
-  if (!v) throw new Error(`Thiếu giá trị thuộc tính ${attributeId}:${value}`);
+export const valueId = (attributeCode: AttributeCode, value: string): number => {
+  const v = attributeValues.find((x) => x.attributeCode === attributeCode && x.value === value);
+  if (!v) throw new Error(`Thiếu giá trị thuộc tính ${attributeCode}:${value}`);
   return v.id;
 };

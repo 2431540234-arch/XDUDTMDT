@@ -1,6 +1,7 @@
 // Sinh các bảng liên quan sản phẩm từ _products_spec.ts: products, product_variants, variant_attribute_values,
 // product_images, product_3d_models, model_files (+ product_extras cho trường chưa có trong DB).
 import type {
+  AttributeCode,
   ModelFile,
   Product,
   Product3DModel,
@@ -164,16 +165,16 @@ productSpecs.forEach((s, idx) => {
         createdAt,
         updatedAt: createdAt,
       });
-      const link = (attributeId: number, value: string) =>
+      const link = (attributeCode: AttributeCode, value: string) =>
         variantAttributeValues.push({
           variantId: vid,
-          attributeValueId: valueId(attributeId, value),
-          attributeId,
+          attributeValueId: valueId(attributeCode, value),
+          attributeCode,
           createdAt,
         });
-      link(1, col.name);
-      link(2, s.sizeSet === 'desk' && sz.label === '1m6' ? '1m6 (bàn)' : sz.label);
-      link(3, s.material);
+      link('color', col.name);
+      link('size', s.sizeSet === 'desk' && sz.label === '1m6' ? '1m6 (bàn)' : sz.label);
+      link('material', s.material);
       if (!firstVariantByColor.has(col.name)) firstVariantByColor.set(col.name, vid);
       if (ci === 0 && sizes.length > 1 && si === 1) defaultVariantIdx = vid;
       if (ci === 0 && sizes.length === 1) defaultVariantIdx = vid;

@@ -1,7 +1,8 @@
 // Mock API: khu vực quản trị (/admin/*) – chỉ tài khoản role 'admin' (Doanh nghiệp)
-import type { OrderStatus, ReviewStatus } from '@aurelia-living/shared-types';
+import type { AttributeCode, OrderStatus, ReviewStatus } from '@aurelia-living/shared-types';
 import type { DashboardStats, FinanceReport, InventoryRow, Model3DAdminRow } from '@/types/api';
 import { nextId, resetDb, type Db } from '../db';
+import { ATTRIBUTE_INFO } from '../tables/attributes';
 import { modelFor, productSpecs, sizeSets } from '../tables/_products_spec';
 import { slugify } from '@/lib/format';
 import { cancelOrderCore, notify, placeOrderCore } from './shop';
@@ -916,10 +917,10 @@ interface VariantInput {
   stockQuantity: number;
 }
 
-function ensureAttrValue(db: Db, attributeId: number, value: string, hex?: string) {
-  let v = db.attributeValues.find((x) => x.attributeId === attributeId && x.value === value);
+function ensureAttrValue(db: Db, attributeCode: AttributeCode, value: string, hex?: string) {
+  let v = db.attributeValues.find((x) => x.attributeCode === attributeCode && x.value === value);
   if (!v) {
-    v = { id: nextId(db.attributeValues), attributeId, value, createdAt: nowIso(), updatedAt: nowIso() };
+    v = { id: nextId(db.attributeValues), attributeCode, value, createdAt: nowIso(), updatedAt: nowIso() };
     db.attributeValues.push(v);
   }
   if (hex) db.colorHexByValueId[v.id] = hex;
@@ -955,16 +956,16 @@ function saveVariants(db: Db, productId: number, inputs: VariantInput[], materia
       });
     keep.add(v.id);
     db.variantAttributeValues = db.variantAttributeValues.filter((x) => x.variantId !== v!.id);
-    const link = (attributeId: number, valueId: number) =>
+    const link = (attributeCode: AttributeCode, valueId: number) =>
       db.variantAttributeValues.push({
         variantId: v!.id,
         attributeValueId: valueId,
-        attributeId,
+        attributeCode,
         createdAt: nowIso(),
       });
-    if (vi.color) link(1, ensureAttrValue(db, 1, vi.color.name, vi.color.hex));
-    link(2, ensureAttrValue(db, 2, vi.size || 'Tiêu chuẩn'));
-    if (material) link(3, ensureAttrValue(db, 3, material));
+    if (vi.color) link('color', ensureAttrValue(db, 'color', vi.color.name, vi.color.hex));
+    link('size', ensureAttrValue(db, 'size', vi.size || 'Tiêu chuẩn'));
+    if (material) link('material', ensureAttrValue(db, 'material', material));
   }
   db.productVariants
     .filter((v) => v.productId === productId && !keep.has(v.id))
@@ -1818,79 +1819,45 @@ export function deleteMedia(ctx: Ctx): Result {
 }
 
 // ===================== Thuộc tính =====================
-const SYSTEM_ATTR = ['color', 'size', 'material'];
-function attrView(db: Db, a: Db['attributes'][number]) {
+const ATTR_CODES = Object.keys(ATTRIBUTE_INFO) as AttributeCode[];
+const attrOf = (id: number) => {
+  const code = ATTR_CODES.find((c) => ATTRIBUTE_INFO[c].id === id);
+  return code ? { id, code, name: ATTRIBUTE_INFO[code].name } : undefined;
+};
+function attrView(db: Db, a: { id: number; code: AttributeCode; name: string }) {
   return {
     id: a.id,
     code: a.code,
     name: a.name,
-    isSystem: SYSTEM_ATTR.includes(a.code),
+    isSystem: true,
     values: db.attributeValues
-      .filter((v) => v.attributeId === a.id)
+      .filter((v) => v.attributeCode === a.code)
       .map((v) => ({
         id: v.id,
-        attributeId: v.attributeId,
+        attributeId: a.id,
         value: v.value,
         colorHex: a.code === 'color' ? (db.colorHexByValueId[v.id] ?? null) : null,
         usageCount: db.variantAttributeValues.filter((x) => x.attributeValueId === v.id).length,
-        frameCount: 0,
       })),
   };
 }
 const conflict = (field: string, msg: string) => new ApiFail('CONFLICT', msg, { [field]: [msg] });
-export const adminAttributes = (ctx: Ctx): Result => ok(ctx.db.attributes.map((a) => attrView(ctx.db, a)));
-export function createAttribute(ctx: Ctx): Result {
-  const b = ctx.body ?? {};
-  const code = String(b.code ?? '').trim();
-  const name = String(b.name ?? '').trim();
-  const errs: Record<string, string> = {};
-  if (!/^[a-z][a-z0-9_]*$/.test(code)) errs.code = 'Mã chỉ gồm chữ thường không dấu, số và gạch dưới.';
-  if (!name) errs.name = 'Vui lòng nhập tên thuộc tính.';
-  if (Object.keys(errs).length) throw validation(errs);
-  if (ctx.db.attributes.some((a) => a.code === code)) throw conflict('code', 'Mã thuộc tính đã tồn tại.');
-  if (ctx.db.attributes.some((a) => a.name === name)) throw conflict('name', 'Tên thuộc tính đã tồn tại.');
-  const row = { id: nextId(ctx.db.attributes), code, name, createdAt: nowIso(), updatedAt: nowIso() };
-  ctx.db.attributes.push(row);
-  return created(attrView(ctx.db, row));
-}
-export function updateAttribute(ctx: Ctx): Result {
-  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
-  if (!a) throw notFound('Thuộc tính');
-  const b = ctx.body ?? {};
-  if (b.name !== undefined) {
-    const name = String(b.name).trim();
-    if (!name) throw validation({ name: 'Vui lòng nhập tên thuộc tính.' });
-    if (ctx.db.attributes.some((x) => x.name === name && x.id !== a.id))
-      throw conflict('name', 'Tên thuộc tính đã tồn tại.');
-    a.name = name;
-  }
-  if (b.code !== undefined && b.code !== a.code) {
-    if (SYSTEM_ATTR.includes(a.code))
-      throw validation({ code: 'Mã của thuộc tính hệ thống không đổi được.' });
-    if (ctx.db.attributes.some((x) => x.code === b.code)) throw conflict('code', 'Mã thuộc tính đã tồn tại.');
-    a.code = String(b.code);
-  }
-  return ok(attrView(ctx.db, a));
-}
-export function deleteAttribute(ctx: Ctx): Result {
-  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
-  if (!a) throw notFound('Thuộc tính');
-  if (SYSTEM_ATTR.includes(a.code))
-    throw new ApiFail('RESOURCE_IN_USE', 'Không xóa được thuộc tính hệ thống.');
-  ctx.db.attributeValues = ctx.db.attributeValues.filter((v) => v.attributeId !== a.id);
-  ctx.db.attributes = ctx.db.attributes.filter((x) => x.id !== a.id);
-  return ok({ id: a.id });
-}
+export const adminAttributes = (ctx: Ctx): Result =>
+  ok(
+    ATTR_CODES.map((c) =>
+      attrView(ctx.db, { id: ATTRIBUTE_INFO[c].id, code: c, name: ATTRIBUTE_INFO[c].name }),
+    ),
+  );
 export function addAttributeValue(ctx: Ctx): Result {
-  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const a = attrOf(Number(ctx.params.id));
   if (!a) throw notFound('Thuộc tính');
   const value = String(ctx.body?.value ?? '').trim();
   if (!value) throw validation({ value: 'Vui lòng nhập giá trị.' });
-  if (ctx.db.attributeValues.some((v) => v.attributeId === a.id && v.value === value))
+  if (ctx.db.attributeValues.some((v) => v.attributeCode === a.code && v.value === value))
     throw conflict('value', 'Giá trị này đã có trong thuộc tính.');
   const row = {
     id: nextId(ctx.db.attributeValues),
-    attributeId: a.id,
+    attributeCode: a.code,
     value,
     createdAt: nowIso(),
     updatedAt: nowIso(),
@@ -1901,15 +1868,15 @@ export function addAttributeValue(ctx: Ctx): Result {
   return created(attrView(ctx.db, a).values.find((v) => v.id === row.id)!);
 }
 export function updateAttributeValue(ctx: Ctx): Result {
-  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const a = attrOf(Number(ctx.params.id));
   const v = ctx.db.attributeValues.find(
-    (x) => x.id === Number(ctx.params.valueId) && x.attributeId === a?.id,
+    (x) => x.id === Number(ctx.params.valueId) && x.attributeCode === a?.code,
   );
   if (!a || !v) throw notFound('Giá trị thuộc tính');
   if (ctx.body?.value !== undefined) {
     const value = String(ctx.body.value).trim();
     if (!value) throw validation({ value: 'Vui lòng nhập giá trị.' });
-    if (ctx.db.attributeValues.some((x) => x.attributeId === a.id && x.value === value && x.id !== v.id))
+    if (ctx.db.attributeValues.some((x) => x.attributeCode === a.code && x.value === value && x.id !== v.id))
       throw conflict('value', 'Giá trị này đã có trong thuộc tính.');
     v.value = value;
   }
@@ -1918,9 +1885,9 @@ export function updateAttributeValue(ctx: Ctx): Result {
   return ok(attrView(ctx.db, a).values.find((x) => x.id === v.id)!);
 }
 export function deleteAttributeValue(ctx: Ctx): Result {
-  const a = ctx.db.attributes.find((x) => x.id === Number(ctx.params.id));
+  const a = attrOf(Number(ctx.params.id));
   const v = ctx.db.attributeValues.find(
-    (x) => x.id === Number(ctx.params.valueId) && x.attributeId === a?.id,
+    (x) => x.id === Number(ctx.params.valueId) && x.attributeCode === a?.code,
   );
   if (!a || !v) throw notFound('Giá trị thuộc tính');
   const used = ctx.db.variantAttributeValues.filter((x) => x.attributeValueId === v.id).length;

@@ -28,7 +28,7 @@ import {
   variantAttributeValues,
 } from './tables/_products_gen';
 import { spaceHotspots, spacePanoramas, spaceProductPlacements, spaces } from './tables/_spaces_gen';
-import { attributeValues, attributes, colorHexByValueId } from './tables/attributes';
+import { attributeValues, colorHexByValueId } from './tables/attributes';
 import { addressLabels, addresses } from './tables/addresses';
 import { brands } from './tables/brands';
 import { categories, categoryExtras } from './tables/categories';
@@ -63,7 +63,6 @@ function seed() {
     categories: clone(categories),
     categoryExtras: clone(categoryExtras),
     brands: clone(brands),
-    attributes: clone(attributes),
     attributeValues: clone(attributeValues),
     colorHexByValueId: clone(colorHexByValueId),
     products: clone(products),

@@ -13,7 +13,7 @@ const ROW_INCLUDE = {
       productImages: { where: { isPrimary: true }, include: { media: true }, take: 1 },
     },
   },
-  variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+  variantAttributeValues: { include: { attributeValue: true } },
 } satisfies Prisma.ProductVariantInclude;
 
 @Injectable()

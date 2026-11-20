@@ -275,7 +275,7 @@ export class OrdersService {
         const labels = await tx.productVariant.findMany({
           where: { id: { in: ids } },
           include: {
-            variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+            variantAttributeValues: { include: { attributeValue: true } },
           },
         });
         const labelOf = new Map(labels.map((v) => [v.id, this.views.variantLabel(v)]));

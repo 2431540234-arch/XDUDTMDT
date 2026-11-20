@@ -1,7 +1,7 @@
 // FILE SINH TỰ ĐỘNG từ apps/api/prisma/schema.prisma bằng scripts/generate-shared-types.mjs
 // KHÔNG SỬA TAY. Sửa schema.prisma rồi chạy: npm run types:generate
 
-import type { ContentStatus, CouponType, HotspotType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, UserRole, UserStatus } from './enums.generated';
+import type { AttributeCode, ContentStatus, CouponType, HotspotType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, UserRole, UserStatus } from './enums.generated';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -33,17 +33,9 @@ export interface Address {
 
 export interface AttributeValue {
   id: number;
-  attributeId: number;
+  attributeCode: AttributeCode;
   value: string;
   colorHex?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface Attribute {
-  id: number;
-  code: string;
-  name: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -438,7 +430,7 @@ export interface User {
 export interface VariantAttributeValue {
   variantId: number;
   attributeValueId: number;
-  attributeId: number;
+  attributeCode: AttributeCode;
   createdAt: string;
 }
 

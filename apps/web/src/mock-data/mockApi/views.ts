@@ -1,5 +1,5 @@
 // Chuyển hàng trong db thành "view" mà API trả về (entity DB + quan hệ mở rộng) – xem src/types/api.ts
-import type { Product, Product3DModel } from '@aurelia-living/shared-types';
+import type { AttributeCode, Product, Product3DModel } from '@aurelia-living/shared-types';
 import type {
   AddressView,
   CartItemView,
@@ -34,19 +34,19 @@ export function mediaPath(db: Db, id: number | null | undefined): string | null 
   return db.media.find((m) => m.id === id)?.filePath ?? null;
 }
 
-const attrValue = (db: Db, variantId: number, attributeId: number): string | null => {
+const attrValue = (db: Db, variantId: number, attributeCode: AttributeCode): string | null => {
   const link = db.variantAttributeValues.find(
-    (x) => x.variantId === variantId && x.attributeId === attributeId,
+    (x) => x.variantId === variantId && x.attributeCode === attributeCode,
   );
   if (!link) return null;
   return db.attributeValues.find((v) => v.id === link.attributeValueId)?.value ?? null;
 };
-const attrValueId = (db: Db, variantId: number, attributeId: number): number | null =>
-  db.variantAttributeValues.find((x) => x.variantId === variantId && x.attributeId === attributeId)
+const attrValueId = (db: Db, variantId: number, attributeCode: AttributeCode): number | null =>
+  db.variantAttributeValues.find((x) => x.variantId === variantId && x.attributeCode === attributeCode)
     ?.attributeValueId ?? null;
 
 export function colorOfVariant(db: Db, variantId: number): ColorOption | null {
-  const vid = attrValueId(db, variantId, 1);
+  const vid = attrValueId(db, variantId, 'color');
   if (!vid) return null;
   const name = db.attributeValues.find((v) => v.id === vid)!.value;
   return { name, hex: db.colorHexByValueId[vid] ?? '#cccccc' };
@@ -56,7 +56,7 @@ export const effectivePrice = (v: { price: number; salePrice: number | null }) =
 
 export function variantLabel(db: Db, variantId: number | null): string {
   if (!variantId) return '—';
-  const parts = [attrValue(db, variantId, 1), attrValue(db, variantId, 2)].filter(
+  const parts = [attrValue(db, variantId, 'color'), attrValue(db, variantId, 'size')].filter(
     (x): x is string => Boolean(x) && x !== 'Tiêu chuẩn',
   );
   return parts.length ? parts.join(' / ') : 'Tiêu chuẩn';
@@ -120,7 +120,7 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
   for (const v of variants) {
     const c = colorOfVariant(db, v.id);
     if (c && !colors.some((x) => x.name === c.name)) colors.push(c);
-    const s = attrValue(db, v.id, 2);
+    const s = attrValue(db, v.id, 'size');
     if (s && !sizes.includes(s)) sizes.push(s);
   }
   const primary = db.productImages.find((i) => i.productId === p.id && i.isPrimary);
@@ -135,7 +135,7 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
     brand: brand ? { id: brand.id, name: brand.name } : null,
     colors,
     sizes,
-    material: dv ? attrValue(db, dv.id, 3) : null,
+    material: dv ? attrValue(db, dv.id, 'material') : null,
     style: extra?.style ?? null,
     sku: dv?.sku ?? '',
     isWishlisted: userId ? db.wishlists.some((w) => w.userId === userId && w.productId === p.id) : false,
@@ -154,8 +154,8 @@ export function variantViews(db: Db, productId: number): VariantView[] {
     return {
       ...v,
       color,
-      size: attrValue(db, v.id, 2),
-      material: attrValue(db, v.id, 3),
+      size: attrValue(db, v.id, 'size'),
+      material: attrValue(db, v.id, 'material'),
       imageUrl: mediaPath(db, (img ?? primary)?.mediaId),
     };
   });

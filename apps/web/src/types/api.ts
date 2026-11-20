@@ -403,7 +403,6 @@ export interface AttributeValueAdmin {
   value: string;
   colorHex: string | null;
   usageCount: number;
-  frameCount: number;
 }
 export interface AttributeAdmin {
   id: number;

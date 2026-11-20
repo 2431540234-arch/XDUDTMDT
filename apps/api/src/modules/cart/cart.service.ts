@@ -39,7 +39,7 @@ const CART_INCLUDE = {
       variant: {
         include: {
           product: { include: PRODUCT_INCLUDE },
-          variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+          variantAttributeValues: { include: { attributeValue: true } },
         },
       },
     },

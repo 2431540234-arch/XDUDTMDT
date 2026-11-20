@@ -139,14 +139,13 @@ export class AdminProductsService {
     code: 'color' | 'size' | 'material',
     value: string,
     hex?: string,
-  ): Promise<{ attributeId: number; id: number }> {
-    const attr = await tx.attribute.findUniqueOrThrow({ where: { code } });
-    let v = await tx.attributeValue.findFirst({ where: { attributeId: attr.id, value } });
+  ): Promise<{ attributeCode: 'color' | 'size' | 'material'; id: number }> {
+    let v = await tx.attributeValue.findFirst({ where: { attributeCode: code, value } });
     if (!v)
-      v = await tx.attributeValue.create({ data: { attributeId: attr.id, value, colorHex: hex ?? null } });
+      v = await tx.attributeValue.create({ data: { attributeCode: code, value, colorHex: hex ?? null } });
     else if (hex && v.colorHex !== hex && code === 'color')
       v = await tx.attributeValue.update({ where: { id: v.id }, data: { colorHex: hex } });
-    return { attributeId: attr.id, id: v.id };
+    return { attributeCode: code, id: v.id };
   }
 
   private async saveVariants(tx: Tx, adminId: number, productId: number, b: Record<string, unknown>) {
@@ -244,12 +243,12 @@ export class AdminProductsService {
       }
       keep.push(v.id);
       await tx.variantAttributeValue.deleteMany({ where: { variantId: v.id } });
-      const links: Array<{ attributeId: number; id: number }> = [];
+      const links: Array<{ attributeCode: 'color' | 'size' | 'material'; id: number }> = [];
       if (vi.color?.name) links.push(await this.attrValue(tx, 'color', vi.color.name, vi.color.hex));
       links.push(await this.attrValue(tx, 'size', vi.size || 'Tiêu chuẩn'));
       if (material) links.push(await this.attrValue(tx, 'material', material));
       await tx.variantAttributeValue.createMany({
-        data: links.map((l) => ({ variantId: v.id, attributeId: l.attributeId, attributeValueId: l.id })),
+        data: links.map((l) => ({ variantId: v.id, attributeCode: l.attributeCode, attributeValueId: l.id })),
       });
     }
     // biến thể không còn trong danh sách ⇒ ngừng bán (không xóa để giữ lịch sử đơn/giỏ)

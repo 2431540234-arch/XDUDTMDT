@@ -136,27 +136,17 @@ async function seedSample() {
     create: { name: 'Aurelia Home', slug: 'aurelia-home', logoMediaId: logo.id },
   });
 
-  // Thuộc tính
-  const color = await prisma.attribute.upsert({
-    where: { code: 'color' },
-    update: {},
-    create: { code: 'color', name: 'Màu sắc' },
-  });
-  const material = await prisma.attribute.upsert({
-    where: { code: 'material' },
-    update: {},
-    create: { code: 'material', name: 'Chất liệu' },
-  });
-  const av = async (attributeId: number, value: string) =>
+  // Giá trị thuộc tính (loại thuộc tính là enum attribute_code)
+  const av = async (attributeCode: 'color' | 'size' | 'material', value: string) =>
     prisma.attributeValue.upsert({
-      where: { attributeId_value: { attributeId, value } },
+      where: { attributeCode_value: { attributeCode, value } },
       update: {},
-      create: { attributeId, value },
+      create: { attributeCode, value },
     });
-  const vXam = await av(color.id, 'Xám');
-  const vBe = await av(color.id, 'Be');
-  const vSoi = await av(material.id, 'Gỗ sồi');
-  const vOc = await av(material.id, 'Gỗ óc chó');
+  const vXam = await av('color', 'Xám');
+  const vBe = await av('color', 'Be');
+  const vSoi = await av('material', 'Gỗ sồi');
+  const vOc = await av('material', 'Gỗ óc chó');
 
   // Sản phẩm 1: Sofa; Sản phẩm 2: Bàn trà
   const sofa = await prisma.product.upsert({
@@ -205,16 +195,20 @@ async function seedSample() {
   const vSofaBe = await variant(sofa.id, 'SOFA-OSLO-BE', 12000000, 20, 45000);
   const vBanSoi = await variant(table.id, 'BAN-NORDIC-SOI', 3200000, 15, 12000);
   const vBanOc = await variant(table.id, 'BAN-NORDIC-OC', 3500000, 15, 12500);
-  const link = async (variantId: number, attributeValueId: number, attributeId: number) =>
+  const link = async (
+    variantId: number,
+    attributeValueId: number,
+    attributeCode: 'color' | 'size' | 'material',
+  ) =>
     prisma.variantAttributeValue.upsert({
       where: { variantId_attributeValueId: { variantId, attributeValueId } },
       update: {},
-      create: { variantId, attributeValueId, attributeId },
+      create: { variantId, attributeValueId, attributeCode },
     });
-  await link(vSofaXam.id, vXam.id, color.id);
-  await link(vSofaBe.id, vBe.id, color.id);
-  await link(vBanSoi.id, vSoi.id, material.id);
-  await link(vBanOc.id, vOc.id, material.id);
+  await link(vSofaXam.id, vXam.id, 'color');
+  await link(vSofaBe.id, vBe.id, 'color');
+  await link(vBanSoi.id, vSoi.id, 'material');
+  await link(vBanOc.id, vOc.id, 'material');
 
   // Ảnh đại diện (mỗi sản phẩm một ảnh)
   for (const [p, file, alt] of [

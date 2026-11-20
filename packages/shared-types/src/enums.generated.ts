@@ -123,6 +123,13 @@ export const ShipmentStatus = {
 } as const;
 export type ShipmentStatus = (typeof ShipmentStatus)[keyof typeof ShipmentStatus];
 
+export const AttributeCode = {
+  color: 'color',
+  size: 'size',
+  material: 'material',
+} as const;
+export type AttributeCode = (typeof AttributeCode)[keyof typeof AttributeCode];
+
 export const UserRole = {
   admin: 'admin',
   user: 'user',

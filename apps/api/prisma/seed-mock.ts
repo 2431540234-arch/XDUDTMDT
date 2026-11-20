@@ -184,31 +184,15 @@ async function main() {
     );
   }
 
-  // ---- thuộc tính: DB có thể đã có sẵn attributes/attribute_values (dữ liệu cũ) với id khác mock → ánh xạ theo
-  //      (code thuộc tính) và (thuộc tính, giá trị); chỉ tạo mới những gì chưa có, không sửa/xóa dữ liệu cũ.
-  const dbAttrs = await prisma.attribute.findMany();
+  // ---- giá trị thuộc tính: DB có thể đã có sẵn attribute_values (dữ liệu cũ) với id khác mock → ánh xạ theo
+  //      (loại thuộc tính, giá trị); chỉ tạo mới những gì chưa có, không sửa/xóa dữ liệu cũ.
   const dbVals = await prisma.attributeValue.findMany();
-  const usedAttr = new Set(dbAttrs.map((a) => a.id));
   const usedVal = new Set(dbVals.map((v) => v.id));
-  const attrMap = new Map<number, number>();
-  const newAttrs: Prisma.AttributeCreateManyInput[] = [];
-  for (const a of db.attributes) {
-    const ex = dbAttrs.find((x) => x.code === a.code);
-    if (ex) attrMap.set(a.id, ex.id);
-    else {
-      let id = usedAttr.has(a.id) ? Math.max(...usedAttr) + 1 : a.id;
-      while (usedAttr.has(id)) id++;
-      usedAttr.add(id);
-      attrMap.set(a.id, id);
-      newAttrs.push({ ...a, id });
-    }
-  }
   const valMap = new Map<number, number>();
   const newVals: Prisma.AttributeValueCreateManyInput[] = [];
   const hexUpdates: Array<{ id: number; hex: string }> = [];
   for (const v of db.attributeValues) {
-    const attrId = attrMap.get(v.attributeId)!;
-    const ex = dbVals.find((x) => x.attributeId === attrId && x.value === v.value);
+    const ex = dbVals.find((x) => x.attributeCode === v.attributeCode && x.value === v.value);
     const hexv = db.colorHexByValueId[v.id] ?? null;
     if (ex) {
       valMap.set(v.id, ex.id);
@@ -218,7 +202,7 @@ async function main() {
       while (usedVal.has(id)) id++;
       usedVal.add(id);
       valMap.set(v.id, id);
-      newVals.push({ ...v, id, attributeId: attrId, colorHex: hexv });
+      newVals.push({ ...v, id, colorHex: hexv });
     }
   }
 
@@ -289,10 +273,9 @@ async function main() {
 
   // ---- phụ trợ theo sản phẩm
   const extras = new Map(db.productExtras.map((e) => [e.productId, e]));
-  const sizeAttrId = db.attributes.find((a) => a.code === 'size')?.id ?? 2;
   const sizeOfVariant = new Map<number, string>();
   for (const vav of db.variantAttributeValues) {
-    if (vav.attributeId === sizeAttrId) {
+    if (vav.attributeCode === 'size') {
       sizeOfVariant.set(vav.variantId, db.attributeValues.find((x) => x.id === vav.attributeValueId)!.value);
     }
   }
@@ -321,7 +304,6 @@ async function main() {
         skipDuplicates: true,
       });
       await tx.brand.createMany({ data: db.brands, skipDuplicates: true });
-      await tx.attribute.createMany({ data: newAttrs, skipDuplicates: true });
       await tx.attributeValue.createMany({ data: newVals, skipDuplicates: true });
       for (const h of hexUpdates) {
         await rawTx.attributeValue.update({ where: { id: h.id }, data: { colorHex: h.hex } });
@@ -370,7 +352,6 @@ async function main() {
       await tx.variantAttributeValue.createMany({
         data: db.variantAttributeValues.map((x) => ({
           ...x,
-          attributeId: attrMap.get(x.attributeId)!,
           attributeValueId: valMap.get(x.attributeValueId)!,
         })),
         skipDuplicates: true,

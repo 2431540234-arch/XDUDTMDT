@@ -272,10 +272,6 @@ export const adminApi = {
   },
   attributes: {
     list: () => http.get<AttributeAdmin[]>('/admin/attributes'),
-    create: (body: { code: string; name: string }) => http.post<AttributeAdmin>('/admin/attributes', body),
-    update: (id: number, body: { code?: string; name?: string }) =>
-      http.patch<AttributeAdmin>(`/admin/attributes/${id}`, body),
-    remove: (id: number) => http.delete<{ id: number }>(`/admin/attributes/${id}`),
     addValue: (id: number, body: { value: string; colorHex?: string }) =>
       http.post<AttributeValueAdmin>(`/admin/attributes/${id}/values`, body),
     updateValue: (id: number, valueId: number, body: { value?: string; colorHex?: string }) =>

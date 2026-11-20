@@ -48,7 +48,7 @@ export const REVIEW_INCLUDE = {
         include: {
           variant: {
             include: {
-              variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+              variantAttributeValues: { include: { attributeValue: true } },
             },
           },
         },
