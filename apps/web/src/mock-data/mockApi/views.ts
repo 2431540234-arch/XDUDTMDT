@@ -252,9 +252,7 @@ export function userStats(db: Db, userId: number) {
 export function userView(db: Db, u: Db['users'][number]): UserView {
   const profile = db.userProfiles.find((p) => p.userId === u.id);
   const stats = userStats(db, u.id);
-  const roleCodes = db.userRoles
-    .filter((r) => r.userId === u.id)
-    .map((r) => db.roles.find((x) => x.id === r.roleId)!.code as 'admin' | 'user');
+  const roleCodes = [u.role];
   const spent = stats.totalSpent;
   return {
     ...u,

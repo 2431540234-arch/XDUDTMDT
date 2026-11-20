@@ -34,8 +34,6 @@ import { brands } from './tables/brands';
 import { categories, categoryExtras } from './tables/categories';
 import { couponExtras, coupons } from './tables/coupons';
 import { media } from './tables/media';
-import { roles } from './tables/roles';
-import { userRoles } from './tables/user_roles';
 import { credentials, userProfiles, users } from './tables/users';
 
 // Đổi số phiên bản khi cấu trúc dữ liệu mock thay đổi (dữ liệu cũ trong localStorage sẽ tự bị bỏ, nạp lại dữ liệu mẫu)
@@ -57,9 +55,7 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 function seed() {
   const db = {
-    roles: clone(roles),
     users: clone(users),
-    userRoles: clone(userRoles),
     userProfiles: clone(userProfiles),
     credentials: clone(credentials),
     addresses: clone(addresses),

@@ -1,7 +1,7 @@
 // FILE SINH TỰ ĐỘNG từ apps/api/prisma/schema.prisma bằng scripts/generate-shared-types.mjs
 // KHÔNG SỬA TAY. Sửa schema.prisma rồi chạy: npm run types:generate
 
-import type { ContentStatus, CouponType, HotspotType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, UserStatus } from './enums.generated';
+import type { ContentStatus, CouponType, HotspotType, ModelFileFormat, ModelLod, ModelPlacement, ModelStatus, OrderPaymentStatus, OrderStatus, PaymentMethod, PaymentTxnStatus, ReviewStatus, RoomType, ShipmentCarrier, ShipmentStatus, UserRole, UserStatus } from './enums.generated';
 
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
@@ -235,14 +235,6 @@ export interface Payment {
   updatedAt: string;
 }
 
-export interface Permission {
-  id: number;
-  code: string;
-  name: string;
-  description: string | null;
-  createdAt: string;
-}
-
 export interface Product3DModel {
   id: number;
   uuid: string;
@@ -324,21 +316,6 @@ export interface Review {
   tags?: string[];
   isAnonymous?: boolean;
   status: ReviewStatus;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RolePermission {
-  roleId: number;
-  permissionId: number;
-  createdAt: string;
-}
-
-export interface Role {
-  id: number;
-  code: string;
-  name: string;
-  description: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -427,12 +404,6 @@ export interface Space {
   updatedAt: string;
 }
 
-export interface UserRole {
-  userId: number;
-  roleId: number;
-  createdAt: string;
-}
-
 export interface UserSession {
   id: number;
   userId: number;
@@ -456,6 +427,7 @@ export interface User {
   adminNote?: string | null;
   avatarMediaId: number | null;
   status: UserStatus;
+  role: UserRole;
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
   deletedAt: string | null;

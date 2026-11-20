@@ -23,7 +23,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { BCRYPT_COST } from '../users/users.service';
 
 const USER_INCLUDE = {
-  userRoles: { include: { role: true } },
   avatarMedia: true,
 } satisfies Prisma.UserInclude;
 type UserWithRoles = Prisma.UserGetPayload<{ include: typeof USER_INCLUDE }>;
@@ -69,7 +68,7 @@ export class AuthService {
       email: u.email,
       fullName: u.fullName,
       status: u.status,
-      roles: u.userRoles.map((r) => r.role.code as RoleCode),
+      roles: [u.role as RoleCode],
       avatarUrl: this.views.url(u.avatarMedia?.filePath),
       phone: u.phone,
     };
@@ -77,7 +76,7 @@ export class AuthService {
 
   /** Cặp token: access JWT ngắn hạn + refresh ngẫu nhiên (chỉ lưu hash trong user_sessions) */
   private async issueTokens(u: UserWithRoles, meta: RequestMeta) {
-    const roles = u.userRoles.map((r) => r.role.code as RoleCode);
+    const roles = [u.role as RoleCode];
     const refreshToken = randomBytes(48).toString('base64url');
     const session = await this.prisma.userSession.create({
       data: {
@@ -157,7 +156,6 @@ export class AuthService {
     let created: UserWithRoles;
     try {
       created = await this.prisma.$transaction(async (tx) => {
-        const role = await tx.role.findUniqueOrThrow({ where: { code: 'user' } });
         const u = await tx.user.create({
           data: {
             fullName: str(fullName).trim(),
@@ -165,7 +163,6 @@ export class AuthService {
             phone: str(phone).trim() || null,
             passwordHash,
             lastLoginAt: new Date(),
-            userRoles: { create: { roleId: role.id } },
             cart: { create: {} },
           },
           include: USER_INCLUDE,

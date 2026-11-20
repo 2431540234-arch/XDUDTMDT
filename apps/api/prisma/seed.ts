@@ -14,19 +14,6 @@ const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@aurelia.vn';
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin@123456';
 const SAMPLE_USER_PASSWORD = process.env.SEED_SAMPLE_USER_PASSWORD ?? 'User@123456';
 
-const PERMISSIONS = [
-  ['manage_users', 'Quản lý người dùng', 'Xem, khóa, mở khóa, cấm tài khoản; gán vai trò'],
-  [
-    'manage_products',
-    'Quản lý sản phẩm',
-    'Sản phẩm, biến thể, tồn kho, mô hình 3D/AR, danh mục, thương hiệu',
-  ],
-  ['view_orders', 'Xem đơn hàng', 'Xem danh sách và chi tiết đơn hàng'],
-  ['process_orders', 'Xử lý đơn hàng', 'Xác nhận, đổi trạng thái, hủy, hoàn tiền, vận chuyển'],
-  ['manage_content', 'Quản lý nội dung', 'Trang tĩnh, không gian mẫu, duyệt đánh giá, mã giảm giá'],
-  ['manage_settings', 'Cấu hình hệ thống', 'Cấu hình website, kho media, xem nhật ký thao tác'],
-] as const;
-
 const SETTINGS: [string, unknown, string][] = [
   ['site_name', 'Aurelia Living', 'Tên website'],
   ['contact_email', 'support@aurelia.vn', 'Email liên hệ'],
@@ -38,36 +25,6 @@ const SETTINGS: [string, unknown, string][] = [
 ];
 
 async function seedCore(createAdmin = true) {
-  const adminRole = await prisma.role.upsert({
-    where: { code: 'admin' },
-    update: {},
-    create: { code: 'admin', name: 'Quản trị viên', description: 'Toàn bộ quyền quản trị hệ thống' },
-  });
-  await prisma.role.upsert({
-    where: { code: 'user' },
-    update: {},
-    create: {
-      code: 'user',
-      name: 'Người dùng',
-      description:
-        'Mua hàng, giỏ hàng, mã giảm giá, đánh giá, yêu thích, sổ địa chỉ, ảnh AR, lưu không gian mẫu; chỉ thao tác trên dữ liệu của chính mình',
-    },
-  });
-
-  for (const [code, name, description] of PERMISSIONS) {
-    const p = await prisma.permission.upsert({
-      where: { code },
-      update: {},
-      create: { code, name, description },
-    });
-    // Admin có tất cả quyền; user không có quyền nào
-    await prisma.rolePermission.upsert({
-      where: { roleId_permissionId: { roleId: adminRole.id, permissionId: p.id } },
-      update: {},
-      create: { roleId: adminRole.id, permissionId: p.id },
-    });
-  }
-
   for (const [key, value, description] of SETTINGS) {
     await prisma.setting.upsert({
       where: { key },
@@ -76,28 +33,25 @@ async function seedCore(createAdmin = true) {
     });
   }
 
-  // Admin: tạo user + gán vai trò admin trong CÙNG transaction để trigger (deferred)
-  // trg_users_assign_default_role không gán thêm vai trò "user".
+  // Admin: tài khoản đầu tiên với users.role = 'admin'.
   // email không có @unique (partial unique index trong DB) nên dùng findFirst.
   const existing = await prisma.user.findFirst({ where: { email: ADMIN_EMAIL, deletedAt: null } });
   if (createAdmin && !existing) {
     const passwordHash = await hash(ADMIN_PASSWORD, 10);
-    await prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({
-        data: {
-          fullName: 'Quản trị viên',
-          email: ADMIN_EMAIL,
-          phone: '0900000000',
-          passwordHash,
-          emailVerifiedAt: new Date(),
-        },
-      });
-      await tx.userRole.create({ data: { userId: u.id, roleId: adminRole.id } });
+    await prisma.user.create({
+      data: {
+        fullName: 'Quản trị viên',
+        email: ADMIN_EMAIL,
+        phone: '0900000000',
+        passwordHash,
+        emailVerifiedAt: new Date(),
+        role: 'admin',
+      },
     });
   }
 }
 
-// Tạo user nếu chưa có (trigger tự gán vai trò user)
+// Tạo user nếu chưa có (users.role mặc định 'user')
 async function ensureUser(fullName: string, email: string, phone: string) {
   const found = await prisma.user.findFirst({ where: { email, deletedAt: null } });
   if (found) return found;

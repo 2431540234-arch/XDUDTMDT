@@ -411,10 +411,7 @@ describe('Tài khoản, yêu thích, xác nhận thanh toán (aurelia_test)', ()
 
     it('dữ liệu sai ⇒ 400 theo trường và không đổi gì; email, vai trò, trạng thái không thể đổi qua hồ sơ', async () => {
       const u = await customer('prof-bad');
-      const before = await prisma.user.findUniqueOrThrow({
-        where: { id: u.id },
-        include: { userRoles: true },
-      });
+      const before = await prisma.user.findUniqueOrThrow({ where: { id: u.id } });
       for (const [body, field] of [
         [{ fullName: 'A' }, 'fullName'],
         [{ fullName: '   ' }, 'fullName'],
@@ -436,13 +433,10 @@ describe('Tài khoản, yêu thích, xác nhận thanh toán (aurelia_test)', ()
         fullName: 'Vẫn Hợp Lệ',
       });
       expect(hack.status).toBe(200);
-      const after = await prisma.user.findUniqueOrThrow({
-        where: { id: u.id },
-        include: { userRoles: true },
-      });
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: u.id } });
       expect(after.email).toBe(before.email);
       expect(after.status).toBe(before.status);
-      expect(after.userRoles.map((r) => r.roleId)).toEqual(before.userRoles.map((r) => r.roleId));
+      expect(after.role).toBe(before.role);
       expect(after.fullName).toBe('Vẫn Hợp Lệ');
       // vẫn không vào được khu quản trị
       expect((await api('get', '/admin/orders', u.token)).status).toBe(403);

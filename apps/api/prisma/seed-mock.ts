@@ -274,6 +274,7 @@ async function main() {
       passwordHash: h,
       avatarMediaId: u.avatarMediaId,
       status: u.status,
+      role: u.role,
       emailVerifiedAt: u.emailVerifiedAt ?? u.createdAt,
       lastLoginAt: u.lastLoginAt,
       deletedAt: u.deletedAt,
@@ -302,18 +303,8 @@ async function main() {
       await rawTx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
       const tx = withOverriding(rawTx);
 
-      // vai trò: do seedCore tạo (admin = 1, user = 2)
-      const roleId = new Map((await tx.role.findMany()).map((r) => [r.code, r.id]));
-      const mockRole = new Map(db.roles.map((r) => [r.id, r.code]));
-
       await tx.media.createMany({ data: mediaRows, skipDuplicates: true });
       await tx.user.createMany({ data: userRows, skipDuplicates: true });
-      await tx.userRole.createMany({
-        data: db.userRoles
-          .filter((r) => !existingUserIds.has(r.userId))
-          .map((r) => ({ userId: r.userId, roleId: roleId.get(mockRole.get(r.roleId)!)! })),
-        skipDuplicates: true,
-      });
       await tx.address.createMany({
         data: db.addresses.map((a) => ({ ...a, label: db.addressLabels[a.id] ?? 'Nhà riêng' })),
         skipDuplicates: true,

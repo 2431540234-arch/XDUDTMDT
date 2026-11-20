@@ -66,7 +66,7 @@ export class JwtAuthGuard implements CanActivate {
 
     // Mỗi request đọc trạng thái HIỆN TẠI từ DB bằng MỘT truy vấn (không tin vai trò/phiên đóng băng trong JWT):
     //  • khóa/xóa tài khoản có hiệu lực NGAY, kể cả với access token còn hạn;
-    //  • vai trò lấy từ user_roles: gán/gỡ admin có hiệu lực ở request kế tiếp (Roles/PermissionsGuard dùng req.user.roles này);
+    //  • vai trò lấy từ users.role: gán/gỡ admin có hiệu lực ở request kế tiếp (Roles/PermissionsGuard dùng req.user.roles này);
     //  • token mang sid (id phiên) mà phiên đã bị thu hồi/hết hạn (đăng xuất thiết bị từ xa, đăng xuất, đổi mật khẩu…) ⇒ 401.
     // Token cũ không có sid thì bỏ qua kiểm tra phiên.
     const sid = req.user!.sessionId;
@@ -75,7 +75,7 @@ export class JwtAuthGuard implements CanActivate {
       select: {
         status: true,
         deletedAt: true,
-        userRoles: { select: { role: { select: { code: true } } } },
+        role: true,
         ...(sid
           ? { userSessions: { where: { id: sid }, select: { revokedAt: true, expiresAt: true } } }
           : {}),
@@ -95,7 +95,7 @@ export class JwtAuthGuard implements CanActivate {
           'Phiên đăng nhập đã bị đăng xuất. Vui lòng đăng nhập lại.',
         );
     }
-    req.user!.roles = u.userRoles.map((r) => r.role.code as RoleCode);
+    req.user!.roles = [u.role as RoleCode];
     return true;
   }
 }

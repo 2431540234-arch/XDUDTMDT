@@ -61,12 +61,15 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
     prisma = app.get(PrismaService);
     const jwt = app.get(JwtService);
     const admin = await prisma.user.create({
-      data: { fullName: 'Admin test', email: `admin-${Date.now()}@test.local`, passwordHash: 'x' },
+      data: {
+        fullName: 'Admin test',
+        email: `admin-${Date.now()}@test.local`,
+        passwordHash: 'x',
+        role: 'admin',
+      },
     });
     adminId = admin.id;
-    // Vai trò lấy từ user_roles (JwtAuthGuard đọc DB mỗi request): gán admin thật; quyền manage_products có từ role_permissions (seed bắt buộc)
-    const adminRole = await prisma.role.findUniqueOrThrow({ where: { code: 'admin' } });
-    await prisma.userRole.create({ data: { userId: adminId, roleId: adminRole.id } });
+    // Vai trò lấy từ users.role (JwtAuthGuard đọc DB mỗi request): admin thật có đủ quyền theo ROLE_PERMISSIONS
     // người dùng thường RIÊNG (trước đây dùng chung id với admin và chỉ khác vai trò trong JWT)
     const normal = await prisma.user.create({
       data: { fullName: 'User test', email: `user-${Date.now()}@test.local`, passwordHash: 'x' },

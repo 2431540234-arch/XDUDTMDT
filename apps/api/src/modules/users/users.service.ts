@@ -20,7 +20,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 export const BCRYPT_COST = 10;
 
 const USER_INCLUDE = {
-  userRoles: { include: { role: true } },
   avatarMedia: true,
 } satisfies Prisma.UserInclude;
 export type UserRow = Prisma.UserGetPayload<{ include: typeof USER_INCLUDE }>;
@@ -61,9 +60,9 @@ export class UsersService {
   /** UserView theo contract */
   toView(u: UserRow, s?: { totalOrders: number; totalSpent: number; lastOrderAt: string | null }) {
     const stats = s ?? { totalOrders: 0, totalSpent: 0, lastOrderAt: null };
-    const { userRoles, avatarMedia, passwordHash: _p, ...base } = u;
+    const { avatarMedia, passwordHash: _p, ...base } = u;
     void _p;
-    const roles = userRoles.map((r) => r.role.code as RoleCode);
+    const roles = [u.role as RoleCode];
     return {
       ...base,
       birthday: u.birthday ? u.birthday.toISOString().slice(0, 10) : null,
@@ -155,10 +154,9 @@ export class UsersService {
     const password = str(asBody(raw).password);
     const u = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
-      include: { userRoles: { include: { role: true } } },
     });
     if (!u) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Tài khoản không tồn tại.');
-    if (u.userRoles.some((r) => r.role.code === 'admin'))
+    if (u.role === 'admin')
       throw new AppException(ErrorCode.FORBIDDEN, 'Tài khoản quản trị không thể tự xóa.');
     const errs = new FieldErrors();
     if (!password) errs.add('password', 'Vui lòng nhập mật khẩu để xác nhận.');

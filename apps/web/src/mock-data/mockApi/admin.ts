@@ -804,13 +804,13 @@ export function createCustomer(ctx: Ctx): Result {
     phone: b.phone,
     avatarMediaId: null,
     status: 'active',
+    role: 'user',
     emailVerifiedAt: at,
     lastLoginAt: null,
     deletedAt: null,
     createdAt: at,
     updatedAt: at,
   });
-  ctx.db.userRoles.push({ userId: id, roleId: 2, createdAt: at });
   ctx.db.userProfiles.push({
     userId: id,
     gender: b.gender ?? null,

@@ -231,7 +231,7 @@ export async function handleMockRequest(
       if (!ctx.user) throw new ApiFail('AUTH_UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
       if (ctx.user.status !== 'active')
         throw new ApiFail('AUTH_ACCOUNT_LOCKED', 'Tài khoản của bạn đang bị khóa.');
-      if (route.access === 'admin' && !db.userRoles.some((r) => r.userId === ctx.user!.id && r.roleId === 1))
+      if (route.access === 'admin' && ctx.user.role !== 'admin')
         throw new ApiFail('FORBIDDEN', 'Bạn không có quyền truy cập khu vực quản trị.');
     }
 

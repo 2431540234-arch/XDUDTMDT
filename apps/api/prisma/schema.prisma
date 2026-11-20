@@ -414,18 +414,6 @@ model Payment {
   @@map("payments")
 }
 
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model Permission {
-  id              Int              @id(map: "pk_permissions") @default(autoincrement())
-  code            String           @unique(map: "uq_permissions_code") @db.VarChar(100)
-  name            String           @db.VarChar(150)
-  description     String?
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  rolePermissions RolePermission[]
-
-  @@map("permissions")
-}
-
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 /// Partial unique index uq_product_3d_models_primary ON (product_id) WHERE is_primary: tối đa một mô hình chính/sản phẩm.
@@ -583,33 +571,6 @@ model Review {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model RolePermission {
-  roleId       Int        @map("role_id")
-  permissionId Int        @map("permission_id")
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_role_permissions_permission_id")
-  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_role_permissions_role_id")
-
-  @@id([roleId, permissionId], map: "pk_role_permissions")
-  @@index([permissionId], map: "idx_role_permissions_permission")
-  @@map("role_permissions")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model Role {
-  id              Int              @id(map: "pk_roles") @default(autoincrement())
-  code            String           @unique(map: "uq_roles_code") @db.VarChar(50)
-  name            String           @db.VarChar(100)
-  description     String?
-  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime         @default(now()) @map("updated_at") @db.Timestamptz(6)
-  rolePermissions RolePermission[]
-  userRoles       UserRole[]
-
-  @@map("roles")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model Setting {
   id          Int      @id(map: "pk_settings") @default(autoincrement())
   key         String   @unique(map: "uq_settings_key") @db.VarChar(100)
@@ -751,19 +712,6 @@ model Space {
 }
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
-model UserRole {
-  userId    Int      @map("user_id")
-  roleId    Int      @map("role_id")
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  role      Role     @relation(fields: [roleId], references: [id], onUpdate: NoAction, map: "fk_user_roles_role_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_user_roles_user_id")
-
-  @@id([userId, roleId], map: "pk_user_roles")
-  @@index([roleId], map: "idx_user_roles_role_id")
-  @@map("user_roles")
-}
-
-/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model UserSession {
   id               Int       @id(map: "pk_user_sessions") @default(autoincrement())
   userId           Int       @map("user_id")
@@ -798,6 +746,7 @@ model User {
   passwordHash          String               @map("password_hash") @db.VarChar(255)
   avatarMediaId         Int?                 @map("avatar_media_id")
   status                UserStatus           @default(active)
+  role                  UserRole             @default(user)
   emailVerifiedAt       DateTime?            @map("email_verified_at") @db.Timestamptz(6)
   lastLoginAt           DateTime?            @map("last_login_at") @db.Timestamptz(6)
   deletedAt             DateTime?            @map("deleted_at") @db.Timestamptz(6)
@@ -813,7 +762,6 @@ model User {
   orders                Order[]
   passwordResets        PasswordReset[]
   reviews               Review[]
-  userRoles             UserRole[]
   userSessions          UserSession[]
   avatarMedia           Media?               @relation("UserAvatarMedia", fields: [avatarMediaId], references: [id], onUpdate: NoAction, map: "fk_users_avatar_media_id")
   wishlists             Wishlist[]
@@ -987,6 +935,13 @@ enum ShipmentStatus {
   returned
 
   @@map("shipment_status")
+}
+
+enum UserRole {
+  admin
+  user
+
+  @@map("user_role")
 }
 
 enum UserStatus {

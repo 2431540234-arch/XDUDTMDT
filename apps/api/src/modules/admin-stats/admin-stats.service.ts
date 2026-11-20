@@ -93,7 +93,7 @@ export class AdminStatsService {
         where: {
           deletedAt: null,
           createdAt: { gte: a, lte: b },
-          userRoles: { some: { role: { code: 'user' } } },
+          role: 'user',
         },
       });
 

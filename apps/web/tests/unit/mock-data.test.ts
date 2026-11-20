@@ -6,11 +6,9 @@ const db = buildSeed();
 
 describe('mock-data: số lượng theo yêu cầu', () => {
   it('người dùng: 1 doanh nghiệp + 30+ khách hàng, không có role nào khác', () => {
-    expect(
-      db.users.filter((u) => db.userRoles.some((r) => r.userId === u.id && r.roleId === 1)),
-    ).toHaveLength(1);
+    expect(db.users.filter((u) => u.role === 'admin')).toHaveLength(1);
     expect(db.users.length - 1).toBeGreaterThanOrEqual(30);
-    expect(db.roles.map((r) => r.code).sort()).toEqual(['admin', 'user']);
+    expect([...new Set(db.users.map((u) => u.role))].sort()).toEqual(['admin', 'user']);
     expect(db.users.some((u) => u.status !== 'active')).toBe(true);
   });
   it('sản phẩm, 3D, không gian, đơn, đánh giá, coupon, thông báo', () => {

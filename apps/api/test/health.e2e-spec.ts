@@ -63,13 +63,16 @@ describe('Foundation (e2e)', () => {
       await prisma.user.create({
         data: { fullName: 'Probe user', email: `probe-user-${stamp}@test.local`, passwordHash: 'x' },
       })
-    ).id; // vai trò `user` do trigger DB gán
+    ).id; // vai trò `user` là DEFAULT của users.role
     const admin = await prisma.user.create({
-      data: { fullName: 'Probe admin', email: `probe-admin-${stamp}@test.local`, passwordHash: 'x' },
+      data: {
+        fullName: 'Probe admin',
+        email: `probe-admin-${stamp}@test.local`,
+        passwordHash: 'x',
+        role: 'admin',
+      },
     });
     adminId = admin.id;
-    const role = await prisma.role.findUniqueOrThrow({ where: { code: 'admin' } });
-    await prisma.userRole.create({ data: { userId: adminId, roleId: role.id } });
   });
 
   afterAll(async () => {

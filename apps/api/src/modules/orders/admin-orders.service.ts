@@ -140,7 +140,7 @@ export class AdminOrdersService {
     const b = asBody(raw);
     const errs = new FieldErrors();
     const user = await this.prisma.user.findFirst({
-      where: { id: toId(b.userId), deletedAt: null, userRoles: { some: { role: { code: 'user' } } } },
+      where: { id: toId(b.userId), deletedAt: null, role: 'user' },
     });
     if (!user) errs.add('userId', 'Vui lòng chọn khách hàng.');
     const items = Array.isArray(b.items) ? (b.items as Array<Record<string, unknown>>) : [];

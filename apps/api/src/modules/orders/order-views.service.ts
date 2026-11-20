@@ -21,7 +21,7 @@ export const ORDER_INCLUDE = {
   orderStatusHistory: {
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     include: {
-      changedByUser: { select: { id: true, fullName: true, userRoles: { include: { role: true } } } },
+      changedByUser: { select: { id: true, fullName: true, role: true } },
     },
   },
   payments: { orderBy: { id: 'asc' } },
@@ -58,7 +58,7 @@ export class OrderViewsService {
       const [users, stats] = await Promise.all([
         this.prisma.user.findMany({
           where: { id: { in: ids } },
-          include: { userRoles: { include: { role: true } }, avatarMedia: true },
+          include: { avatarMedia: true },
         }),
         this.users.stats(ids),
       ]);
@@ -103,7 +103,7 @@ export class OrderViewsService {
       itemCount: items.reduce((s, i) => s + i.quantity, 0),
       history: orderStatusHistory.map((h) => {
         const { changedByUser, ...hb } = h;
-        const isAdmin = changedByUser?.userRoles.some((r) => r.role.code === 'admin');
+        const isAdmin = changedByUser?.role === 'admin';
         return {
           ...hb,
           actorName:

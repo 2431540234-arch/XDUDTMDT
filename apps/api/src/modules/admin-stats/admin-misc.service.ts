@@ -43,8 +43,8 @@ export class AdminMiscService {
         Array<{ order_code: string }>
       >`SELECT order_code FROM orders WHERE lower(order_code) LIKE ${like} ORDER BY created_at DESC LIMIT 3`,
       this.prisma.$queryRaw<Array<{ id: number; full_name: string; email: string }>>`
-        SELECT u.id, u.full_name, u.email FROM users u JOIN user_roles ur ON ur.user_id = u.id JOIN roles r ON r.id = ur.role_id AND r.code = 'user'
-        WHERE u.deleted_at IS NULL AND immutable_unaccent(lower(u.full_name || ' ' || u.email)) LIKE ${like} ORDER BY u.id LIMIT 3`,
+        SELECT u.id, u.full_name, u.email FROM users u
+        WHERE u.role = 'user' AND u.deleted_at IS NULL AND immutable_unaccent(lower(u.full_name || ' ' || u.email)) LIKE ${like} ORDER BY u.id LIMIT 3`,
     ]);
     return [
       ...products.map((p) => ({ type: 'product' as const, label: p.name, href: `/admin/products/${p.id}` })),

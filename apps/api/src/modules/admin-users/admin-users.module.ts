@@ -1,6 +1,6 @@
 // M04 – Người dùng và phân quyền (admin). Quản lý người dùng
 // Module – UC-ADM-01
-// Bảng: users, user_roles
+// Bảng: users
 // TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
 import { Module } from '@nestjs/common';
 import { OrdersModule } from '../orders/orders.module';
