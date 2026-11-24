@@ -121,7 +121,8 @@ export class ReviewsService {
     const rating = Number(b.rating);
     const content = str(b.content).trim();
     if (!(rating >= 1 && rating <= 5)) errs.add('rating', 'Vui lòng chọn số sao.');
-    if (content.length < 20) errs.add('content', 'Nội dung đánh giá tối thiểu 20 ký tự.');
+    if (content.length > 0 && content.length < 20)
+      errs.add('content', 'Nếu nhập nội dung, vui lòng viết ít nhất 20 ký tự.');
     if (str(b.content).length > 1000) errs.add('content', 'Nội dung đánh giá tối đa 1000 ký tự.');
     errs.throwIfAny();
 
@@ -175,7 +176,7 @@ export class ReviewsService {
         productId: p.id,
         orderId: bought!.id,
         rating,
-        content,
+        content: content || null,
         status: 'pending', // chờ admin duyệt
         tags: Array.isArray(b.tags) ? (b.tags as unknown[]).map(str) : [],
         isAnonymous: Boolean(b.anonymous),
@@ -218,15 +219,17 @@ export class ReviewsService {
     if (b.rating !== undefined && !(Number(b.rating) >= 1 && Number(b.rating) <= 5)) {
       errs.add('rating', 'Vui lòng chọn số sao.');
     }
-    if (b.content !== undefined && str(b.content).trim().length < 20) {
-      errs.add('content', 'Nội dung đánh giá tối thiểu 20 ký tự.');
+    const content = b.content === undefined ? undefined : str(b.content).trim();
+    if (content && content.length < 20) {
+      errs.add('content', 'Nếu nhập nội dung, vui lòng viết ít nhất 20 ký tự.');
     }
+    if (content && content.length > 1000) errs.add('content', 'Nội dung đánh giá tối đa 1000 ký tự.');
     errs.throwIfAny();
     const r = await this.prisma.review.update({
       where: { id },
       data: {
         ...(b.rating !== undefined ? { rating: Number(b.rating) } : {}),
-        ...(b.content !== undefined ? { content: str(b.content).trim() } : {}),
+        ...(content !== undefined ? { content: content || null } : {}),
         ...(Array.isArray(b.tags) ? { tags: (b.tags as unknown[]).map(str) } : {}),
         status: 'pending', // sửa xong phải được duyệt lại
       },

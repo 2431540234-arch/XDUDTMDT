@@ -44,7 +44,7 @@ export const productApi = {
     body: {
       orderId: number;
       rating: number;
-      content: string;
+      content?: string;
       tags?: string[];
       images?: string[];
       anonymous?: boolean;

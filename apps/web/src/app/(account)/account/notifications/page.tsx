@@ -88,7 +88,9 @@ export default function NotificationsPage() {
           <>
             <ul className="card divide-y divide-line overflow-hidden">
               {q.data.items.map((n) => {
-                const ic = ICON[n.data.type];
+                // Notifications already stored in the database may have an older or
+                // unknown type. Keep the list usable and render those as system notices.
+                const ic = ICON[n.data.type] ?? ICON.system;
                 return (
                   <li key={n.id}>
                     <button

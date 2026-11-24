@@ -520,10 +520,11 @@ export function cartView(
 // ---------------- Thông báo ----------------
 export function notificationView(n: Db['notifications'][number]): NotificationView {
   const d = n.data as unknown as { type?: string; content?: string; link?: string | null };
+  const type = d.type === 'order' || d.type === 'promo' || d.type === 'system' ? d.type : 'system';
   return {
     ...n,
     data: {
-      type: (d.type as 'order' | 'promo' | 'system') ?? 'system',
+      type,
       content: d.content ?? '',
       link: d.link ?? null,
     },

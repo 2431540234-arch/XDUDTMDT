@@ -55,7 +55,7 @@ export const couponApi = {
 
 export const myReviewApi = {
   list: () => http.get<ReviewView[]>('/reviews/me'),
-  update: (id: number, body: { rating: number; content: string; tags?: string[] }) =>
+  update: (id: number, body: { rating: number; content?: string; tags?: string[] }) =>
     http.patch<ReviewView>(`/reviews/${id}`, body),
   remove: (id: number) => http.delete(`/reviews/${id}`),
 };
