@@ -8,7 +8,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 
-describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_test)', () => {
+describe('Tài khoản, yêu thích, xác nhận thanh toán (aurelia_test)', () => {
   let app: INestApplication;
   let http: ReturnType<typeof request>;
   const prisma = new PrismaClient();
@@ -411,10 +411,7 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
 
     it('dữ liệu sai ⇒ 400 theo trường và không đổi gì; email, vai trò, trạng thái không thể đổi qua hồ sơ', async () => {
       const u = await customer('prof-bad');
-      const before = await prisma.user.findUniqueOrThrow({
-        where: { id: u.id },
-        include: { userRoles: true },
-      });
+      const before = await prisma.user.findUniqueOrThrow({ where: { id: u.id } });
       for (const [body, field] of [
         [{ fullName: 'A' }, 'fullName'],
         [{ fullName: '   ' }, 'fullName'],
@@ -436,13 +433,10 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
         fullName: 'Vẫn Hợp Lệ',
       });
       expect(hack.status).toBe(200);
-      const after = await prisma.user.findUniqueOrThrow({
-        where: { id: u.id },
-        include: { userRoles: true },
-      });
+      const after = await prisma.user.findUniqueOrThrow({ where: { id: u.id } });
       expect(after.email).toBe(before.email);
       expect(after.status).toBe(before.status);
-      expect(after.userRoles.map((r) => r.roleId)).toEqual(before.userRoles.map((r) => r.roleId));
+      expect(after.role).toBe(before.role);
       expect(after.fullName).toBe('Vẫn Hợp Lệ');
       // vẫn không vào được khu quản trị
       expect((await api('get', '/admin/orders', u.token)).status).toBe(403);
@@ -508,118 +502,6 @@ describe('Tài khoản, yêu thích, bookmark, xác nhận thanh toán (aurelia_
       expect((await api('get', `/products/${p.slug}`)).body.data.isWishlisted).toBe(false);
       await api('delete', `/wishlist/${p.slug}`, b.token); // b bỏ thích: không ảnh hưởng a
       expect(await prisma.wishlist.count({ where: { userId: a.id, productId: p.id } })).toBe(1);
-    });
-  });
-
-  // ------------------------------------------------------------------ UC-SPACE-04 lưu không gian
-  describe('UC-SPACE-04 lưu / bỏ lưu không gian mẫu', () => {
-    it('cần đăng nhập; lưu (lặp lại không trùng), hiện ở danh sách bookmarked và isBookmarked, bỏ lưu; không gian lạ ⇒ 404', async () => {
-      const sp = await prisma.space.findFirstOrThrow({
-        where: { status: 'published' },
-        orderBy: { id: 'asc' },
-      });
-      expect((await api('put', `/spaces/${sp.slug}/bookmark`)).status).toBe(401);
-      expect((await api('delete', `/spaces/${sp.slug}/bookmark`)).status).toBe(401);
-
-      const u = await customer('bm');
-      const other = await customer('bm-o');
-      expect((await api('put', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200);
-      expect((await api('put', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200); // lặp lại
-      expect(await prisma.spaceBookmark.count({ where: { userId: u.id, spaceId: sp.id } })).toBe(1);
-
-      const bm = await api('get', '/spaces?bookmarked=true&pageSize=50', u.token);
-      expect((bm.body.data as Array<{ slug: string }>).map((s) => s.slug)).toEqual([sp.slug]);
-      expect(bm.body.data[0].isBookmarked).toBe(true);
-      expect((await api('get', `/spaces/${sp.slug}`, u.token)).body.data.isBookmarked).toBe(true);
-      // người khác và khách ẩn danh không thấy
-      expect((await api('get', `/spaces/${sp.slug}`, other.token)).body.data.isBookmarked).toBe(false);
-      expect((await api('get', `/spaces/${sp.slug}`)).body.data.isBookmarked).toBe(false);
-      expect((await api('get', '/spaces?bookmarked=true', other.token)).body.data).toEqual([]);
-
-      expect((await api('put', '/spaces/khong-co-khong-gian/bookmark', u.token)).status).toBe(404);
-
-      expect((await api('delete', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200);
-      expect(await prisma.spaceBookmark.count({ where: { userId: u.id } })).toBe(0);
-      expect((await api('delete', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200); // bỏ lần nữa: không lỗi
-      expect((await api('get', '/spaces?bookmarked=true', u.token)).body.data).toEqual([]);
-    });
-
-    it('không gian chưa đăng (draft/archived) ⇒ 404 khi lưu và không tạo bookmark; không gian đã lưu rồi bị ẩn thì biến mất khỏi danh sách nhưng vẫn bỏ lưu được', async () => {
-      const u = await customer('bm-draft');
-      const pub = await prisma.space.findFirstOrThrow({
-        where: { status: 'published' },
-        orderBy: { id: 'asc' },
-      });
-      const copy = await prisma.space.create({
-        data: {
-          title: 'Không gian nháp thử bookmark',
-          slug: `nhap-bm-${Date.now()}`,
-          roomType: pub.roomType,
-          status: 'draft',
-        },
-      });
-      try {
-        const r = await api('put', `/spaces/${copy.slug}/bookmark`, u.token);
-        expect(r.status).toBe(404);
-        expect(await prisma.spaceBookmark.count({ where: { spaceId: copy.id } })).toBe(0);
-
-        // đã lưu khi đang đăng, sau đó bị ẩn
-        await prisma.space.update({
-          where: { id: copy.id },
-          data: { status: 'published', publishedAt: new Date() },
-        });
-        expect((await api('put', `/spaces/${copy.slug}/bookmark`, u.token)).status).toBe(200);
-        expect(
-          (
-            (await api('get', '/spaces?bookmarked=true&pageSize=50', u.token)).body.data as Array<{
-              slug: string;
-            }>
-          ).map((x) => x.slug),
-        ).toContain(copy.slug);
-        await prisma.space.update({ where: { id: copy.id }, data: { status: 'archived' } });
-        expect(
-          (
-            (await api('get', '/spaces?bookmarked=true&pageSize=50', u.token)).body.data as Array<{
-              slug: string;
-            }>
-          ).map((x) => x.slug),
-        ).not.toContain(copy.slug);
-        expect((await api('put', `/spaces/${copy.slug}/bookmark`, u.token)).status).toBe(404);
-        // bỏ lưu một không gian đã ẩn vẫn thành công và xóa bản ghi
-        expect((await api('delete', `/spaces/${copy.slug}/bookmark`, u.token)).status).toBe(200);
-        expect(await prisma.spaceBookmark.count({ where: { userId: u.id, spaceId: copy.id } })).toBe(0);
-      } finally {
-        await prisma.spaceBookmark.deleteMany({ where: { spaceId: copy.id } });
-        await prisma.space.delete({ where: { id: copy.id } });
-      }
-    });
-
-    it('danh sách đã lưu: khách ẩn danh nhận danh sách rỗng (không lộ dữ liệu người khác), có phân trang, mỗi người một danh sách', async () => {
-      const u = await customer('bm-list');
-      const other = await customer('bm-list-o');
-      const spaces = await prisma.space.findMany({
-        where: { status: 'published' },
-        orderBy: { id: 'asc' },
-        take: 3,
-      });
-      expect(spaces.length).toBeGreaterThanOrEqual(3);
-      for (const sp of spaces)
-        expect((await api('put', `/spaces/${sp.slug}/bookmark`, u.token)).status).toBe(200);
-
-      const anon = await api('get', '/spaces?bookmarked=true');
-      expect(anon.status).toBe(200);
-      expect(anon.body.data).toEqual([]);
-      expect(anon.body.meta.total).toBe(0);
-      expect((await api('get', '/spaces?bookmarked=true', other.token)).body.meta.total).toBe(0);
-
-      const p1 = await api('get', '/spaces?bookmarked=true&pageSize=2&page=1', u.token);
-      const p2 = await api('get', '/spaces?bookmarked=true&pageSize=2&page=2', u.token);
-      expect(p1.body.meta).toMatchObject({ total: 3, totalPages: 2, pageSize: 2, page: 1 });
-      expect(p1.body.data).toHaveLength(2);
-      expect(p2.body.data).toHaveLength(1);
-      const got = [...p1.body.data, ...p2.body.data].map((x: { slug: string }) => x.slug).sort();
-      expect(got).toEqual(spaces.map((x) => x.slug).sort());
-      expect((p1.body.data as Array<{ isBookmarked: boolean }>).every((x) => x.isBookmarked)).toBe(true);
     });
   });
 

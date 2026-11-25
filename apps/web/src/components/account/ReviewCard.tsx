@@ -17,8 +17,6 @@ interface Props {
 
 /** Thẻ đánh giá (WIREFRAME 2.11) */
 export default function ReviewCard({ review: r, mode = 'public', onEdit }: Props) {
-  const imgs = r.images.slice(0, 3);
-  const extra = r.images.length - imgs.length;
   return (
     <article className="card flex gap-4 p-5">
       {mode === 'mine' && (
@@ -79,20 +77,6 @@ export default function ReviewCard({ review: r, mode = 'public', onEdit }: Props
           </div>
         )}
         {r.content && <p className="mt-2 text-sm leading-relaxed">{r.content}</p>}
-        {imgs.length > 0 && (
-          <div className="mt-3 flex gap-2">
-            {imgs.map((src, i) => (
-              <div key={src + i} className="relative h-16 w-16 overflow-hidden rounded-md bg-surface-muted">
-                <img src={src} alt={`Ảnh đánh giá ${i + 1}`} className="h-full w-full object-cover" />
-                {i === imgs.length - 1 && extra > 0 && (
-                  <span className="absolute inset-0 flex items-center justify-center bg-ink/60 text-sm font-bold text-white">
-                    +{extra}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </article>
   );

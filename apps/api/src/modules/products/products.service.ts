@@ -108,7 +108,7 @@ export class ProductsService {
     const max = qNum(q, 'maxPrice', -1);
     const has3d = qBool(q, 'has3d');
     const featured = qBool(q, 'featured');
-    const brand = qStr(q, 'brand');
+    const brand = foldVi(qStr(q, 'brand') ?? '').trim();
     const out: Array<{ e: IndexEntry; score: number }> = [];
     if (tooShort) return out;
     for (const e of entries) {
@@ -116,7 +116,7 @@ export class ProductsService {
       if (!score) continue;
       const it = e.item;
       if (!ignoreCategory && catIds.size && !(it.categoryId && catIds.has(it.categoryId))) continue;
-      if (brand && String(it.brandId) !== brand) continue;
+      if (brand && foldVi(it.brand ?? '') !== brand) continue;
       if (has3d !== undefined && it.has3dModel !== has3d) continue;
       if (featured !== undefined && it.isFeatured !== featured) continue;
       const price = it.salePrice ?? it.price;

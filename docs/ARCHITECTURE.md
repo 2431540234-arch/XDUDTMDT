@@ -1,6 +1,6 @@
 # Kiến trúc Aurelia Living
 
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
 > Mô tả **hiện trạng của code**. Chi tiết từng mảng: API ở [API_CONTRACT.md](API_CONTRACT.md) và [api/openapi.json](api/openapi.json); CSDL ở [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md); biến môi trường ở [ENVIRONMENT.md](ENVIRONMENT.md); triển khai ở [DEPLOYMENT.md](DEPLOYMENT.md); lý do kỹ thuật ở [DECISIONS.md](DECISIONS.md).
 
 ## 1. Tổng quan
@@ -27,15 +27,15 @@ Nguồn chuẩn CSDL: `apps/api/prisma/schema.prisma` + `migrations/` (59 model,
 
 **Nền tảng:** `prisma/` (PrismaService), `cache/` (`CatalogCache`, khóa Redis có tiền tố, xóa khi ghi), `storage/` (driver `local`/`minio`/`s3`, presigned URL), `mail/` (SMTP + hàng đợi), `config/` (kiểm tra biến môi trường khi khởi động), `health/` (`GET /health`), `activity-log/` (nhật ký thao tác admin).
 
-**Module nghiệp vụ (`modules/`, 34 thư mục):**
+**Module nghiệp vụ (`modules/`, 31 thư mục):**
 
 | Nhóm | Module |
 | --- | --- |
 | Tài khoản | `auth`, `users`, `addresses`, `admin-users`, `admin-roles` |
-| Danh mục/sản phẩm | `categories`, `brands`, `attributes`, `products`, `admin-products` (gộp biến thể và ảnh), `inventory`, `product-models` (3D), `media`, `wishlist`, `reviews` (đánh giá + hỏi đáp) |
-| Mua hàng | `cart`, `coupons`, `orders`, `payments` (VNPay + giả lập), `shipments`, `returns` |
-| Nội dung | `pages` (trang, bài viết, banner, FAQ, liên hệ), `settings`, `spaces`, `panoramas` (đặt mô hình 3D vào ảnh 360°), `notifications`, `admin-notifications` |
-| Thống kê/vận hành | `admin-stats` (tổng quan, thu chi, phễu không gian), `activity-logs`, `jobs` (BullMQ + Bull Board) |
+| Danh mục/sản phẩm | `categories`, `attributes` (giá trị thuộc tính; loại là enum `attribute_code`), `products`, `admin-products` (gộp biến thể và ảnh), `inventory`, `product-models` (3D), `media`, `wishlist`, `reviews` (đánh giá) |
+| Mua hàng | `cart`, `coupons`, `orders`, `payments` (VNPay + giả lập), `shipments` |
+| Nội dung | `pages` (FAQ và cấu hình công khai; trang tĩnh viết cứng ở `apps/web/src/content/static-pages.ts`), `settings`, `spaces`, `panoramas` (đặt mô hình 3D vào ảnh 360°), `notifications`, `admin-notifications` |
+| Thống kê/vận hành | `admin-stats` (tổng quan, doanh thu), `activity-logs`, `jobs` (BullMQ + Bull Board) |
 | **Khung rỗng (không có route)** | `ai`, `hotspots`, `product-images`, `variants` (logic đã gộp vào `admin-products`/`admin-spaces`, D-N32) |
 
 Tổng cộng **210 endpoint** (khớp 210 dòng `Mapped {…}` khi khởi động).
@@ -75,9 +75,9 @@ Thành phần dùng chung ở `components/` (`ui`, `layout`, `product`, `cart`, 
 
 ## 5. Dữ liệu và tệp
 
-- **PostgreSQL:** 59 bảng; trigger DB tính `rating_avg`, `has_3d_model`, `view_count`, `line_total`, ghi `order_status_history`; chi tiết [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), quy ước [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md).
+- **PostgreSQL:** 32 bảng; trigger DB tính `rating_avg`, `has_3d_model`, `line_total`, ghi `order_status_history`; mã đơn sinh từ sequence `order_code_seq`; vai trò là cột `users.role`; chi tiết [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), quy ước [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md).
 - **Tệp:** metadata ở bảng `media`, tệp ở bucket public/private (MinIO/S3) hoặc thư mục `uploads/` (driver `local`). Ảnh/GLB lớn đi bằng presigned URL từ trình duyệt rồi `confirm`; GLB chỉ nhận định dạng GLB (USDZ ⇒ 415, AR đã loại bỏ).
-- **Cache:** catalog (sản phẩm, danh mục, trang) trong Redis, bị xóa khi ghi (`CatalogCache.invalidate*`).
+- **Cache:** catalog (sản phẩm, danh mục) trong Redis, bị xóa khi ghi (`CatalogCache.invalidate*`).
 
 ## 6. Kiểm thử
 

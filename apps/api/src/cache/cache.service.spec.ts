@@ -127,7 +127,7 @@ describe('CacheService.onApplicationBootstrap', () => {
   it('khởi động xóa mọi khóa của môi trường (theo tiền tố), không đụng khóa môi trường khác', async () => {
     const { service, redis } = make();
     redis.store.set('test:products:a', '1');
-    redis.store.set('test:pages:b', '1');
+    redis.store.set('test:categories:b', '1');
     redis.store.set('khac:products:a', '1'); // môi trường khác dùng tiền tố khác
     await service.onApplicationBootstrap();
     expect([...redis.store.keys()]).toEqual(['khac:products:a']);

@@ -1,7 +1,8 @@
-// Unit test PermissionsGuard/PermissionsService: quyền đọc từ role_permissions, any-of, 403 tiếng Việt, cache ngắn hạn.
+// Unit test PermissionsGuard/PermissionsService: quyền theo hằng số ROLE_PERMISSIONS và users.role, any-of, 403 tiếng Việt.
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { RequirePermission } from '../decorators/permissions.decorator';
+import { ROLE_PERMISSIONS } from '../auth/role-permissions';
+import { PERMISSION_CODES, RequirePermission } from '../decorators/permissions.decorator';
 import { PermissionsGuard, PermissionsService } from './permissions.guard';
 
 function ctxOf(handler: object, user: unknown, cls: object = class {}): ExecutionContext {
@@ -25,65 +26,52 @@ const plain = () => {
   return C.prototype.m;
 };
 
-function setup(codes: string[]) {
-  const findMany = jest.fn(async () => codes.map((code) => ({ permission: { code } })));
-  const service = new PermissionsService({ rolePermission: { findMany } } as never);
-  return { guard: new PermissionsGuard(new Reflector(), service), service, findMany };
-}
+const guard = new PermissionsGuard(new Reflector(), new PermissionsService());
+const admin = { id: 1, roles: ['admin'] };
+const customer = { id: 2, roles: ['user'] };
+
+describe('ROLE_PERMISSIONS', () => {
+  it('admin có đủ 6 quyền; user không có quyền quản trị', () => {
+    expect([...ROLE_PERMISSIONS.admin].sort()).toEqual([...PERMISSION_CODES].sort());
+    expect(PERMISSION_CODES).toHaveLength(6);
+    expect(ROLE_PERMISSIONS.user).toEqual([]);
+  });
+});
 
 describe('PermissionsGuard', () => {
-  it('route không gắn quyền: cho qua và không truy vấn DB', async () => {
-    const { guard, findMany } = setup([]);
-    await expect(guard.canActivate(ctxOf(plain(), { id: 1, roles: ['admin'] }))).resolves.toBe(true);
-    expect(findMany).not.toHaveBeenCalled();
+  it('route không gắn quyền: cho qua', () => {
+    expect(guard.canActivate(ctxOf(plain(), customer))).toBe(true);
   });
 
-  it('có quyền yêu cầu: cho qua; thiếu: 403 FORBIDDEN, thông báo tiếng Việt nêu tên quyền', async () => {
-    const ok = setup(['manage_products']);
-    await expect(
-      ok.guard.canActivate(ctxOf(handlerWith('manage_products'), { id: 1, roles: ['admin'] })),
-    ).resolves.toBe(true);
-    const no = setup(['view_orders']);
-    await expect(
-      no.guard.canActivate(ctxOf(handlerWith('manage_products'), { id: 1, roles: ['admin'] })),
-    ).rejects.toMatchObject({
-      code: 'FORBIDDEN',
-      message: 'Bạn không có quyền "Quản lý sản phẩm" để thực hiện thao tác này.',
-    });
+  it('admin có quyền yêu cầu: cho qua', () => {
+    expect(guard.canActivate(ctxOf(handlerWith('manage_products'), admin))).toBe(true);
   });
 
-  it('nhiều quyền là "một trong": chỉ cần có một', async () => {
-    const { guard } = setup(['manage_content']);
-    await expect(
-      guard.canActivate(ctxOf(handlerWith('manage_products', 'manage_content'), { id: 1, roles: ['admin'] })),
-    ).resolves.toBe(true);
+  it('user thiếu quyền: 403 FORBIDDEN, thông báo tiếng Việt nêu tên quyền', () => {
+    expect(() => guard.canActivate(ctxOf(handlerWith('manage_products'), customer))).toThrow(
+      'Bạn không có quyền "Quản lý sản phẩm" để thực hiện thao tác này.',
+    );
   });
 
-  it('chưa đăng nhập: AUTH_UNAUTHENTICATED', async () => {
-    const { guard } = setup([]);
-    await expect(guard.canActivate(ctxOf(handlerWith('manage_users'), undefined))).rejects.toMatchObject({
-      code: 'AUTH_UNAUTHENTICATED',
-    });
+  it('nhiều quyền là "một trong": thông báo nêu tất cả', () => {
+    expect(() =>
+      guard.canActivate(ctxOf(handlerWith('manage_products', 'manage_content'), customer)),
+    ).toThrow('"Quản lý sản phẩm" hoặc "Quản lý nội dung"');
+    expect(guard.canActivate(ctxOf(handlerWith('manage_products', 'manage_content'), admin))).toBe(true);
   });
 
-  it('quyền đặt ở method ghi đè quyền ở class', async () => {
+  it('chưa đăng nhập: AUTH_UNAUTHENTICATED', () => {
+    expect(() => guard.canActivate(ctxOf(handlerWith('manage_users'), undefined))).toThrow(
+      'Bạn chưa đăng nhập.',
+    );
+  });
+
+  it('quyền đặt ở method ghi đè quyền ở class', () => {
     class C {
       @RequirePermission('view_orders')
       m() {}
     }
     Reflect.defineMetadata('requiredPermissions', ['process_orders'], C);
-    const { guard } = setup(['view_orders']);
-    await expect(guard.canActivate(ctxOf(C.prototype.m, { id: 1, roles: ['admin'] }, C))).resolves.toBe(true);
-  });
-
-  it('cache bộ nhớ ngắn hạn: gọi lặp không truy vấn lại; clearCache() đọc lại DB', async () => {
-    const { guard, service, findMany } = setup(['manage_users']);
-    const ctx = ctxOf(handlerWith('manage_users'), { id: 1, roles: ['admin'] });
-    await guard.canActivate(ctx);
-    await guard.canActivate(ctx);
-    expect(findMany).toHaveBeenCalledTimes(1);
-    service.clearCache();
-    await guard.canActivate(ctx);
-    expect(findMany).toHaveBeenCalledTimes(2);
+    expect(guard.canActivate(ctxOf(C.prototype.m, admin, C))).toBe(true);
   });
 });

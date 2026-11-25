@@ -1,4 +1,6 @@
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
+
+> **Lưu ý (2026-11-25):** Nhật ký theo ngày này (các mục trước 2026-11-19) đề cập các bảng và tính năng đã gỡ khi rút gọn CSDL từ 59 xuống 32 bảng (D-D10 … D-D16 trong [DECISIONS.md](DECISIONS.md)): 21 bảng (`product_specs`, `product_360_*`, `review_images`, `product_questions`, `coupon_scopes`, `user_coupons`, `code_counters`, `return_*`, `stock_receipt*`, `expenses`, `banners`, `posts`, `contact_messages`, `pages`, `inventory_movements`, `space_bookmarks`, `space_views`) và `roles`, `permissions`, `role_permissions`, `user_roles`, `attributes`, `brands`. Các chỗ nhắc chúng là **lịch sử** (ảnh chụp tại thời điểm viết), không phải hiện trạng. Hiện trạng: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [CAU_TRUC_DB.md](CAU_TRUC_DB.md).
 
 # BE_PROGRESS – Tiến độ xây dựng Backend (Aurelia Living)
 
@@ -507,3 +509,11 @@ Kiểm thử đợt này (trên `b8599e9`): typecheck+lint 6/6, web unit 40/40, 
 ## Đợt 2026-11-11: đồng bộ tài liệu với code (nhánh `docs/sync-with-code`)
 
 - Lưu trữ 12 tài liệu lỗi thời vào `docs/archive/`; xuất `docs/api/openapi.json` từ API; đối chiếu `API_CONTRACT.md` 210/210 route; DATABASE_SCHEMA 59 bảng + ERD Mermaid; DAC_TA chuyển 6 UC AR sang mục "Đã loại bỏ"; thêm `ARCHITECTURE.md`, `DEPLOYMENT.md`, `KNOWN_ISSUES.md`, `docs/README.md`. Xem [archive/README.md](archive/README.md) và [DECISIONS.md](DECISIONS.md) D-D09.
+
+## Đợt 2026-11-19 → 2026-11-25: rút gọn CSDL còn 32 bảng (nhánh `db/remove-21-tables`)
+
+- Xóa 21 bảng (D-D10, 59 → 38 bảng) cùng code, test, seed, mock-data; mã đơn dùng sequence `order_code_seq` (D-D11); trang tĩnh viết cứng ở web (D-D12).
+- `users.role` enum thay 4 bảng phân quyền (D-D13, 34 bảng); `attribute_code` enum thay `attributes` (D-D14, 33 bảng); `products.brand` chữ thay `brands` (D-D15, 32 bảng). Migration: `20261119010100_remove_21_tables`, `20261119020100_drop_coupon_applies_columns`, `20261120010100_users_role_enum`, `20261120020100_attribute_code_enum`, `20261120030100_products_brand_text`.
+- Kiểm thử trên `aurelia_test` (32 bảng): db-spec 330/330, unit API 119, unit web 33, ESLint/tsc sạch, build API và web đạt, Playwright thật 11/11 nhóm (nhóm `admin-minio` chưa chạy được vì container MinIO đang dừng).
+- Lỗi đã biết, chưa sửa: trang chi tiết khách hàng không tải lại được sau khi gán vai trò admin (admin không còn nằm trong danh sách/chi tiết khách hàng).
+- Tài liệu đồng bộ ngày 2026-11-25: DATABASE_SCHEMA, CAU_TRUC_DB, API_CONTRACT, `api/openapi.json` (152 route), DAC_TA (65 UC đang hoạt động), DOI_CHIEU_UC, DECISIONS (D-D10 … D-D16).

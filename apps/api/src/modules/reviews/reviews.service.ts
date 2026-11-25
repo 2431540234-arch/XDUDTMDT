@@ -9,11 +9,8 @@ import { AppException } from '../../common/exceptions/app.exception';
 import { qNum, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
 import { CatalogViews } from '../../common/views/catalog-views.service';
-import { MediaIngestService } from '../../common/views/media-ingest.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ProductsService } from '../products/products.service';
-
-export const MAX_REVIEW_IMAGES = 5;
 
 /**
  * Điều kiện được đánh giá: sản phẩm nằm trong đơn "completed" của chính khách (purchasedAndDelivered),
@@ -51,14 +48,13 @@ export const REVIEW_INCLUDE = {
         include: {
           variant: {
             include: {
-              variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+              variantAttributeValues: { include: { attributeValue: true } },
             },
           },
         },
       },
     },
   },
-  images: { orderBy: { sortOrder: 'asc' }, include: { media: true } },
 } satisfies Prisma.ReviewInclude;
 
 export type ReviewRow = Prisma.ReviewGetPayload<{ include: typeof REVIEW_INCLUDE }>;
@@ -69,14 +65,13 @@ export class ReviewsService {
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
     private readonly products: ProductsService,
-    private readonly ingest: MediaIngestService,
   ) {}
 
   /** ReviewView theo contract; ẩn danh ⇒ tên rút gọn */
   toView(r: ReviewRow) {
     const item = r.order?.orderItems.find((it) => it.variant?.productId === r.productId) ?? null;
     const delivered = r.order?.shipments.find((s) => s.deliveredAt)?.deliveredAt ?? null;
-    const { user, product, order, images, ...base } = r;
+    const { user, product, order, ...base } = r;
     return {
       ...base,
       userName: r.isAnonymous ? 'Khách hàng ẩn danh' : (user?.fullName ?? 'Khách hàng'),
@@ -89,7 +84,6 @@ export class ReviewsService {
         : null,
       orderCode: order?.orderCode ?? null,
       purchasedAt: (delivered ?? order?.createdAt ?? null)?.toISOString() ?? null,
-      images: images.map((i) => this.views.url(i.media.filePath) ?? ''),
       tags: r.tags ?? [],
     };
   }
@@ -161,14 +155,6 @@ export class ReviewsService {
     if (verdict === 'CONFLICT')
       throw new AppException(ErrorCode.CONFLICT, 'Bạn đã đánh giá sản phẩm này rồi.');
 
-    const imageUrls = Array.isArray(b.images) ? (b.images as unknown[]).map(str).filter(Boolean) : [];
-    if (imageUrls.length > MAX_REVIEW_IMAGES) {
-      new FieldErrors().add('images', `Tối đa ${MAX_REVIEW_IMAGES} ảnh cho mỗi đánh giá.`).throwIfAny();
-    }
-    const mediaIds: number[] = [];
-    for (const u of imageUrls)
-      mediaIds.push(await this.ingest.ingestImage(u, { userId, folder: `reviews/${p.id}` }));
-
     const review = await this.prisma.review.create({
       data: {
         userId,
@@ -179,7 +165,6 @@ export class ReviewsService {
         status: 'pending', // chờ admin duyệt
         tags: Array.isArray(b.tags) ? (b.tags as unknown[]).map(str) : [],
         isAnonymous: Boolean(b.anonymous),
-        images: { create: mediaIds.map((mediaId, i) => ({ mediaId, sortOrder: i })) },
       },
       include: REVIEW_INCLUDE,
     });

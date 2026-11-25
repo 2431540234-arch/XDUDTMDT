@@ -1,6 +1,7 @@
 // Sinh các bảng liên quan sản phẩm từ _products_spec.ts: products, product_variants, variant_attribute_values,
 // product_images, product_3d_models, model_files (+ product_extras cho trường chưa có trong DB).
 import type {
+  AttributeCode,
   ModelFile,
   Product,
   Product3DModel,
@@ -14,7 +15,7 @@ import { mediaRows, registerMedia } from '../utils/media-registry';
 import { addDays, iso, makeRng, roundPrice } from '../utils/rng';
 import { COLORS, valueId } from './attributes';
 import { categories } from './categories';
-import { modelFor, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
+import { BRAND_NAMES, modelFor, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
 
 const rng = makeRng(303);
 
@@ -27,7 +28,6 @@ export interface ProductExtra {
   costRatio: number; // tham số sinh dữ liệu giả: giá vốn / giá bán, dùng cho mọi biến thể (không có cột DB)
   minStock: number;
   features: string[];
-  specs: Array<{ label: string; value: string }>;
   type: ProductSpec['type'];
   modelKey: ProductSpec['model'];
 }
@@ -116,7 +116,7 @@ productSpecs.forEach((s, idx) => {
     shortDescription: `${s.name} – ${s.material.toLowerCase()} phong cách ${s.style.toLowerCase()}, thiết kế tinh tế, bền đẹp theo thời gian.`,
     description: desc,
     categoryId: cat.id,
-    brandId: s.brand,
+    brand: BRAND_NAMES[s.brand - 1] ?? null,
     status: 'published',
     isFeatured: Boolean(s.featured),
     ratingAvg: 0, // tính lại từ reviews khi khởi tạo db
@@ -165,16 +165,16 @@ productSpecs.forEach((s, idx) => {
         createdAt,
         updatedAt: createdAt,
       });
-      const link = (attributeId: number, value: string) =>
+      const link = (attributeCode: AttributeCode, value: string) =>
         variantAttributeValues.push({
           variantId: vid,
-          attributeValueId: valueId(attributeId, value),
-          attributeId,
+          attributeValueId: valueId(attributeCode, value),
+          attributeCode,
           createdAt,
         });
-      link(1, col.name);
-      link(2, s.sizeSet === 'desk' && sz.label === '1m6' ? '1m6 (bàn)' : sz.label);
-      link(3, s.material);
+      link('color', col.name);
+      link('size', s.sizeSet === 'desk' && sz.label === '1m6' ? '1m6 (bàn)' : sz.label);
+      link('material', s.material);
       if (!firstVariantByColor.has(col.name)) firstVariantByColor.set(col.name, vid);
       if (ci === 0 && sizes.length > 1 && si === 1) defaultVariantIdx = vid;
       if (ci === 0 && sizes.length === 1) defaultVariantIdx = vid;
@@ -220,26 +220,6 @@ productSpecs.forEach((s, idx) => {
     ),
     minStock: 5,
     features: [...(featurePool[s.material] ?? featurePool['Gỗ']), ...commonFeatures].slice(0, 5),
-    specs: [
-      { label: 'Kích thước (D × R × C)', value: `${l} × ${w} × ${h} mm` },
-      { label: 'Chất liệu', value: s.material },
-      { label: 'Màu sắc', value: s.colors.join(', ') },
-      { label: 'Phong cách', value: s.style },
-      {
-        label: 'Thương hiệu',
-        value: [
-          '',
-          'Aurelia Home',
-          'Nordic Living',
-          'Oak & Co',
-          'Maison Luxe',
-          'Japandi Studio',
-          'Urban Nest',
-        ][s.brand],
-      },
-      { label: 'Xuất xứ', value: 'Việt Nam' },
-      { label: 'Bảo hành', value: `${s.warrantyMonths ?? 12} tháng` },
-    ],
     type: s.type,
     modelKey: modelFor(s),
   });

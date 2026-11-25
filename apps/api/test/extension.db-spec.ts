@@ -6,7 +6,6 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
-import { PermissionsService } from '../src/common/guards/permissions.guard';
 import { AdminRolesService } from '../src/modules/admin-roles/admin-roles.service';
 
 describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
@@ -74,10 +73,10 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
   // ---------------------------------------------------------------- UC-ADM-27
   describe('UC-ADM-27 nhật ký hoạt động', () => {
     it('lọc theo admin, hành động, loại đối tượng, ngày; phân trang; mới nhất trước; chỉ đọc', async () => {
-      const brandName = `Nhật ký ${uniq()}`;
-      const created = await api('post', '/admin/brands', admin, { name: brandName });
+      const valueName = `Nhật ký ${uniq()}`;
+      const created = await api('post', '/admin/attributes/3/values', admin, { value: valueName });
       expect(created.status).toBe(201);
-      const brandId = created.body.data.id as number;
+      const valueId = created.body.data.id as number;
 
       const all = await api('get', '/admin/activity-logs?pageSize=5', admin);
       expect(all.status).toBe(200);
@@ -88,21 +87,21 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
 
       const byAction = await api(
         'get',
-        `/admin/activity-logs?actorId=${adminId}&targetType=brand&action=brand`,
+        `/admin/activity-logs?actorId=${adminId}&targetType=attribute_value&action=attribute_value`,
         admin,
       );
       expect(byAction.status).toBe(200);
-      const row = byAction.body.data.find((r: { targetId: number }) => r.targetId === brandId);
-      expect(row).toMatchObject({ actorId: adminId, targetType: 'brand', auto: false });
+      const row = byAction.body.data.find((r: { targetId: number }) => r.targetId === valueId);
+      expect(row).toMatchObject({ actorId: adminId, targetType: 'attribute_value', auto: false });
       expect(row.actorEmail).toBe('admin@aurelia.vn');
 
       const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' });
       const ranged = await api(
         'get',
-        `/admin/activity-logs?from=${today}&to=${today}&targetType=brand`,
+        `/admin/activity-logs?from=${today}&to=${today}&targetType=attribute_value`,
         admin,
       );
-      expect(ranged.body.data.some((r: { targetId: number }) => r.targetId === brandId)).toBe(true);
+      expect(ranged.body.data.some((r: { targetId: number }) => r.targetId === valueId)).toBe(true);
       const old = await api('get', '/admin/activity-logs?from=2001-01-01&to=2001-01-02', admin);
       expect(old.body.data).toHaveLength(0);
 
@@ -136,21 +135,6 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       );
       expect((await api('get', '/admin/activity-logs')).status).toBe(401);
       expect((await api('get', '/admin/activity-logs', cust)).status).toBe(403);
-      // thiếu quyền manage_settings ⇒ 403 dù là admin
-      const perms = app.get(PermissionsService);
-      const rp = await prisma.rolePermission.findFirstOrThrow({
-        where: { permission: { code: 'manage_settings' }, role: { code: 'admin' } },
-      });
-      await prisma.rolePermission.delete({
-        where: { roleId_permissionId: { roleId: rp.roleId, permissionId: rp.permissionId } },
-      });
-      perms.clearCache();
-      try {
-        expect((await api('get', '/admin/activity-logs', admin)).status).toBe(403);
-      } finally {
-        await prisma.rolePermission.create({ data: { roleId: rp.roleId, permissionId: rp.permissionId } });
-        perms.clearCache();
-      }
     });
   });
 
@@ -180,7 +164,7 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       const c = await newCustomer('role');
       const grant = await api('put', `/admin/users/${c.id}/roles/admin`, admin);
       expect(grant.status).toBe(200);
-      expect(grant.body.data.roles.sort()).toEqual(['admin', 'user']);
+      expect(grant.body.data.roles).toEqual(['admin']);
       expect((await api('put', `/admin/users/${c.id}/roles/admin`, admin)).status).toBe(200); // idempotent
       expect(await prisma.activityLog.count({ where: { action: 'user.grant_admin', targetId: c.id } })).toBe(
         1,
@@ -206,8 +190,7 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect(self.body.error.code).toBe('INVALID_STATE');
       expect(self.body.error.message).toContain('tự gỡ');
 
-      const adminRole = await prisma.role.findFirstOrThrow({ where: { code: 'admin' } });
-      expect(await prisma.userRole.count({ where: { roleId: adminRole.id } })).toBe(1); // chỉ admin gốc
+      expect(await prisma.user.count({ where: { role: 'admin', deletedAt: null } })).toBe(1); // chỉ admin gốc
       // Qua HTTP không còn đường gỡ admin cuối cùng (người gỡ phải là admin nên luôn còn ≥ 1 admin khác). Quy tắc vẫn được
       // service thực thi (chống hai yêu cầu đồng thời): gọi thẳng service với một "người gỡ" bất kỳ khác admin gốc.
       const c = await newCustomer('last');
@@ -215,7 +198,7 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       const last = await svc.revokeAdmin(c.id, adminId).catch((e: { status: number; message: string }) => e);
       expect(last).toMatchObject({ status: 409 });
       expect((last as { message: string }).message).toContain('cuối cùng');
-      expect(await prisma.userRole.count({ where: { roleId: adminRole.id } })).toBe(1);
+      expect(await prisma.user.count({ where: { role: 'admin', deletedAt: null } })).toBe(1);
 
       expect((await api('put', '/admin/users/99999999/roles/admin', admin)).status).toBe(404);
       expect((await api('delete', '/admin/users/99999999/roles/admin', admin)).status).toBe(404);
@@ -227,7 +210,6 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect((await api('post', '/admin/roles', admin, { code: 'staff', name: 'Nhân viên' })).status).toBe(
         404,
       );
-      expect(await prisma.role.count()).toBe(2);
     });
   });
 
@@ -545,29 +527,6 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
       expect(
         (await api('post', '/admin/notifications', cust, { title: 'ab', content: 'a', all: true })).status,
       ).toBe(403);
-      // thiếu quyền manage_content ⇒ 403 dù là admin
-      const perms = app.get(PermissionsService);
-      const rp = await prisma.rolePermission.findFirstOrThrow({
-        where: { permission: { code: 'manage_content' }, role: { code: 'admin' } },
-      });
-      await prisma.rolePermission.delete({
-        where: { roleId_permissionId: { roleId: rp.roleId, permissionId: rp.permissionId } },
-      });
-      perms.clearCache();
-      try {
-        expect(
-          (
-            await api('post', '/admin/notifications', admin, {
-              title: 'Không quyền',
-              content: 'a',
-              all: true,
-            })
-          ).status,
-        ).toBe(403);
-      } finally {
-        await prisma.rolePermission.create({ data: { roleId: rp.roleId, permissionId: rp.permissionId } });
-        perms.clearCache();
-      }
     });
   });
 });

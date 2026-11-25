@@ -1,6 +1,5 @@
-// Mock API: giỏ hàng, mã giảm giá, đặt hàng, thanh toán giả lập, đơn hàng, đổi trả (khách hàng)
+// Mock API: giỏ hàng, mã giảm giá, đặt hàng, thanh toán giả lập, đơn hàng (khách hàng)
 import type { OrderPaymentStatus, OrderStatus, PaymentMethod } from '@aurelia-living/shared-types';
-import type { ReturnRequest } from '@/types/api';
 import { nextId, type Db } from '../db';
 import {
   ApiFail,
@@ -11,7 +10,6 @@ import {
   paginate,
   qList,
   qNum,
-  qStr,
   validation,
   type Ctx,
   type Result,
@@ -22,10 +20,8 @@ import {
   effectivePrice,
   evaluateCoupon,
   orderView,
-  RETURN_WINDOW_DAYS,
   shippingFeeFor,
   spaceDetail,
-  variantLabel,
   variantViews,
 } from './views';
 
@@ -168,18 +164,7 @@ export function applyCoupon(ctx: Ctx): Result {
   if (!code) throw validation({ code: 'Vui lòng nhập mã giảm giá.' });
   const view = cartView(ctx.db, ctx.user!.id);
   if (!view.items.length) throw new ApiFail('COUPON_INVALID', 'Giỏ hàng đang trống.');
-  evaluateCoupon(
-    ctx.db,
-    code,
-    ctx.user!.id,
-    view.items.map((i) => ({
-      productId: i.productId,
-      categoryId: ctx.db.products.find((p) => p.id === i.productId)?.categoryId ?? null,
-      lineTotal: i.lineTotal,
-    })),
-    view.subtotal,
-    view.shippingFee,
-  );
+  evaluateCoupon(ctx.db, code, ctx.user!.id, view.subtotal, view.shippingFee);
   ctx.db.cartCoupons[ctx.user!.id] = code;
   return ok(cartView(ctx.db, ctx.user!.id));
 }
@@ -256,18 +241,7 @@ export function placeOrderCore(
   let couponId: number | null = null;
   let discount = 0;
   if (code) {
-    const r = evaluateCoupon(
-      db,
-      code,
-      u.id,
-      lines.map((l) => ({
-        productId: l.p.id,
-        categoryId: l.p.categoryId,
-        lineTotal: effectivePrice(l.v) * l.qty,
-      })),
-      subtotal,
-      shippingFee,
-    );
+    const r = evaluateCoupon(db, code, u.id, subtotal, shippingFee);
     couponId = r.coupon.id;
     discount = r.discount;
   }
@@ -313,16 +287,6 @@ export function placeOrderCore(
       createdAt: at.toISOString(),
     });
     l.v.stockQuantity -= l.qty;
-    db.inventoryMovements.push({
-      id: nextId(db.inventoryMovements),
-      variantId: l.v.id,
-      type: 'sale',
-      quantityChange: -l.qty,
-      reason: 'Bán hàng',
-      referenceCode: orderCode,
-      performedBy: null,
-      createdAt: at.toISOString(),
-    });
     l.p.soldCount += l.qty;
   }
   db.payments.push({
@@ -355,10 +319,6 @@ export function placeOrderCore(
     });
     const c = db.coupons.find((x) => x.id === couponId)!;
     c.usedCount += 1;
-    const uc = db.userCoupons.find(
-      (x) => x.userId === u.id && x.couponId === couponId && x.status === 'unused',
-    );
-    if (uc) uc.status = 'used';
   }
   notify(
     db,
@@ -465,16 +425,6 @@ export function cancelOrderCore(
     const v = db.productVariants.find((x) => x.id === it.variantId);
     if (v) {
       v.stockQuantity += it.quantity;
-      db.inventoryMovements.push({
-        id: nextId(db.inventoryMovements),
-        variantId: v.id,
-        type: 'return',
-        quantityChange: it.quantity,
-        reason: 'Hoàn kho do hủy đơn',
-        referenceCode: o.orderCode,
-        performedBy: actorId,
-        createdAt: nowIso(),
-      });
     }
   }
   const usage = db.couponUsages.find((u) => u.orderId === o.id);
@@ -560,91 +510,6 @@ export function retryPayment(ctx: Ctx): Result {
   const online = (['vnpay', 'momo', 'zalopay', 'card'] as PaymentMethod[]).includes(o.paymentMethod);
   if (online) settle(ctx.db, o.id, true);
   return ok({ redirectUrl: `/checkout/success?order=${o.orderCode}` });
-}
-
-// ---------------- Đổi trả & hoàn tiền (khách) ----------------
-export function listReturns(ctx: Ctx): Result {
-  const status = qStr(ctx.query, 'status');
-  const list = ctx.db.returnRequests
-    .filter((r) => r.userId === ctx.user!.id && (!status || r.status === status))
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .map((r) => withReturnItemMeta(ctx.db, r));
-  return paginate(list, ctx.query, 5);
-}
-
-export function withReturnItemMeta(db: Db, r: ReturnRequest): ReturnRequest {
-  return {
-    ...r,
-    items: r.items.map((it) => {
-      const img = db.productImages.find((i) => i.productId === it.productId && i.isPrimary);
-      const p = db.products.find((x) => x.id === it.productId);
-      void p;
-      return {
-        ...it,
-        imageUrl: it.imageUrl ?? db.media.find((m) => m.id === img?.mediaId)?.filePath ?? null,
-      };
-    }),
-  };
-}
-
-export function createReturn(ctx: Ctx): Result {
-  const b = ctx.body ?? {};
-  const o = ctx.db.orders.find((x) => x.id === Number(b.orderId) && x.userId === ctx.user!.id);
-  if (!o) throw notFound('Đơn hàng');
-  const errs: Record<string, string> = {};
-  if (!Array.isArray(b.items) || !b.items.length) errs.items = 'Vui lòng chọn ít nhất một sản phẩm.';
-  if (!['refund', 'exchange'].includes(b.type)) errs.type = 'Vui lòng chọn hình thức.';
-  if (!b.reason) errs.reason = 'Vui lòng chọn lý do.';
-  if (String(b.description ?? '').trim().length < 10) errs.description = 'Mô tả chi tiết tối thiểu 10 ký tự.';
-  if (!Array.isArray(b.images) || !b.images.length) errs.images = 'Vui lòng tải lên ảnh/video minh chứng.';
-  if (Object.keys(errs).length) throw validation(errs);
-  const view = orderView(ctx.db, o);
-  if (o.status !== 'completed' || !view.canReturnUntil || new Date(view.canReturnUntil) < new Date())
-    throw new ApiFail('INVALID_STATE', `Đơn hàng đã quá hạn ${RETURN_WINDOW_DAYS} ngày đổi trả.`);
-  const items = (b.items as Array<{ orderItemId: number; quantity: number }>).map((x) => {
-    const it = ctx.db.orderItems.find((y) => y.id === x.orderItemId && y.orderId === o.id);
-    if (!it) throw notFound('Sản phẩm trong đơn');
-    const v = ctx.db.productVariants.find((z) => z.id === it.variantId)!;
-    const qty = Math.min(Math.max(1, Number(x.quantity)), it.quantity);
-    return {
-      productId: v.productId,
-      productName: it.productName,
-      imageUrl: null,
-      variantLabel: variantLabel(ctx.db, it.variantId),
-      quantity: qty,
-      unitPrice: it.unitPrice,
-    };
-  });
-  const id = nextId(ctx.db.returnRequests);
-  const at = nowIso();
-  const row: ReturnRequest = {
-    id,
-    code: `RT${String(11 + id).padStart(4, '0')}`,
-    orderId: o.id,
-    orderCode: o.orderCode,
-    userId: ctx.user!.id,
-    customerName: ctx.user!.fullName,
-    items,
-    type: b.type,
-    reason: b.reason,
-    description: String(b.description).trim(),
-    images: b.images,
-    refundAmount: items.reduce((s, i) => s + i.unitPrice * i.quantity, 0),
-    status: 'pending',
-    adminNote: null,
-    createdAt: at,
-    updatedAt: at,
-  };
-  ctx.db.returnRequests.push(row);
-  notify(
-    ctx.db,
-    ctx.user!.id,
-    `Đã nhận yêu cầu đổi trả ${row.code}`,
-    'order',
-    `Yêu cầu đổi trả cho đơn ${o.orderCode} đang chờ duyệt.`,
-    '/account/returns',
-  );
-  return created(withReturnItemMeta(ctx.db, row));
 }
 
 void variantViews;

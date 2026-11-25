@@ -92,7 +92,7 @@ export class PaymentsService {
         if (o.status === 'cancelled') {
           // trạng thái đơn giữ nguyên cancelled; chỉ báo admin cần hoàn tiền
           const admins = await tx.user.findMany({
-            where: { deletedAt: null, userRoles: { some: { role: { code: 'admin' } } } },
+            where: { deletedAt: null, role: 'admin' },
             select: { id: true },
           });
           for (const a of admins) {

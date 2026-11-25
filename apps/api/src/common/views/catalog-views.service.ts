@@ -8,13 +8,11 @@ import { serialize } from '../utils/serialize';
 
 export const PRODUCT_INCLUDE = {
   category: true,
-  brand: true,
   productVariants: {
     orderBy: { id: 'asc' },
-    include: { variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } } },
+    include: { variantAttributeValues: { include: { attributeValue: true } } },
   },
   productImages: { orderBy: { sortOrder: 'asc' }, include: { media: true } },
-  product360: { select: { enabled: true } },
 } satisfies Prisma.ProductInclude;
 
 export type ProductRow = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
@@ -44,9 +42,7 @@ export class CatalogViews {
 
   // ---------------- biến thể ----------------
   attr(v: VariantRow, code: 'color' | 'size' | 'material') {
-    return (
-      v.variantAttributeValues.find((x) => x.attributeValue.attribute.code === code)?.attributeValue ?? null
-    );
+    return v.variantAttributeValues.find((x) => x.attributeCode === code)?.attributeValue ?? null;
   }
 
   color(v: VariantRow): ColorOption | null {
@@ -57,7 +53,7 @@ export class CatalogViews {
   variantLabel(v: Pick<VariantRow, 'variantAttributeValues'> | null | undefined): string {
     if (!v) return '—';
     const get = (code: string) =>
-      v.variantAttributeValues.find((x) => x.attributeValue.attribute.code === code)?.attributeValue.value;
+      v.variantAttributeValues.find((x) => x.attributeCode === code)?.attributeValue.value;
     const parts = [get('color'), get('size')].filter((x): x is string => Boolean(x) && x !== 'Tiêu chuẩn');
     return parts.length ? parts.join(' / ') : 'Tiêu chuẩn';
   }
@@ -96,10 +92,8 @@ export class CatalogViews {
     const primary = p.productImages.find((i) => i.isPrimary) ?? p.productImages[0];
     const {
       category,
-      brand,
       productVariants: _v,
       productImages: _i,
-      product360,
       ...base
     } = p as ProductRow & Record<string, unknown>;
     void _v;
@@ -112,14 +106,12 @@ export class CatalogViews {
       defaultVariantId: dv?.id ?? 0,
       thumbnailUrl: this.url(primary?.media.filePath),
       category: category ? { id: category.id, name: category.name, slug: category.slug } : null,
-      brand: brand ? { id: brand.id, name: brand.name } : null,
       colors,
       sizes,
       material: dv ? (this.attr(dv, 'material')?.value ?? null) : null,
       style: p.style ?? null,
       sku: dv?.sku ?? '',
       isWishlisted: false,
-      has360: Boolean(product360?.enabled),
     };
   }
 
@@ -192,14 +184,12 @@ export class CatalogViews {
   /** ProductDetail (chưa gán isWishlisted) */
   async detail(p: ProductRow) {
     const base = this.listItem(p);
-    const [specs, ratings, questionCount, model] = await Promise.all([
-      this.prisma.productSpec.findMany({ where: { productId: p.id }, orderBy: { sortOrder: 'asc' } }),
+    const [ratings, model] = await Promise.all([
       this.prisma.review.groupBy({
         by: ['rating'],
         where: { productId: p.id, status: 'approved' },
         _count: true,
       }),
-      this.prisma.productQuestion.count({ where: { productId: p.id, status: 'answered', isPublic: true } }),
       this.primaryModel(p.id),
     ]);
     const ratingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<1 | 2 | 3 | 4 | 5, number>;
@@ -216,11 +206,9 @@ export class CatalogViews {
         variantId: i.variantId,
       })),
       variants: this.variantViews(p),
-      specs: specs.map((s) => ({ label: s.label, value: s.value })),
       features,
       model,
       ratingBreakdown,
-      questionCount,
       breadcrumb: [
         { label: 'Sản phẩm', href: '/products' },
         ...(p.category ? [{ label: p.category.name, href: `/products?category=${p.category.slug}` }] : []),

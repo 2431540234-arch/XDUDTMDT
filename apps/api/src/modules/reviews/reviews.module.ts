@@ -6,16 +6,13 @@ import { Module } from '@nestjs/common';
 import { ReviewsController } from './reviews.controller';
 import { AdminReviewsController } from './admin-reviews.controller';
 import { ProductsModule } from '../products/products.module';
-import { AdminQuestionsController } from './admin-questions.controller';
-import { AdminQuestionsService } from './admin-questions.service';
 import { AdminReviewsService } from './admin-reviews.service';
-import { QuestionsService } from './questions.service';
 import { ReviewsService } from './reviews.service';
 
 @Module({
   imports: [ProductsModule],
-  controllers: [ReviewsController, AdminReviewsController, AdminQuestionsController],
-  providers: [ReviewsService, QuestionsService, AdminReviewsService, AdminQuestionsService],
-  exports: [ReviewsService, QuestionsService, AdminReviewsService, AdminQuestionsService],
+  controllers: [ReviewsController, AdminReviewsController],
+  providers: [ReviewsService, AdminReviewsService],
+  exports: [ReviewsService, AdminReviewsService],
 })
 export class ReviewsModule {}

@@ -106,16 +106,12 @@ const BACKEND_EXTRA = new Set([
   'Review.isAnonymous',
   'Coupon.name',
   'Coupon.description',
-  'Coupon.appliesTo',
-  'Coupon.appliesToLabel',
   'Cart.couponId',
   'Order.internalNote',
   'OrderItem.variantLabel',
   'OrderItem.imageMediaId',
   'OrderItem.costPrice',
-  'Page.type',
   'Space.comboDiscountPercent',
-  'Product360Config.defaultColorId',
 ]);
 const usedEnums = new Set();
 const body = models

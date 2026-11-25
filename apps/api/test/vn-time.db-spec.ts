@@ -1,7 +1,6 @@
 // E2E (supertest) ngày theo GIỜ VIỆT NAM trên aurelia_test, tập trung khung 00:00–07:00 giờ VN (ngày UTC còn là hôm qua):
-// lọc nhật ký hoạt động theo ngày, phễu không gian ở sát nửa đêm, hạn dùng mã giảm giá chỉ nhập ngày. (Hoàn tiền sinh phiếu chi lúc
+// lọc nhật ký hoạt động theo ngày, hạn dùng mã giảm giá chỉ nhập ngày. (Hoàn tiền sinh phiếu chi lúc
 // 00:30 giờ VN nằm ở mock-m4.db-spec.ts; khoảng mặc định 30 ngày và các hàm ngày nằm ở src/common/utils/vn-date.spec.ts.)
-import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
@@ -59,44 +58,6 @@ describe('Ngày theo giờ Việt Nam (aurelia_test)', () => {
     expect(await ids('2030-03-17', '2030-03-17')).toEqual([4]);
     expect(await ids('2030-03-15', '2030-03-17')).toEqual([1, 2, 3, 4]);
     await prisma.activityLog.deleteMany({ where: { targetType } });
-  });
-
-  it('phễu không gian: lượt xem lúc 00:30 và 23:30 giờ VN tính đúng ngày VN', async () => {
-    const stamp = Date.now();
-    const sp = await prisma.space.create({
-      data: {
-        title: `Giờ VN ${stamp}`,
-        slug: `gio-vn-${stamp}`,
-        roomType: 'living_room',
-        status: 'published',
-      },
-    });
-    const at = (iso: string) => new Date(iso);
-    for (const [i, t] of [
-      '2030-03-15T23:30:00+07:00',
-      '2030-03-16T00:30:00+07:00',
-      '2030-03-16T23:30:00+07:00',
-      '2030-03-17T00:00:00+07:00',
-    ].entries())
-      await prisma.spaceView.create({
-        data: {
-          spaceId: sp.id,
-          visitorId: randomUUID(),
-          hotspotClickCount: i,
-          addedToCart: false,
-          createdAt: at(t),
-        },
-      });
-    const one = async (d: string) => {
-      const r = await get(`/admin/stats/spaces?from=${d}&to=${d}`);
-      expect(r.status).toBe(200);
-      return r.body.data.spaces.find((s: { spaceId: number }) => s.spaceId === sp.id)?.views ?? 0;
-    };
-    expect(await one('2030-03-15')).toBe(1);
-    expect(await one('2030-03-16')).toBe(2); // 00:30 và 23:30 giờ VN
-    expect(await one('2030-03-17')).toBe(1);
-    await prisma.spaceView.deleteMany({ where: { spaceId: sp.id } });
-    await prisma.space.delete({ where: { id: sp.id } });
   });
 
   it('mã giảm giá: chỉ nhập ngày ⇒ bắt đầu 00:00 và hết hạn 23:59:59 giờ VN của ngày đó', async () => {

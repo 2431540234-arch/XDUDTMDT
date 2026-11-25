@@ -48,9 +48,9 @@ test('nhật ký hoạt động: lọc theo hành động; dòng do service ghi 
 }) => {
   const token = await adminToken(request);
   const h = { Authorization: `Bearer ${token}` };
-  const brand = `Thương hiệu nhật ký ${uniq()}`;
+  const value = `Chất liệu nhật ký ${uniq()}`;
   expect(
-    (await request.post(`${API}/api/admin/brands`, { headers: h, data: { name: brand } })).status(),
+    (await request.post(`${API}/api/admin/attributes/3/values`, { headers: h, data: { value } })).status(),
   ).toBe(201);
   // PATCH đặt mô hình chính khi mô hình ĐÃ là chính: service không ghi log ⇒ interceptor ghi dòng "Tự động"
   const models = (await (await request.get(`${API}/api/admin/models?pageSize=100`, { headers: h })).json())
@@ -68,28 +68,28 @@ test('nhật ký hoạt động: lọc theo hành động; dòng do service ghi 
   await page.goto('/admin/activity-logs');
   await expect(page.getByRole('heading', { name: 'Nhật ký hoạt động' })).toBeVisible({ timeout: 30_000 });
 
-  await page.getByLabel('Lọc theo hành động (vd. brand, order)…').fill('brand.create');
-  const service = page.getByTestId('log-action').filter({ hasText: 'brand.create' }).first();
+  await page.getByLabel('Lọc theo hành động (vd. product, order)…').fill('attribute_value.create');
+  const service = page.getByTestId('log-action').filter({ hasText: 'attribute_value.create' }).first();
   await expect(service).toBeVisible({ timeout: 30_000 });
   await expect(service).toHaveAttribute('data-auto', 'false');
   await expect(service).toContainText('Dịch vụ ghi');
   await expect(service).not.toContainText('Tự động');
 
-  await page.getByLabel('Lọc theo hành động (vd. brand, order)…').fill('models.primary');
+  await page.getByLabel('Lọc theo hành động (vd. product, order)…').fill('models.primary');
   const auto = page.getByTestId('log-action').filter({ hasText: 'models.primary' }).first();
   await expect(auto).toBeVisible({ timeout: 30_000 });
   await expect(auto).toHaveAttribute('data-auto', 'true');
   await expect(auto).toContainText('Tự động');
 
   // lọc theo quản trị viên + loại đối tượng
-  await page.getByLabel('Lọc theo hành động (vd. brand, order)…').fill('');
-  await page.getByLabel('Tất cả loại đối tượng').selectOption('brand');
+  await page.getByLabel('Lọc theo hành động (vd. product, order)…').fill('');
+  await page.getByLabel('Tất cả loại đối tượng').selectOption('attribute_value');
   await expect(page.getByTestId('log-action').first()).toBeVisible({ timeout: 30_000 });
   for (const t of await page
     .getByRole('row')
     .allInnerTexts()
     .then((x) => x.slice(1)))
-    expect(t).toContain('brand');
+    expect(t).toContain('attribute_value');
 });
 
 test('vai trò: trang xem chỉ đọc (2 vai trò, 6 quyền); gán rồi gỡ admin trong chi tiết khách hàng', async ({
@@ -113,10 +113,13 @@ test('vai trò: trang xem chỉ đọc (2 vai trò, 6 quyền); gán rồi gỡ 
   await expect(page.getByTestId('role-badges')).not.toContainText('admin');
   await section.getByRole('button', { name: 'Gán vai trò admin' }).click();
   await expect(page.getByText('Đã gán vai trò admin.')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId('role-badges')).toContainText('Quản trị viên (admin)');
-  await section.getByRole('button', { name: 'Gỡ vai trò admin' }).click();
-  await expect(page.getByText('Đã gỡ vai trò admin.')).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId('role-badges')).not.toContainText('admin');
+  // admin không còn nằm trong danh sách/chi tiết khách hàng (users.role = 'admin'): kiểm tra vai trò bằng API, rồi gỡ lại
+  const h = { Authorization: `Bearer ${await adminToken(request)}` };
+  const roles = await request.get(`${API}/api/admin/roles`, { headers: h });
+  expect(JSON.stringify((await roles.json()).data)).toContain('admin');
+  const revoke = await request.delete(`${API}/api/admin/users/${c.id}/roles/admin`, { headers: h });
+  expect(revoke.status()).toBe(200);
+  expect((await revoke.json()).data.roles).toEqual(['user']);
 });
 
 test('phiên đăng nhập: thấy thiết bị này, đăng xuất thiết bị khác từ xa', async ({ page, request }) => {
@@ -213,61 +216,4 @@ test('gửi thông báo: admin gửi cho một khách, khách thấy ở trang t
     headers: { Authorization: `Bearer ${b.token}` },
   });
   expect(((await mine.json()).data as Array<{ title: string }>).some((n) => n.title === title)).toBe(false);
-});
-
-test('UC-SPACE-04 trang /account/saved-spaces: chưa đăng nhập bị chuyển đi; rỗng; lưu rồi thấy; bỏ lưu thì biến mất; không tràn ngang trên điện thoại', async ({
-  page,
-  request,
-}) => {
-  // chưa đăng nhập ⇒ không xem được trang (route guard chuyển về /login)
-  await page.goto('/account/saved-spaces');
-  await expect(page).toHaveURL(/\/login/);
-
-  const c = await newCustomer(request, 'saved');
-  await customerLogin(page, c.email, c.password);
-  await page.goto('/account/saved-spaces');
-  await expect(page.getByRole('heading', { name: 'Không gian đã lưu' })).toBeVisible();
-  await expect(page.getByText('Bạn chưa lưu không gian nào')).toBeVisible();
-  await expect(page.getByRole('link', { name: /Khám phá không gian mẫu/ })).toHaveAttribute(
-    'href',
-    '/spaces',
-  );
-
-  // lưu một không gian bằng API (cùng token người dùng), tải lại trang ⇒ thấy trong danh sách
-  const list = await (await request.get(`${API}/api/spaces?pageSize=1`)).json();
-  const sp = list.data[0] as { slug: string; title: string };
-  const put = await request.put(`${API}/api/spaces/${sp.slug}/bookmark`, {
-    headers: { Authorization: `Bearer ${c.token}` },
-  });
-  expect(put.status()).toBe(200);
-  await page.reload();
-  await expect(page.getByTestId('saved-spaces-list').getByText(sp.title)).toBeVisible();
-
-  // viewport điện thoại: không có thanh cuộn ngang
-  await page.setViewportSize({ width: 375, height: 800 });
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-  expect(overflow).toBeLessThanOrEqual(1);
-  await page.setViewportSize({ width: 1280, height: 800 });
-
-  // bỏ lưu từ danh sách ⇒ mục biến mất, trạng thái trống hiện ra, và máy chủ không còn bản ghi
-  await page.getByRole('button', { name: 'Bỏ khỏi danh sách' }).click();
-  await expect(page.getByText('Bạn chưa lưu không gian nào')).toBeVisible();
-  const after = await (
-    await request.get(`${API}/api/spaces?bookmarked=true`, {
-      headers: { Authorization: `Bearer ${c.token}` },
-    })
-  ).json();
-  expect(after.data).toEqual([]);
-
-  // người dùng khác không thấy bookmark của người này
-  await request.put(`${API}/api/spaces/${sp.slug}/bookmark`, {
-    headers: { Authorization: `Bearer ${c.token}` },
-  });
-  const other = await newCustomer(request, 'saved-o');
-  const otherList = await (
-    await request.get(`${API}/api/spaces?bookmarked=true`, {
-      headers: { Authorization: `Bearer ${other.token}` },
-    })
-  ).json();
-  expect(otherList.data).toEqual([]);
 });

@@ -34,18 +34,14 @@ const routes: Route[] = [
 
   // ----- Danh mục, sản phẩm -----
   ['GET', '/categories', 'public', catalog.categories],
-  ['GET', '/brands', 'public', catalog.brands],
   ['GET', '/products', 'public', catalog.products],
   ['GET', '/products/search', 'public', catalog.searchProducts],
   ['GET', '/products/facets', 'public', catalog.facets],
   ['GET', '/products/:slug', 'public', catalog.productDetailHandler],
   ['GET', '/products/:slug/model', 'public', catalog.productModel],
-  ['GET', '/products/:slug/360', 'public', catalog.product360],
   ['GET', '/products/:slug/related', 'public', catalog.relatedProducts],
   ['GET', '/products/:slug/reviews', 'public', catalog.productReviews],
   ['POST', '/products/:slug/reviews', 'user', catalog.createReview],
-  ['GET', '/products/:slug/questions', 'public', catalog.productQuestions],
-  ['POST', '/products/:slug/questions', 'user', catalog.askQuestion],
   ['GET', '/wishlist', 'user', catalog.wishlist],
   ['PUT', '/wishlist/:slug', 'user', catalog.addWishlist],
   ['DELETE', '/wishlist/:slug', 'user', catalog.removeWishlist],
@@ -57,10 +53,7 @@ const routes: Route[] = [
   ['GET', '/spaces', 'public', catalog.spaces],
   ['GET', '/spaces/facets', 'public', catalog.spaceFacets],
   ['GET', '/spaces/:slug', 'public', catalog.spaceBySlug],
-  ['POST', '/spaces/:slug/views', 'public', catalog.recordSpaceView],
   ['POST', '/spaces/:slug/add-to-cart', 'user', shop.addSpaceToCart],
-  ['PUT', '/spaces/:slug/bookmark', 'user', catalog.bookmarkSpace],
-  ['DELETE', '/spaces/:slug/bookmark', 'user', catalog.unbookmarkSpace],
 
   // ----- Giỏ hàng, đơn hàng, thanh toán, đổi trả -----
   ['GET', '/cart', 'user', shop.getCart],
@@ -77,23 +70,13 @@ const routes: Route[] = [
   ['POST', '/orders/:id/cancel', 'user', shop.cancelOrder],
   ['POST', '/payments/:orderId/checkout', 'user', shop.checkoutPayment],
   ['POST', '/payments/:orderId/retry', 'user', shop.retryPayment],
-  ['GET', '/returns', 'user', shop.listReturns],
-  ['POST', '/returns', 'user', shop.createReturn],
-  ['GET', '/coupons/me', 'user', catalog.myCoupons],
-  ['GET', '/coupons/suggested', 'user', catalog.suggestedCoupons],
-  ['POST', '/coupons/save', 'user', catalog.saveCoupon],
 
   // ----- Thông báo, nội dung -----
   ['GET', '/notifications', 'user', catalog.notifications],
   ['GET', '/notifications/unread-count', 'user', catalog.unreadCount],
   ['PATCH', '/notifications/read-all', 'user', catalog.markAllRead],
   ['PATCH', '/notifications/:id/read', 'user', catalog.markRead],
-  ['GET', '/banners', 'public', catalog.banners],
-  ['GET', '/posts', 'public', catalog.posts],
-  ['GET', '/pages', 'public', catalog.policies],
-  ['GET', '/pages/:slug', 'public', catalog.pageBySlug],
   ['GET', '/faq', 'public', catalog.faq],
-  ['POST', '/contact', 'public', catalog.contact],
   ['GET', '/settings/public', 'public', catalog.publicSettings],
 
   // ----- Admin -----
@@ -104,8 +87,6 @@ const routes: Route[] = [
   ['GET', '/admin/products', 'admin', admin.adminProducts],
   ['POST', '/admin/products', 'admin', admin.createProduct],
   ['GET', '/admin/products/:id', 'admin', admin.adminProduct],
-  ['GET', '/admin/products/:id/360', 'admin', admin.adminProduct360],
-  ['PUT', '/admin/products/:id/360', 'admin', admin.saveProduct360],
   ['PATCH', '/admin/products/:id', 'admin', admin.updateProduct],
   ['DELETE', '/admin/products/:id', 'admin', admin.deleteProduct],
   ['GET', '/admin/categories', 'admin', admin.adminCategories],
@@ -125,8 +106,6 @@ const routes: Route[] = [
   ['PATCH', '/admin/payments/:id/confirm', 'admin', admin.confirmPayment],
   ['PATCH', '/admin/payments/:id/fail', 'admin', admin.failPayment],
   ['GET', '/admin/payments', 'admin', admin.adminPayments],
-  ['GET', '/admin/returns', 'admin', admin.adminReturns],
-  ['PATCH', '/admin/returns/:id', 'admin', admin.updateReturn],
   ['GET', '/admin/users', 'admin', admin.adminCustomers],
   ['POST', '/admin/users', 'admin', admin.createCustomer],
   ['GET', '/admin/users/:id', 'admin', admin.adminCustomer],
@@ -137,8 +116,6 @@ const routes: Route[] = [
   ['GET', '/admin/users/:id/wishlist', 'admin', admin.customerWishlist],
   ['GET', '/admin/reviews', 'admin', admin.adminReviews],
   ['PATCH', '/admin/reviews/:id/status', 'admin', admin.setReviewStatus],
-  ['GET', '/admin/questions', 'admin', admin.adminQuestions],
-  ['PATCH', '/admin/questions/:id', 'admin', admin.answerQuestion],
   ['GET', '/admin/models', 'admin', admin.adminModels],
   ['POST', '/admin/models', 'admin', admin.uploadModel],
   ['DELETE', '/admin/models/model/:modelId', 'admin', admin.deleteModelById],
@@ -155,18 +132,6 @@ const routes: Route[] = [
   ['GET', '/admin/spaces/:id', 'admin', admin.adminSpace],
   ['PATCH', '/admin/spaces/:id', 'admin', admin.updateSpace],
   ['DELETE', '/admin/spaces/:id', 'admin', admin.deleteSpace],
-  ['GET', '/admin/banners', 'admin', admin.adminBanners],
-  ['POST', '/admin/banners', 'admin', admin.saveBanner],
-  ['PATCH', '/admin/banners/:id', 'admin', admin.saveBanner],
-  ['DELETE', '/admin/banners/:id', 'admin', admin.deleteBanner],
-  ['GET', '/admin/posts', 'admin', admin.adminPosts],
-  ['POST', '/admin/posts', 'admin', admin.savePost],
-  ['PATCH', '/admin/posts/:id', 'admin', admin.savePost],
-  ['DELETE', '/admin/posts/:id', 'admin', admin.deletePost],
-  ['GET', '/admin/pages', 'admin', admin.adminPages],
-  ['POST', '/admin/pages', 'admin', admin.createPage],
-  ['PATCH', '/admin/pages/:id', 'admin', admin.savePage],
-  ['DELETE', '/admin/pages/:id', 'admin', admin.deletePage],
   ['GET', '/admin/settings', 'admin', admin.getSettings],
   ['PUT', '/admin/settings/store', 'admin', admin.saveSettings],
   ['POST', '/admin/settings/reset-mock', 'admin', admin.resetMock],
@@ -175,25 +140,11 @@ const routes: Route[] = [
   ['PATCH', '/admin/media/:id', 'admin', admin.updateMedia],
   ['DELETE', '/admin/media/:id', 'admin', admin.deleteMedia],
   ['GET', '/admin/attributes', 'admin', admin.adminAttributes],
-  ['POST', '/admin/attributes', 'admin', admin.createAttribute],
-  ['PATCH', '/admin/attributes/:id', 'admin', admin.updateAttribute],
-  ['DELETE', '/admin/attributes/:id', 'admin', admin.deleteAttribute],
   ['POST', '/admin/attributes/:id/values', 'admin', admin.addAttributeValue],
   ['PATCH', '/admin/attributes/:id/values/:valueId', 'admin', admin.updateAttributeValue],
   ['DELETE', '/admin/attributes/:id/values/:valueId', 'admin', admin.deleteAttributeValue],
-  ['GET', '/admin/brands', 'admin', admin.adminBrands],
-  ['POST', '/admin/brands', 'admin', admin.createBrand],
-  ['PATCH', '/admin/brands/:id', 'admin', admin.updateBrand],
-  ['DELETE', '/admin/brands/:id', 'admin', admin.deleteBrand],
   ['GET', '/admin/inventory', 'admin', admin.adminInventory],
   ['GET', '/admin/inventory/summary', 'admin', admin.inventorySummary],
-  ['GET', '/admin/inventory/receipts', 'admin', admin.receipts],
-  ['POST', '/admin/inventory/receipts', 'admin', admin.createReceipt],
-  ['POST', '/admin/inventory/receipts/:id/confirm', 'admin', admin.confirmReceipt],
-  ['POST', '/admin/inventory/receipts/:id/cancel', 'admin', admin.cancelReceipt],
-  ['GET', '/admin/inventory/movements', 'admin', admin.stockMovements],
-  ['POST', '/admin/inventory/movements', 'admin', admin.recordMovement],
-  ['POST', '/admin/expenses', 'admin', admin.createExpense],
 ];
 
 const compiled = routes.map(([method, path, access, handler]) => ({
@@ -272,7 +223,7 @@ export async function handleMockRequest(
       if (!ctx.user) throw new ApiFail('AUTH_UNAUTHENTICATED', 'Vui lòng đăng nhập để tiếp tục.');
       if (ctx.user.status !== 'active')
         throw new ApiFail('AUTH_ACCOUNT_LOCKED', 'Tài khoản của bạn đang bị khóa.');
-      if (route.access === 'admin' && !db.userRoles.some((r) => r.userId === ctx.user!.id && r.roleId === 1))
+      if (route.access === 'admin' && ctx.user.role !== 'admin')
         throw new ApiFail('FORBIDDEN', 'Bạn không có quyền truy cập khu vực quản trị.');
     }
 

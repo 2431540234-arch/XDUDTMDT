@@ -1,23 +1,19 @@
-// M15 – Không gian mẫu (công khai): bộ sưu tập, chi tiết (ảnh 360°, hotspot, sản phẩm gợi ý, giá combo), lưu yêu thích.
-// Bảng: spaces, space_panoramas, space_hotspots, space_product_placements, space_bookmarks
+// M15 – Không gian mẫu (công khai): bộ sưu tập, chi tiết (ảnh 360°, hotspot, sản phẩm gợi ý, giá combo).
+// Bảng: spaces, space_panoramas, space_hotspots, space_product_placements
 import { Injectable } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { AppException } from '../../common/exceptions/app.exception';
-import { qBool, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
+import { qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { serialize } from '../../common/utils/serialize';
-import { FieldErrors, asBody, str, toId } from '../../common/utils/validate';
+import { FieldErrors, asBody } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
 import { CatalogViews, PRODUCT_INCLUDE } from '../../common/views/catalog-views.service';
-import { AppConfig } from '../../config/app-config.service';
-import type { AccessTokenPayload } from '../../common/guards/jwt-auth.guard';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CartService } from '../cart/cart.service';
 import { PanoramasService } from '../panoramas/panoramas.service';
 
 export const COMBO_DISCOUNT_PERCENT = 10;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /** Giá combo: tổng giá hiện tại của các sản phẩm × (100 − %giảm)/100, làm tròn đến nghìn đồng */
 export function calcComboTotal(originalTotal: number, discountPercent: number): number {
@@ -44,8 +40,6 @@ export class SpacesService {
     private readonly prisma: PrismaService,
     private readonly views: CatalogViews,
     private readonly cart: CartService,
-    private readonly jwt: JwtService,
-    private readonly config: AppConfig,
     private readonly placements: PanoramasService,
   ) {}
 
@@ -58,29 +52,21 @@ export class SpacesService {
     return [...ids];
   }
 
-  /** SpaceListItem; bookmarked: tập id không gian khách đã lưu */
-  listItem(s: SpaceRow, bookmarked: Set<number>) {
+  /** SpaceListItem */
+  listItem(s: SpaceRow) {
     const { coverMedia, spacePanoramas, ...base } = s;
     return {
       ...serialize(base),
       coverUrl: this.views.url(coverMedia?.filePath),
       productCount: this.productIds(s).length,
       panoramaCount: spacePanoramas.length,
-      isBookmarked: bookmarked.has(s.id),
     };
   }
 
-  private async bookmarks(userId: number | null) {
-    if (!userId) return new Set<number>();
-    const rows = await this.prisma.spaceBookmark.findMany({ where: { userId }, select: { spaceId: true } });
-    return new Set(rows.map((r) => r.spaceId));
-  }
-
-  async list(q: RawQuery, userId: number | null) {
+  async list(q: RawQuery) {
     const room = qStr(q, 'roomType');
     const style = qStr(q, 'style');
     const search = foldVi(qStr(q, 'q'));
-    const only = qBool(q, 'bookmarked');
     // UC-SPACE-06: không gian CÓ chứa sản phẩm (qua điểm tương tác loại sản phẩm); `product` = slug. Không có sản phẩm ⇒ rỗng
     const productSlug = qStr(q, 'product');
     const productId = productSlug
@@ -99,15 +85,12 @@ export class SpacesService {
       },
       include: SPACE_INCLUDE,
     });
-    const bm = await this.bookmarks(userId);
-    let items = rows
+    const items = rows
       .filter((s) => productId === null || this.productIds(s).includes(productId))
       .filter((s) => !search || foldVi(`${s.title} ${s.style ?? ''} ${s.description ?? ''}`).includes(search))
-      .map((s) => this.listItem(s, bm));
-    if (only) items = items.filter((s) => s.isBookmarked);
+      .map((s) => this.listItem(s));
     const sort = qStr(q, 'sort') || 'newest';
-    if (sort === 'popular') items.sort((a, b) => b.viewCount - a.viewCount);
-    else if (sort === 'title') items.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+    if (sort === 'title') items.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
     else {
       // mới nhất trước theo THỜI ĐIỂM đăng (không so sánh chuỗi của Date: "Sat Sep…" sắp theo chữ cái, sai thứ tự)
       // không gian chưa có ngày đăng (admin tạo ở trạng thái đăng ngay) tính theo ngày tạo, không bị đẩy xuống cuối
@@ -146,71 +129,7 @@ export class SpacesService {
       include: SPACE_INCLUDE,
     });
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
-    // view_count do trigger trg_space_views_increase_count tăng khi ghi space_views (recordView), không tăng tay ở đây
     return this.buildDetail(s, userId);
-  }
-
-  /**
-   * Ghi MỘT lượt xem không gian (UC-SPACE-06): chèn space_views; trigger DB tăng spaces.view_count.
-   * Client gửi bằng navigator.sendBeacon khi rời trang nên không đặt được header Authorization: userId lấy từ
-   * header (nếu có) hoặc từ `accessToken` trong body (tùy chọn, sai/hết hạn ⇒ ghi ẩn danh). `visitorId` luôn bắt buộc (UUID).
-   * `sourceProductId` nhận id sản phẩm hoặc slug (client chỉ biết `?from=<slug>`).
-   */
-  async recordView(slug: string, headerUserId: number | null, raw: unknown) {
-    const b = asBody(raw);
-    const errs = new FieldErrors();
-    const visitorId = str(b.visitorId).trim().toLowerCase();
-    if (!visitorId) errs.add('visitorId', 'Thiếu mã khách vãng lai.');
-    else if (!UUID_RE.test(visitorId)) errs.add('visitorId', 'Mã khách vãng lai không hợp lệ.');
-    const clicks = b.hotspotClickCount === undefined ? 0 : Number(b.hotspotClickCount);
-    if (!Number.isInteger(clicks) || clicks < 0 || clicks > 1000)
-      errs.add('hotspotClickCount', 'Số lần bấm không hợp lệ.');
-    errs.throwIfAny();
-    const s = await this.prisma.space.findFirst({
-      where: { slug, status: 'published' },
-      select: { id: true },
-    });
-    if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
-
-    let userId = headerUserId;
-    if (!userId && typeof b.accessToken === 'string' && b.accessToken) {
-      try {
-        const p = await this.jwt.verifyAsync<AccessTokenPayload>(b.accessToken, {
-          secret: this.config.get('JWT_ACCESS_SECRET'),
-        });
-        const u = await this.prisma.user.findFirst({
-          where: { id: p.sub, deletedAt: null, status: 'active' },
-          select: { id: true },
-        });
-        userId = u?.id ?? null;
-      } catch {
-        userId = null; // token sai/hết hạn ⇒ ghi ẩn danh
-      }
-    }
-
-    const src =
-      typeof b.sourceProductId === 'string' && !/^\d+$/.test(b.sourceProductId.trim())
-        ? b.sourceProductId.trim()
-        : null;
-    const productId = src ? 0 : toId(b.sourceProductId);
-    const source =
-      src || productId
-        ? await this.prisma.product.findFirst({
-            where: { deletedAt: null, ...(src ? { slug: src } : { id: productId }) },
-            select: { id: true },
-          })
-        : null;
-    await this.prisma.spaceView.create({
-      data: {
-        spaceId: s.id,
-        userId,
-        visitorId,
-        sourceProductId: source?.id ?? null,
-        hotspotClickCount: clicks,
-        addedToCart: b.addedToCart === true,
-      },
-    });
-    return null;
   }
 
   /**
@@ -261,12 +180,10 @@ export class SpacesService {
   }
 
   adminListItems(rows: SpaceRow[]) {
-    const none = new Set<number>();
-    return rows.map((s) => this.listItem(s, none));
+    return rows.map((s) => this.listItem(s));
   }
 
   private async buildDetail(s: SpaceRow, userId: number | null) {
-    const bm = await this.bookmarks(userId);
     const ids = this.productIds(s);
     const productRows = ids.length
       ? await this.prisma.product.findMany({ where: { id: { in: ids } }, include: PRODUCT_INCLUDE })
@@ -319,13 +236,13 @@ export class SpacesService {
     });
     const discount = Number(s.comboDiscountPercent ?? 0) || COMBO_DISCOUNT_PERCENT;
     return {
-      ...this.listItem(s, bm),
+      ...this.listItem(s),
       panoramas,
       products: items,
       originalTotal,
       comboTotal: calcComboTotal(originalTotal, discount),
       comboDiscountPercent: discount,
-      similar: similarRows.map((x) => this.listItem(x, bm)),
+      similar: similarRows.map((x) => this.listItem(x)),
     };
   }
 
@@ -392,21 +309,5 @@ export class SpacesService {
     });
     if (!s) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND, 'Không gian mẫu không tồn tại.');
     return s;
-  }
-
-  async bookmark(userId: number, slug: string) {
-    const s = await this.bySlug(slug);
-    await this.prisma.spaceBookmark.upsert({
-      where: { userId_spaceId: { userId, spaceId: s.id } },
-      update: {},
-      create: { userId, spaceId: s.id },
-    });
-    return null;
-  }
-
-  async unbookmark(userId: number, slug: string) {
-    const s = await this.prisma.space.findUnique({ where: { slug }, select: { id: true } });
-    if (s) await this.prisma.spaceBookmark.deleteMany({ where: { userId, spaceId: s.id } });
-    return null;
   }
 }

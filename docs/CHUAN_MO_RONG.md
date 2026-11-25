@@ -2,9 +2,9 @@
 
 > Bộ chuẩn (không sửa): `CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`; phạm vi chức năng: `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`.
 > Khi mâu thuẫn: **4 file chuẩn + đặc tả > quyết định của chủ dự án > code hiện có.** Code lệch chuẩn thì sửa theo chuẩn; thứ gì chuẩn chưa có mà dự án vẫn cần thì ghi **ở đây** (thay cho việc cập nhật `DATABASE_SCHEMA.md` sau mỗi migration).
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`. Trạng thái DB: **59 bảng** (42 chuẩn + 17 mở rộng; 2 bảng AR đã bỏ), **25 ENUM**, **16 migration** (đến `20261109010100_remove_ar`); bảng/cột mở rộng xem [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`. Trạng thái DB: **32 bảng**, **18 ENUM**, **21 migration** (đến `20261120030100_products_brand_text`); cột mở rộng trên bảng chuẩn xem [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md). **Từ 2026-11-19 nhóm 17 bảng mở rộng đã bị gỡ (D-D10), cùng `roles`/`permissions`/`role_permissions`/`user_roles`, `attributes`, `brands` (D-D13 … D-D15); các mục dưới đây nhắc tới phần đã gỡ đều được đánh dấu "đã gỡ".**
 
-Mọi bảng/cột mở rộng bên dưới tuân theo `QUY_UOC_CODE_DB.md`: tên `snake_case` số nhiều, khóa chính `id INTEGER GENERATED ALWAYS AS IDENTITY` (trừ `code_counters`), ràng buộc đặt tên `pk_/fk_/uq_/ck_/idx_`, trigger `trg_<bảng>_updated_at` với bảng có `updated_at`, `COMMENT ON` tiếng Việt.
+Mọi bảng/cột mở rộng bên dưới tuân theo `QUY_UOC_CODE_DB.md`: tên `snake_case` số nhiều, khóa chính `id INTEGER GENERATED ALWAYS AS IDENTITY`, ràng buộc đặt tên `pk_/fk_/uq_/ck_/idx_`, trigger `trg_<bảng>_updated_at` với bảng có `updated_at`, `COMMENT ON` tiếng Việt.
 
 ---
 
@@ -12,23 +12,14 @@ Mọi bảng/cột mở rộng bên dưới tuân theo `QUY_UOC_CODE_DB.md`: tê
 
 ### 1.1–1.3 Bảng, ENUM và cột mở rộng (đã chuyển)
 
-**17 bảng mở rộng, 8 ENUM mở rộng (và giá trị `coupon_type = 'freeship'`) và các cột thêm trên bảng chuẩn** nay được mô tả ở **một nơi duy nhất**: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), mục "Nhóm 8 – Mở rộng" (cột chính, lý do giữ, từ điển cột sinh từ `schema.prisma`, ENUM mở rộng, cột thêm trên bảng chuẩn) và ERD ở mục 5.9–5.10. Tóm tắt nghiệp vụ từng bảng: [CAU_TRUC_DB.md](CAU_TRUC_DB.md), nhóm 8. Đã **gộp/bỏ** theo quyết định: FAQ (`faq_topics`, `faq_items`) → lưu JSON trong `settings` khóa `faq`; `suppliers` → cột chữ `stock_receipts.supplier_name`.
+**Đã gỡ (D-D10):** 17 bảng mở rộng (`product_specs`, `product_360_configs`, `product_360_frames`, `review_images`, `product_questions`, `coupon_scopes`, `user_coupons`, `code_counters`, `return_requests`, `return_request_items`, `return_request_images`, `stock_receipts`, `stock_receipt_items`, `expenses`, `banners`, `posts`, `contact_messages`) và 8 ENUM mở rộng. Các cột thêm trên bảng chuẩn còn lại được mô tả ở [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), mục "Cột thêm trên bảng chuẩn"; tóm tắt nghiệp vụ từng bảng ở [CAU_TRUC_DB.md](CAU_TRUC_DB.md).
 
 ### 1.4 Quy tắc nghiệp vụ trong DB/code đã chốt theo chuẩn
 
-- **Tồn kho:** `product_variants.stock_quantity` bị trừ **ngay khi đặt hàng** (movement `sale`), cộng lại khi **hủy đơn** hoặc **trả hàng được duyệt** (movement `return`). Không còn `reserved_quantity`. API `stockQuantity` = `stock_quantity`.
+- **Tồn kho:** `product_variants.stock_quantity` bị trừ **ngay khi đặt hàng**, cộng lại khi **hủy đơn**. Không còn `reserved_quantity` và không còn sổ cái tồn (`inventory_movements` đã bỏ, D-D10); sửa tồn qua form biến thể của sản phẩm. API `stockQuantity` = `stock_quantity`.
 - **`sold_count`** tăng khi đơn sang `completed` (đã tính lại số liệu cũ bằng migration `recompute_sold_count`).
-- **Đổi hàng:** cộng tồn biến thể cũ (`return`), trừ tồn biến thể mới (`sale`, mặc định cùng biến thể); thiếu hàng ⇒ `409 OUT_OF_STOCK`, giao dịch hoàn tác.
-- **Hoàn tiền:** `refund_amount` = Σ(đơn giá × số lượng) × (tạm tính − giảm giá hàng hóa) ÷ tạm tính, làm tròn đồng; mã `freeship` không trừ vào tiền hàng; **không hoàn phí vận chuyển**; đơn chuyển `refunded` khi đã trả hết mọi dòng hoặc đã hoàn đủ tiền hàng.
-- **Phiếu kho (đã làm ở Mốc 4):** xác nhận phiếu `in` ⇒ movement `import`, cập nhật `cost_price` biến thể và sinh phiếu chi `cogs`; phiếu `out` ⇒ movement `adjustment` âm (thiếu hàng ⇒ 409, hoàn tác cả phiếu); `draft`/`cancelled` không đổi tồn; mã phiếu = `reference_code` của movement.
-- **Công thức báo cáo thu chi (chuẩn/đặc tả không quy định giá vốn nên chọn một cách, theo tiền chi thực tế):**
-  - Thu = Σ `orders.total` của đơn giao thành công trong kỳ (theo ngày giao).
-  - Giá vốn (`income.cogs`) = Σ phiếu chi `cogs` trong kỳ = giá trị các phiếu nhập kho hoàn tất (số lượng × giá vốn nhập) cộng phiếu `cogs` nhập tay. KHÔNG tính lại theo `order_items.cost_price` của đơn đã bán, nên giá vốn chỉ bị trừ MỘT lần.
-  - Chi phí vận hành (`income.opex`) = phiếu chi trừ `cogs` và `refund`; hoàn tiền (`refund`) lấy từ phiếu chi tự sinh khi duyệt đổi trả.
-  - Doanh thu thuần = (tạm tính + phí ship) − giảm giá − hoàn tiền; Lợi nhuận trước thuế = doanh thu thuần − giá vốn − chi phí vận hành = Thu − Tổng chi.
-  - Ví dụ: nhập 10 × 1.200.000 ⇒ giá vốn +12.000.000, lợi nhuận −12.000.000 (không phải −24.000.000); giao một đơn tổng 5.000.000 ⇒ lợi nhuận +5.000.000. Hệ quả: hàng đã nhập nhưng chưa bán vẫn tính vào chi phí kỳ nhập (cách tính theo tiền chi, không theo giá vốn hàng đã bán).
+- **Công thức báo cáo doanh thu (D-D10):** chỉ tính đơn giao thành công (`completed`) theo ngày giao (lần đầu sang `completed`); **net = gross − discount**. Không còn chi phí, phiếu chi, giá vốn nhập kho và lợi nhuận.
 - **Phí vận chuyển (UC-ORD-01):** tìm vùng trong `settings.shippingZones` có `name` trùng `province` của địa chỉ giao. Có vùng ⇒ phí = `fee` của vùng, miễn phí khi tạm tính ≥ `freeFrom` của vùng (vùng thiếu `freeFrom` dùng ngưỡng mặc định). **Tỉnh không thuộc vùng nào ⇒ phí = `settings.default_shipping_fee`, miễn phí khi tạm tính ≥ `settings.free_shipping_threshold`.** Tạm tính = tổng tiền hàng trước giảm giá. Thiếu khóa cài đặt ⇒ dùng hằng số dự phòng trong code (30.000đ / 10.000.000đ).
-- **Doanh thu báo cáo (mặc định đã chốt, chuẩn/đặc tả không quy định):** đơn giao thành công (`completed`) tính theo ngày giao (lần đầu sang `completed`), phần đã hoàn tiền trừ qua phiếu chi `refund`; phí vận chuyển và phí cổng thanh toán KHÔNG tự sinh phiếu chi (admin nhập tay).
 - **Số lượng ENUM theo từng tài liệu chuẩn khác nhau** (xem Phần 4) – tin vào DB thực.
 
 ---
@@ -75,27 +66,27 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 12 | Cột "Đang giữ" (`reservedQty`) | Đã bỏ khỏi FE/API (tồn đã trừ ngay khi đặt hàng) | — |
 | 13 | Giá combo của không gian | Đặc tả không có combo ⇒ **không áp vào giỏ**, FE chỉ hiển thị tổng giá thật; giữ cột `spaces.combo_discount_percent` và trường API `comboTotal` | Để sau: nếu đặc tả bổ sung combo thì áp ở giỏ |
 | 14 | Slug không gian | Đã sửa: đổi tên KHÔNG đổi slug; admin muốn đổi thì sửa ô slug (kiểm tra duy nhất) | — |
-| 15 | Lối vào `/products/[slug]/360` | Đã khôi phục nút "360°" ở thư viện ảnh (chỉ hiện khi sản phẩm có 360°) | — |
+| 15 | ~~Lối vào `/products/[slug]/360`~~ | **Đã gỡ** cùng tính năng Xem 360° xoay ảnh (D-D10) | — |
 | 16 | Tải ảnh lớn | Đã sửa: frame 360° và panorama tải từng tệp bằng multipart | Presigned/MinIO là mục 1 |
 | 20 | Media: panorama và tệp lớn | **Đã làm (D-P13)**: panorama dùng presigned PUT vào bucket public + confirm khi driver minio/s3; driver local vẫn multipart. Job `image-processing` vẫn tạo bản webp và thumbnail | — |
-| 21 | Media: xóa tệp | Theo DAC_TA UC-ADM-04: tệp đang dùng ở tham chiếu BẮT BUỘC (ảnh sản phẩm, panorama, mô hình, ảnh đánh giá…) ⇒ 409; tham chiếu TÙY CHỌN (ảnh danh mục, logo thương hiệu, avatar, ảnh bìa) bị gỡ liên kết (SET NULL) chứ không chặn. (Yêu cầu ban đầu ghi "đang dùng thì 409"; đã theo đặc tả và FE cảnh báo trước khi xóa) | — |
-| 22 | Thuộc tính hệ thống | `color`, `size`, `material` do mã nguồn dùng để dựng nhãn biến thể/màu 360° ⇒ không đổi mã, không xóa (ngoài đặc tả) | — |
+| 21 | Media: xóa tệp | Theo DAC_TA UC-ADM-04: tệp đang dùng ở tham chiếu BẮT BUỘC (ảnh sản phẩm, panorama, mô hình…) ⇒ 409; tham chiếu TÙY CHỌN (ảnh danh mục, avatar, ảnh bìa; logo thương hiệu đã gỡ cùng bảng `brands`) bị gỡ liên kết (SET NULL) chứ không chặn. (Yêu cầu ban đầu ghi "đang dùng thì 409"; đã theo đặc tả và FE cảnh báo trước khi xóa) | — |
+| 22 | Thuộc tính hệ thống | Loại thuộc tính là enum `attribute_code` (`color`, `size`, `material`), mã nguồn dùng để dựng nhãn biến thể/màu; không tạo/sửa/xóa loại (D-D14) | — |
 | 23 | Mô hình 3D: nơi lưu lý do lỗi và tệp gốc | Không thêm cột/bảng (không migration): lý do lỗi (`failureReason`) và `sourceKey` của tệp gốc (cho "Xử lý lại") đọc từ `activity_logs` (`model.processing_failed`, `model.upload`); tệp gốc giữ ở bucket private `models/incoming/…` | Thêm cột nếu cần truy vấn nặng |
 | 24 | Mô hình 3D: tham số `createNew`, dòng "mô hình chưa có tệp" (`fileId = null`, `id = -modelId`), `DELETE /admin/models/model/:modelId` | Ngoài đặc tả, thêm để có thể tạo mô hình thứ hai cho một sản phẩm (để "Đặt làm mô hình chính" có ý nghĩa) và để hiện/xóa được mô hình đang xử lý hoặc lỗi | — |
 | 25 | Bộ giải nén Meshopt của `<model-viewer>` | Phục vụ tại chỗ `apps/web/public/vendor/meshopt_decoder.js` (bản sao `meshoptimizer` 0.18, MIT) thay vì CDN; loại khỏi eslint/prettier | Bỏ khi có bộ giải nén tự host trong bản build |
 | 26 | (bỏ) USDZ mẫu của seed | Đã bỏ cùng AR (D-P11): seed không tạo USDZ nữa | — |
 | 27 | ~~Bảng/cột AR giữ theo chuẩn nhưng KHÔNG dùng (D-P11)~~ **Đã loại bỏ hoàn toàn (D-P16, D-T59, 2026-11-09)** | Migration `remove_ar` xóa `ar_sessions`, `ar_snapshots`, `ar_mode`, `products.has_ar`; module `ar-*` bị xóa. Còn giữ: giá trị `usdz` của enum `model_file_format` (không xóa dữ liệu dùng chung; hệ thống chỉ nhận GLB), cột `placement`/`allow_scaling` (quản trị mô hình 3D) | — |
 | 28 | **Bảng route → quyền (PermissionsGuard, D-P12)** | Route theo đặc tả lấy đúng quyền ở "Tác nhân chính" của UC. Route NGOÀI đặc tả dùng quyền gần nhất (cột "Ghi chú"). Route nhiều quyền là "một trong". Test quét metadata: route admin nào chưa gắn quyền sẽ làm test fail. Xem bảng "Route → quyền" ngay sau bảng này | — |
-| 29 | Cache quyền trong bộ nhớ | `PermissionsService` giữ quyền theo tổ hợp vai trò tối đa **10 giây** trong bộ nhớ tiến trình (không Redis, cache Redis vẫn hoãn). Đổi `role_permissions` có hiệu lực sau tối đa 10 giây; test gọi `clearCache()` | Bỏ hoặc chuyển Redis khi làm cache |
+| 29 | ~~Cache quyền trong bộ nhớ~~ | **Đã bỏ (D-D13):** quyền là hằng số `ROLE_PERMISSIONS`, `PermissionsService` không còn cache hay `clearCache()`; vai trò đọc từ `users.role` mỗi request | — |
 | 30 | Nhật ký tự động của interceptor | Dòng do `ActivityLogInterceptor` ghi có `changes = { auto: true, method, route }`, `action = <tài nguyên>.<hành động theo route>` (vd. `orders.cancel`), `target_type` = tài nguyên, `target_id` = tham số `:id` nếu có. Không thay các log trong service | — |
 | 31 | MinIO: test và dữ liệu | Supertest (`test:e2e:db`) và `test:e2e:real` giữ `STORAGE_DRIVER=local` **vì** chúng reset/seed `aurelia_test` nhiều lần và không được phụ thuộc container MinIO (chạy được trên máy không bật Docker, nhanh, không để rác trong bucket). MinIO thật được kiểm riêng: `test:e2e:minio` (API) và `test:e2e:real:minio` (trình duyệt, kiểm CORS), dùng bucket `aurelia-test-*`, tự bỏ qua nếu MinIO không chạy | — |
 | 32 | MinIO: cổng console 9011 | Console đổi từ 9001 sang **9011** (`MINIO_CONSOLE_PORT`) vì 9001 do Mosquitto của dự án khác giữ; container `minio-1` được tạo lại với ánh xạ cổng mới, volume `xdudtmdt_minio-data` và dữ liệu giữ nguyên (chủ dự án đã đồng ý) | — |
 | 33 | MinIO: chép `apps/api/uploads` | Script `scripts/minio-sync-uploads.mjs` (`npm run minio:sync`) chép `uploads/public` ⇒ `aurelia-public` và `uploads/private` ⇒ `aurelia-private`, giữ nguyên khóa (`media.file_path` không đổi), idempotent, không xóa thư mục nguồn | — |
 | 34 | **Cache Redis (D-P14): thao tác ghi → khóa bị xóa** | Xem bảng ngay sau bảng này (mục "Cache Redis"). `ProductsService.invalidate()` (gọi sau mọi thao tác admin đổi catalog) là điểm xóa chung cho nhóm catalog | — |
-| 35 | **5 UC Mở rộng nhẹ (D-P15): chi tiết ngoài đặc tả** | (a) `GET /admin/activity-logs/options` (quản trị viên/hành động/loại đối tượng đang có, để dựng bộ lọc) và trường `auto` của mỗi dòng (= `changes.auto`). (b) Access token có claim `sid` (id `user_sessions`) và `user_sessions.device_name` được điền từ User-Agent ("Chrome trên Windows"). (c) **Vai trò và phiên có hiệu lực ngay (D-T55)**: `JwtAuthGuard` đọc vai trò từ `user_roles` và kiểm phiên của `sid` ở mỗi request trong cùng truy vấn kiểm khóa tài khoản; phiên bị thu hồi ⇒ 401 `AUTH_TOKEN_INVALID`. (d) `DELETE /users/me` có thân `{ password }`; admin không tự xóa được (403), còn đơn `pending…shipping` ⇒ 409. (e) `POST /admin/notifications` nhận `userIds` (≤ 1000) hoặc `all: true` (mọi tài khoản chưa xóa/chưa bị cấm), `type` = `system` (mặc định) hoặc `promo`, `link` tùy chọn. Không đổi schema, không migration | — |
+| 35 | **5 UC Mở rộng nhẹ (D-P15): chi tiết ngoài đặc tả** | (a) `GET /admin/activity-logs/options` (quản trị viên/hành động/loại đối tượng đang có, để dựng bộ lọc) và trường `auto` của mỗi dòng (= `changes.auto`). (b) Access token có claim `sid` (id `user_sessions`) và `user_sessions.device_name` được điền từ User-Agent ("Chrome trên Windows"). (c) **Vai trò và phiên có hiệu lực ngay (D-T55)**: `JwtAuthGuard` đọc vai trò từ `users.role` và kiểm phiên của `sid` ở mỗi request trong cùng truy vấn kiểm khóa tài khoản; phiên bị thu hồi ⇒ 401 `AUTH_TOKEN_INVALID`. (d) `DELETE /users/me` có thân `{ password }`; admin không tự xóa được (403), còn đơn `pending…shipping` ⇒ 409. (e) `POST /admin/notifications` nhận `userIds` (≤ 1000) hoặc `all: true` (mọi tài khoản chưa xóa/chưa bị cấm), `type` = `system` (mặc định) hoặc `promo`, `link` tùy chọn. Không đổi schema, không migration | — |
 | 36 | **Vật liệu theo biến thể (D-T56): chi tiết ngoài đặc tả** | Bảng `model_material_variants` đã có trong chuẩn (không migration). Thêm: `GET /admin/models/:id/materials` (tên vật liệu có trong tệp GLB LOD medium để admin chọn `materialName`) và `GET /admin/models/:id/material-variants` (danh sách). `config` giới hạn ở `baseColor`/`roughness`/`metalness`. Dữ liệu demo: `prisma/seed-models.ts` gắn cho mô hình chính của mọi sản phẩm có ≥ 2 màu một cấu hình/biến thể (vật liệu đầu tiên của GLB ⇒ màu của biến thể, `attribute_values.color_hex`), chạy cùng `npm run db:process-models` | — |
 | 37 | **Mô hình 3D trong ảnh 360° (D-T57): chi tiết ngoài đặc tả** | Bảng `space_product_placements` đã có trong chuẩn (không migration). Thêm: `GET /admin/panoramas/:id/placements` (danh sách), giới hạn `distance` ≤ 49 và `scale` ≤ 20, `pitch` ∈ [-90, 90], `yaw` ∈ [-180, 180], xoay ∈ [-360, 360]; `GET /spaces/:slug/placements/:placementId/alternatives` (tối đa 12). Khi sửa không gian có gửi `panoramas`, placement được chép sang ảnh mới cùng `media_id` (form không gian không chứa placement). Dữ liệu demo: `seed-mock.ts` chỉ giữ placement của 3 không gian đầu (các không gian còn lại trước đây cũng có, nay bỏ để nhẹ cho điện thoại) | — |
-| 38 | **Phễu không gian mẫu (D-T58): chi tiết ngoài đặc tả** | Chỉ đọc `space_views` (không migration). Định nghĩa các bước phễu, cách gộp theo visitorId và tỉ lệ nằm ở D-T58 và API_CONTRACT. FE: trang `/admin/reports/spaces` (menu "Hiệu quả không gian"). Dữ liệu demo: `prisma/seed-space-views.ts` (≈ 350 lượt xem trong 30 ngày gần nhất, tính từ lúc seed), gọi trong `seed-mock.ts` và lệnh `npm run db:seed-space-views` cho DB demo/test đã có dữ liệu | — |
+| 38 | ~~Phễu không gian mẫu (D-T58)~~ | **Đã gỡ (D-D10)** cùng bảng `space_views`, `GET /admin/stats/spaces` và trang `/admin/reports/spaces` | — |
 | 39 | **Chi tiết đợt hoàn tất (D-N35, D-N36): ngoài đặc tả** | (a) `POST /orders` nhận thêm `couponCode` (ưu tiên hơn mã đang gắn ở giỏ, kiểm trong cùng khóa dòng; sai ⇒ 400); (b) dòng không còn bán ⇒ 409 kèm `details.unavailable` (danh sách dòng); (c) `conflictError` (409 `CONFLICT` kèm `details` theo trường) cho slug/mã/tên trùng; (d) trang `/admin/payments` có lọc theo trạng thái/phương thức và nút xác nhận/đánh dấu thất bại; (e) admin cấp mật khẩu tạm luôn có chữ hoa, thường, số; tài khoản quản trị không đổi trạng thái được (409) |
 | 17a | Cảnh báo tồn thấp | UC-ADM-12 và 4 file chuẩn không yêu cầu cảnh báo tồn thấp ⇒ không làm thêm; chỉ giữ cột mở rộng `min_stock`, nhãn "Sắp hết" và bộ lọc/KPI ở trang Kho | — |
 | 17 | **93** chú thích `TODO: chưa có trong BE/DB` ở `apps/web/src/services/*.api.ts` và `apps/web/src/types/api.ts` | Đã cũ (BE/DB đã có các route/cột này; liệt kê ở `AUDIT_REPORT.md` mục 6–7) | **Chưa dọn** (backlog P2, xem [KNOWN_ISSUES.md](KNOWN_ISSUES.md)) |
@@ -113,8 +104,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | `settings` | `manage_settings` | UC-ADM-03 |
 | `activity-logs` | `manage_settings` | UC-ADM-27 |
 | `media` | `manage_products` **hoặc** `manage_content` | UC-ADM-04 |
-| `categories`, `brands`, `attributes` | `manage_products` | UC-ADM-05, 06, 08 |
-| `pages` | `manage_content` | UC-ADM-07 |
+| `categories`, `attributes` | `manage_products` | UC-ADM-05, 08 (UC-ADM-06 thương hiệu đã gỡ, D-D15) |
 | `products`, `variants`, `product-images`, `models` | `manage_products` | UC-ADM-09, 10, 11, 13, 14 |
 | `inventory` | `manage_products` | UC-ADM-12 |
 | `spaces`, `panoramas`, `hotspots` | `manage_content` | UC-ADM-15, 16 |
@@ -125,11 +115,8 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | `payments` | `process_orders` | UC-ADM-24 |
 | `orders/:id/shipments`, `shipments/:id` | `process_orders` | UC-ADM-25 |
 | `stats/overview` | `view_orders` | UC-ADM-28 |
-| `returns` | `process_orders` | **Ngoài đặc tả**: đổi trả → hoàn tiền gần UC-ADM-23 |
-| `questions` | `manage_content` | **Ngoài đặc tả**: duyệt hỏi đáp gần UC-ADM-18 |
-| `banners`, `posts`, `faq`, `contact-messages` | `manage_content` | **Ngoài đặc tả**: nội dung gần UC-ADM-07 |
-| `stats/finance`, `GET expenses` | `view_orders` | **Ngoài đặc tả**: báo cáo thu chi gần UC-ADM-28 |
-| `POST expenses`, `DELETE expenses/:id` | `process_orders` | **Ngoài đặc tả**: ghi nhận chi phí vận hành |
+| `faq` | `manage_content` | **Ngoài đặc tả**: nội dung FAQ |
+| `stats/finance` | `view_orders` | **Ngoài đặc tả**: báo cáo doanh thu gần UC-ADM-28 |
 | `GET notifications` (chuông thông báo của admin) | `view_orders` | **Ngoài đặc tả**: thông báo đơn/kho cho admin |
 | `POST notifications` (gửi thông báo cho người dùng) | `manage_content` | UC-ADM-26 |
 | `search` (tìm nhanh) | `manage_products` **hoặc** `view_orders` **hoặc** `manage_users` | **Ngoài đặc tả**: tìm trên sản phẩm, đơn, khách |
@@ -140,12 +127,11 @@ Bull Board `/admin/queues` (không phải controller Nest) vẫn do `bullBoardAd
 
 | Khóa (sau tiền tố môi trường) | TTL | Dữ liệu | Thao tác ghi xóa khóa này |
 |---|---|---|---|
-| `products:<slug>` | 1 phút | chi tiết sản phẩm công khai (biến thể, ảnh, thông số, mô hình 3D, đánh giá tổng hợp) | tạo/sửa/xóa sản phẩm, biến thể, ảnh, 360° (admin-products); danh mục, thương hiệu, thuộc tính (đổi tên/xóa); mô hình 3D (tải lên, xử lý xong/lỗi của job, đặt mô hình chính, xử lý lại, xóa); duyệt/ẩn đánh giá, khách gửi/sửa/xóa đánh giá; không gian mẫu (sản phẩm trong bộ); **tồn kho / sold_count đổi**: đặt đơn, hủy đơn, vận đơn giao thành công (hoàn tất đơn), nhập kho/điều chỉnh/xác nhận phiếu nhập, đổi trả (nhập lại kho) |
+| `products:<slug>` | 1 phút | chi tiết sản phẩm công khai (biến thể, ảnh, thông số, mô hình 3D, đánh giá tổng hợp) | tạo/sửa/xóa sản phẩm, biến thể, ảnh (admin-products); danh mục, thuộc tính (đổi tên/xóa); mô hình 3D (tải lên, xử lý xong/lỗi của job, đặt mô hình chính, xử lý lại, xóa); duyệt/ẩn đánh giá, khách gửi/sửa/xóa đánh giá; không gian mẫu (sản phẩm trong bộ); **tồn kho / sold_count đổi**: đặt đơn, hủy đơn, vận đơn giao thành công (hoàn tất đơn), nhập kho/điều chỉnh/xác nhận phiếu nhập, đổi trả (nhập lại kho) |
 | `products:featured:<băm truy vấn>` | 2 phút | danh sách sản phẩm nổi bật (trang chủ) | như `products:<slug>` (xóa theo tiền tố `products:`) |
 | `catalog:index` | 2 phút | chỉ mục danh sách/tìm kiếm/facet/sản phẩm liên quan | như `products:<slug>` |
 | `categories:tree` | 10 phút | cây danh mục công khai | tạo/sửa/xóa danh mục; đổi sản phẩm làm đổi số sản phẩm theo danh mục (qua `ProductsService.invalidate()` xóa cả `categories:`) |
 | `settings:public` | 10 phút | cài đặt công khai (cửa hàng, thanh toán, vùng giao hàng) | `PUT /admin/settings/...` (mọi khóa) |
-| `pages:<slug>` | 10 phút | trang tĩnh/chính sách | tạo/sửa/xóa trang (xóa theo tiền tố `pages:`); 404 không được cache |
 
 **Không cache:** giỏ hàng, đơn hàng, yêu thích, hồ sơ, địa chỉ, thông báo, mọi dữ liệu theo người dùng; danh sách/ chi tiết trong `/admin/*`. **Khởi động API và `db-reset` xóa toàn bộ khóa cache của môi trường.** Lỗi Redis được ghi log và coi như cache miss.
 

@@ -5,27 +5,13 @@ import {
   carts,
   cartItems,
   notifications,
-  productQuestions,
-  returnRequests,
   reviewExtras,
   reviews,
-  userCoupons,
   wishlists,
 } from './tables/_social_gen';
-import {
-  banners,
-  contactMessages,
-  expenses,
-  faqTopics,
-  pages,
-  posts,
-  settings,
-  stockReceipts,
-  suppliers,
-} from './tables/_content_gen';
+import { faqTopics, settings } from './tables/_content_gen';
 import {
   couponUsages,
-  inventoryMovements,
   orderItems,
   orderStatusHistory,
   orders,
@@ -41,27 +27,16 @@ import {
   products,
   variantAttributeValues,
 } from './tables/_products_gen';
-import {
-  spaceBookmarks,
-  spaceHotspots,
-  spacePanoramas,
-  spaceProductPlacements,
-  spaceViews,
-  spaces,
-} from './tables/_spaces_gen';
-import { product360, product360Frames } from './tables/_360_gen';
-import { attributeValues, attributes, colorHexByValueId } from './tables/attributes';
+import { spaceHotspots, spacePanoramas, spaceProductPlacements, spaces } from './tables/_spaces_gen';
+import { attributeValues, colorHexByValueId } from './tables/attributes';
 import { addressLabels, addresses } from './tables/addresses';
-import { brands } from './tables/brands';
 import { categories, categoryExtras } from './tables/categories';
 import { couponExtras, coupons } from './tables/coupons';
 import { media } from './tables/media';
-import { roles } from './tables/roles';
-import { userRoles } from './tables/user_roles';
 import { credentials, userProfiles, users } from './tables/users';
 
 // Đổi số phiên bản khi cấu trúc dữ liệu mock thay đổi (dữ liệu cũ trong localStorage sẽ tự bị bỏ, nạp lại dữ liệu mẫu)
-export const DB_STORAGE_KEY = 'aurelia-mock-db-v5';
+export const DB_STORAGE_KEY = 'aurelia-mock-db-v6';
 export const CONFIG_STORAGE_KEY = 'aurelia-mock-config';
 
 export interface MockConfig {
@@ -79,17 +54,13 @@ const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 function seed() {
   const db = {
-    roles: clone(roles),
     users: clone(users),
-    userRoles: clone(userRoles),
     userProfiles: clone(userProfiles),
     credentials: clone(credentials),
     addresses: clone(addresses),
     addressLabels: clone(addressLabels),
     categories: clone(categories),
     categoryExtras: clone(categoryExtras),
-    brands: clone(brands),
-    attributes: clone(attributes),
     attributeValues: clone(attributeValues),
     colorHexByValueId: clone(colorHexByValueId),
     products: clone(products),
@@ -98,16 +69,12 @@ function seed() {
     productImages: clone(productImages),
     productExtras: clone(productExtras),
     product3dModels: clone(product3dModels),
-    product360: clone(product360),
-    product360Frames: clone(product360Frames),
     modelFiles: clone(modelFiles),
     media: clone(media),
     spaces: clone(spaces),
     spacePanoramas: clone(spacePanoramas),
     spaceHotspots: clone(spaceHotspots),
     spaceProductPlacements: clone(spaceProductPlacements),
-    spaceBookmarks: clone(spaceBookmarks),
-    spaceViews: clone(spaceViews),
     carts: clone(carts),
     cartItems: clone(cartItems),
     /** Mã giảm giá đang áp trong giỏ: userId → code */
@@ -116,30 +83,19 @@ function seed() {
     coupons: clone(coupons),
     couponExtras: clone(couponExtras),
     couponUsages: clone(couponUsages),
-    userCoupons: clone(userCoupons),
     orders: clone(orders),
     orderItems: clone(orderItems),
     orderStatusHistory: clone(orderStatusHistory),
     payments: clone(payments),
     shipments: clone(shipments),
-    inventoryMovements: clone(inventoryMovements),
     /** Ghi chú nội bộ của admin theo đơn (chưa có trong DB) */
     orderNotes: {} as Record<number, string>,
     reviews: clone(reviews),
     reviewExtras: clone(reviewExtras),
-    productQuestions: clone(productQuestions),
-    returnRequests: clone(returnRequests),
     notifications: clone(notifications),
     activityLogs: clone(activityLogs),
-    pages: clone(pages),
     faqTopics: clone(faqTopics),
     settings: clone(settings),
-    banners: clone(banners),
-    posts: clone(posts),
-    suppliers: clone(suppliers),
-    stockReceipts: clone(stockReceipts),
-    expenses: clone(expenses),
-    contactMessages: clone(contactMessages),
     /** Mã OTP đặt lại mật khẩu theo email (mock: luôn 123456) */
     // token đặt lại mật khẩu (mock thay cho email): token -> email + hạn
     resetTokens: {} as Record<string, { email: string; expiresAt: string }>,

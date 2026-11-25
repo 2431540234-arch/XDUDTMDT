@@ -120,7 +120,6 @@ export default function FaqPage() {
               <LinkButton href="tel:0123456789" variant="outline">
                 <Icon name="phone" size={16} /> 0123 456 789
               </LinkButton>
-              <LinkButton href="/contact">Gửi câu hỏi</LinkButton>
             </div>
           </section>
         </div>

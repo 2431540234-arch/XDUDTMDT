@@ -1,4 +1,6 @@
 > **Báo cáo nộp giảng viên, ảnh chụp tại thời điểm nộp. Chức năng AR đã loại bỏ khỏi hệ thống; xem [DAC_TA_CHUC_NANG_THEO_VAI_TRO.md](DAC_TA_CHUC_NANG_THEO_VAI_TRO.md) và [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) cho hiện trạng.**
+> **Lưu ý (2026-11-25):** Báo cáo nộp giảng viên (ảnh chụp tại thời điểm nộp, 59 bảng) đề cập các bảng và tính năng đã gỡ khi rút gọn CSDL từ 59 xuống 32 bảng (D-D10 … D-D16 trong [DECISIONS.md](DECISIONS.md)): 21 bảng (`product_specs`, `product_360_*`, `review_images`, `product_questions`, `coupon_scopes`, `user_coupons`, `code_counters`, `return_*`, `stock_receipt*`, `expenses`, `banners`, `posts`, `contact_messages`, `pages`, `inventory_movements`, `space_bookmarks`, `space_views`) và `roles`, `permissions`, `role_permissions`, `user_roles`, `attributes`, `brands`. Các chỗ nhắc chúng là **lịch sử** (ảnh chụp tại thời điểm viết), không phải hiện trạng. Hiện trạng: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [CAU_TRUC_DB.md](CAU_TRUC_DB.md).
+
 
 # Báo cáo phân tích và thiết kế hệ thống
 

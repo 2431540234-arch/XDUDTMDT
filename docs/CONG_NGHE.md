@@ -60,7 +60,7 @@ Thư viện đã thêm: `navigation-compose` 2.9.7, `lifecycle-viewmodel-compose
 
 | Công nghệ | Vai trò | Trạng thái | Phiên bản thực cài | Nơi cấu hình | Nơi dùng |
 | --- | --- | --- | --- | --- | --- |
-| PostgreSQL | Database chính | Đã dùng | 16 (`postgres:16-alpine`) | `docker-compose.yml`, `DATABASE_URL` | 44 bảng, 36 trigger, 2 migration |
+| PostgreSQL | Database chính | Đã dùng | 16 (`postgres:16-alpine`) | `docker-compose.yml`, `DATABASE_URL` | 32 bảng, 28 trigger, 21 migration |
 | Prisma | ORM | Đã dùng | 5.22.0 | `prisma/schema.prisma`, `src/prisma/prisma.service.ts` | Media, ModelFile, Product3DModel, seed |
 | Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Đã dùng (queue, throttler); cache đã cấu hình | 7 (`redis:7-alpine`), ioredis 5.11.1 | `docker-compose.yml`, `env.validation.ts` | `jobs.module.ts`, `app.module.ts`, `cache/*`, `/health` |
 | BullMQ | Hàng đợi nền | Đã dùng | 5.81.5, `@nestjs/bullmq` 10.2.3, Bull Board 9.10.4 | `modules/jobs/jobs.module.ts` | `model-processing`, `image-processing`, `mail`, `notification` |
@@ -159,7 +159,7 @@ Chốt ngày 2026-10-08 theo `docs/DECISIONS.md` D-P06, D-T29..D-T36; cập nh�
 | Công nghệ | Dùng để | Ví dụ AURELIA | Trạng thái |
 | --- | --- | --- | --- |
 | NestJS | Framework backend | Controller, service, guard, pipe cho 144 endpoint | Đã dùng |
-| PostgreSQL | Database chính | User, Product, Order (44 bảng, 36 trigger) | Đã dùng |
+| PostgreSQL | Database chính | User, Product, Order (32 bảng, 28 trigger) | Đã dùng |
 | Prisma | Backend làm việc với PostgreSQL | Query Product, tạo Order trong transaction | Đã dùng |
 | Redis | Cache, trạng thái hàng đợi, giới hạn tốc độ | Cache danh mục và sản phẩm nổi bật, trạng thái BullMQ, giới hạn đăng nhập | Đã dùng (queue, throttler); cache Đã cấu hình |
 | BullMQ | Hàng đợi xử lý nền | `model-processing`, `image-processing`, `mail`, `notification` | Đã dùng (4 queue chạy, hiện trên Bull Board) |

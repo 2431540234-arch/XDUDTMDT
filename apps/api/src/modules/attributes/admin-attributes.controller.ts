@@ -1,4 +1,4 @@
-// UC-ADM-08 – Quản lý thuộc tính và giá trị: /admin/attributes (chỉ role admin). Bảng: attributes, attribute_values
+// UC-ADM-08 – Quản lý thuộc tính và giá trị: /admin/attributes (chỉ role admin). Bảng: attribute_values
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
@@ -14,26 +14,11 @@ export class AdminAttributesController {
   constructor(private readonly attributes: AttributesService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Danh sách thuộc tính kèm giá trị và số biến thể đang dùng' })
+  @ApiOperation({
+    summary: 'Ba loại thuộc tính (color, size, material) kèm giá trị và số biến thể đang dùng',
+  })
   list() {
     return this.attributes.list();
-  }
-
-  @Post()
-  @ApiOperation({ summary: 'Thêm thuộc tính { code (chữ thường ≤ 50), name (≤ 100) } – trùng ⇒ 409' })
-  create(@CurrentUser('id') adminId: number, @Body() body: unknown) {
-    return this.attributes.create(adminId, body);
-  }
-
-  @Patch(':id')
-  update(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
-    return this.attributes.update(adminId, id, body);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Xóa thuộc tính (không xóa thuộc tính hệ thống hoặc có giá trị đang dùng ⇒ 409)' })
-  remove(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
-    return this.attributes.remove(adminId, id);
   }
 
   @Post(':id/values')

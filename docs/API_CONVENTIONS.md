@@ -1,4 +1,4 @@
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
 
 # Quy ước API
 
@@ -142,7 +142,7 @@ async list(@Query() q: ProductQueryDto) {
 
 - `JwtAuthGuard` và `RolesGuard` đăng ký **toàn cục** (thứ tự: xác thực rồi phân quyền).
 - `@Public()` bỏ qua xác thực. `@Roles('admin')` giới hạn vai trò. `@CurrentUser()` / `@CurrentUser('id')` lấy thông tin user.
-- **Vai trò đọc từ DB mỗi request (D-T55):** `JwtAuthGuard` truy vấn DB để lấy trạng thái tài khoản và vai trò hiện tại từ `user_roles` (bỏ qua roles trong JWT payload), giúp việc gán/gỡ admin có hiệu lực ngay lập tức.
+- **Vai trò đọc từ DB mỗi request (D-T55):** `JwtAuthGuard` truy vấn DB để lấy trạng thái tài khoản và vai trò hiện tại từ cột `users.role` (bỏ qua roles trong JWT payload), giúp việc gán/gỡ admin có hiệu lực ngay lập tức.
 - **Access token JWT:** payload `{ sub: <userId>, roles: ['user'|'admin'], sid: <sessionId> }`, hạn 15 phút. `sid` gắn với phiên đăng nhập trong bảng `user_sessions`. Nếu phiên đã bị thu hồi/đăng xuất hoặc hết hạn ⇒ trả **401 `AUTH_TOKEN_INVALID`** ngay lập tức. Refresh token 7 ngày, xoay vòng, lưu băm trong `user_sessions`.
 - Dữ liệu cá nhân (giỏ, đơn, địa chỉ...): trong service dùng `assertOwnerOrAdmin(user, record.userId)` cho một bản ghi và `ownerScope(user)` làm điều kiện `where` cho danh sách. Không sở hữu thì trả **404** (không phải 403) để không lộ sự tồn tại của bản ghi.
 - Endpoint quản trị: controller `Admin<X>Controller` trong `admin-<module>.controller.ts`, đặt `@Roles('admin')` ở cấp class, URL bắt đầu `/api/admin/...`.
@@ -220,7 +220,7 @@ Nếu một thành phần `down`: `503 SERVICE_UNAVAILABLE` kèm `details.checks
 
 ### 8.6. Cache (Redis)
 
-`CacheService` (`src/cache/`): `get`, `set` (có TTL), `del`, `delByPrefix` (SCAN, không dùng KEYS), `getOrSet`. Khóa có tiền tố `CACHE_KEY_PREFIX`; TTL mặc định `CACHE_DEFAULT_TTL_SECONDS`; tắt hẳn bằng `CACHE_ENABLED=false`. Lỗi Redis không làm hỏng request (coi như cache miss, ghi log). Quy ước khóa: `<nhóm>:<định danh>`, ví dụ `categories:tree`, `products:featured`, `settings:public`, `pages:<slug>`, `products:<slug>`. Admin sửa dữ liệu thì xóa theo tiền tố (`delByPrefix('products:')`). TTL theo D-T30: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings công khai 10 phút, trang tĩnh 10 phút, chi tiết sản phẩm 1 phút, chỉ mục danh mục 2 phút. Không cache dữ liệu theo người dùng (giỏ, đơn). Đã tích hợp đầy đủ trong CatalogCache (D-P14).
+`CacheService` (`src/cache/`): `get`, `set` (có TTL), `del`, `delByPrefix` (SCAN, không dùng KEYS), `getOrSet`. Khóa có tiền tố `CACHE_KEY_PREFIX`; TTL mặc định `CACHE_DEFAULT_TTL_SECONDS`; tắt hẳn bằng `CACHE_ENABLED=false`. Lỗi Redis không làm hỏng request (coi như cache miss, ghi log). Quy ước khóa: `<nhóm>:<định danh>`, ví dụ `categories:tree`, `products:featured`, `settings:public`, `products:<slug>`. Admin sửa dữ liệu thì xóa theo tiền tố (`delByPrefix('products:')`). TTL theo D-T30: danh mục 10 phút, sản phẩm nổi bật 2 phút, settings công khai 10 phút, chi tiết sản phẩm 1 phút, chỉ mục danh mục 2 phút. Không cache dữ liệu theo người dùng (giỏ, đơn). Đã tích hợp đầy đủ trong CatalogCache (D-P14).
 
 ## 9. Kiểm thử một endpoint mới
 

@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import FormSection, { FormGrid } from '@/components/admin/FormSection';
 import { PageHeader } from '@/components/admin/FilterBar';
-import Product360Editor from '@/components/admin/Product360Editor';
 import UploadDropzone, { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -20,13 +19,12 @@ import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
 
-type Tab = 'basic' | 'images' | 'variants' | 'model' | 'view360' | 'attrs' | 'seo';
+type Tab = 'basic' | 'images' | 'variants' | 'model' | 'attrs' | 'seo';
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'basic', label: 'Thông tin cơ bản' },
   { key: 'images', label: 'Hình ảnh' },
   { key: 'variants', label: 'Biến thể' },
   { key: 'model', label: 'Mô hình 3D' },
-  { key: 'view360', label: 'Ảnh 360°' },
   { key: 'attrs', label: 'Thuộc tính' },
   { key: 'seo', label: 'SEO' },
 ];
@@ -49,7 +47,7 @@ interface Values {
   sku: string;
   categoryId: string;
   status: 'published' | 'draft' | 'archived';
-  brandId: string;
+  brand: string;
   price: string;
   originalPrice: string;
   stock: string;
@@ -66,7 +64,7 @@ const EMPTY: Values = {
   sku: '',
   categoryId: '',
   status: 'published',
-  brandId: '',
+  brand: '',
   price: '',
   originalPrice: '',
   stock: '',
@@ -156,11 +154,8 @@ export default function ProductForm({ productId }: { productId?: number }) {
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [images, setImages] = useState<Array<{ url: string; isPrimary: boolean }>>([]);
   const [variants, setVariants] = useState<VariantRow[]>([]);
-  const [specs, setSpecs] = useState<Array<{ label: string; value: string }>>([]);
   const [features, setFeatures] = useState('');
   const cats = useCategories();
-  // ô chọn thương hiệu lấy từ API quản trị thương hiệu (UC-ADM-06): chỉ thương hiệu đang hoạt động (+ thương hiệu hiện tại của sản phẩm)
-  const brands = useQuery({ queryKey: ['admin', 'brands', 'pick'], queryFn: () => adminApi.brands.list({}) });
   const q = useQuery({
     queryKey: ['admin', 'product', productId],
     queryFn: () => adminApi.products.get(productId!),
@@ -175,7 +170,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
       sku: p.sku,
       categoryId: String(p.categoryId ?? ''),
       status: p.status,
-      brandId: String(p.brandId ?? ''),
+      brand: p.brand ?? '',
       price: String(p.salePrice ?? p.price),
       originalPrice: p.salePrice ? String(p.price) : '',
       stock: String(p.stockQuantity),
@@ -204,7 +199,6 @@ export default function ProductForm({ productId }: { productId?: number }) {
           stockQuantity: x.stockQuantity,
         })),
     );
-    setSpecs(p.specs);
     setFeatures(p.features.join('\n'));
   }, [q.data]);
 
@@ -222,7 +216,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
         name: v.name,
         sku: v.sku,
         categoryId: Number(v.categoryId),
-        brandId: v.brandId ? Number(v.brandId) : null,
+        brand: v.brand.trim() || null,
         status: v.status,
         price: Number(v.price),
         originalPrice: Number(v.originalPrice) || undefined,
@@ -235,7 +229,6 @@ export default function ProductForm({ productId }: { productId?: number }) {
         metaTitle: v.metaTitle,
         metaDescription: v.metaDescription,
         images,
-        specs: specs.filter((s) => s.label.trim() && s.value.trim()),
         features: features
           .split('\n')
           .map((s) => s.trim())
@@ -292,7 +285,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
   if (editing && q.isLoading) return <PageSkeleton />;
   if (editing && q.isError) return <ErrorState onRetry={() => q.refetch()} />;
 
-  const tabs = TABS.filter((t) => editing || t.key !== 'view360').map((t) => ({
+  const tabs = TABS.map((t) => ({
     ...t,
     hasError: t.key === 'basic' && Object.values(errs).some(Boolean),
   }));
@@ -372,14 +365,11 @@ export default function ProductForm({ productId }: { productId?: number }) {
                   { value: 'archived', label: 'Ẩn' },
                 ]}
               />
-              <Select
+              <Input
                 label="Thương hiệu"
-                placeholder="Chọn thương hiệu"
-                value={v.brandId}
-                onChange={(e) => set('brandId', e.target.value)}
-                options={(brands.data ?? [])
-                  .filter((b) => b.isActive || String(b.id) === v.brandId)
-                  .map((b) => ({ value: b.id, label: b.isActive ? b.name : `${b.name} (đã tắt)` }))}
+                maxLength={150}
+                value={v.brand}
+                onChange={(e) => set('brand', e.target.value)}
               />
               <Input
                 label="Giá bán (đ)"
@@ -492,8 +482,6 @@ export default function ProductForm({ productId }: { productId?: number }) {
           </div>
         )}
 
-        {tab === 'view360' && editing && <Product360Editor productId={productId!} />}
-
         {tab === 'attrs' && (
           <div className="space-y-5">
             <FormGrid>
@@ -518,50 +506,6 @@ export default function ProductForm({ productId }: { productId?: number }) {
               value={features}
               onChange={(e) => setFeatures(e.target.value)}
             />
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <p className="text-sm font-medium">Thông số kỹ thuật</p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSpecs([...specs, { label: '', value: '' }])}
-                >
-                  <Icon name="plus" size={14} /> Thêm dòng
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {specs.map((s, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_1.4fr_auto] gap-2">
-                    <input
-                      aria-label="Tên thông số"
-                      className="field"
-                      placeholder="Tên thông số"
-                      value={s.label}
-                      onChange={(e) =>
-                        setSpecs(specs.map((x, k) => (k === i ? { ...x, label: e.target.value } : x)))
-                      }
-                    />
-                    <input
-                      aria-label="Giá trị"
-                      className="field"
-                      placeholder="Giá trị"
-                      value={s.value}
-                      onChange={(e) =>
-                        setSpecs(specs.map((x, k) => (k === i ? { ...x, value: e.target.value } : x)))
-                      }
-                    />
-                    <button
-                      type="button"
-                      aria-label="Xóa dòng"
-                      className="rounded p-2 text-muted hover:text-danger"
-                      onClick={() => setSpecs(specs.filter((_, k) => k !== i))}
-                    >
-                      <Icon name="trash" size={16} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 

@@ -16,9 +16,7 @@ import { toast } from '@/store/uiStore';
 import type { AttributeAdmin, AttributeValueAdmin } from '@/types/api';
 
 type Dlg =
-  | { kind: 'attr'; editing: AttributeAdmin | null }
   | { kind: 'value'; attr: AttributeAdmin; editing: AttributeValueAdmin | null }
-  | { kind: 'delAttr'; attr: AttributeAdmin }
   | { kind: 'delValue'; attr: AttributeAdmin; value: AttributeValueAdmin }
   | null;
 
@@ -28,90 +26,6 @@ function useRefresh() {
     qc.invalidateQueries({ queryKey: ['admin', 'attributes'] });
     qc.invalidateQueries({ queryKey: ['admin', 'product'] });
   };
-}
-
-function AttrModal({ editing, onClose }: { editing: AttributeAdmin | null; onClose: () => void }) {
-  const refresh = useRefresh();
-  const [code, setCode] = useState(editing?.code ?? '');
-  const [name, setName] = useState(editing?.name ?? '');
-  const [errs, setErrs] = useState<Record<string, string>>({});
-  const save = useMutation({
-    mutationFn: () =>
-      editing
-        ? adminApi.attributes.update(editing.id, {
-            name: name.trim(),
-            ...(editing.isSystem ? {} : { code: code.trim() }),
-          })
-        : adminApi.attributes.create({ code: code.trim(), name: name.trim() }),
-    onSuccess: () => {
-      toast.success(editing ? 'Đã cập nhật thuộc tính.' : 'Đã thêm thuộc tính.');
-      refresh();
-      onClose();
-    },
-    onError: (e) => {
-      if (e instanceof ApiClientError && e.code === 'VALIDATION_FAILED') setErrs(e.fieldErrors());
-      else if (e instanceof ApiClientError && e.code === 'CONFLICT') {
-        const f = e.details ? Object.keys(e.details)[0] : 'name';
-        setErrs({ [f]: e.message });
-      } else toast.error(errorMessage(e));
-    },
-  });
-  const submit = () => {
-    const x: Record<string, string> = {};
-    if (!code.trim()) x.code = 'Vui lòng nhập mã thuộc tính.';
-    else if (!/^[a-z][a-z0-9_]*$/.test(code.trim()))
-      x.code = 'Mã chỉ gồm chữ thường không dấu, số và gạch dưới.';
-    if (!name.trim()) x.name = 'Vui lòng nhập tên thuộc tính.';
-    setErrs(x);
-    if (!Object.keys(x).length) save.mutate();
-  };
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      title={editing ? 'Sửa thuộc tính' : 'Thêm thuộc tính'}
-      width={460}
-      footer={
-        <>
-          <Button variant="ghost" onClick={onClose}>
-            Hủy
-          </Button>
-          <Button loading={save.isPending} onClick={submit}>
-            Lưu thuộc tính
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        <Input
-          label="Mã thuộc tính"
-          required
-          value={code}
-          disabled={editing?.isSystem}
-          onChange={(e) => {
-            setCode(e.target.value);
-            setErrs((x) => ({ ...x, code: '' }));
-          }}
-          error={errs.code}
-          hint={
-            editing?.isSystem
-              ? 'Mã của thuộc tính hệ thống không đổi được.'
-              : 'Chữ thường, không dấu, ví dụ: finish'
-          }
-        />
-        <Input
-          label="Tên thuộc tính"
-          required
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setErrs((x) => ({ ...x, name: '' }));
-          }}
-          error={errs.name}
-        />
-      </div>
-    </Modal>
-  );
 }
 
 function ValueModal({
@@ -208,18 +122,6 @@ export default function AdminAttributesPage() {
     if (open === null && q.data?.length) setOpen(q.data[0].id);
   }, [q.data, open]);
 
-  const delAttr = useMutation({
-    mutationFn: (id: number) => adminApi.attributes.remove(id),
-    onSuccess: () => {
-      toast.success('Đã xóa thuộc tính.');
-      refresh();
-      setDlg(null);
-    },
-    onError: (e) => {
-      toast.error(errorMessage(e));
-      setDlg(null);
-    },
-  });
   const delValue = useMutation({
     mutationFn: ({ attrId, valueId }: { attrId: number; valueId: number }) =>
       adminApi.attributes.removeValue(attrId, valueId),
@@ -241,12 +143,7 @@ export default function AdminAttributesPage() {
     <div>
       <PageHeader
         title="Thuộc tính"
-        description="Định nghĩa Màu sắc, Kích thước, Chất liệu… và các giá trị để gắn cho biến thể sản phẩm."
-        actions={
-          <Button onClick={() => setDlg({ kind: 'attr', editing: null })}>
-            <Icon name="plus" size={16} /> Thêm thuộc tính
-          </Button>
-        }
+        description="Quản lý các giá trị của Màu sắc, Kích thước, Chất liệu để gắn cho biến thể sản phẩm."
       />
       <div className="space-y-4">
         {q.data!.map((a) => (
@@ -276,24 +173,6 @@ export default function AdminAttributesPage() {
                 >
                   <Icon name="plus" size={14} /> Thêm giá trị
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  aria-label={`Sửa thuộc tính ${a.name}`}
-                  onClick={() => setDlg({ kind: 'attr', editing: a })}
-                >
-                  Sửa
-                </Button>
-                {!a.isSystem && (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    aria-label={`Xóa thuộc tính ${a.name}`}
-                    onClick={() => setDlg({ kind: 'delAttr', attr: a })}
-                  >
-                    Xóa
-                  </Button>
-                )}
               </div>
             </div>
             {open === a.id && (
@@ -355,14 +234,13 @@ export default function AdminAttributesPage() {
         ))}
       </div>
 
-      {dlg?.kind === 'attr' && <AttrModal editing={dlg.editing} onClose={() => setDlg(null)} />}
       {dlg?.kind === 'value' && (
         <ValueModal attr={dlg.attr} editing={dlg.editing} onClose={() => setDlg(null)} />
       )}
       <Modal
-        open={dlg?.kind === 'delAttr' || dlg?.kind === 'delValue'}
+        open={dlg?.kind === 'delValue'}
         onClose={() => setDlg(null)}
-        title={dlg?.kind === 'delAttr' ? 'Xóa thuộc tính' : 'Xóa giá trị'}
+        title="Xóa giá trị"
         width={440}
         footer={
           <>
@@ -371,12 +249,9 @@ export default function AdminAttributesPage() {
             </Button>
             <Button
               variant="danger"
-              loading={delAttr.isPending || delValue.isPending}
+              loading={delValue.isPending}
               onClick={() =>
-                dlg?.kind === 'delAttr'
-                  ? delAttr.mutate(dlg.attr.id)
-                  : dlg?.kind === 'delValue' &&
-                    delValue.mutate({ attrId: dlg.attr.id, valueId: dlg.value.id })
+                dlg?.kind === 'delValue' && delValue.mutate({ attrId: dlg.attr.id, valueId: dlg.value.id })
               }
             >
               Xóa
@@ -384,12 +259,6 @@ export default function AdminAttributesPage() {
           </>
         }
       >
-        {dlg?.kind === 'delAttr' && (
-          <p className="text-sm">
-            Xóa thuộc tính <b>{dlg.attr.name}</b> và các giá trị của nó? Không xóa được nếu có giá trị đang
-            được biến thể sử dụng.
-          </p>
-        )}
         {dlg?.kind === 'delValue' && (
           <>
             <p className="text-sm">

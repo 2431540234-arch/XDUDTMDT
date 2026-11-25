@@ -1,4 +1,6 @@
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
+
+> **Lưu ý (2026-11-25):** Bản thiết kế Giai đoạn 5 này (và các migration M2–M9 trong đó) đề cập các bảng và tính năng đã gỡ khi rút gọn CSDL từ 59 xuống 32 bảng (D-D10 … D-D16 trong [DECISIONS.md](DECISIONS.md)): 21 bảng (`product_specs`, `product_360_*`, `review_images`, `product_questions`, `coupon_scopes`, `user_coupons`, `code_counters`, `return_*`, `stock_receipt*`, `expenses`, `banners`, `posts`, `contact_messages`, `pages`, `inventory_movements`, `space_bookmarks`, `space_views`) và `roles`, `permissions`, `role_permissions`, `user_roles`, `attributes`, `brands`. Các chỗ nhắc chúng là **lịch sử** (ảnh chụp tại thời điểm viết), không phải hiện trạng. Hiện trạng: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [CAU_TRUC_DB.md](CAU_TRUC_DB.md).
 
 # THIẾT KẾ BACKEND – Aurelia Living
 

@@ -21,10 +21,9 @@ import { WishlistService } from '../wishlist/wishlist.service';
 
 const CUSTOMER_WHERE: Prisma.UserWhereInput = {
   deletedAt: null,
-  userRoles: { some: { role: { code: 'user' } } },
+  role: 'user',
 };
 const USER_INCLUDE = {
-  userRoles: { include: { role: true } },
   avatarMedia: true,
 } satisfies Prisma.UserInclude;
 
@@ -107,7 +106,7 @@ export class AdminUsersService {
   async setStatus(adminId: number, id: number, raw: unknown) {
     // DAC_TA UC-ADM-01 5a: không khóa chính mình hoặc tài khoản quản trị (409); chỉ khách hàng mới đổi trạng thái được
     const staff = await this.prisma.user.findFirst({
-      where: { id, userRoles: { some: { role: { code: 'admin' } } } },
+      where: { id, role: 'admin' },
       select: { id: true },
     });
     if (staff)
@@ -157,7 +156,6 @@ export class AdminUsersService {
     }
     // mật khẩu tạm ngẫu nhiên, gửi qua email; khách nên đổi hoặc dùng "Quên mật khẩu"
     const temp = `${randomBytes(6).toString('base64url')}Aa1`; // luôn đạt chính sách mật khẩu
-    const role = await this.prisma.role.findUniqueOrThrow({ where: { code: 'user' } });
     const created = await this.prisma.user.create({
       data: {
         fullName: str(b.fullName).trim(),
@@ -167,7 +165,6 @@ export class AdminUsersService {
         emailVerifiedAt: new Date(),
         gender: b.gender ? str(b.gender) : null,
         birthday: b.birthday ? new Date(str(b.birthday)) : null,
-        userRoles: { create: { roleId: role.id } },
         cart: { create: {} },
       },
     });

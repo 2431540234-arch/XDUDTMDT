@@ -1,96 +1,15 @@
 'use client';
 
-// Trang chủ (WIREFRAME 2.1): hero slider → danh mục nổi bật → SP nổi bật → banner 3D → SP mới → 2 banner
+// Trang chủ (WIREFRAME 2.1): danh mục nổi bật → SP nổi bật → banner 3D → SP mới → 2 banner
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import StoreLayout from '@/components/layout/StoreLayout';
 import ProductCard from '@/components/product/ProductCard';
 import { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { ErrorState, ProductGridSkeleton, Skeleton } from '@/components/ui/States';
 import { useCategories } from '@/hooks/useProducts';
-import { cn } from '@/lib/cn';
-import { contentApi } from '@/services/content.api';
 import { productApi } from '@/services/product.api';
-
-function Hero() {
-  const q = useQuery({ queryKey: ['banners'], queryFn: contentApi.banners });
-  const slides = (q.data ?? []).filter((b) => b.position.startsWith('hero'));
-  const [i, setI] = useState(0);
-  useEffect(() => {
-    if (slides.length < 2) return;
-    const t = setInterval(() => setI((x) => (x + 1) % slides.length), 6000);
-    return () => clearInterval(t);
-  }, [slides.length]);
-
-  if (q.isLoading) return <Skeleton className="h-[420px] w-full" />;
-  if (q.isError) return <ErrorState message="Không tải được banner." onRetry={() => q.refetch()} />;
-  if (!slides.length) return null;
-  const s = slides[i % slides.length];
-  return (
-    <section
-      className="relative overflow-hidden bg-surface-muted"
-      aria-roledescription="carousel"
-      aria-label="Banner chính"
-    >
-      <div
-        className="relative h-[420px] sm:h-[480px]"
-        style={{
-          backgroundImage: `url(${s.imageUrl})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-ink/70 via-ink/30 to-transparent" />
-        <div className="container-page relative flex h-full flex-col justify-center text-white">
-          <p className="text-xs font-semibold tracking-[0.3em] text-white/80">AURELIA LIVING</p>
-          <h1 className="mt-3 max-w-xl text-3xl font-extrabold uppercase leading-tight sm:text-5xl">
-            {s.title}
-          </h1>
-          {s.subtitle && <p className="mt-3 max-w-md text-sm text-white/85 sm:text-base">{s.subtitle}</p>}
-          <LinkButton href={s.link} size="lg" className="mt-6 w-fit">
-            KHÁM PHÁ SẢN PHẨM <Icon name="arrowRight" size={16} />
-          </LinkButton>
-        </div>
-        {slides.length > 1 && (
-          <>
-            <button
-              type="button"
-              aria-label="Slide trước"
-              onClick={() => setI((x) => (x - 1 + slides.length) % slides.length)}
-              className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 hover:bg-white"
-            >
-              <Icon name="chevronLeft" />
-            </button>
-            <button
-              type="button"
-              aria-label="Slide sau"
-              onClick={() => setI((x) => (x + 1) % slides.length)}
-              className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/80 hover:bg-white"
-            >
-              <Icon name="chevronRight" />
-            </button>
-            <div className="absolute inset-x-0 bottom-4 flex justify-center gap-2">
-              {slides.map((x, k) => (
-                <button
-                  key={x.id}
-                  type="button"
-                  aria-label={`Slide ${k + 1}`}
-                  onClick={() => setI(k)}
-                  className={cn(
-                    'h-2 rounded-full transition-all',
-                    k === i % slides.length ? 'w-6 bg-white' : 'w-2 bg-white/50',
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </section>
-  );
-}
 
 function SectionHead({ title, href }: { title: string; href: string }) {
   return (
@@ -126,13 +45,9 @@ export default function HomePage() {
       ?.flatMap((c) => c.children)
       .filter((c) => c.isFeatured)
       .slice(0, 6) ?? [];
-  const banners = useQuery({ queryKey: ['banners'], queryFn: contentApi.banners });
-  const left = banners.data?.find((b) => b.position === 'home-left');
-  const right = banners.data?.find((b) => b.position === 'home-right');
 
   return (
     <StoreLayout>
-      <Hero />
       <div className="container-page space-y-14 py-12">
         <section>
           <SectionHead title="Danh mục nổi bật" href="/products" />
@@ -206,9 +121,8 @@ export default function HomePage() {
         <section className="grid gap-4 md:grid-cols-2">
           {[
             {
-              b: left,
               cta: 'KHÁM PHÁ NGAY',
-              fallback: {
+              x: {
                 title: 'BỘ SƯU TẬP MỚI',
                 subtitle: 'Phong cách hiện đại cho mọi không gian',
                 link: '/spaces',
@@ -216,17 +130,15 @@ export default function HomePage() {
               },
             },
             {
-              b: right,
               cta: 'XEM CHI TIẾT',
-              fallback: {
+              x: {
                 title: 'ƯU ĐÃI ĐẶC BIỆT',
                 subtitle: 'Giảm đến 20% cho nhiều sản phẩm',
                 link: '/products',
                 imageUrl: '',
               },
             },
-          ].map(({ b, cta, fallback }) => {
-            const x = b ?? fallback;
+          ].map(({ cta, x }) => {
             return (
               <Link
                 key={x.title}

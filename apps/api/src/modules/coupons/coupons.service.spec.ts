@@ -1,4 +1,4 @@
-// Unit test: tính giảm giá và kiểm tra mã – mọi điều kiện (hạn, đơn tối thiểu, phạm vi, giảm tối đa, lượt dùng) – không cần DB.
+// Unit test: tính giảm giá và kiểm tra mã – mọi điều kiện (hạn, đơn tối thiểu, giảm tối đa, lượt dùng) – không cần DB.
 import { calcDiscount, CouponsService } from './coupons.service';
 import { couponState } from './admin-coupons.service';
 
@@ -9,15 +9,11 @@ function fakeDb(
   coupon: FakeCoupon | null,
   opts: {
     usedByUser?: number;
-    categories?: Array<{ id: number; parentId: number | null }>;
-    spaceProducts?: number[];
   } = {},
 ) {
   return {
     coupon: { findFirst: async () => coupon },
     couponUsage: { count: async () => opts.usedByUser ?? 0 },
-    category: { findMany: async () => opts.categories ?? [] },
-    spaceHotspot: { findMany: async () => (opts.spaceProducts ?? []).map((productId) => ({ productId })) },
   } as never;
 }
 
@@ -34,17 +30,12 @@ const baseCoupon = (over: FakeCoupon = {}): FakeCoupon => ({
   startsAt: new Date(Date.now() - 86_400_000),
   endsAt: new Date(Date.now() + 86_400_000),
   isActive: true,
-  scopes: [],
   ...over,
 });
 
-const lines = [
-  { productId: 10, categoryId: 5, lineTotal: 6_000_000 },
-  { productId: 11, categoryId: 6, lineTotal: 4_000_000 },
-];
 const svc = new CouponsService({} as never);
 const run = (c: FakeCoupon | null, opts = {}, sub = 10_000_000, ship = 30_000) =>
-  svc.evaluate('TEST', 1, lines, sub, ship, fakeDb(c, opts));
+  svc.evaluate('TEST', 1, sub, ship, fakeDb(c, opts));
 
 describe('calcDiscount', () => {
   it('percent: làm tròn xuống và bị chặn bởi giảm tối đa', () => {
@@ -106,34 +97,7 @@ describe('CouponsService.evaluate', () => {
       message: 'Đơn hàng cần tối thiểu 12.000.000đ để dùng mã này.',
     });
   });
-  it('phạm vi danh mục: chỉ tính dòng thuộc danh mục (kể cả danh mục con của danh mục áp dụng)', async () => {
-    const scoped = baseCoupon({ scopes: [{ targetType: 'category', targetId: 5 }] });
-    expect((await run(scoped)).discount).toBe(600_000); // 10% của 6.000.000
-    const parentScoped = baseCoupon({ scopes: [{ targetType: 'category', targetId: 2 }] });
-    const r = await run(parentScoped, {
-      categories: [
-        { id: 5, parentId: 2 },
-        { id: 6, parentId: 3 },
-      ],
-    });
-    expect(r.discount).toBe(600_000);
-  });
-  it('phạm vi danh mục nhưng giỏ không có sản phẩm phù hợp', async () => {
-    await expect(
-      run(baseCoupon({ scopes: [{ targetType: 'category', targetId: 99 }] })),
-    ).rejects.toMatchObject({ message: 'Mã giảm giá không áp dụng cho sản phẩm trong giỏ hàng.' });
-  });
-  it('phạm vi sản phẩm', async () => {
-    const r = await run(baseCoupon({ scopes: [{ targetType: 'product', targetId: 11 }] }));
-    expect(r.discount).toBe(400_000);
-  });
-  it('phạm vi không gian mẫu: tính theo sản phẩm có trong không gian', async () => {
-    const r = await run(baseCoupon({ scopes: [{ targetType: 'space', targetId: 7 }] }), {
-      spaceProducts: [10],
-    });
-    expect(r.discount).toBe(600_000);
-  });
-  it('giảm tối đa áp dụng sau khi tính theo phạm vi', async () => {
+  it('giảm tối đa áp dụng', async () => {
     const r = await run(baseCoupon({ maxDiscount: 100_000 }));
     expect(r.discount).toBe(100_000);
   });

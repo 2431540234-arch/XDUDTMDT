@@ -14,7 +14,6 @@ interface Props {
 /** Thẻ đơn hàng (WIREFRAME 2.10): mã đơn, ngày đặt, sản phẩm, tổng tiền, hành động theo trạng thái */
 export default function OrderCard({ order, onReview }: Props) {
   const done = order.status === 'completed';
-  const canReturn = done && order.canReturnUntil && new Date(order.canReturnUntil) > new Date();
   return (
     <article className="card p-5">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
@@ -64,14 +63,6 @@ export default function OrderCard({ order, onReview }: Props) {
               >
                 Đánh giá sản phẩm
               </button>
-            )}
-            {canReturn && (
-              <Link
-                href={`/account/returns/new?order=${order.orderCode}`}
-                className="rounded-btn border border-line px-4 py-2 text-sm font-semibold hover:bg-surface-muted"
-              >
-                Yêu cầu đổi trả
-              </Link>
             )}
           </div>
         </div>

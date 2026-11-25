@@ -1,6 +1,5 @@
 // Kiểu dữ liệu mà API trả về cho giao diện = entity khớp 100% schema.prisma (shared-types) + quan hệ mở rộng.
-// Trường/bảng CHƯA có ở BE hoặc DB được đánh dấu "TODO: chưa có trong BE/DB". Đối chiếu ngày 2026-11-11 với schema.prisma và docs/api/openapi.json:
-// chỉ còn `Supplier` (không có bảng riêng, đã gộp thành cột chữ stock_receipts.supplier_name).
+// Trường/bảng CHƯA có ở BE hoặc DB được đánh dấu "TODO: chưa có trong BE/DB".
 import type {
   ActivityLog,
   Address,
@@ -25,7 +24,6 @@ import type {
   User,
   CartItem,
   Media,
-  InventoryMovement,
 } from '@aurelia-living/shared-types';
 
 export type {
@@ -50,7 +48,6 @@ export type {
   SpaceProductPlacement,
   User,
   Media,
-  InventoryMovement,
 };
 
 export interface ColorOption {
@@ -79,15 +76,13 @@ export interface ProductListItem extends Product {
   defaultVariantId: number;
   thumbnailUrl: string | null;
   category: { id: number; name: string; slug: string } | null;
-  brand: { id: number; name: string } | null;
+  brand: string | null;
   colors: ColorOption[];
   sizes: string[];
   material: string | null; // thuộc tính "material" của biến thể
   style: string | null;
   sku: string;
   isWishlisted: boolean;
-  /** Sản phẩm có ảnh xoay 360° (product_360_configs.enabled) */
-  has360: boolean;
 }
 
 export interface VariantView extends ProductVariant {
@@ -148,11 +143,9 @@ export interface Model3DView extends Product3DModel {
 export interface ProductDetail extends ProductListItem {
   images: ProductImageView[];
   variants: VariantView[];
-  specs: Array<{ label: string; value: string }>; // dựng từ thuộc tính + kích thước mô hình
   features: string[];
   model: Model3DView | null;
   ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number>;
-  questionCount: number;
   breadcrumb: Array<{ label: string; href: string }>;
 }
 
@@ -173,7 +166,6 @@ export interface ReviewView extends Review {
   variantLabel: string | null;
   orderCode: string | null;
   purchasedAt: string | null;
-  images: string[];
   tags: string[]; // chip tiêu chí
 }
 
@@ -254,25 +246,13 @@ export interface OrderView extends Order {
   } | null;
   internalNote: string | null;
   deliveredAt: string | null;
-  canReturnUntil: string | null;
 }
 
 // ---------- Coupon ----------
 export interface CouponView extends Coupon {
   name: string;
   description: string | null;
-  appliesTo: 'all' | 'category' | 'product' | 'space';
-  appliesToLabel: string;
   kind: 'percent' | 'fixed' | 'freeship'; // 'freeship' = coupon_type freeship (mã giảm phí vận chuyển)
-}
-
-export interface UserCouponView {
-  id: number;
-  couponId: number;
-  userId: number;
-  status: 'unused' | 'used' | 'expired';
-  savedAt: string;
-  coupon: CouponView;
 }
 
 // ---------- Thông báo ----------
@@ -290,7 +270,6 @@ export interface SpaceListItem extends Space {
   coverUrl: string | null;
   productCount: number;
   panoramaCount: number;
-  isBookmarked: boolean;
 }
 
 /** UC-ADM-17 / UC-SPACE-04: mô hình 3D rút gọn của một món đặt trong ảnh 360° (các LOD của GLB + vật liệu theo biến thể) */
@@ -393,101 +372,6 @@ export interface Model3DAdminRow extends Model3DView {
   uploadedAt: string;
 }
 
-// ---------- Thực thể CHƯA có trong DB (mock tự đặt tên theo WIREFRAME.md mục 5) ----------
-export type ReturnStatus = 'pending' | 'picking' | 'inspecting' | 'refunded' | 'exchanged' | 'rejected';
-export interface ReturnRequest {
-  id: number;
-  code: string; // "RT0012"
-  orderId: number;
-  orderCode: string;
-  userId: number;
-  customerName: string;
-  items: Array<{
-    productId: number;
-    productName: string;
-    imageUrl: string | null;
-    variantLabel: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
-  type: 'refund' | 'exchange';
-  reason: 'defect' | 'wrong_item' | 'not_as_described' | 'missing_accessory' | 'change_mind';
-  description: string;
-  images: string[];
-  refundAmount: number;
-  status: ReturnStatus;
-  adminNote: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface ProductQuestion {
-  id: number;
-  productId: number;
-  productName: string;
-  productSlug: string;
-  productImageUrl: string | null;
-  userId: number;
-  userName: string;
-  content: string;
-  answer: string | null;
-  answeredBy: string | null;
-  answeredAt: string | null;
-  isPublic: boolean;
-  status: 'unanswered' | 'answered' | 'hidden';
-  createdAt: string;
-}
-
-export interface Banner {
-  id: number;
-  title: string;
-  subtitle: string | null;
-  imageUrl: string;
-  link: string;
-  position: 'hero-1' | 'hero-2' | 'hero-3' | 'home-left' | 'home-right' | 'home-3d';
-  startAt: string;
-  endAt: string | null;
-  sortOrder: number;
-  isActive: boolean;
-}
-
-export interface Post {
-  id: number;
-  title: string;
-  slug: string;
-  category: string;
-  coverUrl: string;
-  content: string;
-  authorName: string;
-  status: 'published' | 'draft';
-  views: number;
-  publishedAt: string | null;
-  createdAt: string;
-}
-
-export interface Supplier {
-  // TODO: chưa có trong DB
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-}
-
-export interface StockReceipt {
-  id: number;
-  code: string; // "PN0012" | "PX0012"
-  type: 'in' | 'out';
-  /** chỉ còn trong dữ liệu mock gốc; API thật không trả (nhà cung cấp là chữ trong phiếu) */
-  supplierId?: number | null;
-  supplierName: string | null;
-  orderCode: string | null;
-  itemCount: number;
-  total: number;
-  status: 'draft' | 'completed' | 'cancelled';
-  createdAt: string;
-}
-
 export interface InventoryRow {
   variantId: number;
   productId: number;
@@ -502,30 +386,6 @@ export interface InventoryRow {
   state: 'in_stock' | 'low' | 'out';
 }
 
-/** Một dòng lịch sử biến động tồn kho (GET /admin/inventory/movements) */
-export interface StockMovement {
-  id: number;
-  variantId: number;
-  sku: string;
-  productName: string;
-  type: 'import' | 'sale' | 'return' | 'adjustment';
-  quantityChange: number;
-  reason: string | null;
-  referenceCode: string | null;
-  performedByName: string;
-  createdAt: string;
-}
-
-/** Thương hiệu ở trang quản trị (GET /admin/brands) */
-export interface BrandAdmin {
-  id: number;
-  name: string;
-  slug: string;
-  logoUrl: string | null;
-  isActive: boolean;
-  productCount: number;
-}
-
 /** Thuộc tính và giá trị ở trang quản trị (GET /admin/attributes) */
 export interface AttributeValueAdmin {
   id: number;
@@ -533,7 +393,6 @@ export interface AttributeValueAdmin {
   value: string;
   colorHex: string | null;
   usageCount: number;
-  frameCount: number;
 }
 export interface AttributeAdmin {
   id: number;
@@ -565,25 +424,6 @@ export interface ShipmentResult {
   warnings: string[];
 }
 
-export interface Expense {
-  id: number;
-  code: string; // "CH-0001"
-  category: 'cogs' | 'shipping' | 'marketing' | 'payment_fee' | 'refund' | 'other';
-  amount: number;
-  note: string;
-  date: string;
-}
-
-export interface ContactMessage {
-  id: number;
-  fullName: string;
-  phone: string;
-  email: string;
-  subject: string;
-  content: string;
-  createdAt: string;
-}
-
 export interface ShippingZone {
   id: number;
   name: string;
@@ -612,77 +452,21 @@ export interface StoreSettings {
 
 export interface FinanceReport {
   totalIncome: number;
-  totalExpense: number;
-  profit: number;
-  margin: number;
-  deltas: { income: number; expense: number; profit: number; margin: number };
-  monthly: Array<{ month: string; income: number; expense: number; profit: number }>;
-  expenseBreakdown: Array<{ category: Expense['category']; label: string; amount: number; percent: number }>;
+  deltas: { income: number };
+  monthly: Array<{ month: string; income: number }>;
   byPaymentMethod: Array<{ method: string; amount: number; percent: number }>;
   byCategory: Array<{ name: string; amount: number; percent: number }>;
   daily: Array<{ date: string; revenue: number }>;
-  income: {
-    gross: number;
-    discountAndRefund: number;
-    net: number;
-    cogs: number;
-    grossProfit: number;
-    opex: number;
-    profitBeforeTax: number;
-  };
+  income: { gross: number; discount: number; net: number };
   ledger: Array<{
     date: string;
     code: string;
     content: string;
-    type: 'income' | 'expense';
+    type: 'income';
     category: string;
     amount: number;
   }>;
   topProducts: DashboardStats['topProducts'];
-}
-
-// ---------- Xem 360° (product_360_configs, product_360_frames) ----------
-export interface Product360Color {
-  colorId: number;
-  name: string;
-  hex: string;
-  thumbnail: string;
-  /** URL ảnh theo thứ tự góc 0° → 350° */
-  frames: string[];
-}
-
-export interface Product360Variant extends VariantView {
-  dimensionsCm: { length: number; width: number; height: number };
-  weightKg: number | null;
-}
-
-export interface PolicyItem {
-  key: 'shipping' | 'returns' | 'warranty' | 'payment';
-  title: string;
-  summary: string;
-  href: string;
-}
-
-export interface Product360Data {
-  productId: number;
-  slug: string;
-  enabled: boolean;
-  frameCount: number;
-  defaultColor: string;
-  autoRotate: boolean;
-  rotationSpeed: number;
-  colors: Product360Color[];
-  variants: Product360Variant[];
-  product: ProductDetail;
-  policies: PolicyItem[];
-}
-
-export interface Product360AdminData {
-  enabled: boolean;
-  frameCount: number;
-  autoRotate: boolean;
-  colors: Array<{ name: string; hex: string; frames: string[] }>;
-  variantColors: ColorOption[];
 }
 
 // ---------- Mở rộng nhẹ: nhật ký hoạt động, vai trò, phiên đăng nhập ----------
@@ -722,34 +506,4 @@ export interface SessionView {
   createdAt: string;
   expiresAt: string;
   current: boolean;
-}
-
-/** UC-ADM-29 (không gian mẫu): phễu người xem → bấm hotspot → thêm giỏ; người dùng và khách gộp theo visitorId */
-export interface SpaceFunnelStage {
-  /** số lượt xem (mỗi lần mở không gian) */
-  views: number;
-  /** số người xem (đã gộp theo visitorId) */
-  viewers: number;
-  clicked: number;
-  carted: number;
-  /** clicked / viewers, cartRate = carted / viewers, clickToCartRate = (bấm và thêm giỏ) / clicked; 0 khi mẫu số = 0 */
-  clickRate: number;
-  cartRate: number;
-  clickToCartRate: number;
-}
-export interface SpaceFunnelSource {
-  productId: number;
-  name: string;
-  slug: string | null;
-  views: number;
-  viewers: number;
-}
-export interface SpaceFunnel {
-  from: string;
-  to: string;
-  totals: SpaceFunnelStage;
-  spaces: Array<
-    SpaceFunnelStage & { spaceId: number; title: string; slug: string | null; sources: SpaceFunnelSource[] }
-  >;
-  sources: Array<SpaceFunnelSource & { spaces: number }>;
 }

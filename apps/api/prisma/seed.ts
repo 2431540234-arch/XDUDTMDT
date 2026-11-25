@@ -13,20 +13,6 @@ const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@aurelia.vn';
 // Mật khẩu mặc định CHỈ dùng ngoài production; production bắt buộc đặt SEED_ADMIN_PASSWORD (kiểm tra ở main())
 const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD?.trim() || 'Admin@123456';
 const SAMPLE_USER_PASSWORD = process.env.SEED_SAMPLE_USER_PASSWORD ?? 'User@123456';
-const VISITOR_ID = '5b3f1c1e-8a47-4c0e-9d5f-0c6b7d1e2a33';
-
-const PERMISSIONS = [
-  ['manage_users', 'Quản lý người dùng', 'Xem, khóa, mở khóa, cấm tài khoản; gán vai trò'],
-  [
-    'manage_products',
-    'Quản lý sản phẩm',
-    'Sản phẩm, biến thể, tồn kho, mô hình 3D/AR, danh mục, thương hiệu',
-  ],
-  ['view_orders', 'Xem đơn hàng', 'Xem danh sách và chi tiết đơn hàng'],
-  ['process_orders', 'Xử lý đơn hàng', 'Xác nhận, đổi trạng thái, hủy, hoàn tiền, vận chuyển'],
-  ['manage_content', 'Quản lý nội dung', 'Trang tĩnh, không gian mẫu, duyệt đánh giá, mã giảm giá'],
-  ['manage_settings', 'Cấu hình hệ thống', 'Cấu hình website, kho media, xem nhật ký thao tác'],
-] as const;
 
 const SETTINGS: [string, unknown, string][] = [
   ['site_name', 'Aurelia Living', 'Tên website'],
@@ -38,58 +24,7 @@ const SETTINGS: [string, unknown, string][] = [
   ['maintenance_mode', false, 'Chế độ bảo trì'],
 ];
 
-/**
- * Trang tĩnh mặc định (idempotent, KHÔNG ghi đè nội dung admin đã sửa): trang /about đọc nội dung từ trang slug "about" nên bản cài
- * không có dữ liệu mẫu (production, SEED_SAMPLE=false) vẫn có trang giới thiệu trung tính thay vì 404. Chỉ chạy khi KHÔNG seed từ mock-data
- * (mock-data đã có trang about riêng).
- */
-async function seedDefaultPages() {
-  await prisma.page.upsert({
-    where: { slug: 'about' },
-    update: {},
-    create: {
-      title: 'Về chúng tôi',
-      slug: 'about',
-      type: 'static',
-      content:
-        '## Về Aurelia Living\n\nAurelia Living là website thương mại điện tử nội thất, tích hợp xem sản phẩm 3D, xoay 360° và không gian mẫu 360°.\n\nNội dung giới thiệu chi tiết sẽ được cập nhật trong trang quản trị (Nội dung → Trang tĩnh).',
-      status: 'published',
-      publishedAt: new Date(),
-    },
-  });
-}
-
 async function seedCore(createAdmin = true) {
-  const adminRole = await prisma.role.upsert({
-    where: { code: 'admin' },
-    update: {},
-    create: { code: 'admin', name: 'Quản trị viên', description: 'Toàn bộ quyền quản trị hệ thống' },
-  });
-  await prisma.role.upsert({
-    where: { code: 'user' },
-    update: {},
-    create: {
-      code: 'user',
-      name: 'Người dùng',
-      description:
-        'Mua hàng, giỏ hàng, mã giảm giá, đánh giá, yêu thích, sổ địa chỉ, ảnh AR, lưu không gian mẫu; chỉ thao tác trên dữ liệu của chính mình',
-    },
-  });
-
-  for (const [code, name, description] of PERMISSIONS) {
-    const p = await prisma.permission.upsert({
-      where: { code },
-      update: {},
-      create: { code, name, description },
-    });
-    // Admin có tất cả quyền; user không có quyền nào
-    await prisma.rolePermission.upsert({
-      where: { roleId_permissionId: { roleId: adminRole.id, permissionId: p.id } },
-      update: {},
-      create: { roleId: adminRole.id, permissionId: p.id },
-    });
-  }
-
   for (const [key, value, description] of SETTINGS) {
     await prisma.setting.upsert({
       where: { key },
@@ -98,28 +33,25 @@ async function seedCore(createAdmin = true) {
     });
   }
 
-  // Admin: tạo user + gán vai trò admin trong CÙNG transaction để trigger (deferred)
-  // trg_users_assign_default_role không gán thêm vai trò "user".
+  // Admin: tài khoản đầu tiên với users.role = 'admin'.
   // email không có @unique (partial unique index trong DB) nên dùng findFirst.
   const existing = await prisma.user.findFirst({ where: { email: ADMIN_EMAIL, deletedAt: null } });
   if (createAdmin && !existing) {
     const passwordHash = await hash(ADMIN_PASSWORD, 10);
-    await prisma.$transaction(async (tx) => {
-      const u = await tx.user.create({
-        data: {
-          fullName: 'Quản trị viên',
-          email: ADMIN_EMAIL,
-          phone: '0900000000',
-          passwordHash,
-          emailVerifiedAt: new Date(),
-        },
-      });
-      await tx.userRole.create({ data: { userId: u.id, roleId: adminRole.id } });
+    await prisma.user.create({
+      data: {
+        fullName: 'Quản trị viên',
+        email: ADMIN_EMAIL,
+        phone: '0900000000',
+        passwordHash,
+        emailVerifiedAt: new Date(),
+        role: 'admin',
+      },
     });
   }
 }
 
-// Tạo user nếu chưa có (trigger tự gán vai trò user)
+// Tạo user nếu chưa có (users.role mặc định 'user')
 async function ensureUser(fullName: string, email: string, phone: string) {
   const found = await prisma.user.findFirst({ where: { email, deletedAt: null } });
   if (found) return found;
@@ -197,34 +129,17 @@ async function seedSample() {
     create: { name: 'Bàn trà', slug: 'ban-tra', parentId: living.id, sortOrder: 2 },
   });
 
-  const logo = await media(admin.id, 'aurelia-home-logo.png', 'image/png', 20480, 'Logo Aurelia Home');
-  const brand = await prisma.brand.upsert({
-    where: { slug: 'aurelia-home' },
-    update: {},
-    create: { name: 'Aurelia Home', slug: 'aurelia-home', logoMediaId: logo.id },
-  });
-
-  // Thuộc tính
-  const color = await prisma.attribute.upsert({
-    where: { code: 'color' },
-    update: {},
-    create: { code: 'color', name: 'Màu sắc' },
-  });
-  const material = await prisma.attribute.upsert({
-    where: { code: 'material' },
-    update: {},
-    create: { code: 'material', name: 'Chất liệu' },
-  });
-  const av = async (attributeId: number, value: string) =>
+  // Giá trị thuộc tính (loại thuộc tính là enum attribute_code)
+  const av = async (attributeCode: 'color' | 'size' | 'material', value: string) =>
     prisma.attributeValue.upsert({
-      where: { attributeId_value: { attributeId, value } },
+      where: { attributeCode_value: { attributeCode, value } },
       update: {},
-      create: { attributeId, value },
+      create: { attributeCode, value },
     });
-  const vXam = await av(color.id, 'Xám');
-  const vBe = await av(color.id, 'Be');
-  const vSoi = await av(material.id, 'Gỗ sồi');
-  const vOc = await av(material.id, 'Gỗ óc chó');
+  const vXam = await av('color', 'Xám');
+  const vBe = await av('color', 'Be');
+  const vSoi = await av('material', 'Gỗ sồi');
+  const vOc = await av('material', 'Gỗ óc chó');
 
   // Sản phẩm 1: Sofa; Sản phẩm 2: Bàn trà
   const sofa = await prisma.product.upsert({
@@ -236,7 +151,7 @@ async function seedSample() {
       shortDescription: 'Sofa vải phong cách Scandinavian',
       description: 'Sofa 3 chỗ khung gỗ tự nhiên, bọc vải chống bám bụi.',
       categoryId: catSofa.id,
-      brandId: brand.id,
+      brand: 'Aurelia Home',
       status: 'published',
       isFeatured: true,
     },
@@ -250,7 +165,7 @@ async function seedSample() {
       shortDescription: 'Bàn trà gỗ mặt tròn',
       description: 'Bàn trà gỗ mặt tròn đường kính 80cm, chân gỗ thon.',
       categoryId: catTable.id,
-      brandId: brand.id,
+      brand: 'Aurelia Home',
       status: 'published',
     },
   });
@@ -273,16 +188,20 @@ async function seedSample() {
   const vSofaBe = await variant(sofa.id, 'SOFA-OSLO-BE', 12000000, 20, 45000);
   const vBanSoi = await variant(table.id, 'BAN-NORDIC-SOI', 3200000, 15, 12000);
   const vBanOc = await variant(table.id, 'BAN-NORDIC-OC', 3500000, 15, 12500);
-  const link = async (variantId: number, attributeValueId: number, attributeId: number) =>
+  const link = async (
+    variantId: number,
+    attributeValueId: number,
+    attributeCode: 'color' | 'size' | 'material',
+  ) =>
     prisma.variantAttributeValue.upsert({
       where: { variantId_attributeValueId: { variantId, attributeValueId } },
       update: {},
-      create: { variantId, attributeValueId, attributeId },
+      create: { variantId, attributeValueId, attributeCode },
     });
-  await link(vSofaXam.id, vXam.id, color.id);
-  await link(vSofaBe.id, vBe.id, color.id);
-  await link(vBanSoi.id, vSoi.id, material.id);
-  await link(vBanOc.id, vOc.id, material.id);
+  await link(vSofaXam.id, vXam.id, 'color');
+  await link(vSofaBe.id, vBe.id, 'color');
+  await link(vBanSoi.id, vSoi.id, 'material');
+  await link(vBanOc.id, vOc.id, 'material');
 
   // Ảnh đại diện (mỗi sản phẩm một ảnh)
   for (const [p, file, alt] of [
@@ -551,56 +470,6 @@ async function seedSample() {
       await prisma.order.update({ where: { id: order.id }, data: { status } });
     }
     // Trừ kho + sold_count (việc của tầng Service; ghi tay cho dữ liệu mẫu nhất quán)
-    await prisma.inventoryMovement.createMany({
-      data: [
-        {
-          variantId: vSofaXam.id,
-          type: 'import',
-          quantityChange: 20,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vSofaBe.id,
-          type: 'import',
-          quantityChange: 20,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vBanSoi.id,
-          type: 'import',
-          quantityChange: 15,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vBanOc.id,
-          type: 'import',
-          quantityChange: 15,
-          reason: 'Nhập kho ban đầu',
-          referenceCode: 'PN-0001',
-          performedBy: admin.id,
-        },
-        {
-          variantId: vSofaXam.id,
-          type: 'sale',
-          quantityChange: -1,
-          reason: 'Bán hàng',
-          referenceCode: orderCode,
-        },
-        {
-          variantId: vBanOc.id,
-          type: 'sale',
-          quantityChange: -1,
-          reason: 'Bán hàng',
-          referenceCode: orderCode,
-        },
-      ],
-    });
     await prisma.productVariant.updateMany({
       where: { id: { in: [vSofaXam.id, vBanOc.id] } },
       data: { stockQuantity: { decrement: 1 } },
@@ -637,46 +506,6 @@ async function seedSample() {
     where: { userId_productId: { userId: u1.id, productId: table.id } },
     update: {},
     create: { userId: u1.id, productId: table.id },
-  });
-  await prisma.spaceBookmark.upsert({
-    where: { userId_spaceId: { userId: u1.id, spaceId: space.id } },
-    update: {},
-    create: { userId: u1.id, spaceId: space.id },
-  });
-
-  // Lượt xem space: chỉ tạo một lần (nhật ký, không có khóa tự nhiên)
-  if (!(await prisma.spaceView.findFirst({ where: { spaceId: space.id } }))) {
-    // Khách vãng lai: userId NULL + visitorId; trigger tăng spaces.view_count
-    await prisma.spaceView.create({
-      data: {
-        spaceId: space.id,
-        visitorId: VISITOR_ID,
-        sourceProductId: sofa.id,
-        hotspotClickCount: 1,
-        addedToCart: false,
-      },
-    });
-    await prisma.spaceView.create({
-      data: {
-        spaceId: space.id,
-        userId: u1.id,
-        sourceProductId: sofa.id,
-        hotspotClickCount: 3,
-        addedToCart: true,
-      },
-    });
-  }
-
-  await prisma.page.upsert({
-    where: { slug: 'chinh-sach-doi-tra' },
-    update: {},
-    create: {
-      title: 'Chính sách đổi trả',
-      slug: 'chinh-sach-doi-tra',
-      content: '<p>Đổi trả trong 7 ngày nếu sản phẩm lỗi do nhà sản xuất.</p>',
-      status: 'published',
-      publishedAt: new Date(),
-    },
   });
   if (
     !(await prisma.activityLog.findFirst({
@@ -726,7 +555,6 @@ async function main() {
   // SEED_SOURCE=legacy giữ bộ dữ liệu mẫu cũ; SEED_SAMPLE=false chỉ seed phần bắt buộc.
   const useMock = process.env.SEED_SAMPLE !== 'false' && (process.env.SEED_SOURCE ?? 'mock') === 'mock';
   await seedCore(!useMock); // seed mock có tài khoản admin riêng (admin@aurelia.vn / admin123)
-  if (!useMock) await seedDefaultPages();
   if (useMock) {
     const { seedFromMock } = await import('./seed-mock');
     await seedFromMock();

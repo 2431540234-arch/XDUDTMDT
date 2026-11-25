@@ -161,13 +161,6 @@ export default function AdminReviewsPage() {
             </p>
             <StarRating value={view.rating} size={18} />
             <p>{view.content}</p>
-            {view.images.length > 0 && (
-              <div className="flex gap-2">
-                {view.images.map((s, i) => (
-                  <img key={i} src={s} alt="" className="h-20 w-20 rounded-md object-cover" />
-                ))}
-              </div>
-            )}
             <p className="text-xs text-muted">
               {view.userName} · Đơn #{view.orderCode} · {formatDate(view.createdAt)}
             </p>

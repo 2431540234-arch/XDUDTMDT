@@ -1,6 +1,6 @@
 # Lỗi đã biết và việc còn tồn đọng
 
-> Cập nhật lần cuối: 2026-11-11 – theo nhánh `fix/remaining-issues` (commit `cbfabbb`).
+> Cập nhật lần cuối: 2026-11-25 – theo nhánh `db/remove-21-tables` (commit `a13386e`).
 > Mỗi mục có bằng chứng (tệp:dòng, số liệu, commit) hoặc ghi "Cần xác minh". Báo cáo gốc của backlog: [AUDIT_REPORT.md](AUDIT_REPORT.md) mục 7–9.
 
 ## Tóm tắt trạng thái
@@ -13,6 +13,7 @@
 | 4. Backlog P2 | **Một phần**: xong `database/*.sql`, TODO lỗi thời, `/about`, `/contact` (một phần), comment trỏ tài liệu lưu trữ, `mock-data/README.md`; còn các việc ở mục 4 |
 | 5. `aurelia_dev` migration `remove_ar` | **Đã áp** (2026-11-11) |
 | 5. `Dockerfile.web` / `NEXT_PUBLIC_API_URL` | **Đã sửa và kiểm chứng bằng Docker** (`a8c0d58`) |
+| 6. Trang chi tiết khách hàng không tải lại sau khi gán admin | **Chưa sửa** (2026-11-25, hệ quả D-D13) |
 
 ## 1. Lỗi hydration ở `Breadcrumb` của trang `/products` — ĐÃ SỬA
 
@@ -76,3 +77,13 @@ Bản production (`next build` + `next start`, mock=false): hydration 10 lần m
 - **Dump CSDL từng nằm trong repo:** `docs/aurelia_dev_backup.sql` (UTF-16, 448 KB) chứa 3 hash mật khẩu bcrypt của tài khoản seed (`admin@aurelia.vn`, `nguyenvana@example.com`, `tranthib@example.com`), email/số điện thoại mẫu; không thấy token hay email thật. Mật khẩu mặc định của các tài khoản này công khai trong README. Repo là **public** nên các hash nằm trong lịch sử git (chưa xử lý lịch sử); nếu các tài khoản seed từng dùng ở môi trường thật, đổi mật khẩu.
 - **Tệp cá nhân `docs/PROMPT_AGENT_BE.md`** bị `.gitignore` chặn (không thuộc repo).
 - **Chưa rà từng dòng:** `docs/QUY_UOC_CODE_DB.md` (chỉ grep dấu hiệu lỗi thời).
+
+## 6. Chi tiết khách hàng không tải lại sau khi gán vai trò admin — CHƯA SỬA (2026-11-25)
+
+**Triệu chứng:** ở `/admin/customers/:id`, bấm "Gán vai trò admin" thì API trả 200 và `users.role` đổi thành `admin`, nhưng trang không tải lại được và vẫn hiện dữ liệu cũ (thẻ vai trò vẫn là "Khách hàng (user)").
+
+**Nguyên nhân:** từ D-D13 vai trò là cột `users.role`; `GET /admin/users` và chi tiết khách hàng chỉ trả người có `role = user`, nên sau khi gán, người đó biến mất khỏi trang khách hàng (truy vấn tải lại không còn bản ghi).
+
+**Cách gỡ tạm:** gọi API `DELETE /admin/users/:id/roles/admin` (token admin) để đổi về `user`; vẫn bị chặn khi tự gỡ chính mình hoặc gỡ admin cuối cùng. Test e2e `ext-uc` kiểm tra bằng API vì lý do này.
+
+**Hướng sửa (cần chủ dự án quyết):** chuyển nút gán/gỡ sang trang quản lý admin riêng, hoặc cho chi tiết khách hàng trả cả `admin`.

@@ -38,7 +38,7 @@ async function seedMaterialVariants(prisma: PrismaClient, storage: StorageServic
         include: {
           productVariants: {
             include: {
-              variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+              variantAttributeValues: { include: { attributeValue: true } },
             },
           },
         },
@@ -48,8 +48,7 @@ async function seedMaterialVariants(prisma: PrismaClient, storage: StorageServic
   let n = 0;
   for (const m of models) {
     const hexOf = (v: (typeof m.product.productVariants)[number]) =>
-      v.variantAttributeValues.find((x) => x.attributeValue.attribute.code === 'color')?.attributeValue
-        .colorHex ?? null;
+      v.variantAttributeValues.find((x) => x.attributeCode === 'color')?.attributeValue.colorHex ?? null;
     const colors = new Set(m.product.productVariants.map(hexOf).filter(Boolean));
     if (colors.size < 2) continue;
     const files = m.modelFiles.filter((f) => f.format === 'glb');

@@ -19,7 +19,7 @@ interface Item {
   soldCount: number;
   ratingAvg: number | string;
   categoryId: number | null;
-  brandId: number | null;
+  brand: string | null;
   has3dModel: boolean;
   isFeatured: boolean;
   createdAt: string;
@@ -123,9 +123,13 @@ describe('Duyệt, lọc, tìm kiếm sản phẩm (aurelia_test)', () => {
       );
       expect(byPrice.items.length).toBeGreaterThan(0);
 
-      const brandId = all.find((i) => i.brandId)!.brandId!;
-      const byBrand = await list(`?brand=${brandId}&pageSize=100`);
-      expect(slugs(byBrand.items).sort()).toEqual(slugs(all.filter((i) => i.brandId === brandId)).sort());
+      // lọc theo tên thương hiệu, không phân biệt hoa thường
+      const brand = all.find((i) => i.brand)!.brand!;
+      const byBrand = await list(`?brand=${encodeURIComponent(brand.toUpperCase())}&pageSize=100`);
+      expect(slugs(byBrand.items).sort()).toEqual(
+        slugs(all.filter((i) => i.brand?.toLowerCase() === brand.toLowerCase())).sort(),
+      );
+      expect(byBrand.items.length).toBeGreaterThan(0);
 
       const dbHas3d = await prisma.product.count({
         where: { status: 'published', deletedAt: null, has3dModel: true },

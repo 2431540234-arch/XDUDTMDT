@@ -21,13 +21,11 @@ describe('CatalogCache (D-T30)', () => {
     const { svc, calls } = make();
     await svc.categoriesTree(async () => 1);
     await svc.settingsPublic(async () => 1);
-    await svc.page('gioi-thieu', async () => 1);
     await svc.product('ghe', async () => 1);
     await svc.featured({ q: 1 }, async () => 1);
     expect(calls).toEqual([
       `getOrSet categories:tree ${CACHE_TTL.categoriesTree}`,
       `getOrSet settings:public ${CACHE_TTL.settingsPublic}`,
-      `getOrSet pages:gioi-thieu ${CACHE_TTL.page}`,
       `getOrSet products:ghe ${CACHE_TTL.product}`,
       `getOrSet ${CACHE_KEYS.featured({ q: 1 })} ${CACHE_TTL.productsFeatured}`,
     ]);
@@ -40,14 +38,12 @@ describe('CatalogCache (D-T30)', () => {
     await svc.invalidateProducts();
     await svc.invalidateCatalog();
     await svc.invalidateSettings();
-    await svc.invalidatePages();
     expect(calls).toEqual(
       expect.arrayContaining([
         'delByPrefix products:',
         'del catalog:index',
         'delByPrefix categories:',
         'del settings:public',
-        'delByPrefix pages:',
       ]),
     );
   });

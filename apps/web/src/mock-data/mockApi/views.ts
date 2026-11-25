@@ -1,5 +1,5 @@
 // Chuyển hàng trong db thành "view" mà API trả về (entity DB + quan hệ mở rộng) – xem src/types/api.ts
-import type { Product, Product3DModel } from '@aurelia-living/shared-types';
+import type { AttributeCode, Product, Product3DModel } from '@aurelia-living/shared-types';
 import type {
   AddressView,
   CartItemView,
@@ -9,8 +9,6 @@ import type {
   CouponView,
   Model3DView,
   NotificationView,
-  PolicyItem,
-  Product360Data,
   OrderView,
   PanoramaView,
   ProductDetail,
@@ -18,7 +16,6 @@ import type {
   ReviewView,
   SpaceDetail,
   SpaceListItem,
-  UserCouponView,
   UserView,
   VariantView,
 } from '@/types/api';
@@ -29,7 +26,6 @@ import { ApiFail } from './http';
 export const FREE_SHIP_FROM = 10_000_000;
 export const DEFAULT_SHIP_FEE = 30_000;
 export const COMBO_DISCOUNT_PERCENT = 10;
-export const RETURN_WINDOW_DAYS = 7;
 
 export const now = () => new Date();
 
@@ -38,19 +34,19 @@ export function mediaPath(db: Db, id: number | null | undefined): string | null 
   return db.media.find((m) => m.id === id)?.filePath ?? null;
 }
 
-const attrValue = (db: Db, variantId: number, attributeId: number): string | null => {
+const attrValue = (db: Db, variantId: number, attributeCode: AttributeCode): string | null => {
   const link = db.variantAttributeValues.find(
-    (x) => x.variantId === variantId && x.attributeId === attributeId,
+    (x) => x.variantId === variantId && x.attributeCode === attributeCode,
   );
   if (!link) return null;
   return db.attributeValues.find((v) => v.id === link.attributeValueId)?.value ?? null;
 };
-const attrValueId = (db: Db, variantId: number, attributeId: number): number | null =>
-  db.variantAttributeValues.find((x) => x.variantId === variantId && x.attributeId === attributeId)
+const attrValueId = (db: Db, variantId: number, attributeCode: AttributeCode): number | null =>
+  db.variantAttributeValues.find((x) => x.variantId === variantId && x.attributeCode === attributeCode)
     ?.attributeValueId ?? null;
 
 export function colorOfVariant(db: Db, variantId: number): ColorOption | null {
-  const vid = attrValueId(db, variantId, 1);
+  const vid = attrValueId(db, variantId, 'color');
   if (!vid) return null;
   const name = db.attributeValues.find((v) => v.id === vid)!.value;
   return { name, hex: db.colorHexByValueId[vid] ?? '#cccccc' };
@@ -60,7 +56,7 @@ export const effectivePrice = (v: { price: number; salePrice: number | null }) =
 
 export function variantLabel(db: Db, variantId: number | null): string {
   if (!variantId) return '—';
-  const parts = [attrValue(db, variantId, 1), attrValue(db, variantId, 2)].filter(
+  const parts = [attrValue(db, variantId, 'color'), attrValue(db, variantId, 'size')].filter(
     (x): x is string => Boolean(x) && x !== 'Tiêu chuẩn',
   );
   return parts.length ? parts.join(' / ') : 'Tiêu chuẩn';
@@ -118,13 +114,12 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
   const dv = defaultVariant(db, p.id) ?? variants[0];
   const extra = db.productExtras.find((e) => e.productId === p.id);
   const cat = db.categories.find((c) => c.id === p.categoryId);
-  const brand = db.brands.find((b) => b.id === p.brandId);
   const colors: ColorOption[] = [];
   const sizes: string[] = [];
   for (const v of variants) {
     const c = colorOfVariant(db, v.id);
     if (c && !colors.some((x) => x.name === c.name)) colors.push(c);
-    const s = attrValue(db, v.id, 2);
+    const s = attrValue(db, v.id, 'size');
     if (s && !sizes.includes(s)) sizes.push(s);
   }
   const primary = db.productImages.find((i) => i.productId === p.id && i.isPrimary);
@@ -136,14 +131,13 @@ export function productListItem(db: Db, p: Product, userId?: number | null): Pro
     defaultVariantId: dv?.id ?? 0,
     thumbnailUrl: mediaPath(db, primary?.mediaId),
     category: cat ? { id: cat.id, name: cat.name, slug: cat.slug } : null,
-    brand: brand ? { id: brand.id, name: brand.name } : null,
+    brand: p.brand,
     colors,
     sizes,
-    material: dv ? attrValue(db, dv.id, 3) : null,
+    material: dv ? attrValue(db, dv.id, 'material') : null,
     style: extra?.style ?? null,
     sku: dv?.sku ?? '',
     isWishlisted: userId ? db.wishlists.some((w) => w.userId === userId && w.productId === p.id) : false,
-    has360: db.product360.some((x) => x.productId === p.id && x.enabled),
   };
 }
 
@@ -159,8 +153,8 @@ export function variantViews(db: Db, productId: number): VariantView[] {
     return {
       ...v,
       color,
-      size: attrValue(db, v.id, 2),
-      material: attrValue(db, v.id, 3),
+      size: attrValue(db, v.id, 'size'),
+      material: attrValue(db, v.id, 'material'),
       imageUrl: mediaPath(db, (img ?? primary)?.mediaId),
     };
   });
@@ -200,13 +194,9 @@ export function productDetail(db: Db, p: Product, userId?: number | null): Produ
       variantId: i.variantId,
     })),
     variants: variantViews(db, p.id),
-    specs: extra?.specs ?? [],
     features: extra?.features ?? [],
     model: model ? model3DView(db, model) : null,
     ratingBreakdown: breakdown,
-    questionCount: db.productQuestions.filter(
-      (q) => q.productId === p.id && q.status === 'answered' && q.isPublic,
-    ).length,
     breadcrumb: [
       { label: 'Sản phẩm', href: '/products' },
       ...(cat ? [{ label: cat.name, href: `/products?category=${cat.slug}` }] : []),
@@ -239,7 +229,6 @@ export function reviewView(db: Db, r: Db['reviews'][number]): ReviewView {
     variantLabel: item ? variantLabel(db, item.variantId) : null,
     orderCode: order?.orderCode ?? null,
     purchasedAt: delivered ?? order?.createdAt ?? null,
-    images: extra?.images ?? [],
     tags: extra?.tags ?? [],
   };
 }
@@ -262,9 +251,7 @@ export function userStats(db: Db, userId: number) {
 export function userView(db: Db, u: Db['users'][number]): UserView {
   const profile = db.userProfiles.find((p) => p.userId === u.id);
   const stats = userStats(db, u.id);
-  const roleCodes = db.userRoles
-    .filter((r) => r.userId === u.id)
-    .map((r) => db.roles.find((x) => x.id === r.roleId)!.code as 'admin' | 'user');
+  const roleCodes = [u.role];
   const spent = stats.totalSpent;
   return {
     ...u,
@@ -340,10 +327,6 @@ export function orderView(db: Db, o: Db['orders'][number], opts: { customer?: bo
         : null,
     internalNote: db.orderNotes[o.id] ?? null,
     deliveredAt: delivered,
-    canReturnUntil:
-      o.status === 'completed' && delivered
-        ? new Date(new Date(delivered).getTime() + RETURN_WINDOW_DAYS * 86_400_000).toISOString()
-        : null,
   };
 }
 
@@ -354,41 +337,12 @@ export function couponView(db: Db, c: Db['coupons'][number]): CouponView {
     ...c,
     name: ex.name,
     description: ex.description,
-    appliesTo: ex.appliesTo,
-    appliesToLabel: ex.appliesToLabel,
     kind: ex.kind,
   };
 }
 
-export function userCouponView(db: Db, uc: Db['userCoupons'][number]): UserCouponView {
-  const c = db.coupons.find((x) => x.id === uc.couponId)!;
-  let status = uc.status;
-  if (status === 'unused' && c.endsAt && new Date(c.endsAt) < now()) status = 'expired';
-  return {
-    id: uc.id,
-    couponId: uc.couponId,
-    userId: uc.userId,
-    status,
-    savedAt: uc.savedAt,
-    coupon: couponView(db, c),
-  };
-}
-
-interface CalcLine {
-  productId: number;
-  categoryId: number | null;
-  lineTotal: number;
-}
-
 /** Kiểm tra mã + tính số tiền giảm (D-N16: chỉ xem trước; đặt hàng sẽ kiểm tra lại) */
-export function evaluateCoupon(
-  db: Db,
-  code: string,
-  userId: number,
-  lines: CalcLine[],
-  subtotal: number,
-  shippingFee: number,
-) {
+export function evaluateCoupon(db: Db, code: string, userId: number, subtotal: number, shippingFee: number) {
   const c = db.coupons.find((x) => x.code.toLowerCase() === code.trim().toLowerCase());
   if (!c) throw new ApiFail('COUPON_INVALID', 'Mã giảm giá không tồn tại.');
   const ex = db.couponExtras.find((e) => e.couponId === c.id)!;
@@ -407,18 +361,7 @@ export function evaluateCoupon(
       'COUPON_INVALID',
       `Đơn hàng cần tối thiểu ${c.minOrderValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}đ để dùng mã này.`,
     );
-  let base = subtotal;
-  if (ex.categoryIds.length) {
-    const scoped = lines.filter(
-      (l) =>
-        l.categoryId !== null &&
-        (ex.categoryIds.includes(l.categoryId) ||
-          ex.categoryIds.includes(db.categories.find((x) => x.id === l.categoryId)?.parentId ?? -1)),
-    );
-    if (!scoped.length)
-      throw new ApiFail('COUPON_INVALID', 'Mã giảm giá không áp dụng cho sản phẩm trong giỏ hàng.');
-    base = scoped.reduce((s, l) => s + l.lineTotal, 0);
-  }
+  const base = subtotal;
   const discount =
     ex.kind === 'percent'
       ? Math.min(Math.floor((base * c.value) / 100), c.maxDiscount ?? Infinity)
@@ -481,18 +424,7 @@ export function cartView(
   const code = isSubset ? undefined : db.cartCoupons[userId];
   if (code && views.length) {
     try {
-      const r = evaluateCoupon(
-        db,
-        code,
-        userId,
-        views.map((v) => ({
-          productId: v.productId,
-          categoryId: db.products.find((p) => p.id === v.productId)?.categoryId ?? null,
-          lineTotal: v.lineTotal,
-        })),
-        subtotal,
-        shippingFee,
-      );
+      const r = evaluateCoupon(db, code, userId, subtotal, shippingFee);
       discountAmount = r.discount;
       coupon = {
         id: r.coupon.id,
@@ -542,18 +474,17 @@ function spaceProductIds(db: Db, spaceId: number): number[] {
   ];
 }
 
-export function spaceListItem(db: Db, s: Db['spaces'][number], userId?: number | null): SpaceListItem {
+export function spaceListItem(db: Db, s: Db['spaces'][number]): SpaceListItem {
   return {
     ...s,
     coverUrl: mediaPath(db, s.coverMediaId),
     productCount: spaceProductIds(db, s.id).length,
     panoramaCount: db.spacePanoramas.filter((p) => p.spaceId === s.id).length,
-    isBookmarked: userId ? db.spaceBookmarks.some((b) => b.spaceId === s.id && b.userId === userId) : false,
   };
 }
 
 export function spaceDetail(db: Db, s: Db['spaces'][number], userId?: number | null): SpaceDetail {
-  const base = spaceListItem(db, s, userId);
+  const base = spaceListItem(db, s);
   const panoramas: PanoramaView[] = db.spacePanoramas
     .filter((p) => p.spaceId === s.id)
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -595,7 +526,7 @@ export function spaceDetail(db: Db, s: Db['spaces'][number], userId?: number | n
       (x) => x.id !== s.id && x.status === 'published' && (x.roomType === s.roomType || x.style === s.style),
     )
     .slice(0, 4)
-    .map((x) => spaceListItem(db, x, userId));
+    .map((x) => spaceListItem(db, x));
   return {
     ...base,
     panoramas,
@@ -608,80 +539,3 @@ export function spaceDetail(db: Db, s: Db['spaces'][number], userId?: number | n
 }
 
 export const MOCK_TODAY = MOCK_NOW;
-
-// ---------------- Xem 360° ----------------
-const POLICIES: PolicyItem[] = [
-  {
-    key: 'shipping',
-    title: 'Giao hàng & lắp đặt',
-    summary:
-      'Giao toàn quốc trong 2–5 ngày. Miễn phí lắp đặt tại nội thành TP.HCM và Hà Nội; miễn phí vận chuyển cho đơn từ 10 triệu đồng.',
-    href: '/policies/chinh-sach-van-chuyen',
-  },
-  {
-    key: 'returns',
-    title: 'Đổi trả 7 ngày',
-    summary:
-      'Đổi trả trong 7 ngày kể từ ngày nhận hàng nếu sản phẩm lỗi, giao sai hoặc không đúng mô tả. Lấy hàng miễn phí.',
-    href: '/policies/chinh-sach-doi-tra',
-  },
-  {
-    key: 'warranty',
-    title: 'Bảo hành 12 tháng',
-    summary:
-      'Bảo hành chính hãng từ 12 tháng cho kết cấu, vải, mút và da; một số sản phẩm gỗ được bảo hành đến 36 tháng.',
-    href: '/policies/chinh-sach-bao-hanh',
-  },
-  {
-    key: 'payment',
-    title: 'Phương thức thanh toán',
-    summary: 'Thanh toán khi nhận hàng (COD), chuyển khoản, thẻ ngân hàng, VNPAY, MoMo và ZaloPay.',
-    href: '/policies/chinh-sach-mua-hang',
-  },
-];
-
-export function product360View(db: Db, p: Product, userId?: number | null): Product360Data | null {
-  const cfg = db.product360.find((x) => x.productId === p.id && x.enabled);
-  if (!cfg) return null;
-  const extra = db.productExtras.find((e) => e.productId === p.id);
-  const colors = db.product360Frames
-    .filter((f) => f.productId === p.id)
-    .map((f) => ({
-      colorId: f.colorId,
-      name: f.colorName,
-      hex: f.colorHex,
-      thumbnail: f.thumbnail,
-      frames: f.frames,
-    }));
-  const variants = variantViews(db, p.id)
-    .filter((v) => v.isActive)
-    .map((v) => {
-      const [l, w, h] = extra?.dims ?? [0, 0, 0];
-      const k = extra?.sizeDimMult?.[v.size ?? 'Tiêu chuẩn'] ?? 1;
-      const hk = ['Cao 1m2', 'Cao 1m5'].includes(v.size ?? '') ? k : 1;
-      return {
-        ...v,
-        dimensionsCm: {
-          length: Math.round((l * k) / 10),
-          width: Math.round((w * k) / 10),
-          height: Math.round((h * hk) / 10),
-        },
-        weightKg: v.weightGram ? Math.round(v.weightGram / 100) / 10 : null,
-      };
-    });
-  const defColor =
-    db.attributeValues.find((a) => a.id === cfg.defaultColorId)?.value ?? colors[0]?.name ?? '';
-  return {
-    productId: p.id,
-    slug: p.slug,
-    enabled: true,
-    frameCount: cfg.frameCount,
-    defaultColor: defColor,
-    autoRotate: cfg.autoRotate,
-    rotationSpeed: cfg.rotationSpeed,
-    colors,
-    variants,
-    product: productDetail(db, p, userId),
-    policies: POLICIES,
-  };
-}

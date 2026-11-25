@@ -9,7 +9,6 @@ import Module from 'node:module';
 import { resolve } from 'node:path';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
-import { recentSpaceViews } from './seed-space-views';
 import { storeObject } from './seed-storage';
 
 const WEB_SRC = resolve(__dirname, '../../web/src');
@@ -36,7 +35,6 @@ const fixUuid = (v: string) => {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
 const hex = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 12);
-const ymd = (iso: string) => iso.slice(0, 10);
 
 // ---------------------------------------------------------------- media
 interface MediaOut {
@@ -186,31 +184,15 @@ async function main() {
     );
   }
 
-  // ---- thuộc tính: DB có thể đã có sẵn attributes/attribute_values (dữ liệu cũ) với id khác mock → ánh xạ theo
-  //      (code thuộc tính) và (thuộc tính, giá trị); chỉ tạo mới những gì chưa có, không sửa/xóa dữ liệu cũ.
-  const dbAttrs = await prisma.attribute.findMany();
+  // ---- giá trị thuộc tính: DB có thể đã có sẵn attribute_values (dữ liệu cũ) với id khác mock → ánh xạ theo
+  //      (loại thuộc tính, giá trị); chỉ tạo mới những gì chưa có, không sửa/xóa dữ liệu cũ.
   const dbVals = await prisma.attributeValue.findMany();
-  const usedAttr = new Set(dbAttrs.map((a) => a.id));
   const usedVal = new Set(dbVals.map((v) => v.id));
-  const attrMap = new Map<number, number>();
-  const newAttrs: Prisma.AttributeCreateManyInput[] = [];
-  for (const a of db.attributes) {
-    const ex = dbAttrs.find((x) => x.code === a.code);
-    if (ex) attrMap.set(a.id, ex.id);
-    else {
-      let id = usedAttr.has(a.id) ? Math.max(...usedAttr) + 1 : a.id;
-      while (usedAttr.has(id)) id++;
-      usedAttr.add(id);
-      attrMap.set(a.id, id);
-      newAttrs.push({ ...a, id });
-    }
-  }
   const valMap = new Map<number, number>();
   const newVals: Prisma.AttributeValueCreateManyInput[] = [];
   const hexUpdates: Array<{ id: number; hex: string }> = [];
   for (const v of db.attributeValues) {
-    const attrId = attrMap.get(v.attributeId)!;
-    const ex = dbVals.find((x) => x.attributeId === attrId && x.value === v.value);
+    const ex = dbVals.find((x) => x.attributeCode === v.attributeCode && x.value === v.value);
     const hexv = db.colorHexByValueId[v.id] ?? null;
     if (ex) {
       valMap.set(v.id, ex.id);
@@ -220,14 +202,13 @@ async function main() {
       while (usedVal.has(id)) id++;
       usedVal.add(id);
       valMap.set(v.id, id);
-      newVals.push({ ...v, id, attributeId: attrId, colorHex: hexv });
+      newVals.push({ ...v, id, colorHex: hexv });
     }
   }
 
-  // ---- media: giữ id của mock; URL phát sinh thêm (banner, bài viết, frame 360, ảnh đánh giá…) cấp id mới
+  // ---- media: giữ id của mock
   const mediaRows: MediaOut[] = [];
   const byUrl = new Map<string, number>();
-  let nextMediaId = Math.max(0, ...db.media.map((m) => m.id)) + 1;
 
   const ingestRow = async (id: number, url: string, base: Partial<MediaOut>) => {
     const r = await ingest(url);
@@ -257,14 +238,6 @@ async function main() {
     });
     if (++done % 100 === 0) log(`  media ${done}/${db.media.length}`);
   }
-  const mediaIdFor = async (url: string): Promise<number> => {
-    const have = byUrl.get(url);
-    if (have) return have;
-    const id = nextMediaId++;
-    await ingestRow(id, url, { uploadedBy: 1 });
-    return id;
-  };
-
   // ---- người dùng: băm mật khẩu của mock (admin123, 123456…) – chỉ tạo mới khi user chưa có trong DB
   const existingUserIds = new Set((await prisma.user.findMany({ select: { id: true } })).map((u) => u.id));
   const profile = new Map(db.userProfiles.map((p) => [p.userId, p]));
@@ -285,6 +258,7 @@ async function main() {
       passwordHash: h,
       avatarMediaId: u.avatarMediaId,
       status: u.status,
+      role: u.role,
       emailVerifiedAt: u.emailVerifiedAt ?? u.createdAt,
       lastLoginAt: u.lastLoginAt,
       deletedAt: u.deletedAt,
@@ -299,72 +273,12 @@ async function main() {
 
   // ---- phụ trợ theo sản phẩm
   const extras = new Map(db.productExtras.map((e) => [e.productId, e]));
-  const sizeAttrId = db.attributes.find((a) => a.code === 'size')?.id ?? 2;
   const sizeOfVariant = new Map<number, string>();
   for (const vav of db.variantAttributeValues) {
-    if (vav.attributeId === sizeAttrId) {
+    if (vav.attributeCode === 'size') {
       sizeOfVariant.set(vav.variantId, db.attributeValues.find((x) => x.id === vav.attributeValueId)!.value);
     }
   }
-
-  // ---- URL phát sinh: banner, bài viết, ảnh đánh giá, ảnh đổi trả, frame 360
-  const bannerRows: Prisma.BannerCreateManyInput[] = [];
-  for (const b of db.banners) {
-    bannerRows.push({
-      id: b.id,
-      title: b.title,
-      subtitle: b.subtitle,
-      imageMediaId: await mediaIdFor(b.imageUrl),
-      link: b.link,
-      position: b.position as never, // giá trị DB: 'hero-1'…
-      startAt: b.startAt,
-      endAt: b.endAt,
-      sortOrder: b.sortOrder,
-      isActive: b.isActive,
-    });
-  }
-  const postRows: Prisma.PostCreateManyInput[] = [];
-  for (const p of db.posts) {
-    postRows.push({
-      id: p.id,
-      title: p.title,
-      slug: p.slug,
-      category: p.category,
-      coverMediaId: await mediaIdFor(p.coverUrl),
-      content: p.content,
-      authorName: p.authorName,
-      status: p.status === 'published' ? ('published' as const) : ('draft' as const),
-      views: p.views,
-      publishedAt: p.publishedAt,
-      createdAt: p.createdAt,
-    });
-  }
-  const reviewImageRows: Prisma.ReviewImageCreateManyInput[] = [];
-  for (const x of db.reviewExtras) {
-    let i = 0;
-    for (const u of x.images) {
-      reviewImageRows.push({ reviewId: x.reviewId, mediaId: await mediaIdFor(u), sortOrder: i++ });
-    }
-  }
-  const returnImageRows: Array<{ requestId: number; mediaId: number }> = [];
-  for (const r of db.returnRequests) {
-    for (const u of r.images) returnImageRows.push({ requestId: r.id, mediaId: await mediaIdFor(u) });
-  }
-  const frames360: Prisma.Product360FrameCreateManyInput[] = [];
-  for (const f of db.product360Frames) {
-    const cfg = db.product360.find((c) => c.productId === f.productId);
-    if (!cfg) continue;
-    let i = 0;
-    for (const u of f.frames) {
-      frames360.push({
-        configId: cfg.productId, // tạm dùng productId = configId (đặt id cấu hình = productId)
-        attributeValueId: valMap.get(f.colorId)!,
-        frameIndex: i++,
-        mediaId: await mediaIdFor(u),
-      });
-    }
-  }
-  log(`media: ${mediaRows.length} bản ghi (đã lưu lên kho)`);
 
   // ---- chèn dữ liệu trong MỘT transaction, tắt trigger để giữ nguyên dữ liệu mock
   await prisma.$transaction(
@@ -372,18 +286,8 @@ async function main() {
       await rawTx.$executeRawUnsafe('SET LOCAL session_replication_role = replica');
       const tx = withOverriding(rawTx);
 
-      // vai trò: do seedCore tạo (admin = 1, user = 2)
-      const roleId = new Map((await tx.role.findMany()).map((r) => [r.code, r.id]));
-      const mockRole = new Map(db.roles.map((r) => [r.id, r.code]));
-
       await tx.media.createMany({ data: mediaRows, skipDuplicates: true });
       await tx.user.createMany({ data: userRows, skipDuplicates: true });
-      await tx.userRole.createMany({
-        data: db.userRoles
-          .filter((r) => !existingUserIds.has(r.userId))
-          .map((r) => ({ userId: r.userId, roleId: roleId.get(mockRole.get(r.roleId)!)! })),
-        skipDuplicates: true,
-      });
       await tx.address.createMany({
         data: db.addresses.map((a) => ({ ...a, label: db.addressLabels[a.id] ?? 'Nhà riêng' })),
         skipDuplicates: true,
@@ -399,8 +303,6 @@ async function main() {
         })),
         skipDuplicates: true,
       });
-      await tx.brand.createMany({ data: db.brands, skipDuplicates: true });
-      await tx.attribute.createMany({ data: newAttrs, skipDuplicates: true });
       await tx.attributeValue.createMany({ data: newVals, skipDuplicates: true });
       for (const h of hexUpdates) {
         await rawTx.attributeValue.update({ where: { id: h.id }, data: { colorHex: h.hex } });
@@ -412,12 +314,6 @@ async function main() {
           style: extras.get(p.id)?.style ?? null,
           features: (extras.get(p.id)?.features ?? []) as never,
         })),
-        skipDuplicates: true,
-      });
-      await tx.productSpec.createMany({
-        data: db.productExtras.flatMap((e) =>
-          e.specs.map((s, i) => ({ productId: e.productId, label: s.label, value: s.value, sortOrder: i })),
-        ),
         skipDuplicates: true,
       });
       // Mock lưu tồn "có thể bán" (đã trừ hàng đang giữ cho đơn chưa giao); DB lưu tồn vật lý + số đang giữ
@@ -455,7 +351,6 @@ async function main() {
       await tx.variantAttributeValue.createMany({
         data: db.variantAttributeValues.map((x) => ({
           ...x,
-          attributeId: attrMap.get(x.attributeId)!,
           attributeValueId: valMap.get(x.attributeValueId)!,
         })),
         skipDuplicates: true,
@@ -466,26 +361,6 @@ async function main() {
         skipDuplicates: true,
       });
       await tx.modelFile.createMany({ data: db.modelFiles as never, skipDuplicates: true });
-
-      await tx.product360Config.createMany({
-        data: db.product360.map((c) => ({
-          id: c.productId,
-          productId: c.productId,
-          enabled: c.enabled,
-          autoRotate: c.autoRotate,
-          rotationSpeed: c.rotationSpeed,
-          frameCount: c.frameCount,
-          defaultColorId: valMap.get(c.defaultColorId) ?? null,
-        })),
-        skipDuplicates: true,
-      });
-      await tx.product360Frame.createMany({ data: frames360, skipDuplicates: true });
-      for (const c of db.product360) {
-        await rawTx.product360Config.update({
-          where: { productId: c.productId },
-          data: { defaultColorId: valMap.get(c.defaultColorId) ?? null },
-        });
-      }
 
       // không gian mẫu
       await tx.space.createMany({
@@ -504,40 +379,6 @@ async function main() {
         data: db.spaceProductPlacements.filter((p) => placedPanos.has(p.panoramaId)),
         skipDuplicates: true,
       });
-      await tx.spaceBookmark.createMany({ data: db.spaceBookmarks, skipDuplicates: true });
-      await tx.spaceView.createMany({
-        data: db.spaceViews.map((v) => ({ ...v, visitorId: v.visitorId ? fixUuid(v.visitorId) : null })),
-        skipDuplicates: true,
-      });
-      // lượt xem 30 ngày gần nhất (phễu không gian mẫu): dữ liệu mock cũ chỉ kéo đến tháng 10 nên khoảng mặc định sẽ trống
-      {
-        const sp = await tx.space.findMany({
-          where: { status: 'published' },
-          orderBy: { id: 'asc' },
-          take: 12,
-          select: { id: true },
-        });
-        const pr = await tx.product.findMany({
-          where: { deletedAt: null, status: 'published' },
-          orderBy: { id: 'asc' },
-          take: 16,
-          select: { id: true },
-        });
-        const us = await tx.user.findMany({
-          where: { deletedAt: null },
-          orderBy: { id: 'asc' },
-          take: 10,
-          select: { id: true },
-        });
-        await tx.spaceView.createMany({
-          data: recentSpaceViews(
-            sp.map((x) => x.id),
-            pr.map((x) => x.id),
-            us.map((x) => x.id),
-          ),
-        });
-      }
-
       // giỏ hàng, yêu thích, mã giảm giá
       await tx.cart.createMany({ data: db.carts, skipDuplicates: true });
       await tx.cartItem.createMany({ data: db.cartItems, skipDuplicates: true });
@@ -551,29 +392,8 @@ async function main() {
             type: x?.kind === 'freeship' ? ('freeship' as const) : c.type,
             name: x?.name ?? null,
             description: x?.description ?? null,
-            appliesTo: x?.appliesTo ?? 'all',
-            appliesToLabel: x?.appliesToLabel ?? 'Tất cả sản phẩm',
           };
         }),
-        skipDuplicates: true,
-      });
-      for (const c of db.coupons) {
-        const x = cx.get(c.id);
-        if (x) await rawTx.coupon.update({ where: { id: c.id }, data: { appliesToLabel: x.appliesToLabel } });
-      }
-      await tx.couponScope.createMany({
-        data: db.couponExtras.flatMap((x) =>
-          x.categoryIds.map((id) => ({ couponId: x.couponId, targetType: 'category', targetId: id })),
-        ),
-        skipDuplicates: true,
-      });
-      await tx.userCoupon.createMany({
-        data: db.userCoupons.map((u) => ({
-          id: u.id,
-          userId: u.userId,
-          couponId: u.couponId,
-          savedAt: u.savedAt,
-        })),
         skipDuplicates: true,
       });
 
@@ -597,79 +417,23 @@ async function main() {
       await tx.payment.createMany({ data: db.payments as never, skipDuplicates: true });
       await tx.shipment.createMany({ data: db.shipments, skipDuplicates: true });
       await tx.couponUsage.createMany({ data: db.couponUsages, skipDuplicates: true });
-      await tx.inventoryMovement.createMany({
-        data: db.inventoryMovements.filter((m) => m.quantityChange !== 0), // DB cấm dòng biến động bằng 0
-        skipDuplicates: true,
-      });
 
-      // đánh giá, hỏi đáp, đổi trả
+      // đánh giá
       const rx = new Map(db.reviewExtras.map((x) => [x.reviewId, x]));
       await tx.review.createMany({
         data: db.reviews.map((r) => ({ ...r, tags: rx.get(r.id)?.tags ?? [] })),
         skipDuplicates: true,
       });
-      await tx.reviewImage.createMany({ data: reviewImageRows, skipDuplicates: true });
-      await tx.productQuestion.createMany({
-        data: db.productQuestions.map((q) => ({
-          id: q.id,
-          productId: q.productId,
-          userId: q.userId,
-          content: q.content,
-          answer: q.answer,
-          answeredBy: q.answeredBy,
-          answeredAt: q.answeredAt,
-          isPublic: q.isPublic,
-          status: q.status,
-          createdAt: q.createdAt,
-        })),
-        skipDuplicates: true,
-      });
-      await tx.returnRequest.createMany({
-        data: db.returnRequests.map((r) => ({
-          id: r.id,
-          code: r.code,
-          orderId: r.orderId,
-          userId: r.userId,
-          type: r.type,
-          reason: r.reason,
-          description: r.description,
-          status: r.status,
-          refundAmount: r.refundAmount,
-          adminNote: r.adminNote,
-          createdAt: r.createdAt,
-          updatedAt: r.updatedAt,
-        })),
-        skipDuplicates: true,
-      });
-      const retItems: Array<{ requestId: number; orderItemId: number; quantity: number }> = [];
-      for (const r of db.returnRequests) {
-        for (const it of r.items) {
-          const oi = db.orderItems.find((x) => x.orderId === r.orderId && x.productName === it.productName);
-          if (oi) retItems.push({ requestId: r.id, orderItemId: oi.id, quantity: it.quantity });
-        }
-      }
-      await tx.returnRequestItem.createMany({ data: retItems, skipDuplicates: true });
-      await tx.returnRequestImage.createMany({ data: returnImageRows, skipDuplicates: true });
 
       await tx.notification.createMany({ data: db.notifications as never, skipDuplicates: true });
       await tx.activityLog.createMany({ data: db.activityLogs as never, skipDuplicates: true });
 
       // nội dung
-      await tx.page.createMany({
-        data: db.pages.map((p) => ({ ...p, type: p.slug.startsWith('chinh-sach') ? 'policy' : 'static' })),
-        skipDuplicates: true,
-      });
       // FAQ lưu trong settings (khóa faq) theo chuẩn: không có bảng riêng
       await tx.setting.upsert({
         where: { key: 'faq' },
         update: { value: db.faqTopics as never },
         create: { key: 'faq', value: db.faqTopics as never, description: 'Câu hỏi thường gặp theo chủ đề' },
-      });
-      await tx.banner.createMany({ data: bannerRows, skipDuplicates: true });
-      await tx.post.createMany({ data: postRows, skipDuplicates: true });
-      await tx.contactMessage.createMany({
-        data: db.contactMessages.map((c) => ({ ...c })),
-        skipDuplicates: true,
       });
       for (const s of db.settings) {
         await tx.setting.upsert({
@@ -679,67 +443,12 @@ async function main() {
         });
       }
 
-      // kho & chi
-      await tx.stockReceipt.createMany({
-        data: db.stockReceipts.map((r) => ({
-          id: r.id,
-          code: r.code,
-          type: r.type,
-          supplierName: r.supplierName,
-          orderCode: r.orderCode,
-          status: r.status,
-          createdAt: r.createdAt,
-        })),
-        skipDuplicates: true,
-      });
-      const variantIds = db.productVariants.map((v) => v.id);
-      let receiptItemId = 0;
-      await tx.stockReceiptItem.createMany({
-        data: db.stockReceipts.flatMap((r) => {
-          // Mock chỉ lưu tổng tiền và số dòng → dựng các dòng (1 cái/dòng) cộng đúng bằng tổng
-          const n = Math.max(1, r.itemCount);
-          const base = Math.floor(r.total / n);
-          return Array.from({ length: n }, (_, i) => ({
-            id: ++receiptItemId,
-            receiptId: r.id,
-            variantId: variantIds[(r.id * 7 + i * 13) % variantIds.length],
-            quantity: 1,
-            costPrice: i === n - 1 ? r.total - base * (n - 1) : base,
-          }));
-        }),
-        skipDuplicates: true,
-      });
-      await tx.expense.createMany({
-        data: db.expenses.map((e) => ({
-          id: e.id,
-          code: e.code,
-          category: e.category,
-          amount: e.amount,
-          note: e.note,
-          date: new Date(ymd(e.date)),
-        })),
-        skipDuplicates: true,
-      });
-
-      // bộ đếm mã (mỗi loại: giá trị hiện lớn nhất để mã mới không trùng)
-      const maxSuffix = (codes: string[]) =>
-        codes.reduce((m, c) => Math.max(m, Number(c.match(/(\d+)$/)?.[1] ?? 0)), 0);
-      const counters: Array<[string, number]> = [
-        ['RT', maxSuffix(db.returnRequests.map((r) => r.code))],
-        ['PN', maxSuffix(db.stockReceipts.filter((r) => r.type === 'in').map((r) => r.code))],
-        ['PX', maxSuffix(db.stockReceipts.filter((r) => r.type === 'out').map((r) => r.code))],
-        ['CH', maxSuffix(db.expenses.map((e) => e.code))],
-      ];
-      // ALV-YYYYMMDD-NNNN: bộ đếm theo ngày
-      const perDay = new Map<string, number>();
-      for (const o of db.orders) {
-        const m = o.orderCode.match(/^ALV-(\d{8})-(\d+)$/);
-        if (m) perDay.set(m[1], Math.max(perDay.get(m[1]) ?? 0, Number(m[2])));
-      }
-      for (const [d, n] of perDay) counters.push([`ORD:${d}`, n]);
-      for (const [key, value] of counters) {
-        await tx.codeCounter.upsert({ where: { key }, update: { value }, create: { key, value } });
-      }
+      // mã đơn hàng: order_code_seq kế tiếp = số lớn nhất ở cuối các mã đơn hiện có + 1 (mã mới không trùng mã mock)
+      const maxOrderSuffix = db.orders.reduce(
+        (m, o) => Math.max(m, Number(o.orderCode.match(/(\d+)$/)?.[1] ?? 0)),
+        0,
+      );
+      await tx.$executeRawUnsafe(`SELECT setval('order_code_seq', ${maxOrderSuffix + 1}, false)`);
 
       // sold_count = tổng số lượng của các đơn đã hoàn tất (quy tắc QUY_UOC_CODE_DB 5.2), không dùng số tính sẵn của mock
       await tx.$executeRawUnsafe(`UPDATE products p

@@ -46,6 +46,7 @@ function add(
     phone,
     avatarMediaId,
     status,
+    role: id === ADMIN_ID ? 'admin' : 'user',
     emailVerifiedAt: verified ? created : null,
     lastLoginAt: iso(addDays(MOCK_NOW, -rng.int(0, 40))),
     deletedAt: null,

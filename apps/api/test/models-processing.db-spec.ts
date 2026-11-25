@@ -449,13 +449,11 @@ describe('Xử lý nền mô hình 3D (UC-ADM-13) – cần Redis', () => {
     expect((await api('delete', `/admin/models/${list.body.data[0].id}`, admin)).status).toBe(404);
   }, 90_000);
 
-  it('dữ liệu mẫu sofa-nordic: trang chi tiết, trang 360° và /model cùng trả một mô hình', async () => {
+  it('dữ liệu mẫu sofa-nordic: trang chi tiết và /model cùng trả một mô hình', async () => {
     const r = await api('get', '/products/sofa-nordic/model');
     expect(r.body.data.glbUrl).toMatch(/\.glb$/);
     const d = await api('get', '/products/sofa-nordic');
     expect(d.body.data.model.glbUrl).toBe(r.body.data.glbUrl);
-    const v = await api('get', '/products/sofa-nordic/360');
-    expect(v.body.data.product.model.glbUrl).toBe(r.body.data.glbUrl);
   });
 
   it('phân quyền: khách và người chưa đăng nhập không tải lên / đổi mô hình', async () => {

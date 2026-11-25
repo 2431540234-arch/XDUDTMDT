@@ -541,34 +541,6 @@ describe('Đăng xuất, đổi mật khẩu, giỏ hàng, mã giảm giá, tran
       expect(names((await api('get', '/categories')).body.data)).toContain(parent.slug);
     });
 
-    it('banner: chỉ banner đang bật và trong thời gian hiệu lực; công khai (không cần đăng nhập)', async () => {
-      const ids = async () =>
-        ((await api('get', '/banners')).body.data as Array<{ id: number }>).map((b) => b.id);
-      const before = await ids();
-      expect(before.length).toBeGreaterThan(0);
-      const b = await prisma.banner.findFirstOrThrow({ where: { id: before[0] } });
-      try {
-        await prisma.banner.update({ where: { id: b.id }, data: { isActive: false } });
-        expect(await ids()).not.toContain(b.id);
-        await prisma.banner.update({
-          where: { id: b.id },
-          data: { isActive: true, endAt: new Date(Date.now() - 86_400_000) },
-        });
-        expect(await ids()).not.toContain(b.id); // hết hạn
-        await prisma.banner.update({
-          where: { id: b.id },
-          data: { endAt: null, startAt: new Date(Date.now() + 86_400_000) },
-        });
-        expect(await ids()).not.toContain(b.id); // chưa tới hạn
-      } finally {
-        await prisma.banner.update({
-          where: { id: b.id },
-          data: { isActive: b.isActive, startAt: b.startAt, endAt: b.endAt },
-        });
-      }
-      expect(await ids()).toContain(b.id);
-    });
-
     it('không gian mới nhất: chỉ không gian đã đăng, giới hạn pageSize, sắp mới nhất trước', async () => {
       const r = await api('get', '/spaces?pageSize=4&sort=newest');
       expect(r.status).toBe(200);

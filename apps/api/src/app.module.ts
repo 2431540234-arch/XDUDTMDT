@@ -80,7 +80,7 @@ import { StorageModule } from './storage/storage.module';
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
-    // Sau JwtAuthGuard và RolesGuard: quyền chi tiết theo role_permissions (@RequirePermission)
+    // Sau JwtAuthGuard và RolesGuard: quyền chi tiết theo ROLE_PERMISSIONS và users.role (@RequirePermission)
     PermissionsService,
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],

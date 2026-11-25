@@ -1,6 +1,5 @@
-// Service gọi API nội dung công khai: banner, trang tĩnh, FAQ, liên hệ, cài đặt, thông báo
-import type { Page } from '@aurelia-living/shared-types';
-import type { Banner, NotificationView, Post, StoreSettings } from '@/types/api';
+// Service gọi API nội dung công khai: FAQ, cài đặt, thông báo
+import type { NotificationView, StoreSettings } from '@/types/api';
 import { http } from './api-client';
 
 export interface FaqTopic {
@@ -10,13 +9,7 @@ export interface FaqTopic {
 }
 
 export const contentApi = {
-  banners: () => http.get<Banner[]>('/banners'),
-  posts: () => http.get<Post[]>('/posts'),
-  page: (slug: string) => http.get<Page>(`/pages/${slug}`),
-  policies: () => http.get<Array<Pick<Page, 'slug' | 'title'>>>('/pages', { type: 'policy' }),
   faq: () => http.get<FaqTopic[]>('/faq'),
-  contact: (body: { fullName: string; phone: string; email: string; subject: string; content: string }) =>
-    http.post<null>('/contact', body),
   settings: () => http.get<StoreSettings>('/settings/public'),
 };
 

@@ -1,6 +1,6 @@
 import { expect, test, type ConsoleMessage, type Page, type Response } from '@playwright/test';
 
-// Màn hình admin của Mốc 2 (Tổng quan, Sản phẩm + tab Ảnh 360°, Danh mục, Đơn hàng, Khách hàng, Khuyến mãi).
+// Màn hình admin của Mốc 2 (Tổng quan, Sản phẩm, Danh mục, Đơn hàng, Khách hàng, Khuyến mãi).
 // Chạy được với mock (mặc định) và với API thật: E2E_USE_MOCK=false E2E_API_URL=http://localhost:4000
 
 async function visit(page: Page, path: string, expectText: string | RegExp) {
@@ -61,15 +61,6 @@ test('admin Mốc 2: khách bị từ chối, admin vào được các màn hìn
     ['/admin/promotions/new', 'Tạo khuyến mãi'],
   ];
   for (const [path, text] of pages) await visit(page, path, text);
-});
-
-test('admin: sản phẩm có tab Ảnh 360° hiển thị frame đã lưu', async ({ page }) => {
-  await adminLogin(page);
-  await page.goto('/admin/products/1');
-  await expect(page.getByText(/Sửa:/).first()).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('tab', { name: /360/ }).click();
-  await expect(page.getByText(/frame · kéo thả để đổi thứ tự/)).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText('Xem trước xoay')).toBeVisible();
 });
 
 test('admin: danh sách sản phẩm tìm kiếm và đơn hàng chuyển trạng thái', async ({ page }) => {

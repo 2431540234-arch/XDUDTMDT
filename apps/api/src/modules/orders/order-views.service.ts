@@ -6,8 +6,6 @@ import { CatalogViews, PRODUCT_INCLUDE } from '../../common/views/catalog-views.
 import { PrismaService } from '../../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
 
-export const RETURN_WINDOW_DAYS = 7;
-
 export const ORDER_INCLUDE = {
   orderItems: {
     orderBy: { id: 'asc' },
@@ -15,7 +13,7 @@ export const ORDER_INCLUDE = {
       variant: {
         include: {
           product: { include: PRODUCT_INCLUDE },
-          variantAttributeValues: { include: { attributeValue: { include: { attribute: true } } } },
+          variantAttributeValues: { include: { attributeValue: true } },
         },
       },
     },
@@ -23,7 +21,7 @@ export const ORDER_INCLUDE = {
   orderStatusHistory: {
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     include: {
-      changedByUser: { select: { id: true, fullName: true, userRoles: { include: { role: true } } } },
+      changedByUser: { select: { id: true, fullName: true, role: true } },
     },
   },
   payments: { orderBy: { id: 'asc' } },
@@ -60,7 +58,7 @@ export class OrderViewsService {
       const [users, stats] = await Promise.all([
         this.prisma.user.findMany({
           where: { id: { in: ids } },
-          include: { userRoles: { include: { role: true } }, avatarMedia: true },
+          include: { avatarMedia: true },
         }),
         this.users.stats(ids),
       ]);
@@ -105,7 +103,7 @@ export class OrderViewsService {
       itemCount: items.reduce((s, i) => s + i.quantity, 0),
       history: orderStatusHistory.map((h) => {
         const { changedByUser, ...hb } = h;
-        const isAdmin = changedByUser?.userRoles.some((r) => r.role.code === 'admin');
+        const isAdmin = changedByUser?.role === 'admin';
         return {
           ...hb,
           actorName:
@@ -129,10 +127,6 @@ export class OrderViewsService {
         : null,
       internalNote: o.internalNote ?? null,
       deliveredAt: delivered,
-      canReturnUntil:
-        o.status === 'completed' && delivered
-          ? new Date(delivered.getTime() + RETURN_WINDOW_DAYS * 86_400_000).toISOString()
-          : null,
     };
   }
 }

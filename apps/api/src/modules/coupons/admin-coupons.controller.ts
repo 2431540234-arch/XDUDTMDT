@@ -1,4 +1,4 @@
-// UC-ADM-19 – Quản trị khuyến mãi: /admin/coupons (chỉ role admin). Bảng: coupons, coupon_scopes, coupon_usages
+// UC-ADM-19 – Quản trị khuyến mãi: /admin/coupons (chỉ role admin). Bảng: coupons, coupon_usages
 import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';

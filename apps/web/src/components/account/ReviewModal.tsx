@@ -3,9 +3,7 @@
 // Modal viết/sửa đánh giá (WIREFRAME 7.8)
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import Button from '@/components/ui/Button';
-import Icon from '@/components/ui/Icon';
 import { Checkbox, Select } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import StarRating from '@/components/ui/StarRating';
@@ -35,7 +33,6 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [content, setContent] = useState('');
-  const [images, setImages] = useState<string[]>([]);
   const [anon, setAnon] = useState(false);
   const [err, setErr] = useState<{ rating?: string; content?: string }>({});
 
@@ -46,13 +43,11 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
       setRating(review.rating);
       setTags(review.tags);
       setContent(review.content ?? '');
-      setImages(review.images);
       setAnon(false);
     } else {
       setRating(0);
       setTags([]);
       setContent('');
-      setImages([]);
       setAnon(false);
       setSlug(items[0]?.productSlug ?? '');
     }
@@ -86,7 +81,6 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
             rating,
             content,
             tags,
-            images,
             anonymous: anon,
           }),
     onSuccess: () => {
@@ -110,16 +104,6 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
     setErr(x);
     if (!Object.keys(x).length) save.mutate();
   };
-  const addImages = async (files: FileList | null) => {
-    if (!files) return;
-    const room = 5 - images.length;
-    const picked = Array.from(files)
-      .slice(0, room)
-      .filter((f) => f.type.startsWith('image/') && f.size <= 5 * 1024 * 1024);
-    if (picked.length < Math.min(files.length, room)) toast.error('Chỉ nhận ảnh dưới 5MB.');
-    setImages([...images, ...(await Promise.all(picked.map(readAsDataUrl)))]);
-  };
-
   return (
     <Modal
       open={open}
@@ -229,36 +213,7 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
           </div>
           {!review && (
             <div>
-              <p className="mb-2 text-sm font-medium">Thêm ảnh (tối đa 5)</p>
-              <div className="flex flex-wrap gap-2">
-                {images.map((src, i) => (
-                  <div key={i} className="relative h-16 w-16 overflow-hidden rounded-md border border-line">
-                    <img src={src} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
-                    <button
-                      type="button"
-                      aria-label="Xóa ảnh"
-                      onClick={() => setImages(images.filter((_, k) => k !== i))}
-                      className="absolute right-0 top-0 rounded-bl bg-ink/70 p-0.5 text-white"
-                    >
-                      <Icon name="close" size={12} />
-                    </button>
-                  </div>
-                ))}
-                {images.length < 5 && (
-                  <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-md border-2 border-dashed border-line text-muted hover:border-primary hover:text-primary">
-                    <Icon name="image" size={18} />
-                    <span className="text-[10px]">Thêm ảnh</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      hidden
-                      onChange={(e) => addImages(e.target.files)}
-                    />
-                  </label>
-                )}
-              </div>
-              <div className="mt-4">
+              <div>
                 <Checkbox
                   label="Đánh giá ẩn danh"
                   checked={anon}

@@ -1,12 +1,10 @@
-// Service gọi API sản phẩm, danh mục, đánh giá, hỏi đáp, yêu thích, mô hình 3D
+// Service gọi API sản phẩm, danh mục, đánh giá, yêu thích, mô hình 3D
 import type {
   CategoryNode,
   Model3DView,
-  Product360Data,
   ProductDetail,
   ProductFacets,
   ProductListItem,
-  ProductQuestion,
   ReviewView,
 } from '@/types/api';
 import { http, type Query } from './api-client';
@@ -34,8 +32,6 @@ export const productApi = {
   facets: (q: ProductQuery) => http.get<ProductFacets>('/products/facets', q),
   detail: (slug: string) => http.get<ProductDetail>(`/products/${slug}`),
   model: (slug: string) => http.get<Model3DView | null>(`/products/${slug}/model`),
-  /** Dữ liệu xem 360° (ảnh theo màu, biến thể, chính sách) */
-  view360: (slug: string) => http.get<Product360Data>(`/products/${slug}/360`),
   related: (slug: string) => http.get<ProductListItem[]>(`/products/${slug}/related`),
   reviews: (slug: string, q: { page?: number; rating?: number } = {}) =>
     http.list<ReviewView>(`/products/${slug}/reviews`, q),
@@ -46,21 +42,13 @@ export const productApi = {
       rating: number;
       content: string;
       tags?: string[];
-      images?: string[];
       anonymous?: boolean;
     },
   ) => http.post<ReviewView>(`/products/${slug}/reviews`, body),
-  questions: (slug: string) => http.get<ProductQuestion[]>(`/products/${slug}/questions`),
-  askQuestion: (slug: string, content: string) =>
-    http.post<ProductQuestion>(`/products/${slug}/questions`, { content }),
 };
 
 export const categoryApi = {
   tree: () => http.get<CategoryNode[]>('/categories'),
-};
-
-export const brandApi = {
-  list: () => http.get<Array<{ id: number; name: string; slug: string }>>('/brands'),
 };
 
 export const wishlistApi = {

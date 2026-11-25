@@ -109,7 +109,7 @@ export default function AdminActivityLogsPage() {
         search={{
           value: st.action,
           onChange: (v) => patch({ action: v }),
-          placeholder: 'Lọc theo hành động (vd. brand, order)…',
+          placeholder: 'Lọc theo hành động (vd. product, order)…',
         }}
         selects={[
           {

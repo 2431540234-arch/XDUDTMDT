@@ -1,24 +1,13 @@
 // Bảng `coupons` (14 mã: giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc)
 import type { Coupon } from '@aurelia-living/shared-types';
-import { categories } from './categories';
 
 export interface CouponExtra {
-  // cột mở rộng (đã có trong DB): name, mô tả, phạm vi, loại freeship
+  // cột mở rộng (đã có trong DB): name, mô tả, loại freeship (mã áp cho toàn giỏ)
   couponId: number;
   name: string;
   description: string;
   kind: 'percent' | 'fixed' | 'freeship';
-  appliesTo: 'all' | 'category' | 'product' | 'space';
-  appliesToLabel: string;
-  categoryIds: number[];
 }
-
-const catId = (slug: string) => categories.find((c) => c.slug === slug)!.id;
-const sofaId = catId('sofa');
-const phongNguId = catId('phong-ngu');
-const guongId = catId('giuong');
-const tuId = catId('tu-quan-ao');
-const nightId = catId('tu-dau-giuong');
 
 interface Def {
   code: string;
@@ -34,7 +23,6 @@ interface Def {
   start: string;
   end: string | null;
   active?: boolean;
-  scope?: { label: string; categoryIds: number[] };
 }
 
 const defs: Def[] = [
@@ -146,7 +134,6 @@ const defs: Def[] = [
     used: 41,
     start: '2026-10-01T00:00:00.000Z',
     end: '2026-11-30T16:59:00.000Z',
-    scope: { label: 'Danh mục Sofa', categoryIds: [sofaId] },
   },
   {
     code: 'TET2027',
@@ -187,7 +174,6 @@ const defs: Def[] = [
     used: 58,
     start: '2026-08-01T00:00:00.000Z',
     end: '2026-12-31T16:59:00.000Z',
-    scope: { label: 'Phòng ngủ (giường, tủ)', categoryIds: [phongNguId, guongId, tuId, nightId] },
   },
   {
     code: 'VIP20',
@@ -255,7 +241,4 @@ export const couponExtras: CouponExtra[] = defs.map((d, i) => ({
   name: d.name,
   description: d.description,
   kind: d.kind,
-  appliesTo: d.scope ? 'category' : 'all',
-  appliesToLabel: d.scope?.label ?? 'Tất cả sản phẩm',
-  categoryIds: d.scope?.categoryIds ?? [],
 }));

@@ -21,9 +21,7 @@ const isStrongPassword = (v: string) =>
   v.length >= 8 && /\p{Lu}/u.test(v) && /\p{Ll}/u.test(v) && /[0-9]/.test(v);
 
 export function sessionUser(ctx: Ctx, u: DbUser) {
-  const roles = ctx.db.userRoles
-    .filter((r) => r.userId === u.id)
-    .map((r) => ctx.db.roles.find((x) => x.id === r.roleId)!.code as 'admin' | 'user');
+  const roles = [u.role];
   return {
     id: u.id,
     uuid: u.uuid,
@@ -83,6 +81,7 @@ export function register(ctx: Ctx): Result {
     phone,
     avatarMediaId: null,
     status: 'active',
+    role: 'user',
     emailVerifiedAt: null,
     lastLoginAt: at,
     deletedAt: null,
@@ -90,7 +89,6 @@ export function register(ctx: Ctx): Result {
     updatedAt: at,
   };
   ctx.db.users.push(u);
-  ctx.db.userRoles.push({ userId: id, roleId: 2, createdAt: at });
   ctx.db.userProfiles.push({ userId: id, gender: null, birthday: null, loyaltyPoints: 0, adminNote: null });
   ctx.db.credentials[id] = password;
   ctx.db.carts.push({ id: nextId(ctx.db.carts), userId: id, createdAt: at, updatedAt: at });

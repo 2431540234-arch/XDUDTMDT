@@ -1,7 +1,7 @@
 'use client';
 
 // Chi tiết sản phẩm (WIREFRAME 2.3): gallery | thông tin → banner 3D → tabs → sản phẩm liên quan
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -16,7 +16,7 @@ import { EmptyState, ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useProduct } from '@/hooks/useProducts';
 import { discountPercent } from '@/lib/format';
 import { pushRecent } from '@/lib/recent';
-import { parseVariantQuery, variantQuery } from '@/lib/variant';
+import { parseVariantQuery } from '@/lib/variant';
 import { productApi } from '@/services/product.api';
 import { spaceApi } from '@/services/space.api';
 import { ApiClientError } from '@/services/api-client';
@@ -35,11 +35,10 @@ export default function ProductDetailPage() {
     queryFn: () => spaceApi.list({ product: slug, pageSize: 3, sort: 'popular' }),
     enabled: Boolean(q.data),
   });
-  const qc = useQueryClient();
   const [color, setColor] = useState<string | null>(null);
   const [size, setSize] = useState<string | null>(null);
   const [active, setActive] = useState(0);
-  const [tab, setTab] = useState<'desc' | 'specs' | 'reviews' | 'qa'>('desc');
+  const [tab, setTab] = useState<'desc' | 'reviews'>('desc');
 
   const p = q.data;
   // chọn mặc định theo biến thể mặc định của sản phẩm
@@ -114,10 +113,6 @@ export default function ProductDetailPage() {
           active={active}
           onActive={setActive}
           model3dHref={p.model ? `/products/${p.slug}/3d` : null}
-          href360={p.has360 ? `/products/${p.slug}/360${variantQuery(color, size)}` : null}
-          onPrefetch360={() => {
-            void qc.prefetchQuery({ queryKey: ['p360', p.slug], queryFn: () => productApi.view360(p.slug) });
-          }}
           discount={discountPercent(price, original)}
         />
         <ProductInfo
