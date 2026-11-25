@@ -29,7 +29,7 @@ const GROUPS: Array<{ title: string; methods: PaymentMethod[]; logos?: string[] 
   { title: 'Thanh toán khi nhận hàng', methods: ['cod'] },
   { title: 'Chuyển khoản ngân hàng', methods: ['bank_transfer'] },
   { title: 'Thẻ ngân hàng / Thẻ tín dụng', methods: ['card'], logos: ['VISA', 'Mastercard', 'JCB'] },
-  { title: 'Ví điện tử', methods: ['momo', 'zalopay', 'vnpay'] },
+  { title: 'Cổng thanh toán', methods: ['vnpay'] },
 ];
 
 function Step({
@@ -280,9 +280,9 @@ function CheckoutContent() {
                   </div>
                 );
               })}
-              {['card', 'momo', 'zalopay', 'vnpay'].includes(method) && (
+              {['card', 'vnpay'].includes(method) && (
                 <p className="rounded-btn bg-surface-muted px-3 py-2 text-xs text-muted">
-                  Bạn sẽ được chuyển tới cổng thanh toán (sandbox mô phỏng) để hoàn tất giao dịch.
+                  Bạn sẽ được chuyển tới cổng thanh toán (môi trường thử nghiệm) để hoàn tất giao dịch.
                 </p>
               )}
             </div>

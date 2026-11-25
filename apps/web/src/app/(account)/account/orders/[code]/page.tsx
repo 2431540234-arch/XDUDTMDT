@@ -200,11 +200,16 @@ export default function OrderDetailPage() {
             <div className="mt-2">
               <StatusBadge info={paymentStatusInfo[o.paymentStatus]} />
             </div>
-            {canPayAgain && (
-              <Button size="sm" className="mt-3" loading={retry.isPending} onClick={() => retry.mutate()}>
-                Thanh toán ngay
-              </Button>
-            )}
+            {canPayAgain &&
+              (o.paymentMethod === 'momo' || o.paymentMethod === 'zalopay' ? (
+                <LinkButton size="sm" className="mt-3" href={`/checkout/failed?order=${o.orderCode}`}>
+                  Chọn phương thức thanh toán khác
+                </LinkButton>
+              ) : (
+                <Button size="sm" className="mt-3" loading={retry.isPending} onClick={() => retry.mutate()}>
+                  Thanh toán ngay
+                </Button>
+              ))}
           </section>
           <section className="card space-y-2 p-5 text-sm">
             <h2 className="mb-1 font-bold">Tổng tiền</h2>

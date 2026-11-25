@@ -391,6 +391,8 @@ export function adminCreateOrder(ctx: Ctx): Result {
   if (!user) errs.userId = 'Vui lòng chọn khách hàng.';
   if (!Array.isArray(b.items) || !b.items.length) errs.items = 'Vui lòng thêm ít nhất một sản phẩm.';
   if (!b.paymentMethod) errs.paymentMethod = 'Vui lòng chọn phương thức thanh toán.';
+  if (b.paymentMethod === 'momo' || b.paymentMethod === 'zalopay')
+    errs.paymentMethod = 'Phương thức này không còn được hỗ trợ.';
   if (Object.keys(errs).length) throw validation(errs);
   const addr =
     db.addresses.find((a) => a.userId === user!.id && a.isDefault) ??
@@ -478,6 +480,11 @@ export function setOrderStatus(ctx: Ctx): Result {
   if (to === 'completed') throw new ApiFail('INVALID_STATE', 'Hoàn tất khi vận đơn được đánh dấu đã giao.');
   if (!NEXT[o.status]?.includes(to))
     throw new ApiFail('INVALID_STATE', `Không thể chuyển đơn từ "${o.status}" sang "${to}".`);
+  if (to === 'processing' && ['vnpay', 'card'].includes(o.paymentMethod) && o.paymentStatus !== 'paid')
+    throw new ApiFail(
+      'INVALID_STATE',
+      'Đơn thanh toán qua VNPAY/thẻ chưa nhận được tiền nên chưa thể chuyển sang "Đang xử lý".',
+    );
   if (
     to === 'shipping' &&
     !db.shipments.some((s) => s.orderId === o.id && !['failed', 'returned'].includes(s.status))

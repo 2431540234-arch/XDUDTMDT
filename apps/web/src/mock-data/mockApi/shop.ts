@@ -348,7 +348,7 @@ export function createOrder(ctx: Ctx): Result {
   const errs: Record<string, string> = {};
   const addr = db.addresses.find((a) => a.id === Number(addressId) && a.userId === u.id);
   if (!addr) errs.addressId = 'Vui lòng chọn địa chỉ nhận hàng.';
-  const methods: PaymentMethod[] = ['cod', 'bank_transfer', 'momo', 'vnpay', 'zalopay', 'card'];
+  const methods: PaymentMethod[] = ['cod', 'bank_transfer', 'vnpay', 'card'];
   if (!methods.includes(paymentMethod)) errs.paymentMethod = 'Vui lòng chọn phương thức thanh toán.';
   if (Object.keys(errs).length) throw validation(errs);
 
@@ -501,6 +501,11 @@ export function retryPayment(ctx: Ctx): Result {
   if (!o) throw notFound('Đơn hàng');
   if (o.paymentStatus === 'paid') throw new ApiFail('INVALID_STATE', 'Đơn hàng đã được thanh toán.');
   if (o.status === 'cancelled') throw new ApiFail('INVALID_STATE', 'Đơn hàng đã bị hủy.');
+  if (o.status !== 'pending' && o.status !== 'confirmed')
+    throw new ApiFail('INVALID_STATE', 'Chỉ thanh toán được khi đơn đang chờ xác nhận hoặc đã xác nhận.');
+  const wanted = String(ctx.body?.method || o.paymentMethod);
+  if (wanted === 'momo' || wanted === 'zalopay')
+    throw validation({ paymentMethod: 'Phương thức này không còn được hỗ trợ.' });
   if (ctx.body?.method) {
     o.paymentMethod = ctx.body.method;
     const pay = ctx.db.payments.find((p) => p.orderId === o.id)!;
@@ -513,3 +518,6 @@ export function retryPayment(ctx: Ctx): Result {
 }
 
 void variantViews;
+
+/** Chế độ mock không chuyển sang cổng VNPAY thật nên không có chữ ký nào hợp lệ */
+export const vnpayReturnStatus = (): Result => ok({ valid: false });
