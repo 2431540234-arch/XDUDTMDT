@@ -1,4 +1,4 @@
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
 
 # Đặc tả chức năng theo vai trò
 
@@ -14,7 +14,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 | Nguồn | Dùng để |
 | --- | --- |
-| [CAU_TRUC_DB.md](CAU_TRUC_DB.md) | Nghiệp vụ của 42 bảng (đã bỏ 2 bảng AR) |
+| [CAU_TRUC_DB.md](CAU_TRUC_DB.md) | Nghiệp vụ của 32 bảng |
 | `apps/api/prisma/schema.prisma` | Tên model, field, enum, quan hệ (nguồn chuẩn) |
 | [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Từ điển dữ liệu, trigger, ánh xạ bảng ↔ model |
 | [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) | Việc trigger đã làm; việc Service tự làm trong `prisma.$transaction` |
@@ -34,41 +34,42 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 ### 1.4. Phạm vi hiệu lực (cập nhật 2026-11-09)
 
-Tài liệu mô tả **80 use case**. Phạm vi triển khai và nghiệm thu hiện hành là **70 use case đang hoạt động**; 10 use case còn lại nằm ngoài phạm vi:
+Tài liệu mô tả **80 use case**. Phạm vi triển khai và nghiệm thu hiện hành là **65 use case đang hoạt động**; 15 use case còn lại nằm ngoài phạm vi:
 
 | Nhóm loại khỏi phạm vi | Số UC | Mã UC | Căn cứ |
 | --- | ---: | --- | --- |
 | Ứng dụng Android | 4 | UC-MOB-01..04 | Làm sau khi web xong (D-P06); chưa thuộc nghiệm thu web/API |
 | AR (đã loại bỏ hoàn toàn) | 6 | UC-3D-02, UC-3D-04, UC-3D-05, UC-3D-06, UC-3D-07, UC-ADM-30 | D-P11, D-P16 |
-| **Tổng ngoài phạm vi** | **10** | | |
-| **Đang hoạt động** | **70** | | 80 − 4 − 6 |
+| Gỡ khi rút gọn CSDL | 5 | UC-ADM-06, UC-ADM-07, UC-ADM-29, UC-SPACE-04, UC-SPACE-06 | D-D10, D-D12, D-D15 |
+| **Tổng ngoài phạm vi** | **15** | | |
+| **Đang hoạt động** | **65** | | 80 − 4 − 6 − 5 |
 
-Chi tiết 6 UC AR đã loại bỏ: [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi). Trạng thái triển khai từng UC (70/70 có BE, FE và test): [DOI_CHIEU_UC.md](DOI_CHIEU_UC.md). Chức năng có trong code nhưng đặc tả chưa có: [mục 16](#16-bổ-sung-theo-code-chưa-có-trong-đặc-tả-gốc). Đăng nhập Google: **Đã hoãn** (mục 16).
+Chi tiết 6 UC AR đã loại bỏ: [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi). Trạng thái triển khai từng UC (65/65 có BE, FE và test): [DOI_CHIEU_UC.md](DOI_CHIEU_UC.md). Chức năng có trong code nhưng đặc tả chưa có: [mục 16](#16-bổ-sung-theo-code-chưa-có-trong-đặc-tả-gốc). Đăng nhập Google: **Đã hoãn** (mục 16).
 
-Ghi chú: D-P11 trước đây ghi "7 UC AR"; con số đúng là **6** UC AR bị loại bỏ. UC thứ bảy trong danh sách đó là **UC-ADM-29** (Thống kê AR và phễu không gian mẫu), **vẫn đang hoạt động** nhưng chỉ còn phần phễu không gian mẫu (`GET /admin/stats/spaces`); phần thống kê AR đã bỏ. Các mục của UC ngoài phạm vi bên dưới được giữ để tham khảo lịch sử, đánh dấu **[ĐÃ LOẠI BỎ – D-P16]**; không triển khai và không kiểm thử.
+Ghi chú: D-P11 trước đây ghi "7 UC AR"; con số đúng là **6** UC AR bị loại bỏ. UC thứ bảy trong danh sách đó là **UC-ADM-29** (Thống kê AR và phễu không gian mẫu); nó từng còn phần phễu nhưng nay cũng đã gỡ (D-D10), trước đây nó chỉ còn phần phễu không gian mẫu (`GET /admin/stats/spaces`); phần thống kê AR đã bỏ. Các mục của UC ngoài phạm vi bên dưới được giữ để tham khảo lịch sử, đánh dấu **[ĐÃ LOẠI BỎ – D-P16]**; không triển khai và không kiểm thử.
 
 ## 2. Vai trò
 
 | Vai trò | Lưu trong CSDL | Phạm vi |
 | --- | --- | --- |
-| Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `Role`) | CHỈ xem (trên web hoặc app Android UC-MOB): trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/360°, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá, lưu không gian đều yêu cầu đăng nhập. Lượt xem không gian mẫu được ghi ẩn danh (`SpaceView` với `visitorId`) |
-| Người dùng (user) | `User (users)` + `Role (roles)` = `user` | Mọi quyền của khách + hồ sơ, đổi mật khẩu, quản lý phiên đăng nhập, sổ địa chỉ, giỏ hàng, áp mã, đặt hàng, thanh toán, theo dõi/hủy đơn, đánh giá sản phẩm đã mua, yêu thích, lưu không gian mẫu, thông báo. Chỉ thao tác dữ liệu của chính mình |
-| Quản trị viên (admin) | `User (users)` + `Role (roles)` = `admin`, có đủ 6 quyền | Toàn bộ quản trị: người dùng, vai trò, cài đặt, media, danh mục, trang tĩnh, thương hiệu, thuộc tính, sản phẩm, biến thể, ảnh, tồn kho, mô hình 3D, không gian mẫu, đánh giá, mã giảm giá, đơn hàng, thanh toán, vận chuyển, nhật ký, thống kê |
+| Khách vãng lai | **Không lưu** (không có tài khoản) | CHỈ xem (trên web hoặc app Android UC-MOB): trang chủ, danh mục, tìm kiếm, chi tiết sản phẩm, 3D/360°, không gian mẫu 360°, trang tĩnh, đánh giá đã duyệt. Được đăng ký, đăng nhập, quên mật khẩu. Thêm vào giỏ, mua, áp mã, yêu thích, đánh giá đều yêu cầu đăng nhập |
+| Người dùng (user) | `User (users)` với `role = user` | Mọi quyền của khách + hồ sơ, đổi mật khẩu, quản lý phiên đăng nhập, sổ địa chỉ, giỏ hàng, áp mã, đặt hàng, thanh toán, theo dõi/hủy đơn, đánh giá sản phẩm đã mua, yêu thích, thông báo. Chỉ thao tác dữ liệu của chính mình |
+| Quản trị viên (admin) | `User (users)` với `role = admin`, có đủ 6 quyền | Toàn bộ quản trị: người dùng, vai trò, cài đặt, media, danh mục, thuộc tính, sản phẩm (kèm thương hiệu dạng chữ), biến thể, ảnh, xem tồn kho, mô hình 3D, không gian mẫu, đánh giá, mã giảm giá, đơn hàng, thanh toán, vận chuyển, nhật ký, thống kê |
 | Tác nhân ngoài | Không lưu | Cổng thanh toán (VNPay sandbox; MoMo, ZaloPay là hướng phát triển, FR11, D-N20), đơn vị vận chuyển (GHN, GHTK, Viettel Post), dịch vụ email |
 
 **Quy tắc kế thừa quyền:** User ⊃ Khách (user làm được mọi việc của khách). Admin là vai trò quản trị riêng: đăng nhập như user nhưng dùng khu vực `/dashboard`, `/admin/*` và API `/api/admin/*`; admin cũng xem được mọi nội dung công khai. Không có vai trò `staff`, `editor`, `customer`, `guest` trong CSDL.
 
-**Quyền chi tiết của admin** (`Permission (permissions)`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Mỗi UC quản trị ghi quyền cần có. Guard cần có: `JwtAuthGuard`, `RolesGuard` (đã có khung), `PermissionsGuard` [CẦN TẠO MỚI] (đọc `role_permissions`), `OptionalJwtAuthGuard` [CẦN TẠO MỚI] (cho API ghi lượt xem không gian mẫu ẩn danh).
+**Quyền chi tiết của admin** (hằng số `ROLE_PERMISSIONS`, không còn bảng `permissions`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Mỗi UC quản trị ghi quyền cần có. Guard cần có: `JwtAuthGuard`, `RolesGuard` (đã có khung), `PermissionsGuard` (đọc hằng số `ROLE_PERMISSIONS` theo `users.role`).
 
 
 ## 3. Danh sách use case
 
-Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 UC thuộc nhóm **UC-MOB** (ứng dụng Android, mục 7.1).
+Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 UC thuộc nhóm **UC-MOB** (ứng dụng Android, mục 7.1); 65 UC đang hoạt động (6 UC AR và 5 UC gỡ khi rút gọn CSDL được gạch ngang).
 
 | Mã | Tên | Nhóm | Vai trò | Ưu tiên | Model liên quan | Nguồn |
 | --- | --- | --- | --- | --- | --- | --- |
-| UC-AUTH-01 | Đăng ký tài khoản | Xác thực | Khách | Bắt buộc | User, UserSession, UserRole | CSDL (users, user_roles, user_sessions) |
-| UC-AUTH-02 | Đăng nhập | Xác thực | Khách, User, Admin | Bắt buộc | User, UserSession, UserRole, Role | CSDL (users, user_sessions) |
+| UC-AUTH-01 | Đăng ký tài khoản | Xác thực | Khách | Bắt buộc | User, UserSession | CSDL (users, user_sessions) |
+| UC-AUTH-02 | Đăng nhập | Xác thực | Khách, User, Admin | Bắt buộc | User, UserSession | CSDL (users, user_sessions) |
 | UC-AUTH-03 | Làm mới access token | Xác thực | User, Admin | Bắt buộc | UserSession, User | CSDL (user_sessions) |
 | UC-AUTH-04 | Đăng xuất | Xác thực | User, Admin | Bắt buộc | UserSession | CSDL (user_sessions) |
 | UC-AUTH-05 | Quên mật khẩu (yêu cầu đặt lại) | Xác thực | Khách, User, Admin | Bắt buộc | User, PasswordReset | CSDL (password_resets) |
@@ -82,18 +83,18 @@ Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 U
 | UC-ACC-06 | Quản lý danh sách yêu thích | Tài khoản | Khách (phải đăng nhập), User (của mình) | Nên có | Wishlist, Product | CSDL (wishlists) |
 | UC-ACC-07 | Yêu cầu xóa tài khoản (xóa mềm) | Tài khoản | Khách (phải đăng nhập), User (của mình) | Mở rộng | User, UserSession | [ĐỀ XUẤT] (users.deletedAt) |
 | UC-CAT-01 | Xem trang chủ | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Product, Category, Space, Setting | CSDL (products, categories, spaces) |
-| UC-CAT-02 | Duyệt sản phẩm theo danh mục | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Category, Product, ProductVariant, ProductImage, Brand | CSDL (categories, products, product_variants) |
+| UC-CAT-02 | Duyệt sản phẩm theo danh mục | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Category, Product, ProductVariant, ProductImage | CSDL (categories, products, product_variants) |
 | UC-CAT-03 | Tìm kiếm sản phẩm | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Product, ProductImage | CSDL (products, index trigram idx_products_name_trgm) |
-| UC-CAT-04 | Xem chi tiết sản phẩm | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Product, ProductVariant, VariantAttributeValue, AttributeValue, Attribute, ProductImage, Media, Brand, Category, Product3DModel, Review | CSDL (products, product_variants, product_images, reviews) |
-| UC-CAT-05 | Xem trang tĩnh | Danh mục & sản phẩm | Khách, User, Admin | Nên có | Page | CSDL (pages) |
+| UC-CAT-04 | Xem chi tiết sản phẩm | Danh mục & sản phẩm | Khách, User, Admin | Bắt buộc | Product, ProductVariant, VariantAttributeValue, AttributeValue, ProductImage, Media, Category, Product3DModel, Review | CSDL (products, product_variants, product_images, reviews) |
+| UC-CAT-05 | Xem trang tĩnh | Danh mục & sản phẩm | Khách, User, Admin | Nên có | — | [ĐỀ XUẤT] |
 | UC-CAT-06 | Tìm kiếm sản phẩm không dấu | Danh mục & sản phẩm | Khách, User, Admin | Nên có | Product, ProductImage | [ĐỀ XUẤT] (products; cần migration index mới) |
 | UC-CART-01 | Thêm sản phẩm vào giỏ hàng | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Cart, CartItem, ProductVariant | CSDL (carts, cart_items) |
 | UC-CART-02 | Xem giỏ hàng | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Cart, CartItem, ProductVariant, Product, ProductImage | CSDL (carts, cart_items) |
 | UC-CART-03 | Cập nhật số lượng / xóa dòng trong giỏ | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | CartItem, Cart | CSDL (cart_items) |
 | UC-CART-04 | Áp mã giảm giá | Giỏ hàng | Khách (phải đăng nhập), User (của mình) | Nên có | Coupon, CouponUsage, Cart | CSDL (coupons, coupon_usages) |
-| UC-ORD-01 | Đặt hàng | Đơn hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Cart, CartItem, ProductVariant, Product, Address, Coupon, CouponUsage, Order, OrderItem, Payment, InventoryMovement, OrderStatusHistory, Notification, Setting | CSDL (orders, order_items, payments, inventory_movements, coupon_usages) |
+| UC-ORD-01 | Đặt hàng | Đơn hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Cart, CartItem, ProductVariant, Product, Address, Coupon, CouponUsage, Order, OrderItem, Payment, OrderStatusHistory, Notification, Setting | CSDL (orders, order_items, payments, coupon_usages) |
 | UC-ORD-02 | Xem và theo dõi đơn hàng của tôi | Đơn hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Order, OrderItem, OrderStatusHistory, Payment, Shipment | CSDL (orders, order_items, order_status_history, shipments, payments) |
-| UC-ORD-03 | Hủy đơn hàng | Đơn hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Order, OrderItem, ProductVariant, InventoryMovement, Coupon, CouponUsage, Payment, Notification, OrderStatusHistory | CSDL (orders, inventory_movements, coupon_usages) |
+| UC-ORD-03 | Hủy đơn hàng | Đơn hàng | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Order, OrderItem, ProductVariant, Coupon, CouponUsage, Payment, Notification, OrderStatusHistory | CSDL (orders, coupon_usages) |
 | UC-PAY-01 | Thanh toán đơn hàng online | Thanh toán | Khách (phải đăng nhập), User (của mình) | Bắt buộc | Order, Payment | CSDL (payments, orders) |
 | UC-PAY-02 | Nhận callback/IPN từ cổng thanh toán | Thanh toán | Hệ thống ngoài | Bắt buộc | Payment, Order, Notification, OrderStatusHistory | CSDL (payments, orders) |
 | UC-PAY-03 | Thanh toán lại đơn chưa thanh toán | Thanh toán | Khách (phải đăng nhập), User (của mình) | Nên có | Order, Payment | CSDL (payments) |
@@ -108,23 +109,23 @@ Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 U
 | UC-3D-06 | ~~Xem ảnh AR công khai "Khách hàng đã trải nghiệm"~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách, User, Admin | Nên có | — | — |
 | UC-3D-07 | ~~Ghi nhận thống kê phiên 3D/AR (ẩn danh)~~ **[ĐÃ LOẠI BỎ – D-P16]** | 3D | Khách, User, Admin | Mở rộng | — | — |
 | UC-SPACE-01 | Duyệt và tìm kiếm không gian mẫu | Không gian mẫu | Khách, User, Admin | Nên có | Space, Media, Category | CSDL (spaces, index idx_spaces_title_unaccent_trgm) |
-| UC-SPACE-02 | Xem không gian mẫu 360° | Không gian mẫu | Khách, User, Admin | Nên có | Space, SpacePanorama, SpaceHotspot, SpaceProductPlacement, Product, Product3DModel, ModelFile, Media, SpaceView | CSDL (spaces, space_panoramas, space_hotspots, space_product_placements, space_views) |
-| UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | Không gian mẫu | Khách, User, Admin | Nên có | SpaceHotspot, Product, ProductVariant | CSDL (space_hotspots, space_views) |
-| UC-SPACE-04 | Lưu / bỏ lưu không gian mẫu yêu thích | Không gian mẫu | Khách (phải đăng nhập), User (của mình) | Nên có | SpaceBookmark, Space | CSDL (space_bookmarks) |
+| UC-SPACE-02 | Xem không gian mẫu 360° | Không gian mẫu | Khách, User, Admin | Nên có | Space, SpacePanorama, SpaceHotspot, SpaceProductPlacement, Product, Product3DModel, ModelFile, Media | CSDL (spaces, space_panoramas, space_hotspots, space_product_placements) |
+| UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | Không gian mẫu | Khách, User, Admin | Nên có | SpaceHotspot, Product, ProductVariant | CSDL (space_hotspots) |
+| UC-SPACE-04 | ~~Lưu / bỏ lưu không gian mẫu yêu thích~~ **[ĐÃ GỠ – D-D10]** | Không gian mẫu | Khách (phải đăng nhập), User (của mình) | Nên có | — | — |
 | UC-SPACE-05 | Thử đổi món đồ trong phòng mẫu | Không gian mẫu | Khách, User, Admin | Mở rộng | SpaceProductPlacement, Product, Product3DModel | [ĐỀ XUẤT] (space_product_placements) |
-| UC-SPACE-06 | Ghi nhận lượt xem không gian mẫu (một lần khi rời trang) | Không gian mẫu | Khách, User, Admin | Mở rộng | SpaceView | CSDL (space_views) |
+| UC-SPACE-06 | ~~Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)~~ **[ĐÃ GỠ – D-D10]** | Không gian mẫu | Khách, User, Admin | Mở rộng | — | — |
 | UC-ADM-01 | Quản lý người dùng | Quản trị | Admin | Nên có | User, UserSession, Order | CSDL (users, user_sessions) |
-| UC-ADM-02 | Quản lý vai trò và phân quyền | Quản trị | Admin | Mở rộng | Role, Permission, RolePermission, UserRole | CSDL (roles, permissions, role_permissions, user_roles) |
+| UC-ADM-02 | Quản lý vai trò và phân quyền | Quản trị | Admin | Mở rộng | — | [ĐỀ XUẤT] |
 | UC-ADM-03 | Quản lý cài đặt hệ thống | Quản trị | Admin | Nên có | Setting | CSDL (settings) |
 | UC-ADM-04 | Quản lý media (ảnh, tệp) | Quản trị | Admin | Bắt buộc | Media | CSDL (media) |
 | UC-ADM-05 | Quản lý danh mục sản phẩm | Quản trị | Admin | Bắt buộc | Category, Media | CSDL (categories) |
-| UC-ADM-06 | Quản lý thương hiệu | Quản trị | Admin | Nên có | Brand, Media | CSDL (brands) |
-| UC-ADM-07 | Quản lý trang tĩnh | Quản trị | Admin | Nên có | Page | CSDL (pages) |
-| UC-ADM-08 | Quản lý thuộc tính và giá trị thuộc tính | Quản trị | Admin | Bắt buộc | Attribute, AttributeValue, VariantAttributeValue | CSDL (attributes, attribute_values) |
-| UC-ADM-09 | Quản lý sản phẩm | Quản trị | Admin | Bắt buộc | Product, Category, Brand, ProductVariant, ProductImage, ActivityLog | CSDL (products) |
-| UC-ADM-10 | Quản lý biến thể sản phẩm | Quản trị | Admin | Bắt buộc | ProductVariant, VariantAttributeValue, AttributeValue, Attribute | CSDL (product_variants, variant_attribute_values) |
+| UC-ADM-06 | ~~Quản lý thương hiệu~~ **[ĐÃ GỠ – D-D15]** | Quản trị | Admin | Nên có | — | — |
+| UC-ADM-07 | ~~Quản lý trang tĩnh~~ **[ĐÃ GỠ – D-D12]** | Quản trị | Admin | Nên có | — | — |
+| UC-ADM-08 | Quản lý thuộc tính và giá trị thuộc tính | Quản trị | Admin | Bắt buộc | AttributeValue, VariantAttributeValue | CSDL (attribute_values) |
+| UC-ADM-09 | Quản lý sản phẩm | Quản trị | Admin | Bắt buộc | Product, Category, ProductVariant, ProductImage, ActivityLog | CSDL (products) |
+| UC-ADM-10 | Quản lý biến thể sản phẩm | Quản trị | Admin | Bắt buộc | ProductVariant, VariantAttributeValue, AttributeValue | CSDL (product_variants, variant_attribute_values) |
 | UC-ADM-11 | Quản lý ảnh sản phẩm | Quản trị | Admin | Bắt buộc | ProductImage, Media, ProductVariant | CSDL (product_images) |
-| UC-ADM-12 | Nhập kho và điều chỉnh tồn kho | Quản trị | Admin | Bắt buộc | InventoryMovement, ProductVariant | CSDL (inventory_movements, product_variants) |
+| UC-ADM-12 | Xem tồn kho và điều chỉnh tồn qua biến thể (rút gọn, D-D10) | Quản trị | Admin | Bắt buộc | ProductVariant | CSDL (product_variants) |
 | UC-ADM-13 | Tải và quản lý mô hình 3D sản phẩm | Quản trị | Admin | Nên có | Product3DModel, ModelFile, Media, Product | CSDL (product_3d_models, model_files) |
 | UC-ADM-14 | Cấu hình biến thể chất liệu cho mô hình 3D | Quản trị | Admin | Mở rộng | ModelMaterialVariant, ProductVariant | CSDL (model_material_variants) |
 | UC-ADM-15 | Quản lý không gian mẫu và ảnh 360° | Quản trị | Admin | Nên có | Space, SpacePanorama, Media, Category | CSDL (spaces, space_panoramas) |
@@ -134,14 +135,14 @@ Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 U
 | UC-ADM-19 | Quản lý mã giảm giá | Quản trị | Admin | Nên có | Coupon, CouponUsage | CSDL (coupons, coupon_usages) |
 | UC-ADM-20 | Xem danh sách và chi tiết đơn hàng | Quản trị | Admin | Bắt buộc | Order, OrderItem, OrderStatusHistory, Payment, Shipment, User | CSDL (orders, order_items, order_status_history, payments, shipments) |
 | UC-ADM-21 | Cập nhật trạng thái đơn hàng | Quản trị | Admin | Bắt buộc | Order, OrderItem, Shipment, Notification, OrderStatusHistory | CSDL (orders, order_status_history) |
-| UC-ADM-22 | Hủy đơn hàng (quản trị) | Quản trị | Admin | Bắt buộc | Order, OrderItem, ProductVariant, InventoryMovement, Coupon, CouponUsage, Payment, Notification, OrderStatusHistory | CSDL (orders, inventory_movements, coupon_usages) |
-| UC-ADM-23 | Hoàn tiền thủ công | Quản trị | Admin | Nên có | Order, Payment, OrderItem, ProductVariant, InventoryMovement, Notification, OrderStatusHistory | CSDL (orders, payments) |
+| UC-ADM-22 | Hủy đơn hàng (quản trị) | Quản trị | Admin | Bắt buộc | Order, OrderItem, ProductVariant, Coupon, CouponUsage, Payment, Notification, OrderStatusHistory | CSDL (orders, coupon_usages) |
+| UC-ADM-23 | Hoàn tiền thủ công | Quản trị | Admin | Nên có | Order, Payment, OrderItem, ProductVariant, Notification, OrderStatusHistory | CSDL (orders, payments) |
 | UC-ADM-24 | Quản lý thanh toán (xác nhận chuyển khoản) | Quản trị | Admin | Nên có | Payment, Order, Notification | CSDL (payments, orders) |
 | UC-ADM-25 | Quản lý vận chuyển | Quản trị | Admin | Bắt buộc | Shipment, Order, OrderItem, Product, Payment, Notification, OrderStatusHistory | CSDL (shipments) |
 | UC-ADM-26 | Gửi thông báo cho người dùng | Quản trị | Admin | Mở rộng | Notification, User | [ĐỀ XUẤT] (notifications) |
 | UC-ADM-27 | Xem nhật ký hoạt động của quản trị viên | Quản trị | Admin | Mở rộng | ActivityLog, User | CSDL (activity_logs) |
 | UC-ADM-28 | Xem thống kê tổng quan | Quản trị | Admin | Mở rộng | Order, OrderItem, Product, User | [ĐỀ XUẤT] (orders, order_items, users) |
-| UC-ADM-29 | Thống kê phễu không gian mẫu (phần thống kê AR đã bỏ, D-P16) | Quản trị | Admin | Mở rộng | SpaceView, Space, Product | CSDL (space_views) |
+| UC-ADM-29 | ~~Thống kê phễu không gian mẫu~~ **[ĐÃ GỠ – D-D10]** | Quản trị | Admin | Mở rộng | — | — |
 | UC-ADM-30 | ~~Gỡ ảnh AR công khai không phù hợp~~ **[ĐÃ LOẠI BỎ – D-P16]** | Quản trị | Admin | Mở rộng | — | — |
 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Category, Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-02 (categories, products) |
 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-04 (products) |
@@ -199,21 +200,21 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-SPACE-01 | Duyệt và tìm kiếm không gian mẫu | ✔ | ✔ | ✔ |
 | UC-SPACE-02 | Xem không gian mẫu 360° | ✔ | ✔ | ✔ |
 | UC-SPACE-03 | Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng) | ✔ | ✔ | ✔ |
-| UC-SPACE-04 | Lưu / bỏ lưu không gian mẫu yêu thích | cần đăng nhập | chỉ của mình | ✘ |
+| UC-SPACE-04 | ~~Lưu / bỏ lưu không gian mẫu yêu thích~~ **[ĐÃ GỠ – D-D10]** | cần đăng nhập | chỉ của mình | ✘ |
 | UC-SPACE-05 | Thử đổi món đồ trong phòng mẫu | ✔ | ✔ | ✔ |
-| UC-SPACE-06 | Ghi nhận lượt xem không gian mẫu (một lần khi rời trang) | ✔ | ✔ | ✔ |
+| UC-SPACE-06 | ~~Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)~~ **[ĐÃ GỠ – D-D10]** | ✔ | ✔ | ✔ |
 | UC-ADM-01 | Quản lý người dùng | ✘ | ✘ | ✔ |
 | UC-ADM-02 | Quản lý vai trò và phân quyền | ✘ | ✘ | ✔ |
 | UC-ADM-03 | Quản lý cài đặt hệ thống | ✘ | ✘ | ✔ |
 | UC-ADM-04 | Quản lý media (ảnh, tệp) | ✘ | ✘ | ✔ |
 | UC-ADM-05 | Quản lý danh mục sản phẩm | ✘ | ✘ | ✔ |
-| UC-ADM-06 | Quản lý thương hiệu | ✘ | ✘ | ✔ |
-| UC-ADM-07 | Quản lý trang tĩnh | ✘ | ✘ | ✔ |
+| UC-ADM-06 | ~~Quản lý thương hiệu~~ **[ĐÃ GỠ – D-D15]** | ✘ | ✘ | ✔ |
+| UC-ADM-07 | ~~Quản lý trang tĩnh~~ **[ĐÃ GỠ – D-D12]** | ✘ | ✘ | ✔ |
 | UC-ADM-08 | Quản lý thuộc tính và giá trị thuộc tính | ✘ | ✘ | ✔ |
 | UC-ADM-09 | Quản lý sản phẩm | ✘ | ✘ | ✔ |
 | UC-ADM-10 | Quản lý biến thể sản phẩm | ✘ | ✘ | ✔ |
 | UC-ADM-11 | Quản lý ảnh sản phẩm | ✘ | ✘ | ✔ |
-| UC-ADM-12 | Nhập kho và điều chỉnh tồn kho | ✘ | ✘ | ✔ |
+| UC-ADM-12 | Xem tồn kho và điều chỉnh tồn qua biến thể (rút gọn, D-D10) | ✘ | ✘ | ✔ |
 | UC-ADM-13 | Tải và quản lý mô hình 3D sản phẩm | ✘ | ✘ | ✔ |
 | UC-ADM-14 | Cấu hình biến thể chất liệu cho mô hình 3D | ✘ | ✘ | ✔ |
 | UC-ADM-15 | Quản lý không gian mẫu và ảnh 360° | ✘ | ✘ | ✔ |
@@ -230,80 +231,52 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-ADM-26 | Gửi thông báo cho người dùng | ✘ | ✘ | ✔ |
 | UC-ADM-27 | Xem nhật ký hoạt động của quản trị viên | ✘ | ✘ | ✔ |
 | UC-ADM-28 | Xem thống kê tổng quan | ✘ | ✘ | ✔ |
-| UC-ADM-29 | Thống kê phễu không gian mẫu (phần thống kê AR đã bỏ, D-P16) | ✘ | ✘ | ✔ |
+| UC-ADM-29 | ~~Thống kê phễu không gian mẫu~~ **[ĐÃ GỠ – D-D10]** | ✘ | ✘ | ✔ |
 | UC-ADM-30 | ~~Gỡ ảnh AR công khai không phù hợp~~ **[ĐÃ LOẠI BỎ – D-P16]** | ✘ | ✘ | ✔ |
 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | ✔ | ✔ | ✔ |
 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | ✔ | ✔ | ✔ |
 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | ✔ | ✔ | ✔ |
 | UC-MOB-04 | Chụp ảnh ghép và lưu vào máy | ✔ | ✔ | ✔ |
 
-### 4.2. CRUD: 59 model × 3 vai trò (42 model chuẩn, số 28–29 đã bỏ cùng AR, và 17 model mở rộng số 45–61)
+### 4.2. CRUD: 32 model × 3 vai trò
 
 | # | Model (bảng) | Khách vãng lai | Người dùng | Quản trị viên | UC sử dụng |
 | --- | --- | --- | --- | --- | --- |
 | 1 | User (users) | C‡ (đăng ký) | R* U* D*(mềm) | R U D(mềm) | UC-AUTH-01, UC-AUTH-02, UC-AUTH-03, UC-AUTH-05… |
-| 2 | Role (roles) | — | R* (qua token) | R U (mô tả) | UC-AUTH-02, UC-ADM-02 |
-| 3 | Permission (permissions) | — | — | R | UC-ADM-02 |
-| 4 | RolePermission (role_permissions) | — | — | R U | UC-ADM-02 |
-| 5 | UserRole (user_roles) | C‡ (trigger DB) | R* | C R D | UC-AUTH-01, UC-AUTH-02, UC-ADM-02 |
-| 6 | PasswordReset (password_resets) | C‡ U‡ | C* U* | — | UC-AUTH-05, UC-AUTH-06 |
-| 7 | UserSession (user_sessions) | C‡ | C* R* U*(thu hồi) | R U(thu hồi) | UC-AUTH-01, UC-AUTH-02, UC-AUTH-03, UC-AUTH-04… |
-| 8 | Address (addresses) | — | C R U D * | R | UC-ACC-04, UC-ORD-01 |
-| 9 | Setting (settings) | R† | R† | C R U | UC-CAT-01, UC-ORD-01, UC-ADM-03 |
-| 10 | Media (media) | R† | C* R† (avatar) | C R U D | UC-ACC-01, UC-CAT-04, UC-3D-01… |
-| 11 | Notification (notifications) | — | R* U* D* | C R | UC-ACC-05, UC-ORD-01, UC-ORD-03, UC-PAY-02… |
-| 12 | ActivityLog (activity_logs) | — | — | R (ghi C tự động) | UC-ADM-09, UC-ADM-27 |
-| 13 | Category (categories) | R† | R† | C R U D | UC-CAT-01, UC-CAT-02, UC-CAT-04, UC-SPACE-01… |
-| 14 | Page (pages) | R† | R† | C R U D | UC-CAT-05, UC-ADM-07 |
-| 15 | Brand (brands) | R† | R† | C R U D | UC-CAT-02, UC-CAT-04, UC-ADM-06, UC-ADM-09 |
-| 16 | Product (products) | R† | R† | C R U D(mềm) | UC-ACC-06, UC-CAT-01, UC-CAT-02, UC-CAT-03… |
-| 17 | Attribute (attributes) | R | R | C R U D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
-| 18 | AttributeValue (attribute_values) | R | R | C R U D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
-| 19 | ProductVariant (product_variants) | R† | R† | C R U D | UC-CAT-02, UC-CAT-04, UC-CART-01, UC-CART-02… |
-| 20 | VariantAttributeValue (variant_attribute_values) | R† | R† | C R D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
-| 21 | ProductImage (product_images) | R† | R† | C R U D | UC-CAT-02, UC-CAT-03, UC-CAT-04, UC-CAT-06… |
-| 22 | InventoryMovement (inventory_movements) | — | — (Service ghi khi đặt/hủy đơn) | C R | UC-ORD-01, UC-ORD-03, UC-ADM-12, UC-ADM-22… |
-| 23 | Review (reviews) | R† | C* R† U* D* | R U D | UC-CAT-04, UC-REV-01, UC-REV-02, UC-REV-03… |
-| 24 | Wishlist (wishlists) | — | C R D * | R | UC-ACC-06 |
-| 25 | Product3DModel (product_3d_models) | R† | R† | C R U D | UC-CAT-04, UC-3D-01, UC-SPACE-02… |
-| 26 | ModelFile (model_files) | R† | R† | C R U D | UC-3D-01, UC-SPACE-02, UC-ADM-13 |
-| 27 | ModelMaterialVariant (model_material_variants) | R† | R† | C R U D | UC-3D-01, UC-3D-03, UC-ADM-14 |
+| 2 | PasswordReset (password_resets) | C‡ U‡ | C* U* | — | UC-AUTH-05, UC-AUTH-06 |
+| 3 | UserSession (user_sessions) | C‡ | C* R* U*(thu hồi) | R U(thu hồi) | UC-AUTH-01, UC-AUTH-02, UC-AUTH-03, UC-AUTH-04… |
+| 4 | Address (addresses) | — | C R U D * | R | UC-ACC-04, UC-ORD-01 |
+| 5 | Setting (settings) | R† | R† | C R U | UC-CAT-01, UC-ORD-01, UC-ADM-03 |
+| 6 | Media (media) | R† | C* R† (avatar) | C R U D | UC-ACC-01, UC-CAT-04, UC-3D-01… |
+| 7 | Notification (notifications) | — | R* U* D* | C R | UC-ACC-05, UC-ORD-01, UC-ORD-03, UC-PAY-02… |
+| 8 | ActivityLog (activity_logs) | — | — | R (ghi C tự động) | UC-ADM-09, UC-ADM-27 |
+| 9 | Category (categories) | R† | R† | C R U D | UC-CAT-01, UC-CAT-02, UC-CAT-04, UC-SPACE-01… |
+| 10 | Product (products) | R† | R† | C R U D(mềm) | UC-ACC-06, UC-CAT-01, UC-CAT-02, UC-CAT-03… |
+| 11 | AttributeValue (attribute_values) | R | R | C R U D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
+| 12 | ProductVariant (product_variants) | R† | R† | C R U D | UC-CAT-02, UC-CAT-04, UC-CART-01, UC-CART-02… |
+| 13 | VariantAttributeValue (variant_attribute_values) | R† | R† | C R D | UC-CAT-04, UC-ADM-08, UC-ADM-10 |
+| 14 | ProductImage (product_images) | R† | R† | C R U D | UC-CAT-02, UC-CAT-03, UC-CAT-04, UC-CAT-06… |
+| 15 | Review (reviews) | R† | C* R† U* D* | R U D | UC-CAT-04, UC-REV-01, UC-REV-02, UC-REV-03… |
+| 16 | Wishlist (wishlists) | — | C R D * | R | UC-ACC-06 |
+| 17 | Product3DModel (product_3d_models) | R† | R† | C R U D | UC-CAT-04, UC-3D-01, UC-SPACE-02… |
+| 18 | ModelFile (model_files) | R† | R† | C R U D | UC-3D-01, UC-SPACE-02, UC-ADM-13 |
+| 19 | ModelMaterialVariant (model_material_variants) | R† | R† | C R U D | UC-3D-01, UC-3D-03, UC-ADM-14 |
 | 28 | ~~ArSession (ar_sessions)~~ **đã bỏ (D-P16)** | — | — | — | — |
 | 29 | ~~ArSnapshot (ar_snapshots)~~ **đã bỏ (D-P16)** | — | — | — | — |
-| 30 | Cart (carts) | — | C* R* (tự tạo) | R | UC-CART-01, UC-CART-02, UC-CART-03, UC-CART-04… |
-| 31 | CartItem (cart_items) | — | C R U D * | R | UC-CART-01, UC-CART-02, UC-CART-03, UC-ORD-01 |
-| 32 | Coupon (coupons) | — | R† (áp mã) | C R U D | UC-CART-04, UC-ORD-01, UC-ORD-03, UC-ADM-19… |
-| 33 | CouponUsage (coupon_usages) | — | C* R* (khi đặt hàng), D (hủy đơn, Service) | R | UC-CART-04, UC-ORD-01, UC-ORD-03, UC-ADM-19… |
-| 34 | Order (orders) | — | C* R* U* (hủy) | R U | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-PAY-01… |
-| 35 | OrderItem (order_items) | — | C* R* | R | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-REV-02… |
-| 36 | OrderStatusHistory (order_status_history) | — | R* | R (ghi tự động bằng trigger) | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-PAY-02… |
-| 37 | Payment (payments) | — | C* R* | R U | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-PAY-01… |
-| 38 | Shipment (shipments) | — | R* | C R U | UC-ORD-02, UC-ADM-20, UC-ADM-21, UC-ADM-25 |
-| 39 | Space (spaces) | R† | R† | C R U D | UC-CAT-01, UC-SPACE-01, UC-SPACE-02, UC-SPACE-04… |
-| 40 | SpacePanorama (space_panoramas) | R† | R† | C R U D | UC-SPACE-02, UC-ADM-15, UC-ADM-16 |
-| 41 | SpaceHotspot (space_hotspots) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-03, UC-ADM-16 |
-| 42 | SpaceProductPlacement (space_product_placements) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-05, UC-ADM-17 |
-| 43 | SpaceBookmark (space_bookmarks) | — | C R D * | R | UC-SPACE-04 |
-| 44 | SpaceView (space_views) | C (kèm visitorId) | C* | R | UC-SPACE-02, UC-SPACE-06, UC-ADM-29 (phễu) |
-| 45 | ProductSpec (product_specs) | — | R† | C R U D | UC-CAT-04, UC-ADM-09 |
-| 46 | Product360Config (product_360_configs) | R | R | C R U | Bổ sung theo code (xem 360°) |
-| 47 | Product360Frame (product_360_frames) | R† | R† | C R U D | Bổ sung theo code (xem 360°) |
-| 48 | ReviewImage (review_images) | R† | C R† | R† | UC-REV-01, UC-REV-02 |
-| 49 | ProductQuestion (product_questions) | R | C R | R U | Bổ sung theo code (hỏi đáp sản phẩm) |
-| 50 | CouponScope (coupon_scopes) | — | R† | C R U D | UC-ADM-18, UC-CART-04 |
-| 51 | UserCoupon (user_coupons) | — | C R | — | Bổ sung theo code (ví mã giảm giá) |
-| 52 | CodeCounter (code_counters) | — | — | — | Hệ thống tự ghi (hàm DB cấp mã đơn/phiếu)‡ |
-| 53 | ReturnRequest (return_requests) | — | C R | R U | UC-ORD-04, UC-ADM-22 |
-| 54 | ReturnRequestItem (return_request_items) | — | C R† | R U | UC-ORD-04, UC-ADM-22 |
-| 55 | ReturnRequestImage (return_request_images) | — | C R† | R† | UC-ORD-04, UC-ADM-22 |
-| 56 | StockReceipt (stock_receipts) | — | — | C R U | UC-ADM-12 |
-| 57 | StockReceiptItem (stock_receipt_items) | — | — | C R | UC-ADM-12 |
-| 58 | Expense (expenses) | — | — | C R D (tự sinh‡ khi hoàn tiền/nhập kho) | UC-ADM-28 (báo cáo thu chi) |
-| 59 | Banner (banners) | R | R | C R U D | UC-CAT-01, UC-ADM-07 |
-| 60 | Post (posts) | R | R | C R U D | UC-ADM-07 |
-| 61 | ContactMessage (contact_messages) | C | C | R U | UC-CAT-05 (form liên hệ) |
+| 20 | Cart (carts) | — | C* R* (tự tạo) | R | UC-CART-01, UC-CART-02, UC-CART-03, UC-CART-04… |
+| 21 | CartItem (cart_items) | — | C R U D * | R | UC-CART-01, UC-CART-02, UC-CART-03, UC-ORD-01 |
+| 22 | Coupon (coupons) | — | R† (áp mã) | C R U D | UC-CART-04, UC-ORD-01, UC-ORD-03, UC-ADM-19… |
+| 23 | CouponUsage (coupon_usages) | — | C* R* (khi đặt hàng), D (hủy đơn, Service) | R | UC-CART-04, UC-ORD-01, UC-ORD-03, UC-ADM-19… |
+| 24 | Order (orders) | — | C* R* U* (hủy) | R U | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-PAY-01… |
+| 25 | OrderItem (order_items) | — | C* R* | R | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-REV-02… |
+| 26 | OrderStatusHistory (order_status_history) | — | R* | R (ghi tự động bằng trigger) | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-PAY-02… |
+| 27 | Payment (payments) | — | C* R* | R U | UC-ORD-01, UC-ORD-02, UC-ORD-03, UC-PAY-01… |
+| 28 | Shipment (shipments) | — | R* | C R U | UC-ORD-02, UC-ADM-20, UC-ADM-21, UC-ADM-25 |
+| 29 | Space (spaces) | R† | R† | C R U D | UC-CAT-01, UC-SPACE-01, UC-SPACE-02, UC-SPACE-04… |
+| 30 | SpacePanorama (space_panoramas) | R† | R† | C R U D | UC-SPACE-02, UC-ADM-15, UC-ADM-16 |
+| 31 | SpaceHotspot (space_hotspots) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-03, UC-ADM-16 |
+| 32 | SpaceProductPlacement (space_product_placements) | R† | R† | C R U D | UC-SPACE-02, UC-SPACE-05, UC-ADM-17 |
 
-> Hàng 45–61 (17 bảng mở rộng) được bổ sung ngày 2026-11-11: quyền theo route→bảng trong code (`docs/api/openapi.json`, `apps/api/src/modules/*`), **hiệu chỉnh tay** cho thao tác lồng nhau và hàm DB; cột "UC sử dụng" ghi UC gần nhất hoặc "Bổ sung theo code" nếu đặc tả không có UC. **Cần xác minh** từng ô nếu dùng làm căn cứ nghiệm thu.
 
 ## 5. Sơ đồ use case
 
@@ -394,7 +367,6 @@ flowchart LR
         UC_SPACE_02(["UC-SPACE-02 Xem không gian mẫu 360°"])
         UC_SPACE_03(["UC-SPACE-03 Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng)"])
         UC_SPACE_05(["UC-SPACE-05 Thử đổi món đồ trong phòng mẫu"])
-        UC_SPACE_06(["UC-SPACE-06 Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)"])
     end
     subgraph SG_MOB["Ứng dụng Android"]
         UC_MOB_01(["UC-MOB-01 Xem danh mục và danh sách sản phẩm trên app Android"])
@@ -419,7 +391,6 @@ flowchart LR
     K --- UC_SPACE_02
     K --- UC_SPACE_03
     K --- UC_SPACE_05
-    K --- UC_SPACE_06
     K --- UC_MOB_01
     K --- UC_MOB_02
     K --- UC_MOB_03
@@ -427,7 +398,6 @@ flowchart LR
     UC_AUTH_01 --- EM
     UC_AUTH_05 --- EM
     UC_CAT_06 -. "«extend»" .-> UC_CAT_03
-    UC_SPACE_02 -. "«include»" .-> UC_SPACE_06
     UC_SPACE_03 -. "«extend»" .-> UC_SPACE_02
     UC_MOB_03 -. "«extend»" .-> UC_MOB_02
     UC_MOB_04 -. "«extend»" .-> UC_MOB_03
@@ -478,7 +448,6 @@ flowchart LR
     subgraph SG_D3["3D"]
     end
     subgraph SG_SPACE["Không gian mẫu"]
-        UC_SPACE_04(["UC-SPACE-04 Lưu / bỏ lưu không gian mẫu yêu thích"])
     end
     N --- UC_AUTH_03
     N --- UC_AUTH_04
@@ -501,7 +470,6 @@ flowchart LR
     N --- UC_PAY_03
     N --- UC_REV_02
     N --- UC_REV_03
-    N --- UC_SPACE_04
     UC_AUTH_07 --- EM
     UC_ORD_01 --- EM
     UC_PAY_01 --- GW
@@ -526,13 +494,11 @@ flowchart LR
         UC_ADM_03(["UC-ADM-03 Quản lý cài đặt hệ thống"])
         UC_ADM_04(["UC-ADM-04 Quản lý media (ảnh, tệp)"])
         UC_ADM_05(["UC-ADM-05 Quản lý danh mục sản phẩm"])
-        UC_ADM_06(["UC-ADM-06 Quản lý thương hiệu"])
-        UC_ADM_07(["UC-ADM-07 Quản lý trang tĩnh"])
         UC_ADM_08(["UC-ADM-08 Quản lý thuộc tính và giá trị thuộc tính"])
         UC_ADM_09(["UC-ADM-09 Quản lý sản phẩm"])
         UC_ADM_10(["UC-ADM-10 Quản lý biến thể sản phẩm"])
         UC_ADM_11(["UC-ADM-11 Quản lý ảnh sản phẩm"])
-        UC_ADM_12(["UC-ADM-12 Nhập kho và điều chỉnh tồn kho"])
+        UC_ADM_12(["UC-ADM-12 Xem tồn kho và điều chỉnh tồn qua biến thể (rút gọn, D-D10)"])
         UC_ADM_13(["UC-ADM-13 Tải và quản lý mô hình 3D sản phẩm"])
         UC_ADM_14(["UC-ADM-14 Cấu hình biến thể chất liệu cho mô hình 3D"])
     end
@@ -541,8 +507,6 @@ flowchart LR
     A --- UC_ADM_03
     A --- UC_ADM_04
     A --- UC_ADM_05
-    A --- UC_ADM_06
-    A --- UC_ADM_07
     A --- UC_ADM_08
     A --- UC_ADM_09
     A --- UC_ADM_10
@@ -576,7 +540,6 @@ flowchart LR
         UC_ADM_26(["UC-ADM-26 Gửi thông báo cho người dùng"])
         UC_ADM_27(["UC-ADM-27 Xem nhật ký hoạt động của quản trị viên"])
         UC_ADM_28(["UC-ADM-28 Xem thống kê tổng quan"])
-        UC_ADM_29(["UC-ADM-29 Thống kê phễu không gian mẫu"])
     end
     A --- UC_ADM_15
     A --- UC_ADM_16
@@ -592,7 +555,6 @@ flowchart LR
     A --- UC_ADM_26
     A --- UC_ADM_27
     A --- UC_ADM_28
-    A --- UC_ADM_29
     UC_ADM_25 --- SH
     classDef actor fill:#e8f1ff,stroke:#2b5fb4,stroke-width:2px
     classDef ext fill:#fff4e0,stroke:#b8761a,stroke-dasharray: 4 3
@@ -611,13 +573,13 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Mô tả** | Người có tài khoản (user hoặc admin) đăng nhập bằng email và mật khẩu để nhận token. |
 | **Tiền điều kiện** | Tài khoản tồn tại, chưa xóa mềm. |
 | **Hậu điều kiện** | Có UserSession mới; `User.lastLoginAt` được cập nhật; client giữ access/refresh token. |
-| **Luồng chính** | 1. Khách: Nhập email, mật khẩu tại `/login`.<br>2. Hệ thống: Gửi `POST /api/auth/login`.<br>3. Hệ thống: Tìm `User` (`findFirst({ email, deletedAt: null })`), kiểm tra `status = active`.<br>4. Hệ thống: So sánh mật khẩu với `passwordHash` (bcrypt).<br>5. Hệ thống: Đọc vai trò (`UserRole` → `Role.code`), ký access token và refresh token.<br>6. Hệ thống: Tạo `UserSession` (refreshTokenHash, ipAddress, userAgent, deviceName, expiresAt) và cập nhật `lastLoginAt` trong một transaction.<br>7. Hệ thống: Trả 200 kèm token; frontend lưu vào `authStore`, chuyển hướng (admin → `/dashboard`). |
+| **Luồng chính** | 1. Khách: Nhập email, mật khẩu tại `/login`.<br>2. Hệ thống: Gửi `POST /api/auth/login`.<br>3. Hệ thống: Tìm `User` (`findFirst({ email, deletedAt: null })`), kiểm tra `status = active`.<br>4. Hệ thống: So sánh mật khẩu với `passwordHash` (bcrypt).<br>5. Hệ thống: Đọc vai trò (`User.role`), ký access token và refresh token.<br>6. Hệ thống: Tạo `UserSession` (refreshTokenHash, ipAddress, userAgent, deviceName, expiresAt) và cập nhật `lastLoginAt` trong một transaction.<br>7. Hệ thống: Trả 200 kèm token; frontend lưu vào `authStore`, chuyển hướng (admin → `/dashboard`). |
 | **Luồng thay thế** | 3a. Không tìm thấy email hoặc sai mật khẩu → 401 "Email hoặc mật khẩu không đúng" (cùng một thông báo để không lộ email).<br>3b. `status` là `suspended` hoặc `banned` → 403 "Tài khoản bị khóa". |
 | **Ngoại lệ** | • Quá nhiều lần sai liên tiếp từ một IP/email → 429 (giới hạn tốc độ) [ĐỀ XUẤT]. |
 | **Quy tắc nghiệp vụ** | • Chỉ tài khoản `status = active` và `deletedAt = null` mới đăng nhập được.<br>• Refresh token chỉ lưu dạng băm (`UserSession.refreshTokenHash`, UNIQUE).<br>• Vai trò chỉ gồm `admin` và `user`. |
 | **Dữ liệu vào** | • email (bắt buộc): định dạng email<br>• password (bắt buộc): không rỗng |
 | **Dữ liệu ra** | • 200: `{ accessToken, refreshToken, user: { id, uuid, fullName, email, roles } }` |
-| **Model + C/R/U/D** | User (users): R,U<br>UserSession (user_sessions): C<br>UserRole (user_roles): R<br>Role (roles): R |
+| **Model + C/R/U/D** | User (users): R,U<br>UserSession (user_sessions): C |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_users_set_updated_at` khi cập nhật `lastLoginAt`.<br>• Service: bcrypt, ký JWT, tạo phiên (`$transaction`). |
 
 #### UC-AUTH-03 – Làm mới access token
@@ -725,7 +687,7 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Quy tắc nghiệp vụ** | • Sắp xếp theo quy ước chung `sort=<trường>:<asc|desc>` (API_CONVENTIONS §6): `createdAt` (mặc định `createdAt:desc` = mới nhất), `price`, `soldCount`, `ratingAvg`, `name`.<br>• Danh mục gồm cả danh mục con ĐANG HOẠT ĐỘNG; danh mục con tắt thì sản phẩm của nó không hiện ở danh mục cha.<br>• Cờ `has3dModel` do trigger DB duy trì; chỉ đọc. Không có bộ lọc AR (đã loại bỏ, D-P16).<br>• Giá hiển thị: `salePrice ?? price` của biến thể rẻ nhất (`Decimal` → number bằng `serialize`). |
 | **Dữ liệu vào** | • category, brand, minPrice, maxPrice, has3d, featured, color, material, style, sort, page, pageSize (tuỳ chọn): `pageSize` mặc định 12, tối đa 100 (D-N29) |
 | **Dữ liệu ra** | • 200: `data[]` kèm `meta { page, pageSize, total, totalPages }` |
-| **Model + C/R/U/D** | Category (categories): R<br>Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>Brand (brands): R |
+| **Model + C/R/U/D** | Category (categories): R<br>Product (products): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R |
 | **DB trigger / việc Service tự làm** | • Không có (đọc dữ liệu do trigger duy trì). |
 
 #### UC-CAT-03 – Tìm kiếm sản phẩm
@@ -761,25 +723,25 @@ Các UC dưới đây Khách và Người dùng dùng giống hệt nhau (đặc
 | **Quy tắc nghiệp vụ** | • Ảnh đại diện duy nhất `ProductImage.isPrimary` (partial unique index).<br>• Chỉ hiển thị nút xem 3D khi `has3dModel = true` (có mô hình `ready`). Không còn cờ AR (D-P16).<br>• Công khai chỉ thấy biến thể đang bán (`isActive = true`); quản trị thấy cả biến thể đã ngừng bán (D-N32).<br>• URL công khai dùng slug: route web hiện là `(shop)/products/[id]/page.tsx` → cần đổi thành `products/[slug]` [CẦN SỬA]. |
 | **Dữ liệu vào** | • slug (bắt buộc): chuỗi slug |
 | **Dữ liệu ra** | • 200: chi tiết sản phẩm (tiền dạng number) |
-| **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>VariantAttributeValue (variant_attribute_values): R<br>AttributeValue (attribute_values): R<br>Attribute (attributes): R<br>ProductImage (product_images): R<br>Media (media): R<br>Brand (brands): R<br>Category (categories): R<br>Product3DModel (product_3d_models): R<br>Review (reviews): R |
+| **Model + C/R/U/D** | Product (products): R<br>ProductVariant (product_variants): R<br>VariantAttributeValue (variant_attribute_values): R<br>AttributeValue (attribute_values): R<br>ProductImage (product_images): R<br>Media (media): R<br>Category (categories): R<br>Product3DModel (product_3d_models): R<br>Review (reviews): R |
 | **DB trigger / việc Service tự làm** | • Không có (cờ do trigger DB duy trì). |
 
 #### UC-CAT-05 – Xem trang tĩnh
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (pages) |
+| **Thông tin chung** | Nhóm: Danh mục & sản phẩm · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Xem các trang Giới thiệu, Chính sách đổi trả, Hướng dẫn mua hàng. |
 | **Tiền điều kiện** | Trang `published`. |
 | **Hậu điều kiện** | Không thay đổi dữ liệu. |
-| **Luồng chính** | 1. Khách: Bấm liên kết ở Footer.<br>2. Hệ thống: `GET /api/pages/:slug`.<br>3. Hệ thống: Trả `title`, `content`, `metaTitle`, `metaDescription` nếu `status = published`.<br>4. Hệ thống: Trang hiển thị nội dung đã được làm sạch (sanitize HTML). |
+| **Luồng chính** | 1. Khách: Bấm liên kết ở Footer.<br>2. Hệ thống: Trang web tra nội dung viết cứng theo `slug` ở `apps/web/src/content/static-pages.ts` (D-D12), không gọi API.<br>3. Hệ thống: Trả `title`, `content`, `metaTitle`, `metaDescription` của trang.<br>4. Hệ thống: Trang hiển thị nội dung Markdown (bỏ HTML thô). |
 | **Luồng thay thế** | 3a. Trang nháp/lưu trữ/không có → 404. |
 | **Ngoại lệ** | • Nội dung HTML chứa mã độc → bị loại khi lưu (ADM-07) và khi hiển thị. |
 | **Quy tắc nghiệp vụ** | • Chỉ trang `published` hiển thị công khai. |
 | **Dữ liệu vào** | • slug (bắt buộc): slug trang |
 | **Dữ liệu ra** | • 200: `{ title, slug, content, metaTitle, metaDescription, publishedAt }` |
-| **Model + C/R/U/D** | Page (pages): R |
+| **Model + C/R/U/D** | — |
 | **DB trigger / việc Service tự làm** | • Không có. |
 
 #### UC-CAT-06 – Tìm kiếm sản phẩm không dấu
@@ -881,26 +843,26 @@ UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc �
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (spaces, space_panoramas, space_hotspots, space_product_placements, space_views) |
+| **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (spaces, space_panoramas, space_hotspots, space_product_placements) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Tham quan phòng mẫu bằng ảnh 360°: xoay xem, chuyển sang ảnh khác trong tour, bấm điểm tương tác, thấy sản phẩm 3D đặt đúng phối cảnh. |
 | **Tiền điều kiện** | Không gian `published`. |
-| **Hậu điều kiện** | Khi người xem rời trang, có một `SpaceView` (ẩn danh nếu là khách) và `Space.viewCount` tăng. |
+| **Hậu điều kiện** | Người xem xem được không gian mẫu và các ảnh 360° (không còn ghi lượt xem). |
 | **Luồng chính** | 1. Khách: Bấm một không gian ở `/spaces`, mở `/spaces/[id]`.<br>2. Hệ thống: `GET /api/spaces/:slug` trả không gian, danh sách `SpacePanorama` (theo `sortOrder`), `SpaceHotspot` (kèm thông tin sản phẩm cho loại `product`), `SpaceProductPlacement` (kèm tệp GLB của mô hình).<br>3. Hệ thống: `SpacePanorama` component mở ảnh có `isStart = true` với góc nhìn mặc định (`defaultYaw`, `defaultPitch`, `defaultFov`).<br>4. Hệ thống: Client bắt đầu đếm cục bộ (số lần bấm hotspot, đã thêm giỏ); lượt xem được ghi MỘT lần khi người xem rời trang (UC-SPACE-06).<br>5. Khách: Xoay ảnh; bấm hotspot `navigation` → chuyển sang `targetPanoramaId`; hotspot `info` → hiện ghi chú; hotspot `product` → UC-SPACE-03.<br>6. Hệ thống: Hiển thị mô hình 3D của sản phẩm đã đặt (placement) đúng vị trí `yaw/pitch`, `distance`, `rotation`, `scale`. |
 | **Luồng thay thế** | 2a. Không gian không `published` hoặc không có → 404.<br>3a. Không có ảnh `isStart` → dùng ảnh có `sortOrder` nhỏ nhất. |
 | **Ngoại lệ** | • Ảnh 360° tải lỗi → thông báo, cho thử lại. |
-| **Quy tắc nghiệp vụ** | • Mỗi không gian tối đa một ảnh mở đầu (`uq_space_panoramas_start`).<br>• Hotspot hợp lệ theo loại (CHECK): `product` có `productId`, `navigation` có `targetPanoramaId`, `info` có `content`.<br>• `Space.viewCount` do DB trigger tăng khi INSERT `SpaceView`, KHÔNG tăng trong code.<br>• URL công khai dùng slug: route web hiện là `(shop)/spaces/[id]/page.tsx` → cần đổi thành `spaces/[slug]` [CẦN SỬA]. |
+| **Quy tắc nghiệp vụ** | • Mỗi không gian tối đa một ảnh mở đầu (`uq_space_panoramas_start`).<br>• Hotspot hợp lệ theo loại (CHECK): `product` có `productId`, `navigation` có `targetPanoramaId`, `info` có `content`.<br>• URL công khai dùng slug: route web hiện là `(shop)/spaces/[id]/page.tsx` → cần đổi thành `spaces/[slug]` [CẦN SỬA]. |
 | **Dữ liệu vào** | • slug (bắt buộc): slug không gian |
 | **Dữ liệu ra** | • 200: `{ space, panoramas[], hotspots[], placements[] }` |
-| **Model + C/R/U/D** | Space (spaces): R<br>SpacePanorama (space_panoramas): R<br>SpaceHotspot (space_hotspots): R<br>SpaceProductPlacement (space_product_placements): R<br>Product (products): R<br>Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>Media (media): R<br>SpaceView (space_views): C |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_space_views_increase_count`. |
-| **Quan hệ UC** | include: UC-SPACE-06 |
+| **Model + C/R/U/D** | Space (spaces): R<br>SpacePanorama (space_panoramas): R<br>SpaceHotspot (space_hotspots): R<br>SpaceProductPlacement (space_product_placements): R<br>Product (products): R<br>Product3DModel (product_3d_models): R<br>ModelFile (model_files): R<br>Media (media): R |
+| **DB trigger / việc Service tự làm** | • Không có (đã bỏ `trg_space_views_increase_count`). |
+| **Quan hệ UC** | — |
 
 #### UC-SPACE-03 – Bấm điểm sản phẩm trong phòng mẫu (mua theo phong cách phòng)
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (space_hotspots, space_views) |
+| **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Nên có** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (space_hotspots) |
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng |
 | **Mô tả** | Bấm hotspot loại sản phẩm để xem nhanh sản phẩm, chọn biến thể, thêm vào giỏ (user) hoặc mở trang chi tiết. |
 | **Tiền điều kiện** |  |
@@ -908,7 +870,7 @@ UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc �
 | **Luồng chính** | 1. Khách: Bấm hotspot loại `product`.<br>2. Hệ thống: Hiển thị thẻ sản phẩm (ảnh, giá, biến thể) từ dữ liệu đã tải ở UC-SPACE-02; tăng bộ đếm `hotspotClickCount` cục bộ (không gọi API).<br>3. Khách: Bấm "Xem chi tiết" → UC-CAT-04, hoặc "Thêm vào giỏ" → UC-CART-01 (khách bị yêu cầu đăng nhập).<br>4. Hệ thống: Khi rời trang, `hotspotClickCount` và `addedToCart` được gửi kèm lượt xem (UC-SPACE-06). |
 | **Luồng thay thế** |  |
 | **Ngoại lệ** |  |
-| **Quy tắc nghiệp vụ** | • Phễu: xem phòng → bấm điểm tương tác → thêm vào giỏ, dùng cho thống kê (UC-ADM-29). |
+| **Quy tắc nghiệp vụ** | • Bấm điểm tương tác chỉ hiển thị thẻ sản phẩm; không còn ghi thống kê phễu. |
 | **Dữ liệu vào** |  |
 | **Dữ liệu ra** |  |
 | **Model + C/R/U/D** | SpaceHotspot (space_hotspots): R<br>Product (products): R<br>ProductVariant (product_variants): R |
@@ -925,34 +887,27 @@ UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc �
 | **Luồng chính** | 1. Khách: Bấm vào món đồ 3D trong phòng, chọn "Đổi món".<br>2. Hệ thống: `GET /api/spaces/:slug/placements/:placementId/alternatives` trả sản phẩm cùng danh mục có mô hình `ready`.<br>3. Hệ thống: Client thay mô hình, giữ `yaw/pitch/distance/rotation/scale` của placement. |
 | **Model + C/R/U/D** | SpaceProductPlacement (space_product_placements): R<br>Product (products): R<br>Product3DModel (product_3d_models): R |
 
-#### UC-SPACE-06 – Ghi nhận lượt xem không gian mẫu (một lần khi rời trang)
+#### UC-SPACE-06 – (đã gỡ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Mở rộng** · Khách: ✔ · User: ✔ · Admin: ✔ · Nguồn: CSDL (space_views) |
-| **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
-| **Mô tả** | Mỗi lượt xem không gian được ghi MỘT lần khi người xem rời trang, kèm sản phẩm nguồn, số lần bấm hotspot, có thêm vào giỏ không. Khách dùng `visitorId` ẩn danh. |
-| **Luồng chính** | 1. Hệ thống: Trong lúc xem, client giữ cục bộ: `visitorId` (UUID lưu ở localStorage), `sourceProductId` (từ tham số `?from=<slug sản phẩm>`), `hotspotClickCount`, `addedToCart`.<br>2. Hệ thống: Khi người xem rời trang (`visibilitychange` sang hidden hoặc `pagehide`), client gọi `navigator.sendBeacon('/api/spaces/<slug>/views', body)` với `body = { visitorId, sourceProductId, hotspotClickCount, addedToCart, accessToken? }`.<br>3. Hệ thống: `SpacesController.recordView` (route công khai, không `JwtAuthGuard`) kiểm tra DTO `RecordSpaceViewDto`; nếu `accessToken` hợp lệ thì gán `userId`, ngược lại `userId = NULL`.<br>4. Hệ thống: `SpacesService.recordView` INSERT đúng một `SpaceView`; trả 204.<br>5. CSDL: Trigger tăng `Space.viewCount`. |
-| **Quy tắc nghiệp vụ** | • Chỉ INSERT một lần: không có PATCH, không có token phụ (đã quyết định, thay cho `viewToken`).<br>• `navigator.sendBeacon` không đặt được header `Authorization` nên `userId` lấy từ `accessToken` trong body (tuỳ chọn); không có thì ghi ẩn danh [CẦN XÁC NHẬN: hoặc luôn ghi ẩn danh].<br>• CHECK `ck_space_views_actor`: phải có `userId` hoặc `visitorId`; luôn bắt buộc `visitorId` trong DTO.<br>• Chống ghi rác: giới hạn tốc độ theo IP và `visitorId`; chặn `hotspotClickCount` bất thường (> 1000) [ĐỀ XUẤT].<br>• `Space.viewCount` do DB trigger tăng khi INSERT; Service không đụng. Hệ quả: lượt xem chỉ tính khi người xem rời trang; tab bị tắt đột ngột có thể không gửi được beacon. |
-| **Model + C/R/U/D** | SpaceView (space_views): C |
+UC này **đã gỡ** (D-D10, 2026-11-19/20). Tính năng, bảng và API tương ứng không còn trong hệ thống; nội dung đặc tả gốc xem lịch sử git của tệp này.
 
 ## 7. Khách vãng lai
 
-Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng nhập, quên/đặt lại mật khẩu. Mọi thao tác ghi khác đều bị chặn ở **cả hai lớp**: frontend hiện hộp thoại yêu cầu đăng nhập và KHÔNG gọi API ghi; backend trả 401 vì route có `JwtAuthGuard`. Ngoại lệ duy nhất cho khách ghi dữ liệu là thống kê ẩn danh `SpaceView` kèm `visitorId` (UC-SPACE-06).
+Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng nhập, quên/đặt lại mật khẩu. Mọi thao tác ghi khác đều bị chặn ở **cả hai lớp**: frontend hiện hộp thoại yêu cầu đăng nhập và KHÔNG gọi API ghi; backend trả 401 vì route có `JwtAuthGuard`. Khách không được ghi dữ liệu nào ngoài đăng ký, đăng nhập và quên/đặt lại mật khẩu.
 
 | Hành động khách thử | Hệ quả |
 | --- | --- |
 | Thêm vào giỏ (UC-CART-01), xem giỏ (UC-CART-02) | Yêu cầu đăng nhập; sau khi đăng nhập thực hiện lại hành động |
 | Áp mã giảm giá (UC-CART-04), đặt hàng (UC-ORD-01), thanh toán (UC-PAY-01) | Yêu cầu đăng nhập |
-| Yêu thích sản phẩm (UC-ACC-06), lưu không gian mẫu (UC-SPACE-04) | Yêu cầu đăng nhập |
-| Viết đánh giá (UC-REV-02), lưu không gian mẫu (UC-SPACE-04) | Yêu cầu đăng nhập |
+| Yêu thích sản phẩm (UC-ACC-06) | Yêu cầu đăng nhập |
+| Viết đánh giá (UC-REV-02) | Yêu cầu đăng nhập |
 | Xem 3D, 360°, không gian mẫu; ghi lượt xem không gian mẫu | Được phép, ghi ẩn danh bằng `visitorId` (UUID do client tạo) |
 
 #### UC-AUTH-01 – Đăng ký tài khoản
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Xác thực · Ưu tiên: **Bắt buộc** · Khách: ✔ · User: ✘ · Admin: ✘ · Nguồn: CSDL (users, user_roles, user_sessions) |
+| **Thông tin chung** | Nhóm: Xác thực · Ưu tiên: **Bắt buộc** · Khách: ✔ · User: ✘ · Admin: ✘ · Nguồn: CSDL (users, user_sessions) |
 | **Tác nhân chính / phụ** | Khách vãng lai · phụ: Dịch vụ email |
 | **Mô tả** | Khách tạo tài khoản mới để mua hàng, đánh giá, lưu yêu thích. Đăng ký xong được đăng nhập luôn. |
 | **Tiền điều kiện** | Chưa đăng nhập. Email chưa thuộc tài khoản nào chưa xóa mềm. |
@@ -960,10 +915,10 @@ Khách chỉ xem nội dung công khai (mục 6) và được đăng ký, đăng
 | **Luồng chính** | 1. Khách: Mở trang Đăng ký (`/register`), nhập họ tên, email, số điện thoại (tuỳ chọn), mật khẩu, nhập lại mật khẩu.<br>2. Hệ thống: Validate dữ liệu phía client (zod/validators) rồi gửi `POST /api/auth/register`.<br>3. Hệ thống: Validate DTO phía server, kiểm tra email chưa tồn tại (`findFirst({ email, deletedAt: null })`).<br>4. Hệ thống: Băm mật khẩu bằng bcrypt; trong `prisma.$transaction` tạo `User` và `UserSession`.<br>5. CSDL: Khi commit, trigger gán vai trò `user` cho tài khoản mới.<br>6. Hệ thống: Sinh access token (15 phút) và refresh token (7 ngày), gửi email xác thực, trả 201 kèm token và hồ sơ.<br>7. Khách: Được chuyển về trang trước đó (đã đăng nhập). |
 | **Luồng thay thế** | 3a. Email đã tồn tại → trả 409 "Email đã được sử dụng", ở lại form.<br>3b. Hai request đăng ký cùng email đồng thời → vi phạm unique (P2002) → trả 409.<br>6a. Gửi email thất bại → vẫn đăng ký thành công, ghi log, cho phép gửi lại (UC-AUTH-07). |
 | **Ngoại lệ** | • Dữ liệu sai định dạng → 400 kèm danh sách lỗi theo trường.<br>• Lỗi CSDL → 500, không tạo tài khoản dở dang (transaction rollback). |
-| **Quy tắc nghiệp vụ** | • Email là `citext`: không phân biệt hoa thường; duy nhất trên tài khoản chưa xóa mềm (partial unique index `uq_users_email_active`); phải khớp `ck_users_email_format`.<br>• Mật khẩu ≥ 8 ký tự, có chữ hoa, chữ thường, số; chỉ lưu `passwordHash`.<br>• Vai trò `user` do DB trigger gán lúc commit: Service KHÔNG tự tạo `UserRole` (QUY_UOC §6). Vì trigger chạy lúc commit, danh sách vai trò trong token của lần đăng ký lấy mặc định `['user']`.<br>• Giỏ hàng không tạo ở bước này mà tạo khi thêm sản phẩm đầu tiên (UC-CART-01). |
+| **Quy tắc nghiệp vụ** | • Email là `citext`: không phân biệt hoa thường; duy nhất trên tài khoản chưa xóa mềm (partial unique index `uq_users_email_active`); phải khớp `ck_users_email_format`.<br>• Mật khẩu ≥ 8 ký tự, có chữ hoa, chữ thường, số; chỉ lưu `passwordHash`.<br>• Vai trò mặc định là `users.role = 'user'` (DEFAULT của cột, D-D13): Service không nhận `role` từ client; token của lần đăng ký có `roles = ['user']`.<br>• Giỏ hàng không tạo ở bước này mà tạo khi thêm sản phẩm đầu tiên (UC-CART-01). |
 | **Dữ liệu vào** | • fullName (bắt buộc): 2–150 ký tự<br>• email (bắt buộc): đúng định dạng, ≤ 255 ký tự, chưa dùng<br>• phone (tuỳ chọn): 10–11 chữ số, bắt đầu bằng 0 (cột tối đa 20 ký tự)<br>• password (bắt buộc): ≥ 8 ký tự, có chữ hoa, chữ thường, số<br>• confirmPassword (bắt buộc): trùng `password` |
 | **Dữ liệu ra** | • 201: `{ accessToken, refreshToken, user: { id, uuid, fullName, email, roles } }` |
-| **Model + C/R/U/D** | User (users): C<br>UserSession (user_sessions): C<br>UserRole (user_roles): C (trigger) |
+| **Model + C/R/U/D** | User (users): C<br>UserSession (user_sessions): C |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_users_assign_default_role` (gán vai trò user), `trg_users_set_updated_at`.<br>• Service: băm mật khẩu, tạo phiên, gửi email xác thực; bọc `prisma.$transaction`. |
 
 ### 7.1. Ứng dụng Android (nhóm UC-MOB)
@@ -1258,19 +1213,19 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Đơn hàng · Ưu tiên: **Bắt buộc** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (orders, order_items, payments, inventory_movements, coupon_usages) |
+| **Thông tin chung** | Nhóm: Đơn hàng · Ưu tiên: **Bắt buộc** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (orders, order_items, payments, coupon_usages) |
 | **Tác nhân chính / phụ** | Người dùng · phụ: Dịch vụ email |
 | **Mô tả** | Chuyển giỏ hàng thành đơn: chụp địa chỉ, giá, áp mã, trừ tồn kho, tạo thanh toán. |
 | **Tiền điều kiện** | Đã đăng nhập; giỏ có ít nhất một dòng; có địa chỉ giao hàng. |
 | **Hậu điều kiện** | Có `Order` (status `pending`), `OrderItem`, `Payment` (pending); tồn kho đã trừ; giỏ đã được dọn; có thông báo. |
-| **Luồng chính** | 1. Người dùng: Ở `/checkout` chọn địa chỉ (hoặc nhập mới, UC-ACC-04), phương thức thanh toán (COD, chuyển khoản, VNPay sandbox; MoMo, ZaloPay, thẻ quốc tế chưa hỗ trợ, D-N20), mã giảm giá (UC-CART-04), ghi chú; bấm "Đặt hàng".<br>2. Hệ thống: `POST /api/orders` (CreateOrderDto).<br>3. Hệ thống: `OrdersService.create(userId, dto)` mở `prisma.$transaction`.<br>4. Hệ thống: Đọc giỏ; kiểm tra từng dòng (biến thể `isActive`, sản phẩm `published`, chưa xóa mềm); tính `subtotal` bằng `Prisma.Decimal` từ `salePrice ?? price`.<br>5. Hệ thống: Với mỗi dòng: `productVariant.updateMany({ id, stockQuantity ≥ qty }, decrement)`; nếu `count ≠ 1` → hủy transaction; ghi `InventoryMovement` (type `sale`, `quantityChange` âm, `referenceCode = orderCode`).<br>6. Hệ thống: Nếu có mã: kiểm tra lại điều kiện (như UC-CART-04), giữ lượt bằng `coupon.updateMany` có điều kiện `usedCount < usageLimit` rồi tăng `usedCount`; tính `discountAmount`.<br>7. Hệ thống: Tính `shippingFee` từ `Setting` (`default_shipping_fee`, `free_shipping_threshold`) và `total = subtotal - discountAmount + shippingFee`.<br>8. Hệ thống: Tạo `Order` (status `pending`, `paymentStatus = unpaid`, bản chụp người nhận và địa chỉ), `OrderItem` (bản chụp `productName`, `sku`, `unitPrice`, `quantity`), `CouponUsage`, `Payment` (method, amount = total, status `pending`).<br>9. Hệ thống: Xóa các dòng giỏ đã đặt; commit transaction.<br>10. CSDL: Trigger ghi dòng đầu của `OrderStatusHistory` (null → pending).<br>11. Hệ thống: Tạo `Notification` "Đơn hàng đã được tạo", gửi email xác nhận; trả 201 `OrderResponse`.<br>12. Người dùng: COD/chuyển khoản → trang "Đặt hàng thành công"; online → bước UC-PAY-01. |
+| **Luồng chính** | 1. Người dùng: Ở `/checkout` chọn địa chỉ (hoặc nhập mới, UC-ACC-04), phương thức thanh toán (COD, chuyển khoản, VNPay sandbox; MoMo, ZaloPay, thẻ quốc tế chưa hỗ trợ, D-N20), mã giảm giá (UC-CART-04), ghi chú; bấm "Đặt hàng".<br>2. Hệ thống: `POST /api/orders` (CreateOrderDto).<br>3. Hệ thống: `OrdersService.create(userId, dto)` mở `prisma.$transaction`.<br>4. Hệ thống: Đọc giỏ; kiểm tra từng dòng (biến thể `isActive`, sản phẩm `published`, chưa xóa mềm); tính `subtotal` bằng `Prisma.Decimal` từ `salePrice ?? price`.<br>5. Hệ thống: Với mỗi dòng: `productVariant.updateMany({ id, stockQuantity ≥ qty }, decrement)`; nếu `count ≠ 1` → hủy transaction.<br>6. Hệ thống: Nếu có mã: kiểm tra lại điều kiện (như UC-CART-04), giữ lượt bằng `coupon.updateMany` có điều kiện `usedCount < usageLimit` rồi tăng `usedCount`; tính `discountAmount`.<br>7. Hệ thống: Tính `shippingFee` từ `Setting` (`default_shipping_fee`, `free_shipping_threshold`) và `total = subtotal - discountAmount + shippingFee`.<br>8. Hệ thống: Tạo `Order` (status `pending`, `paymentStatus = unpaid`, bản chụp người nhận và địa chỉ), `OrderItem` (bản chụp `productName`, `sku`, `unitPrice`, `quantity`), `CouponUsage`, `Payment` (method, amount = total, status `pending`).<br>9. Hệ thống: Xóa các dòng giỏ đã đặt; commit transaction.<br>10. CSDL: Trigger ghi dòng đầu của `OrderStatusHistory` (null → pending).<br>11. Hệ thống: Tạo `Notification` "Đơn hàng đã được tạo", gửi email xác nhận; trả 201 `OrderResponse`.<br>12. Người dùng: COD/chuyển khoản → trang "Đặt hàng thành công"; online → bước UC-PAY-01. |
 | **Luồng thay thế** | 2a. Giỏ rỗng → 400.<br>4a. Có dòng không còn bán → 409 kèm danh sách dòng; giỏ không đổi, không tạo đơn.<br>5a. Hết tồn kho giữa chừng → 409, rollback toàn bộ (tồn kho không bị trừ).<br>6a. Mã không hợp lệ ở thời điểm đặt → 400, rollback.<br>8a. Trùng `orderCode` (P2002) → sinh mã khác và thử lại tối đa 3 lần. |
 | **Ngoại lệ** | • Địa chỉ không thuộc user → 404.<br>• Lỗi CSDL → rollback, 500. |
-| **Quy tắc nghiệp vụ** | • Trừ tồn kho khi TẠO ĐƠN (không phải khi thanh toán), trong cùng transaction; không để tồn kho âm (CHECK `ck_product_variants_stock`).<br>• CHECK `ck_orders_total`: `total = subtotal - discount_amount + shipping_fee`.<br>• `OrderItem.lineTotal` là cột tự tính, KHÔNG gán (QUY_UOC §2).<br>• Đơn lưu bản chụp địa chỉ và giá; không tham chiếu `Address`.<br>• `sold_count` chưa tăng ở bước này; tăng khi đơn `completed` (UC-ADM-25).<br>• Mã đơn dạng `ALV-YYYYMMDD-NNNN`, duy nhất (`orderCode`). |
+| **Quy tắc nghiệp vụ** | • Trừ tồn kho khi TẠO ĐƠN (không phải khi thanh toán), trong cùng transaction; không để tồn kho âm (CHECK `ck_product_variants_stock`).<br>• CHECK `ck_orders_total`: `total = subtotal - discount_amount + shipping_fee`.<br>• `OrderItem.lineTotal` là cột tự tính, KHÔNG gán (QUY_UOC §2).<br>• Đơn lưu bản chụp địa chỉ và giá; không tham chiếu `Address`.<br>• `sold_count` chưa tăng ở bước này; tăng khi đơn `completed` (UC-ADM-25).<br>• Mã đơn dạng `ALV-YYYYMMDD-NNNNNN`, duy nhất (`orderCode`); số thứ tự lấy từ sequence PostgreSQL `order_code_seq` (D-D11). |
 | **Dữ liệu vào** | • addressId (bắt buộc): địa chỉ của user<br>• paymentMethod (bắt buộc): `cod`, `bank_transfer`, `momo`, `vnpay`, `zalopay`, `card`<br>• couponCode (tuỳ chọn): mã hợp lệ<br>• note (tuỳ chọn): ≤ 500 ký tự |
 | **Dữ liệu ra** | • 201: `{ id, uuid, orderCode, status, subtotal, discountAmount, shippingFee, total, paymentMethod, items[] }` |
-| **Model + C/R/U/D** | Cart (carts): R,D<br>CartItem (cart_items): R,D<br>ProductVariant (product_variants): R,U<br>Product (products): R<br>Address (addresses): R<br>Coupon (coupons): R,U<br>CouponUsage (coupon_usages): C<br>Order (orders): C<br>OrderItem (order_items): C<br>Payment (payments): C<br>InventoryMovement (inventory_movements): C<br>OrderStatusHistory (order_status_history): C (trigger)<br>Notification (notifications): C<br>Setting (settings): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_insert` (ghi OrderStatusHistory), `trg_orders_set_updated_at`, `trg_product_variants_set_updated_at`, `trg_coupons_set_updated_at`.<br>• Service (trong `$transaction`): trừ kho + `InventoryMovement`, kiểm tra và ghi `CouponUsage`, tăng `usedCount`. |
+| **Model + C/R/U/D** | Cart (carts): R,D<br>CartItem (cart_items): R,D<br>ProductVariant (product_variants): R,U<br>Product (products): R<br>Address (addresses): R<br>Coupon (coupons): R,U<br>CouponUsage (coupon_usages): C<br>Order (orders): C<br>OrderItem (order_items): C<br>Payment (payments): C<br>OrderStatusHistory (order_status_history): C (trigger)<br>Notification (notifications): C<br>Setting (settings): R |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_insert` (ghi OrderStatusHistory), `trg_orders_set_updated_at`, `trg_product_variants_set_updated_at`, `trg_coupons_set_updated_at`.<br>• Service (trong `$transaction`): trừ kho, kiểm tra và ghi `CouponUsage`, tăng `usedCount`. |
 | **Quan hệ UC** | include: UC-CART-02 |
 
 #### UC-ORD-02 – Xem và theo dõi đơn hàng của tôi
@@ -1295,19 +1250,19 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Đơn hàng · Ưu tiên: **Bắt buộc** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (orders, inventory_movements, coupon_usages) |
+| **Thông tin chung** | Nhóm: Đơn hàng · Ưu tiên: **Bắt buộc** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (orders, coupon_usages) |
 | **Tác nhân chính / phụ** | Người dùng · phụ: Admin (UC-ADM-22 cho phạm vi rộng hơn) |
 | **Mô tả** | User hủy đơn khi đơn ở trạng thái chờ xác nhận hoặc đã xác nhận; hoàn tồn kho và lượt dùng mã. |
 | **Tiền điều kiện** | Đơn của user, `status ∈ {pending, confirmed}`. |
 | **Hậu điều kiện** | Đơn `cancelled` kèm lý do; tồn kho và lượt dùng mã được hoàn. |
-| **Luồng chính** | 1. Người dùng: Bấm "Hủy đơn" trong chi tiết đơn, nhập lý do, xác nhận.<br>2. Hệ thống: `POST /api/orders/:id/cancel` (CancelOrderDto).<br>3. Hệ thống: `OrdersService.cancel(userId, id, dto)` mở `prisma.$transaction`; kiểm tra đơn thuộc user và `status` hợp lệ.<br>4. Hệ thống: Đặt `SET LOCAL app.current_user_id`; cập nhật `Order.status = cancelled`, `cancelReason`.<br>5. Hệ thống: Với mỗi `OrderItem` còn `variantId`: cộng lại `stockQuantity`, ghi `InventoryMovement` (type `return`, số dương, `referenceCode = orderCode`).<br>6. Hệ thống: Nếu có mã: xóa `CouponUsage` của đơn và giảm `Coupon.usedCount`.<br>7. Hệ thống: `Payment` đang `pending` → `failed`; nếu đã `success` thì giữ nguyên để admin hoàn tiền thủ công (UC-ADM-23).<br>8. CSDL: Trigger ghi `OrderStatusHistory` (… → cancelled, `changedBy` = user).<br>9. Hệ thống: Tạo `Notification`; trả 200. |
+| **Luồng chính** | 1. Người dùng: Bấm "Hủy đơn" trong chi tiết đơn, nhập lý do, xác nhận.<br>2. Hệ thống: `POST /api/orders/:id/cancel` (CancelOrderDto).<br>3. Hệ thống: `OrdersService.cancel(userId, id, dto)` mở `prisma.$transaction`; kiểm tra đơn thuộc user và `status` hợp lệ.<br>4. Hệ thống: Đặt `SET LOCAL app.current_user_id`; cập nhật `Order.status = cancelled`, `cancelReason`.<br>5. Hệ thống: Với mỗi `OrderItem` còn `variantId`: cộng lại `stockQuantity`.<br>6. Hệ thống: Nếu có mã: xóa `CouponUsage` của đơn và giảm `Coupon.usedCount`.<br>7. Hệ thống: `Payment` đang `pending` → `failed`; nếu đã `success` thì giữ nguyên để admin hoàn tiền thủ công (UC-ADM-23).<br>8. CSDL: Trigger ghi `OrderStatusHistory` (… → cancelled, `changedBy` = user).<br>9. Hệ thống: Tạo `Notification`; trả 200. |
 | **Luồng thay thế** | 3a. Đơn đang `processing`, `shipping`, `completed`… → 409 "Đơn không thể hủy, vui lòng liên hệ cửa hàng".<br>3b. Đơn của người khác → 404.<br>7a. Đơn đã thanh toán online → thông báo "Cửa hàng sẽ hoàn tiền thủ công". |
 | **Ngoại lệ** | • Hủy hai lần → lần hai trả 409 (đơn đã `cancelled`). |
 | **Quy tắc nghiệp vụ** | • User chỉ hủy được khi `pending` hoặc `confirmed`; admin hủy được trước `shipping` (UC-ADM-22).<br>• Hoàn kho và hoàn lượt coupon do Service làm trong cùng transaction (không có trigger).<br>• Không đặt `sold_count` giảm vì chưa từng tăng (chỉ tăng khi `completed`). |
 | **Dữ liệu vào** | • id (bắt buộc): id đơn của user<br>• reason (bắt buộc): 5–500 ký tự |
 | **Dữ liệu ra** | • 200: đơn sau khi hủy |
-| **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>ProductVariant (product_variants): U<br>InventoryMovement (inventory_movements): C<br>Coupon (coupons): U<br>CouponUsage (coupon_usages): D<br>Payment (payments): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_update` (lịch sử + người đổi), `trg_orders_set_updated_at`.<br>• Service: hoàn kho + `InventoryMovement`, hoàn `CouponUsage`/`usedCount`, tất cả trong `$transaction`. |
+| **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>ProductVariant (product_variants): U<br>Coupon (coupons): U<br>CouponUsage (coupon_usages): D<br>Payment (payments): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_update` (lịch sử + người đổi), `trg_orders_set_updated_at`.<br>• Service: hoàn kho, hoàn `CouponUsage`/`usedCount`, tất cả trong `$transaction`. |
 
 #### UC-PAY-01 – Thanh toán đơn hàng online
 
@@ -1382,24 +1337,9 @@ UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc �
 
 UC này **đã loại bỏ** (D-P16, 2026-11-09). Nội dung đặc tả gốc được giữ nguyên ở [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi).
 
-#### UC-SPACE-04 – Lưu / bỏ lưu không gian mẫu yêu thích
+#### UC-SPACE-04 – (đã gỡ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Không gian mẫu · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (space_bookmarks) |
-| **Tác nhân chính / phụ** | Người dùng |
-| **Mô tả** | User lưu không gian mẫu để xem lại và xem danh sách đã lưu. |
-| **Tiền điều kiện** | Đã đăng nhập (khách bấm lưu được yêu cầu đăng nhập). |
-| **Hậu điều kiện** | Có/không có `SpaceBookmark` của cặp (user, không gian). |
-| **Luồng chính** | 1. Người dùng: Bấm biểu tượng "Lưu" ở không gian.<br>2. Hệ thống: `PUT /api/spaces/:slug/bookmark` hoặc `DELETE /api/spaces/:slug/bookmark`.<br>3. Hệ thống: Kiểm tra không gian `published`; `upsert` theo `(userId, spaceId)`.<br>4. Hệ thống: Trả 200 (thân rỗng); giao diện đổi trạng thái.<br>5. Người dùng: Mở `/account/saved-spaces` → `GET /api/spaces?bookmarked=true` (không có route `/spaces/bookmarks/me`, D-N31). |
-| **Luồng thay thế** | 1a. Khách chưa đăng nhập → yêu cầu đăng nhập, không gọi API.<br>3a. Không gian không tồn tại/đã ẩn → 404. |
-| **Ngoại lệ** | • Lưu trùng → coi như thành công. |
-| **Quy tắc nghiệp vụ** | • UNIQUE `(userId, spaceId)`.<br>• Chỉ lưu được không gian đang `published`; nháp/đã ẩn hoặc không tồn tại → 404. Không gian đã lưu mà sau đó bị ẩn thì không còn trong danh sách nhưng vẫn bỏ lưu được. Khách chưa đăng nhập: 401, danh sách `bookmarked=true` của khách rỗng.<br>• Trang `/account/saved-spaces` có trạng thái đang tải, trống, lỗi, phân trang và nút "Bỏ khỏi danh sách". |
-| **Dữ liệu vào** | • slug (bắt buộc): slug không gian đang `published` |
-| **Dữ liệu ra** | • 200 (thân rỗng) hoặc danh sách phân trang các không gian đã lưu |
-| **Model + C/R/U/D** | SpaceBookmark (space_bookmarks): C,R,D<br>Space (spaces): R |
-| **DB trigger / việc Service tự làm** | • Không có. |
-| **Quan hệ UC** | include: UC-AUTH-02 |
+UC này **đã gỡ** (D-D10, 2026-11-19/20). Tính năng, bảng và API tương ứng không còn trong hệ thống; nội dung đặc tả gốc xem lịch sử git của tệp này.
 
 ## 9. Quản trị viên
 
@@ -1427,12 +1367,12 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (roles, permissions, role_permissions, user_roles) |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_users`) |
-| **Mô tả** | Xem 2 vai trò (`admin`, `user`) và 6 quyền; gán/gỡ vai trò `admin` cho người dùng. Không tạo vai trò mới. |
-| **Luồng chính** | 1. Admin: Mở `/admin/users/:id` mục "Vai trò".<br>2. Hệ thống: `GET /api/admin/roles` trả vai trò và quyền của từng vai trò.<br>3. Admin: Gán/gỡ vai trò `admin` → `PUT\|DELETE /api/admin/users/:id/roles/admin`.<br>4. Hệ thống: `$transaction`: tạo/xóa `UserRole`; chặn gỡ admin cuối cùng; ghi `ActivityLog`. |
-| **Quy tắc nghiệp vụ** | • Chỉ có vai trò `admin` và `user`; không có `staff`, `editor`, `guest`.<br>• Admin có đủ 6 quyền; user không có quyền nào. |
-| **Model + C/R/U/D** | Role (roles): R,U<br>Permission (permissions): R<br>RolePermission (role_permissions): R,U<br>UserRole (user_roles): C,D,R |
+| **Mô tả** | Xem 2 vai trò (`admin`, `user`) và 6 quyền (hằng số `ROLE_PERMISSIONS`); gán/gỡ vai trò `admin` cho người dùng bằng cách đổi `users.role`. Không tạo vai trò mới và không sửa quyền. |
+| **Luồng chính** | 1. Admin: Mở `/admin/users/:id` mục "Vai trò".<br>2. Hệ thống: `GET /api/admin/roles` trả vai trò và quyền của từng vai trò.<br>3. Admin: Gán/gỡ vai trò `admin` → `PUT\|DELETE /api/admin/users/:id/roles/admin`.<br>4. Hệ thống: `$transaction`: đổi `users.role` (admin ↔ user); chặn tự gỡ và gỡ admin cuối cùng (đếm `users.role = 'admin'`); ghi `ActivityLog`. |
+| **Quy tắc nghiệp vụ** | • Chỉ có vai trò `admin` và `user`; không có `staff`, `editor`, `guest`.<br>• Admin có đủ 6 quyền; user không có quyền nào.<br>• Một người một vai trò; người có `role = admin` không nằm trong danh sách/chi tiết khách hàng (D-D13). |
+| **Model + C/R/U/D** | — |
 
 #### UC-ADM-03 – Quản lý cài đặt hệ thống
 
@@ -1488,59 +1428,31 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Model + C/R/U/D** | Category (categories): C,R,U,D<br>Media (media): R |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_categories_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
-#### UC-ADM-06 – Quản lý thương hiệu
+#### UC-ADM-06 – (đã gỡ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (brands) |
-| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) |
-| **Mô tả** | Thêm, sửa, bật/tắt, xóa thương hiệu và logo. |
-| **Tiền điều kiện** | Admin có quyền. |
-| **Hậu điều kiện** | Danh sách thương hiệu được cập nhật. |
-| **Luồng chính** | 1. Admin: Mở `/admin/brands`.<br>2. Hệ thống: `GET /api/admin/brands`.<br>3. Admin: Thêm/sửa tên, slug, logo, `isActive`.<br>4. Hệ thống: `POST /api/admin/brands`, `PATCH /api/admin/brands/:id`, `DELETE /api/admin/brands/:id`.<br>5. Hệ thống: Kiểm tra slug duy nhất, lưu, ghi `ActivityLog`. |
-| **Luồng thay thế** | 5a. Slug trùng → 409. |
-| **Ngoại lệ** | • Xóa thương hiệu đang có sản phẩm → sản phẩm chuyển `brandId = NULL` (`SET NULL`); giao diện cảnh báo trước khi xóa. |
-| **Quy tắc nghiệp vụ** | • `slug` UNIQUE. |
-| **Dữ liệu vào** | • name (bắt buộc): ≤ 150 ký tự<br>• slug, logoMediaId, isActive (tuỳ chọn): theo kiểu cột |
-| **Dữ liệu ra** | • 200/201: bản ghi `Brand` |
-| **Model + C/R/U/D** | Brand (brands): C,R,U,D<br>Media (media): R |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_brands_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
+UC này **đã gỡ** (D-D15, 2026-11-19/20). Tính năng, bảng và API tương ứng không còn trong hệ thống; nội dung đặc tả gốc xem lịch sử git của tệp này.
 
-#### UC-ADM-07 – Quản lý trang tĩnh
+#### UC-ADM-07 – (đã gỡ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (pages) |
-| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
-| **Mô tả** | Soạn, xuất bản, lưu trữ các trang Giới thiệu, Chính sách đổi trả, Hướng dẫn mua hàng. |
-| **Tiền điều kiện** | Admin có quyền. |
-| **Hậu điều kiện** | Trang thay đổi trạng thái/nội dung. |
-| **Luồng chính** | 1. Admin: Mở `/admin/pages`, tạo hoặc sửa trang: tiêu đề, slug, nội dung, SEO.<br>2. Hệ thống: `POST /api/admin/pages` / `PATCH /api/admin/pages/:id`; làm sạch HTML (loại script) trước khi lưu.<br>3. Admin: Đổi trạng thái `draft` → `published` → `archived`.<br>4. Hệ thống: `PATCH /api/admin/pages/:id/status`; khi lần đầu `published` đặt `publishedAt = now()`. |
-| **Luồng thay thế** | 2a. Slug trùng → 409. |
-| **Ngoại lệ** | • HTML không hợp lệ → làm sạch tự động và cảnh báo. |
-| **Quy tắc nghiệp vụ** | • `slug` UNIQUE; chỉ trang `published` hiển thị công khai (UC-CAT-05). |
-| **Dữ liệu vào** | • title (bắt buộc): ≤ 255 ký tự<br>• slug, content, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột<br>• status (bắt buộc (đổi trạng thái)): `draft`, `published`, `archived` |
-| **Dữ liệu ra** | • 200/201: bản ghi `Page` |
-| **Model + C/R/U/D** | Page (pages): C,R,U,D<br>ActivityLog (activity_logs): C |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_pages_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
+UC này **đã gỡ** (D-D12, 2026-11-19/20). Tính năng, bảng và API tương ứng không còn trong hệ thống; nội dung đặc tả gốc xem lịch sử git của tệp này.
 
 #### UC-ADM-08 – Quản lý thuộc tính và giá trị thuộc tính
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (attributes, attribute_values) |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (attribute_values) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) |
-| **Mô tả** | Định nghĩa Màu sắc, Chất liệu, Kích thước và các giá trị (Xám, Be, Gỗ sồi...) để gắn cho biến thể. |
+| **Mô tả** | Quản lý các giá trị (Xám, Be, Gỗ sồi...) của 3 loại thuộc tính cố định Màu sắc, Chất liệu, Kích thước (enum `attribute_code`) để gắn cho biến thể. |
 | **Tiền điều kiện** | Admin có quyền. |
 | **Hậu điều kiện** | Danh mục thuộc tính được cập nhật. |
-| **Luồng chính** | 1. Admin: Mở `/admin/attributes`.<br>2. Hệ thống: `GET /api/admin/attributes` (kèm giá trị).<br>3. Admin: Thêm thuộc tính (mã, tên) hoặc thêm giá trị cho thuộc tính.<br>4. Hệ thống: `POST /api/admin/attributes`, `POST /api/admin/attributes/:id/values`, `PATCH`, `DELETE`.<br>5. Hệ thống: Kiểm tra `code`/`name` duy nhất và `(attributeId, value)` duy nhất; lưu. |
+| **Luồng chính** | 1. Admin: Mở `/admin/attributes`.<br>2. Hệ thống: `GET /api/admin/attributes` (kèm giá trị).<br>3. Admin: Thêm/sửa/xóa giá trị cho một trong 3 loại (không tạo loại mới).<br>4. Hệ thống: `POST /api/admin/attributes/:id/values`, `PATCH`, `DELETE` (id 1/2/3 = color/size/material).<br>5. Hệ thống: Kiểm tra `(attributeCode, value)` duy nhất; lưu. |
 | **Luồng thay thế** | 5a. Trùng → 409. |
 | **Ngoại lệ** | • Xóa giá trị đang được biến thể dùng → 409 (Service kiểm tra; DB sẽ xóa dây chuyền `variant_attribute_values` nên phải chặn ở Service). |
-| **Quy tắc nghiệp vụ** | • `Attribute.code`, `Attribute.name` UNIQUE; `UNIQUE (attributeId, value)`. |
-| **Dữ liệu vào** | • code (bắt buộc): ≤ 50 ký tự, chữ thường<br>• name (bắt buộc): ≤ 100 ký tự<br>• value (bắt buộc (giá trị)): ≤ 150 ký tự |
+| **Quy tắc nghiệp vụ** | • Loại thuộc tính là enum `attribute_code` (color, size, material), không tạo/sửa/xóa loại (D-D14); `UNIQUE (attributeCode, value)`. |
+| **Dữ liệu vào** | • value (bắt buộc): ≤ 150 ký tự<br>• colorHex (tuỳ chọn, chỉ loại màu): #RRGGBB |
 | **Dữ liệu ra** | • 200/201: thuộc tính/giá trị |
-| **Model + C/R/U/D** | Attribute (attributes): C,R,U,D<br>AttributeValue (attribute_values): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): R<br>ActivityLog (activity_logs): C |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_attributes_set_updated_at`, `trg_attribute_values_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
+| **Model + C/R/U/D** | AttributeValue (attribute_values): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): R<br>ActivityLog (activity_logs): C |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_attribute_values_set_updated_at`.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-09 – Quản lý sản phẩm
 
@@ -1553,11 +1465,11 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Hậu điều kiện** | Sản phẩm thay đổi; có `ActivityLog`. |
 | **Luồng chính** | 1. Admin: Mở `/admin/products` (danh sách, lọc theo trạng thái/danh mục, tìm tên).<br>2. Hệ thống: `GET /api/admin/products?status=&category=&q=&deleted=&page=`.<br>3. Admin: Bấm "Thêm sản phẩm" (`/admin/products/new`): tên, slug, mô tả ngắn/chi tiết, danh mục, thương hiệu, trạng thái, nổi bật, SEO.<br>4. Hệ thống: `POST /api/admin/products` (CreateProductDto); `PATCH /api/admin/products/:id` (UpdateProductDto).<br>5. Hệ thống: Sinh slug nếu trống; kiểm tra slug duy nhất (kể cả sản phẩm đã xóa mềm), danh mục/thương hiệu tồn tại.<br>6. Hệ thống: Lưu `Product` (`ratingAvg`, `ratingCount`, `has3dModel` giữ do trigger), ghi `ActivityLog`, trả 201.<br>7. Admin: Thêm biến thể, ảnh (UC-ADM-10, UC-ADM-11), mô hình 3D (UC-ADM-13).<br>8. Admin: Đổi `status` sang `published`; hoặc "Xóa".<br>9. Hệ thống: `PATCH /api/admin/products/:id/status`; kiểm tra điều kiện đăng; xóa mềm = `DELETE /api/admin/products/:id` đặt `deletedAt = now()`, `status = archived`. |
 | **Luồng thay thế** | 5a. Slug trùng → 409.<br>9a. Đăng khi chưa có biến thể `isActive` hoặc chưa có ảnh đại diện → 400 [ĐỀ XUẤT]. |
-| **Ngoại lệ** | • Danh mục/thương hiệu không tồn tại → 400. |
+| **Ngoại lệ** | • Danh mục không tồn tại → 400; thương hiệu quá 150 ký tự → 400 (thương hiệu là cột chữ `products.brand`, D-D15). |
 | **Quy tắc nghiệp vụ** | • Không bao giờ xóa cứng; `deletedAt` + `archived` (QUY_UOC §4); mọi danh sách công khai lọc `deletedAt: null`.<br>• `ratingAvg`, `ratingCount`, `has3dModel` do trigger DB tính: Service không ghi (QUY_UOC §6). `soldCount` do Service tăng khi đơn hoàn tất.<br>• Tìm gần đúng theo tên dùng index GIN trigram. |
-| **Dữ liệu vào** | • name (bắt buộc): ≤ 255 ký tự<br>• slug (tuỳ chọn): ≤ 280 ký tự<br>• shortDescription (tuỳ chọn): ≤ 500; description<br>• categoryId, brandId (tuỳ chọn): id tồn tại<br>• status (tuỳ chọn): `draft`, `published`, `archived` (mặc định `draft`)<br>• isFeatured, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột |
+| **Dữ liệu vào** | • name (bắt buộc): ≤ 255 ký tự<br>• slug (tuỳ chọn): ≤ 280 ký tự<br>• shortDescription (tuỳ chọn): ≤ 500; description<br>• categoryId (bắt buộc): id tồn tại<br>• brand (tuỳ chọn): chữ ≤ 150 ký tự<br>• status (tuỳ chọn): `draft`, `published`, `archived` (mặc định `draft`)<br>• isFeatured, metaTitle, metaDescription (tuỳ chọn): theo kiểu cột |
 | **Dữ liệu ra** | • 200/201: `ProductResponseDto` |
-| **Model + C/R/U/D** | Product (products): C,R,U,D<br>Category (categories): R<br>Brand (brands): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>ActivityLog (activity_logs): C |
+| **Model + C/R/U/D** | Product (products): C,R,U,D<br>Category (categories): R<br>ProductVariant (product_variants): R<br>ProductImage (product_images): R<br>ActivityLog (activity_logs): C |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_products_set_updated_at`.<br>• Service: ghi `ActivityLog` qua interceptor.<br>• Service: ghi bản ghi chính cùng `ActivityLog` trong MỘT `prisma.$transaction` (nghiệp vụ ghi từ 2 bảng trở lên, D-T52). |
 
 #### UC-ADM-10 – Quản lý biến thể sản phẩm
@@ -1575,7 +1487,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Quy tắc nghiệp vụ** | • Không bao giờ xóa biến thể: bỏ khỏi danh sách ⇒ `isActive = false` (giữ lịch sử kho, đơn hàng, ảnh gắn biến thể); dòng giỏ hàng của biến thể đó bị xóa; gửi lại `id` thì bán lại. Công khai không thấy biến thể đã ngừng bán.<br>• Giá `price ≥ 0`; `stockQuantity` không sửa trực tiếp ở đây mà qua phiếu kho.<br>• Biến thể bị xóa: dòng giỏ bị xóa theo (`CASCADE`), `OrderItem.variantId` thành NULL (đơn cũ vẫn giữ tên/SKU/giá). |
 | **Dữ liệu vào** | • sku (bắt buộc): ≤ 100 ký tự, duy nhất<br>• price (bắt buộc): số ≥ 0 (VND)<br>• salePrice (tuỳ chọn): ≥ 0 và ≤ `price`<br>• weightGram (tuỳ chọn): số nguyên ≥ 0<br>• isActive (tuỳ chọn): boolean<br>• attributeValueIds[] (bắt buộc): mỗi thuộc tính một giá trị |
 | **Dữ liệu ra** | • 200/201: biến thể (giá dạng number) |
-| **Model + C/R/U/D** | ProductVariant (product_variants): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): C,D<br>AttributeValue (attribute_values): R<br>Attribute (attributes): R |
+| **Model + C/R/U/D** | ProductVariant (product_variants): C,R,U,D<br>VariantAttributeValue (variant_attribute_values): C,D<br>AttributeValue (attribute_values): R |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_variants_set_updated_at`.<br>• Service: tạo biến thể và thuộc tính trong `$transaction`. |
 
 #### UC-ADM-11 – Quản lý ảnh sản phẩm
@@ -1596,23 +1508,23 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Model + C/R/U/D** | ProductImage (product_images): C,R,U,D<br>Media (media): C,R<br>ProductVariant (product_variants): R |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_images_set_updated_at`. |
 
-#### UC-ADM-12 – Nhập kho và điều chỉnh tồn kho
+#### UC-ADM-12 – Xem tồn kho và điều chỉnh tồn qua biến thể (rút gọn, D-D10)
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (inventory_movements, product_variants) |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (product_variants) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) |
-| **Mô tả** | Nhập hàng, điều chỉnh (kiểm kê), ghi nhận hàng trả; xem lịch sử biến động tồn kho. |
+| **Mô tả** | Xem tồn kho theo biến thể và sửa số lượng tồn qua form biến thể của sản phẩm (không còn phiếu nhập/xuất kho và lịch sử biến động tồn, D-D10). |
 | **Tiền điều kiện** | Biến thể tồn tại. |
-| **Hậu điều kiện** | `stockQuantity` thay đổi và có đúng một `InventoryMovement` tương ứng. |
-| **Luồng chính** | 1. Admin: Mở `/admin/inventory`, chọn biến thể (theo SKU), bấm "Nhập kho" hoặc "Điều chỉnh".<br>2. Admin: Nhập loại (`import`/`adjustment`/`return`), số lượng thay đổi, lý do, mã chứng từ.<br>3. Hệ thống: `POST /api/admin/inventory/movements` (CreateInventoryMovementDto).<br>4. Hệ thống: `InventoryService.record(adminId, dto)` mở `$transaction`.<br>5. Hệ thống: `productVariant.updateMany({ id, stockQuantity: { gte: -quantityChange nếu âm } }, { stockQuantity: { increment: quantityChange } })`; nếu `count ≠ 1` → 409.<br>6. Hệ thống: Tạo `InventoryMovement` (`performedBy = adminId`); ghi `ActivityLog`.<br>7. Hệ thống: Trả 201 kèm tồn kho mới.<br>8. Admin: Xem `GET /api/admin/inventory/movements?variantId=&type=&from=&to=` để đối soát. |
-| **Luồng thay thế** | 5a. Điều chỉnh âm làm tồn kho < 0 → 409 "Tồn kho không đủ". |
-| **Ngoại lệ** | • `quantityChange = 0` → 400 (CHECK `ck_inventory_movements_quantity`). |
-| **Quy tắc nghiệp vụ** | • Loại `sale` chỉ do hệ thống tạo khi đặt hàng (UC-ORD-01); admin không tạo.<br>• Mọi thay đổi tồn kho phải kèm `InventoryMovement` trong cùng transaction (không có trigger tự làm, QUY_UOC §5.1).<br>• Tồn kho không âm (CHECK `ck_product_variants_stock`). |
-| **Dữ liệu vào** | • variantId (bắt buộc): biến thể tồn tại<br>• type (bắt buộc): `import`, `adjustment`, `return`<br>• quantityChange (bắt buộc): số nguyên khác 0<br>• reason (tuỳ chọn): ≤ 255; referenceCode |
-| **Dữ liệu ra** | • 201: `{ movement, stockQuantity }` |
-| **Model + C/R/U/D** | InventoryMovement (inventory_movements): C,R<br>ProductVariant (product_variants): R,U |
-| **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_variants_set_updated_at`.<br>• Service: cập nhật tồn kho + ghi `InventoryMovement` trong `$transaction`. |
+| **Hậu điều kiện** | `stockQuantity` của biến thể được cập nhật. |
+| **Luồng chính** | 1. Admin: Mở `/admin/inventory`: xem danh sách biến thể kèm tồn, ngưỡng cảnh báo và trạng thái (`GET /api/admin/inventory`, `GET /api/admin/inventory/summary`).<br>2. Admin: Muốn đổi tồn thì mở form biến thể của sản phẩm (UC-ADM-10) và sửa `stockQuantity`.<br>3. Hệ thống: Lưu biến thể trong `$transaction` cùng `ActivityLog`. |
+| **Luồng thay thế** | 3a. Tồn kho < 0 → 400 (CHECK `ck_product_variants_stock`). |
+| **Ngoại lệ** | • Không có. |
+| **Quy tắc nghiệp vụ** | • Tồn kho do hệ thống trừ khi đặt hàng (UC-ORD-01) và cộng lại khi hủy đơn (UC-ORD-03, UC-ADM-22).<br>• Không còn sổ cái tồn kho (QUY_UOC §5.1).<br>• Tồn kho không âm (CHECK `ck_product_variants_stock`). |
+| **Dữ liệu vào** | • Không có (xem tồn); sửa tồn qua UC-ADM-10 |
+| **Dữ liệu ra** | • 200: danh sách tồn `InventoryRow[]` và tổng hợp |
+| **Model + C/R/U/D** | ProductVariant (product_variants): R,U |
+| **DB trigger / việc Service tự làm** | • DB trigger: `trg_product_variants_set_updated_at`.<br>• Service: cập nhật tồn kho cùng `ActivityLog` trong `$transaction`. |
 
 #### UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm
 
@@ -1765,7 +1677,7 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 
 | Mục | Nội dung |
 | --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (orders, inventory_movements, coupon_usages) |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Bắt buộc** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (orders, coupon_usages) |
 | **Tác nhân chính / phụ** | Quản trị viên (quyền `process_orders`) |
 | **Mô tả** | Admin hủy đơn trước khi giao (`pending`, `confirmed`, `processing`); hoàn tồn kho và lượt dùng mã. |
 | **Tiền điều kiện** | Đơn ở trạng thái `pending`, `confirmed` hoặc `processing`. |
@@ -1773,10 +1685,10 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Bấm "Hủy đơn", nhập lý do.<br>2. Hệ thống: `POST /api/admin/orders/:id/cancel` (CancelOrderDto).<br>3. Hệ thống: `OrdersService.cancelByAdmin` thực hiện các bước như UC-ORD-03 (bước 3–8) trong một `$transaction`.<br>4. Hệ thống: Nếu đơn đã thanh toán: giữ `Payment.success`, hiển thị cảnh báo cần hoàn tiền (UC-ADM-23).<br>5. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
 | **Luồng thay thế** | 3a. Đơn đã `shipping` trở đi → 409 (không hủy được). |
 | **Ngoại lệ** | • Hủy hai lần → 409. |
-| **Quy tắc nghiệp vụ** | • Admin hủy được trước `shipping`; user chỉ khi `pending`/`confirmed`.<br>• Hoàn kho + `InventoryMovement` (type `return`) + hoàn `CouponUsage`/`usedCount` do Service làm trong transaction. |
+| **Quy tắc nghiệp vụ** | • Admin hủy được trước `shipping`; user chỉ khi `pending`/`confirmed`.<br>• Hoàn kho + hoàn `CouponUsage`/`usedCount` do Service làm trong transaction. |
 | **Dữ liệu vào** | • reason (bắt buộc): 5–500 ký tự |
 | **Dữ liệu ra** | • 200: đơn đã hủy |
-| **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>ProductVariant (product_variants): U<br>InventoryMovement (inventory_movements): C<br>Coupon (coupons): U<br>CouponUsage (coupon_usages): D<br>Payment (payments): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
+| **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>ProductVariant (product_variants): U<br>Coupon (coupons): U<br>CouponUsage (coupon_usages): D<br>Payment (payments): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_update`.<br>• Service: hoàn kho, hoàn mã (`$transaction`). |
 
 #### UC-ADM-23 – Hoàn tiền thủ công
@@ -1788,13 +1700,13 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Mô tả** | Sau khi đã hoàn tiền ngoài hệ thống (chuyển khoản/cổng), admin ghi nhận để đóng đơn. |
 | **Tiền điều kiện** | Đơn `completed` hoặc `cancelled` đã thanh toán (`paymentStatus = paid`). |
 | **Hậu điều kiện** | `Order.status = refunded`, `Order.paymentStatus = refunded`, `Payment.status = refunded`. |
-| **Luồng chính** | 1. Admin: Ở chi tiết đơn bấm "Ghi nhận hoàn tiền", nhập ghi chú, chọn "nhập lại kho" nếu hàng được trả.<br>2. Hệ thống: `POST /api/admin/orders/:id/refund` (RefundOrderDto).<br>3. Hệ thống: `$transaction`: kiểm tra điều kiện; `Order.status = refunded`, `paymentStatus = refunded`; `Payment.status = refunded`.<br>4. Hệ thống: Nếu chọn nhập lại kho: cộng tồn kho + `InventoryMovement` (`return`).<br>5. CSDL: Trigger ghi `OrderStatusHistory` (→ refunded).<br>6. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
+| **Luồng chính** | 1. Admin: Ở chi tiết đơn bấm "Ghi nhận hoàn tiền", nhập ghi chú, chọn "nhập lại kho" nếu hàng được trả.<br>2. Hệ thống: `POST /api/admin/orders/:id/refund` (RefundOrderDto).<br>3. Hệ thống: `$transaction`: kiểm tra điều kiện; `Order.status = refunded`, `paymentStatus = refunded`; `Payment.status = refunded`.<br>4. Hệ thống: Nếu chọn nhập lại kho: cộng tồn kho.<br>5. CSDL: Trigger ghi `OrderStatusHistory` (→ refunded).<br>6. Hệ thống: Thông báo user; ghi `ActivityLog`; trả 200. |
 | **Luồng thay thế** | 3a. Đơn chưa thanh toán hoặc đã hoàn → 409. |
 | **Ngoại lệ** | • Thiếu quyền → 403. |
 | **Quy tắc nghiệp vụ** | • Hệ thống KHÔNG gọi API hoàn tiền của cổng thanh toán; đây chỉ là ghi nhận thủ công. |
 | **Dữ liệu vào** | • note (tuỳ chọn): ≤ 500 ký tự<br>• restock (tuỳ chọn): boolean (mặc định false) |
 | **Dữ liệu ra** | • 200: đơn sau hoàn tiền |
-| **Model + C/R/U/D** | Order (orders): R,U<br>Payment (payments): R,U<br>OrderItem (order_items): R<br>ProductVariant (product_variants): U<br>InventoryMovement (inventory_movements): C<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
+| **Model + C/R/U/D** | Order (orders): R,U<br>Payment (payments): R,U<br>OrderItem (order_items): R<br>ProductVariant (product_variants): U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_orders_log_status_update`, `trg_payments_set_updated_at`.<br>• Service: đồng bộ trạng thái, hoàn kho tuỳ chọn. |
 
 #### UC-ADM-24 – Quản lý thanh toán (xác nhận chuyển khoản)
@@ -1864,15 +1776,9 @@ Mọi UC quản trị: đi qua `JwtAuthGuard` + `RolesGuard('admin')` + `Permiss
 | **Luồng chính** | 1. Admin: Mở `/dashboard`, chọn khoảng ngày.<br>2. Hệ thống: `GET /api/admin/stats/overview?from=&to=` tổng hợp (SUM `total` của đơn `completed`, COUNT theo `status`, top `soldCount`, COUNT user mới).<br>3. Hệ thống: Trả số liệu (tiền dạng number) để vẽ biểu đồ. |
 | **Model + C/R/U/D** | Order (orders): R<br>OrderItem (order_items): R<br>Product (products): R<br>User (users): R |
 
-#### UC-ADM-29 – Thống kê phễu không gian mẫu
+#### UC-ADM-29 – (đã gỡ)
 
-| Mục | Nội dung |
-| --- | --- |
-| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Mở rộng** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (space_views) |
-| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_content`) |
-| **Mô tả** | Phễu phòng mẫu (xem → bấm điểm → thêm giỏ). Phần thống kê AR đã loại bỏ (D-P16); UC vẫn hoạt động với phần phễu không gian mẫu. |
-| **Luồng chính** | 1. Admin: Mở trang thống kê không gian mẫu.<br>2. Hệ thống: `GET /api/admin/stats/spaces?from=&to=` tổng hợp `SpaceView` (gộp user và khách qua `visitorId`).<br>3. Hệ thống: Trả tỉ lệ chuyển đổi theo sản phẩm/phòng mẫu. |
-| **Model + C/R/U/D** | SpaceView (space_views): R<br>Space (spaces): R<br>Product (products): R |
+UC này **đã gỡ** (D-D10, 2026-11-19/20). Tính năng, bảng và API tương ứng không còn trong hệ thống; nội dung đặc tả gốc xem lịch sử git của tệp này.
 
 #### UC-ADM-30 – (đã loại bỏ)
 
@@ -1977,11 +1883,11 @@ stateDiagram-v2
 
 DB trigger `trg_reviews_refresh_rating` tính lại `ratingAvg`/`ratingCount` ở mọi chuyển đổi liên quan đến `approved`.
 
-### 10.6. Page và Space (`ContentStatus`)
+### 10.6. Space (`ContentStatus`)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> draft: Admin tạo (UC-ADM-07, UC-ADM-15)
+    [*] --> draft: Admin tạo (UC-ADM-15)
     draft --> published: Admin đăng, đặt publishedAt
     published --> archived: Admin lưu trữ
     archived --> published: Admin đăng lại
@@ -1989,7 +1895,7 @@ stateDiagram-v2
     archived --> draft: Admin chuyển về nháp
 ```
 
-Áp dụng cho `Page`, `Space` và cả `Product` (UC-ADM-09; sản phẩm còn có xóa mềm `deletedAt`). Space chỉ được `published` khi có ít nhất một ảnh 360° và đúng một ảnh mở đầu.
+Áp dụng cho `Space` và cả `Product` (UC-ADM-09; sản phẩm còn có xóa mềm `deletedAt`). Space chỉ được `published` khi có ít nhất một ảnh 360° và đúng một ảnh mở đầu.
 
 ### 10.7. Product3DModel (`ModelStatus`)
 
@@ -2084,7 +1990,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 8 | **Xử lý nền** bằng BullMQ + Redis trong `apps/api/src/modules/jobs` với 4 queue (`model-processing`, `image-processing`, `mail`, `notification`; `notification` chỉ cho việc nền chậm, bản ghi `notifications` do Service tạo trực tiếp, D-T47); worker chạy cùng tiến trình API. Lưu trữ tệp bằng MinIO (2 bucket public/private) qua `StorageService` (driver `minio`, `s3`, `local`); mô hình 3D và panorama tải bằng presigned PUT. Redis và MinIO nằm trong profile mặc định của `docker-compose.yml`. (Thay thế quyết định tạm "không dùng Redis/MinIO" ngày 2026-10-08.) | UC-ADM-13, UC-ADM-04, UC-AUTH-01, UC-AUTH-05 |
 | 9 | **Xác thực email**: JWT ký riêng mục đích `verify_email`, không thêm bảng | UC-AUTH-07 |
 | 10 | **Setting**: danh sách trắng khóa công khai trong Service, không thêm cột | UC-ADM-03 |
-| 11 | **Ghi lượt xem không gian mẫu**: MỘT lần khi người xem rời trang bằng `navigator.sendBeacon` (kèm `hotspotClickCount`, `addedToCart`); bỏ `viewToken` | UC-SPACE-06 |
+| 11 | ~~Ghi lượt xem không gian mẫu~~ **[ĐÃ GỠ – D-D10]**: bỏ bảng `space_views` và API ghi lượt xem | UC-SPACE-06 (đã gỡ) |
 | 12 | **Slug** cho cả API và web: route web cần đổi `products/[id]` → `products/[slug]`, `spaces/[id]` → `spaces/[slug]` [CẦN SỬA]. Quy ước: API công khai/của user dùng slug trong URL (`/api/products/:slug`, `/api/spaces/:slug`, `/api/wishlist/:slug`); API quản trị và nội dung body dùng id | UC-CAT-04, UC-SPACE-02 |
 | 13 | **Thanh toán online thành công** tự chuyển đơn `pending → confirmed`; lịch sử ghi `changedBy = NULL`, ghi chú "Thanh toán online thành công" | UC-PAY-02 |
 | 14 | **Vận đơn `delivered`** tự chuyển đơn `completed`; nếu COD thì payment đồng thời `success` | UC-ADM-25 |
@@ -2099,7 +2005,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 | 22 | **Loại bỏ hoàn toàn AR** (thay thế "7 UC AR" của D-P11 bằng con số đúng: 6 UC AR bị loại, UC-ADM-29 còn phần phễu): bỏ bảng `ar_sessions`, `ar_snapshots`, kiểu `ar_mode`, cột `products.has_ar`, module `ar-sessions`/`ar-snapshots`/`ar-overlay`; giữ 3D, 360°, không gian mẫu, tệp GLB | UC-3D-02, 04, 05, 06, 07, UC-ADM-30 (D-P16, D-T59) |
 | 23 | **Danh mục và tìm kiếm** (D-N29): danh mục không tồn tại/không hoạt động → 404; tham số sai → lùi về mặc định (không 400); `sort=<trường>:<asc\|desc>`; `pageSize` ≤ 100; từ khóa 1 ký tự → rỗng; tìm trong tên + danh mục + phong cách + mô tả ngắn; GIỮ tìm trong bộ nhớ (không SQL trigram) | UC-CAT-02, UC-CAT-03, UC-CAT-06 |
 | 24 | **Sổ địa chỉ** (D-N30): điện thoại đúng 10 số bắt đầu bằng 0; xóa địa chỉ mặc định → địa chỉ mới nhất còn lại thành mặc định; xóa được địa chỉ cuối cùng; không giới hạn số lượng | UC-ACC-04 |
-| 25 | **Lưu không gian mẫu** (D-N31): trang `/account/saved-spaces`; danh sách lấy bằng `GET /spaces?bookmarked=true` (không thêm `/spaces/bookmarks/me`); chỉ lưu được không gian `published` | UC-SPACE-04 |
+| 25 | ~~Lưu không gian mẫu~~ **[ĐÃ GỠ – D-D10]**: bỏ bảng `space_bookmarks`, trang `/account/saved-spaces` và `PUT/DELETE /spaces/:slug/bookmark` | UC-SPACE-04 (đã gỡ) |
 | 26 | **Biến thể và ảnh sản phẩm** (D-N32): giữ thiết kế gộp trong `POST/PATCH /admin/products`; ảnh đồng bộ theo `mediaId` (không xóa-tạo lại), giữ liên kết biến thể, không xóa media/tệp; biến thể bỏ đi chỉ ngừng bán | UC-ADM-10, UC-ADM-11 |
 | 27 | **Xác nhận thanh toán** (D-N33): chỉ `bank_transfer` đang chờ; có `transactionCode` duy nhất; có đánh dấu thất bại; đơn đã hủy vẫn xác nhận được để hoàn tiền; xử lý đồng thời an toàn | UC-ADM-24 |
 | 28 | **Vận đơn thất bại/hoàn hàng** (D-N34, thay thế điểm mở O-03/O-07): máy trạng thái §10.4; thông báo khách một lần; admin hủy được đơn `shipping` khi mọi vận đơn đã `returned`, rồi hoàn tiền một lần | UC-ADM-25, UC-ADM-22, UC-ADM-23 |
@@ -2108,7 +2014,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 
 | # | Điểm | Mặc định đang áp dụng |
 | --- | --- | --- |
-| 1 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNN`, thử lại khi trùng (UC-ORD-01) |
+| 1 | Mã đơn | Dạng `ALV-YYYYMMDD-NNNNNN`, số thứ tự lấy từ sequence `order_code_seq` (UC-ORD-01; D-D11) |
 | 2 | Giới hạn tệp | Ảnh ≤ 5 MB, panorama ≤ 20 MB, GLB ≤ 100 MB (biến `UPLOAD_MAX_IMAGE_MB`, `UPLOAD_MAX_PANORAMA_MB`, `UPLOAD_MAX_MODEL_MB`); `Media.fileSize` là INTEGER nên tối đa ~2 GB (UC-ADM-04) |
 | 3 | Giới hạn tốc độ (đăng nhập, quên mật khẩu, thống kê ẩn danh) | Đã có hạ tầng: nhóm `default` 120 yêu cầu/60 giây cho mọi route, nhóm `auth` 10 yêu cầu/60 giây cho route gắn `@AuthThrottle()`; vượt thì trả 429 `RATE_LIMITED`. Route thống kê ẩn danh dùng nhóm `default` (có thể siết riêng khi code M12, M13) |
 | 4 | Thông báo tự động (đổi trạng thái đơn, duyệt đánh giá) | Service tạo `Notification`; không có trigger |
@@ -2122,7 +2028,7 @@ Gửi qua SMTP (dev: Mailpit, http://localhost:8025) bằng `MailService` (`apps
 
 ### 12.3. Thành phần cần tạo mới / cần sửa / cần migration (tóm tắt; chi tiết ở Giai đoạn 2)
 
-- **[CẦN TẠO MỚI]** `OptionalJwtAuthGuard` (cho `POST/PATCH /api/ar-sessions`), `PermissionsGuard`, `ActivityLogInterceptor`; module `categories`, `brands`, `pages`, `attributes`, `reviews`, `coupons`, `addresses`, `notifications`, `wishlist`, `payments`, `shipments`, `inventory`, `settings`, `stats`, `activity-logs`, `ar-sessions`, `ar-snapshots`; DTO tương ứng; (tuỳ chọn) `src/worker.ts`. Đã có (lượt cấu hình môi trường): `setGlobalPrefix('api')`, `ConfigModule` đọc `.env`, `MailModule`/`MailService`, `CacheService`, guard JWT và roles toàn cục.
+- **[CẦN TẠO MỚI]** `PermissionsGuard`, `ActivityLogInterceptor`; module `categories`, `attributes`, `reviews`, `coupons`, `addresses`, `notifications`, `wishlist`, `payments`, `shipments`, `inventory`, `settings`, `stats`, `activity-logs`, `ar-sessions`, `ar-snapshots`; DTO tương ứng; (tuỳ chọn) `src/worker.ts`. Đã có (lượt cấu hình môi trường): `setGlobalPrefix('api')`, `ConfigModule` đọc `.env`, `MailModule`/`MailService`, `CacheService`, guard JWT và roles toàn cục.
 - **[CẦN SỬA]** `apps/web/src/app/(shop)/products/[id]` → `products/[slug]`; `apps/web/src/app/(shop)/spaces/[id]` → `spaces/[slug]`.
 - **Migration cần làm khi code** (tạo bằng `prisma migrate dev --create-only`): index `idx_products_name_unaccent_trgm` ON `products` USING gin (`immutable_unaccent(name)` gin_trgm_ops) (UC-CAT-06).
 
@@ -2145,8 +2051,8 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 
 | Chỉ số | Giá trị |
 | --- | --- |
-| Tổng UC | 80 (trong đó 70 đang hoạt động; 4 UC Android và 6 UC AR ngoài phạm vi, xem mục 1.4) |
-| UC Khách vãng lai | 25 |
+| Tổng UC | 80 (trong đó 65 đang hoạt động; 4 UC Android, 6 UC AR và 5 UC gỡ khi rút gọn CSDL ngoài phạm vi, xem mục 1.4) |
+| UC Khách vãng lai | 25 (tính trên 80 UC gốc, chưa trừ UC ngoài phạm vi) |
 | UC Người dùng (gồm kế thừa Khách) | 48 |
 | UC Quản trị viên | 59 |
 | UC Tác nhân ngoài | 1 |
@@ -2160,7 +2066,7 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 | Ưu tiên Mở rộng | 15 |
 | Model được ít nhất 1 UC sử dụng | 42/42 model chuẩn (đã bỏ 2 model AR); 17 model mở rộng chưa nằm trong ma trận UC gốc (xem 4.2 và mục 16) |
 
-Đã kiểm tra tự động: mã UC duy nhất; mọi `include`/`extend` trỏ tới UC tồn tại; 42/42 model có UC sử dụng; không UC nào cho khách ghi dữ liệu ngoài `User`, `UserSession`, `UserRole`, `PasswordReset` (đăng ký/đăng nhập/quên mật khẩu) và `SpaceView` (thống kê ẩn danh).
+Đã kiểm tra tự động: mã UC duy nhất; mọi `include`/`extend` trỏ tới UC tồn tại; mọi model còn lại (32 model) có UC sử dụng; không UC nào cho khách ghi dữ liệu ngoài `User`, `UserSession`, `PasswordReset` (đăng ký/đăng nhập/quên mật khẩu) và `SpaceView` (thống kê ẩn danh).
 
 ## 15. Đã loại bỏ (không còn trong phạm vi)
 
@@ -2279,7 +2185,7 @@ Nội dung đặc tả gốc của 6 UC (nguyên văn, **không còn hiệu lự
 | **Tác nhân chính / phụ** | Khách vãng lai / Người dùng (tự động) |
 | **Mô tả** | Mỗi lượt xem 3D/AR được ghi lại (thiết bị, hệ điều hành, nền tảng AR, thời gian, đặt được hay không, chụp ảnh, thêm giỏ). Khách dùng `visitorId` ẩn danh do client tạo. |
 | **Luồng chính** | 1. Hệ thống: Khi mở trình xem, client gọi `POST /api/ar-sessions` (CreateArSessionDto: `productId`, `modelId`, `mode`, `device`, `os`, `arPlatform`, `visitorId`) — endpoint dùng `OptionalJwtAuthGuard` [CẦN TẠO MỚI].<br>2. Hệ thống: Nếu có token → `userId`; ngược lại bắt buộc `visitorId` (UUID). Ràng buộc DB: phải có `userId` hoặc `visitorId` (CHECK `ck_ar_sessions_actor`).<br>3. Hệ thống: Trả `uuid` phiên. Khi đóng trình xem client gọi `PATCH /api/ar-sessions/:uuid` cập nhật `durationSeconds`, `placed`, `captured`, `addedToCart`. |
-| **Quy tắc nghiệp vụ** | • Đây là ngoại lệ duy nhất cho phép khách ghi dữ liệu (cùng `space_views`); không chứa thông tin cá nhân.<br>• Cập nhật phiên chỉ khi `visitorId`/`userId` khớp phiên; giới hạn tốc độ để chống ghi rác. |
+| **Quy tắc nghiệp vụ** | • (Nội dung lịch sử của UC AR đã loại bỏ.) Không chứa thông tin cá nhân.<br>• Cập nhật phiên chỉ khi `visitorId`/`userId` khớp phiên; giới hạn tốc độ để chống ghi rác. |
 | **Model + C/R/U/D** | ArSession (ar_sessions): C,U |
 
 ### 15.6. UC-ADM-30
@@ -2302,14 +2208,8 @@ Chức năng **đang có trong code** nhưng không có UC trong đặc tả (ng
 
 | Chức năng | Trạng thái | Nơi trong code | Ghi chú |
 | --- | --- | --- | --- |
-| Xem sản phẩm 360° (xoay ảnh) | Có, chạy thật | `GET/PUT /admin/products/:id/360`, `GET /products/:slug/360`; trang `/products/[slug]/360` | Bổ sung theo code |
-| Ví mã giảm giá (lưu mã, mã gợi ý) | Có, chạy thật | `/coupons/me`, `/coupons/suggested`, `/coupons/save`; trang `/account/coupons` | Bổ sung theo code |
-| Hỏi đáp sản phẩm | Có, chạy thật | `/products/:slug/questions`, `/admin/questions` | Bổ sung theo code |
-| Sổ thu/chi và báo cáo tài chính | Có, chạy thật | `/admin/expenses`, `/admin/stats/finance`; trang `/admin/reports` | Bổ sung theo code |
-| Phiếu nhập/xuất kho | Có, chạy thật | `/admin/inventory/receipts*`; trang `/admin/inventory` | Bổ sung theo code (phương án b′ của UC-ADM-12) |
 | Thêm cả bộ không gian vào giỏ | Có, chạy thật | `POST /spaces/:slug/add-to-cart` (tất cả-hoặc-không; xem [API_CONTRACT.md](API_CONTRACT.md) mục 5c) | Bổ sung theo code |
-| Bài viết/blog | Một phần | `/admin/posts` (admin đủ); `GET /posts/:slug` có BE nhưng chưa có trang công khai | Bổ sung theo code |
-| Quản trị FAQ, tin nhắn liên hệ, sắp xếp banner, in hóa đơn | Chỉ BE | `/admin/faq`, `/admin/contact-messages`, `PATCH /admin/banners/reorder`, `GET /admin/orders/:code/invoice` | Bổ sung theo code; chưa có giao diện quản trị |
+| Quản trị FAQ, in hóa đơn | Chỉ BE | `/admin/faq`, `GET /admin/orders/:code/invoice` | Bổ sung theo code; chưa có giao diện quản trị |
 | Cài đặt theo khóa | Chỉ BE | `PUT /admin/settings/:key` | Bổ sung theo code; FE chỉ dùng `PUT /admin/settings/store` |
 | Bull Board (hàng đợi nền) | Có | `/admin/queues` (chỉ admin) | Bổ sung theo code |
 | **Đăng nhập Google** | **Đã hoãn** | `POST /auth/google` luôn `503`; nút FE ẩn khi chưa bật `NEXT_PUBLIC_GOOGLE_LOGIN_ENABLED` | Hoãn sang giai đoạn sau; việc cần làm ở [KNOWN_ISSUES.md](KNOWN_ISSUES.md) |

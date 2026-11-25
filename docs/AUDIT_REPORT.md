@@ -1,5 +1,7 @@
 # AUDIT_REPORT — Aurelia Living (nhánh `feature/backend`, commit `1d6962e`)
 
+> **Lưu ý (2026-11-25):** Báo cáo kiểm toán chụp ngày 2026-11-10 (59 bảng, 210 endpoint) đề cập các bảng và tính năng đã gỡ khi rút gọn CSDL từ 59 xuống 32 bảng (D-D10 … D-D16 trong [DECISIONS.md](DECISIONS.md)): 21 bảng (`product_specs`, `product_360_*`, `review_images`, `product_questions`, `coupon_scopes`, `user_coupons`, `code_counters`, `return_*`, `stock_receipt*`, `expenses`, `banners`, `posts`, `contact_messages`, `pages`, `inventory_movements`, `space_bookmarks`, `space_views`) và `roles`, `permissions`, `role_permissions`, `user_roles`, `attributes`, `brands`. Các chỗ nhắc chúng là **lịch sử** (ảnh chụp tại thời điểm viết), không phải hiện trạng. Hiện trạng: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md), [CAU_TRUC_DB.md](CAU_TRUC_DB.md).
+
 Ngày audit: 2026-11-10 · Chỉ đọc (không sửa mã nguồn); tệp duy nhất được tạo trong repo là báo cáo này. Phần "đọc tự động" dùng script tạm đặt NGOÀI repo (`%TEMP%\aud\audit*.mjs`) để trích endpoint/route/bảng/TODO, sau đó đối chiếu tay các trường hợp nghi ngờ. Mọi `file:dòng` đều là đường dẫn từ gốc repo (hoặc từ `apps/api/src/`, `apps/web/src/` ở các bảng đã ghi chú).
 
 ## 1. Tổng quan

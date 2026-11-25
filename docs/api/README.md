@@ -1,8 +1,8 @@
 # docs/api – đặc tả OpenAPI sinh từ code
 
-Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
 
-[openapi.json](openapi.json) là spec OpenAPI 3.0 **xuất trực tiếp từ API đang chạy** (Swagger của NestJS, `apps/api/src/app.setup.ts`), không viết tay: 210 operation / 157 path, khớp đúng 210 dòng `Mapped {…}` khi API khởi động. Mô tả từng route nằm ở trường `summary` (tiếng Việt), quyền ở `security`.
+[openapi.json](openapi.json) là spec OpenAPI 3.0 **xuất trực tiếp từ API đang chạy** (Swagger của NestJS, `apps/api/src/app.setup.ts`), không viết tay: 152 operation / 117 path, khớp đúng 152 dòng `Mapped {…}` khi API khởi động. Mô tả từng route nằm ở trường `summary` (tiếng Việt), quyền ở `security`.
 
 **Giới hạn cần biết:** phần lớn `@Body()` khai báo kiểu `unknown` (kiểm tra thủ công bằng `FieldErrors`), nên spec **không có schema request/response chi tiết**; kiểu dữ liệu và quy tắc kiểm tra ở [API_CONTRACT.md](../API_CONTRACT.md) và [API_CONVENTIONS.md](../API_CONVENTIONS.md). Khi spec và tài liệu viết tay lệch nhau, code là nguồn đúng.
 
@@ -23,4 +23,4 @@ curl -s http://localhost:4000/docs-json | node -e "let s='';process.stdin.on('da
 
 Giao diện xem trực tiếp: `http://localhost:4000/docs`. Sau khi xuất lại, cập nhật số liệu ở đầu tệp này và đối chiếu bảng endpoint của [API_CONTRACT.md](../API_CONTRACT.md) (mục 4).
 
-Ghi chú: lần xuất ngày 2026-11-11 chạy API một lần trên DB test (`aurelia_test`) rồi tắt ngay; spec không chứa dữ liệu, chỉ chứa cấu trúc route.
+Ghi chú: lần xuất ngày 2026-11-25 chạy API một lần (không ghi dữ liệu) rồi tắt ngay; spec không chứa dữ liệu, chỉ chứa cấu trúc route.

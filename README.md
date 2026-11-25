@@ -50,7 +50,7 @@ Sửa trong `.env`:
 
 ```bash
 npm run infra:up      # postgres + redis + minio + minio-init (chạy một lần, tạo 2 bucket) + mailpit
-npm run db:deploy     # áp migration (44 bảng, trigger, CHECK, index)
+npm run db:deploy     # áp migration (32 bảng, trigger, CHECK, index)
 npm run db:seed       # vai trò, quyền, cấu hình, admin (+ dữ liệu mẫu; tệp mẫu được tải lên MinIO)
 ```
 

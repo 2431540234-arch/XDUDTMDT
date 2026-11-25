@@ -1,6 +1,6 @@
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
 
-> **Hiện trạng 2026-11-11:** `packages/shared-types` sinh **59 entity và 25 enum** từ `schema.prisma` (`npm run types:generate`; `npm run types:check` báo "Đã đồng bộ: 25 enum, 59 entity"). Các con số 44 entity/18 enum ở bên dưới là của các lượt đồng bộ trước (trước khi bỏ AR và thêm bảng mở rộng), giữ nguyên làm lịch sử.
+> **Hiện trạng 2026-11-25:** `packages/shared-types` sinh **32 entity và 18 enum** từ `schema.prisma` (`npm run types:generate`; `npm run types:check` báo "Đã đồng bộ: 18 enum, 32 entity"). Bảng "khác biệt trước khi sửa" bên dưới là ảnh chụp lượt đồng bộ đầu tiên, giữ làm lịch sử (số bảng/enum lúc đó không còn là hiện trạng).
 
 # Đồng bộ `packages/shared-types` với Prisma
 
@@ -35,12 +35,12 @@
 
 ## 3. Bảng khác biệt trước khi sửa
 
-Hiện trạng cũ (viết tay, 5 file) so với schema Prisma (44 bảng, 18 enum):
+Hiện trạng cũ (viết tay, 5 file) so với schema Prisma lúc đó:
 
 | # | Loại lệch  | Kiểu cũ | Thực tế trong Prisma | Xử lý |
 | - | ---------- | ------- | -------------------- | ----- |
 | 1 | Sai kiểu   | `User.id: string` | `Int` (autoincrement); có thêm `uuid` | Thay bằng entity sinh |
-| 2 | Sai enum   | `User.role: "customer" \| "admin"` | Không có cột role; vai trò qua `UserRole` → `Role.code` ∈ `admin`, `user`; không có "customer" | Bỏ `role`; thêm `RoleCode = 'admin' \| 'user'` và `AuthUser.roles` |
+| 2 | Sai enum   | `User.role: "customer" \| "admin"` | Vai trò là cột `users.role` (enum `UserRole` ∈ `admin`, `user`, D-D13); không có "customer" | Dùng `RoleCode = 'admin' \| 'user'` và `AuthUser.roles` |
 | 3 | Sai tên    | `User.name` | `fullName` | Thay bằng entity sinh |
 | 4 | Thiếu      | `User` thiếu `phone`, `avatarMediaId`, `status`, `emailVerifiedAt`, `lastLoginAt`, `deletedAt`, `createdAt`, `updatedAt` | Có đủ | Entity sinh |
 | 5 | Thừa/nhạy cảm | - | `passwordHash` tồn tại trong bảng, không được lộ ra FE | Sinh có chủ đích loại bỏ |
@@ -51,7 +51,7 @@ Hiện trạng cũ (viết tay, 5 file) so với schema Prisma (44 bảng, 18 en
 | 10 | Sai kiểu  | `Space.id: string`, `panoramaUrl`, `hotspots[{position{x,y,z}}]` | `Space`/`SpaceScene`/`SpaceHotspot` dùng `yaw`/`pitch` (Decimal) chứ không phải x,y,z; ảnh qua `Media` | Entity sinh |
 | 11 | Thiếu     | `AuthTokens` chỉ có token | Đúng hình dạng nhưng thiếu người dùng đăng nhập | `AuthTokens` giữ, thêm `AuthUser` |
 | 12 | Thiếu     | Không có | 18 enum (`UserStatus`, `OrderStatus`, `PaymentStatus`...) | `enums.generated.ts` |
-| 13 | Thiếu     | Không có | 39 bảng còn lại (Order, Coupon, Review...) | Entity sinh (59 bảng: 42 chuẩn + 17 mở rộng; đã bỏ 2 bảng AR ở D-P16) |
+| 13 | Thiếu     | Không có | Các bảng còn lại (Order, Coupon, Review...) | Entity sinh (hiện 32 bảng) |
 | 14 | Thiếu     | Không có kiểu response/lỗi/phân trang | Quy ước ở API_CONVENTIONS.md | `api.ts`, `error-codes.ts` |
 | 15 | Hạ tầng   | Thiếu `package.json`, `tsconfig.json`; `apps/*` không khai báo phụ thuộc | - | Thêm package `@aurelia-living/shared-types` (build ra `dist`), `apps/api` và `apps/web` khai báo `"@aurelia-living/shared-types": "*"` |
 

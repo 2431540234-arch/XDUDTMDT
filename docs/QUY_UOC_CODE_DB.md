@@ -127,9 +127,9 @@ CSDL **không** có trigger cho các việc sau; Service phải làm trong **m�
 
 **Nguyên tắc chung (D-T52):** bất kỳ nghiệp vụ nào ghi từ 2 bảng trở lên (kể cả `activity_logs`, `notifications`) đều nằm trong một `prisma.$transaction`; việc ngoài DB (S3, hàng đợi, email) làm sau commit.
 
-### 5.1. Trừ / hoàn tồn kho kèm `inventory_movements`
+### 5.1. Trừ / hoàn tồn kho
 
-Trừ bằng `updateMany` có điều kiện `gte` (nguyên tử, không bị bán vượt khi hai đơn đồng thời), kiểm tra `count`, rồi ghi movement.
+Trừ bằng `updateMany` có điều kiện `gte` (nguyên tử, không bị bán vượt khi hai đơn đồng thời), kiểm tra `count`. Không còn bảng lịch sử tồn kho (`inventory_movements` đã bỏ, D-D10).
 
 ```ts
 // ✅ ĐÚNG
@@ -140,14 +140,11 @@ await prisma.$transaction(async (tx) => {
       data: { stockQuantity: { decrement: it.quantity } },
     });
     if (r.count !== 1) throw new ConflictException(`Không đủ tồn kho cho ${it.sku}`);
-    await tx.inventoryMovement.create({
-      data: { variantId: it.variantId, type: 'sale', quantityChange: -it.quantity, referenceCode: order.orderCode },
-    });
   }
 });
-// Hủy/hoàn đơn: cộng lại + movement type 'return' (quantityChange dương)
+// Hủy đơn: cộng lại (increment) trong cùng transaction
 
-// ❌ SAI: đọc rồi ghi (race condition), không ghi movement, ngoài transaction
+// ❌ SAI: đọc rồi ghi (race condition), ngoài transaction
 const v = await prisma.productVariant.findUnique({ where: { id } });
 await prisma.productVariant.update({ where: { id }, data: { stockQuantity: v.stockQuantity - qty } });
 ```
@@ -223,9 +220,7 @@ Code lặp lại sẽ ghi đè hoặc gây sai lệch/đua dữ liệu.
 | `updated_at` | `trg_<bảng>_set_updated_at` (mọi bảng có `updated_at`) | tự gán `updatedAt: new Date()` |
 | `Product.ratingAvg`, `ratingCount` | `trg_reviews_refresh_rating` (chỉ review `approved`) | tính/ghi lại trung bình khi duyệt review |
 | `Product.has3dModel` | `trg_product_3d_models_refresh_flags`, `trg_model_files_refresh_flags` | bật/tắt cờ khi thêm model/file |
-| `Space.viewCount` | `trg_space_views_increase_count` | `viewCount: { increment: 1 }` |
 | `OrderStatusHistory` | `trg_orders_log_status_insert/update` (kể cả lúc tạo đơn) | `orderStatusHistory.create(...)` khi đổi trạng thái |
-| Vai trò `user` khi đăng ký | `trg_users_assign_default_role` (deferred, chạy lúc commit) | `userRole.create` cho user thường |
 
 ```ts
 // ✅ ĐÚNG: duyệt review, trigger lo điểm trung bình
@@ -233,11 +228,6 @@ await prisma.review.update({ where: { id }, data: { status: 'approved' } });
 
 // ❌ SAI: tự cập nhật điểm (đua với trigger, lệch số liệu)
 await prisma.product.update({ where: { id: productId }, data: { ratingAvg: newAvg, ratingCount: n } });
-
-// ✅ ĐÚNG: ghi lượt xem; viewCount tự tăng
-await prisma.spaceView.create({ data: { spaceId, userId, visitorId, sourceProductId } });
-// ❌ SAI
-await prisma.space.update({ where: { id: spaceId }, data: { viewCount: { increment: 1 } } });
 
 // ✅ ĐÚNG: đổi trạng thái đơn; lịch sử tự ghi. Muốn lưu NGƯỜI thực hiện, đặt biến phiên trong CÙNG transaction
 await prisma.$transaction(async (tx) => {
@@ -248,14 +238,14 @@ await prisma.$transaction(async (tx) => {
 // ❌ SAI: tự ghi lịch sử (trùng dòng)
 await prisma.orderStatusHistory.create({ data: { orderId: id, fromStatus, toStatus, changedBy: adminId } });
 
-// ✅ ĐÚNG: đăng ký, không gán vai trò (trigger gán 'user' lúc commit)
+// ✅ ĐÚNG: đăng ký, không đặt role (cột users.role mặc định 'user')
 await prisma.user.create({ data: { fullName, email, passwordHash } });
-// ❌ SAI: gán vai trò 'user' thủ công (thừa); và đừng giả định userRole đã có ngay trong cùng transaction
+// ❌ SAI: nhận role từ body/query của người dùng chưa xác thực (leo thang quyền)
 ```
 
-Ngoại lệ có chủ ý: tạo **admin** thì tạo user và `userRole` (`admin`) trong **cùng** `$transaction`; trigger deferred thấy đã có vai trò nên không gán thêm `user` (xem `prisma/seed.ts`).
+Ngoại lệ có chủ ý: tạo **admin** thì đặt `role: 'admin'` ngay trong `user.create` (xem `prisma/seed.ts`). Cấp/gỡ admin về sau là đổi `users.role` (`AdminRolesService`, chặn gỡ admin cuối cùng); không còn trigger tự gán vai trò (D-D13).
 
-`Product.has3dModel`/`ratingAvg`/`ratingCount` và `Space.viewCount` do DB quản lý: coi như **chỉ đọc** trong code.
+`Product.has3dModel`/`ratingAvg`/`ratingCount` do DB quản lý: coi như **chỉ đọc** trong code.
 
 ## 7. Thêm migration có CHECK / partial index / trigger
 
@@ -284,12 +274,12 @@ Quy tắc kèm theo:
 
 ## 8. Phân quyền: 2 vai trò và khách vãng lai
 
-Hệ thống chỉ có **2 vai trò trong CSDL**: `admin` và `user` (bảng `roles`). **Khách vãng lai không có tài khoản**, không được lưu và không có vai trò. Không thêm vai trò khác (staff, editor, customer, guest).
+Hệ thống chỉ có **2 vai trò trong CSDL**: `admin` và `user` (cột `users.role`, enum `user_role`; quyền là hằng số `ROLE_PERMISSIONS`). **Khách vãng lai không có tài khoản**, không được lưu và không có vai trò. Không thêm vai trò khác (staff, editor, customer, guest).
 
 | Đối tượng | Được gọi |
 | --- | --- |
-| Khách vãng lai (không token) | Chỉ API **đọc công khai** (sản phẩm `published` chưa xóa mềm, 3D/360°, không gian mẫu, trang tĩnh, review `approved`, danh mục, thương hiệu, cấu hình công khai) và API **xác thực**: đăng ký, đăng nhập, quên/đặt lại mật khẩu, làm mới token. Được ghi thống kê ẩn danh `ArSession`/`SpaceView` kèm `visitorId` (UUID do client tạo, `userId = null`) |
-| `user` | Dữ liệu **của chính mình**: giỏ hàng, đặt hàng, áp coupon, đánh giá, yêu thích, sổ địa chỉ, bookmark không gian mẫu, thông báo, hồ sơ |
+| Khách vãng lai (không token) | Chỉ API **đọc công khai** (sản phẩm `published` chưa xóa mềm, 3D/360°, không gian mẫu, trang tĩnh, review `approved`, danh mục, cấu hình công khai) và API **xác thực**: đăng ký, đăng nhập, quên/đặt lại mật khẩu, làm mới token. |
+| `user` | Dữ liệu **của chính mình**: giỏ hàng, đặt hàng, áp coupon, đánh giá, yêu thích, sổ địa chỉ, thông báo, hồ sơ |
 | `admin` | Toàn bộ quản trị, kiểm tra thêm quyền chi tiết (`manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`) |
 
 ```ts

@@ -13,7 +13,7 @@
 | [API_CONTRACT.md](API_CONTRACT.md) | Hợp đồng API FE ⇄ BE: bảng 210 endpoint, kiểu response, ghi chú triển khai | 2026-11-11 |
 | [API_CONVENTIONS.md](API_CONVENTIONS.md) | Quy ước response/lỗi, mã lỗi, phân trang, phân quyền | 2026-11-11 |
 | [api/openapi.json](api/openapi.json), [api/README.md](api/README.md) | Spec OpenAPI xuất từ code và cách xuất lại | 2026-11-11 |
-| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Từ điển dữ liệu 59 bảng, ERD Mermaid, trigger, ánh xạ Prisma | 2026-11-11 |
+| [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | Từ điển dữ liệu 32 bảng, ERD Mermaid, trigger, ánh xạ Prisma | 2026-11-25 |
 | [CAU_TRUC_DB.md](CAU_TRUC_DB.md) | Mô tả nghiệp vụ từng bảng (8 nhóm) | 2026-11-11 |
 | [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md) | Quy ước bắt buộc khi code với CSDL | rà 2026-11-11 (không sửa) |
 | [SHARED_TYPES_SYNC.md](SHARED_TYPES_SYNC.md) | Đồng bộ `packages/shared-types` với Prisma | 2026-11-11 |
@@ -31,7 +31,7 @@
 
 | Tài liệu | Mô tả | Thời điểm |
 | --- | --- | --- |
-| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Kiểm toán toàn dự án (210 endpoint, 66 trang, 59 bảng, rủi ro, đề xuất P0/P1/P2) | 2026-11-10/11 |
+| [AUDIT_REPORT.md](AUDIT_REPORT.md) | Kiểm toán toàn dự án (ảnh chụp 2026-11-10/11: 210 endpoint, 66 trang, 59 bảng; hiện 152 endpoint, 32 bảng; rủi ro, đề xuất P0/P1/P2) | 2026-11-10/11 |
 | [FINAL_READY_TO_MERGE_REPORT.md](FINAL_READY_TO_MERGE_REPORT.md) | Kết luận READY TO MERGE, ma trận 70 UC, kết quả hai lượt kiểm thử | 2026-11-10 |
 | [KET_QUA_KIEM_THU.md](KET_QUA_KIEM_THU.md) | Kết quả kiểm thử đợt kiểm tra cuối (commit `26f86d7`) | 2026-11-09 |
 | [KET_QUA_KIEM_THU_HOAN_THIEN.md](KET_QUA_KIEM_THU_HOAN_THIEN.md) | Kết quả kiểm thử đợt hoàn thiện (commit `7ee4dd4`) | 2026-11-10 |

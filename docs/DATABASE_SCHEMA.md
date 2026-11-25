@@ -1,25 +1,28 @@
-> Cập nhật lần cuối: 2026-11-11 – theo commit `c579fa8`.
+> Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e` (nhánh `db/remove-21-tables`, schema 32 bảng).
 
 # Cơ sở dữ liệu Aurelia Living – Tài liệu schema
 
-Website thương mại điện tử nội thất, tích hợp xem 3D, xoay 360° và không gian mẫu 360°. **AR đã bị loại bỏ khỏi hệ thống (2026-11-09, D-P16, D-T59)**: không còn bảng `ar_sessions`, kiểu `ar_mode`, cột `products.has_ar`; số thứ tự bảng 28–29 để trống (không đánh số lại để các tham chiếu cũ vẫn tra được).
+Website thương mại điện tử nội thất, tích hợp xem 3D, xoay 360° và không gian mẫu 360°. **AR đã bị loại bỏ khỏi hệ thống (2026-11-09, D-P16, D-T59)**: không còn bảng `ar_sessions`, kiểu `ar_mode`, cột `products.has_ar`; số thứ tự bảng đã đánh lại liên tục từ 1 đến 32 (khớp [CAU_TRUC_DB.md](CAU_TRUC_DB.md)).
+
+**Rút gọn còn 32 bảng (2026-11-19 → 2026-11-20):** xóa 21 bảng ít dùng, rồi gộp thêm 6 bảng (`roles`, `permissions`, `role_permissions`, `user_roles` → cột `users.role` + hằng số `ROLE_PERMISSIONS`; `attributes` → enum `attribute_code`; `brands` → cột chữ `products.brand`). Chi tiết ở mục 8.4 và các quyết định mới trong [DECISIONS.md](DECISIONS.md).
 Hệ quản trị: **PostgreSQL 15+** (dùng `UNIQUE NULLS NOT DISTINCT` và `ON DELETE SET NULL (cột)`, đã chạy thử trên 16).
 Nguồn mô tả nghiệp vụ: [CAU_TRUC_DB.md](CAU_TRUC_DB.md). Quy ước khi code: [QUY_UOC_CODE_DB.md](QUY_UOC_CODE_DB.md).
 
-> **Nguồn chuẩn cấu trúc CSDL là `apps/api/prisma`** (`schema.prisma` + `migrations/`: 16 migration, từ `0_init` đến `20261109010100_remove_ar`). Thư mục [`database/`](../database/) chỉ còn là tài liệu tham khảo (SQL thuần, xem [database/README.md](../database/README.md)). Mọi thay đổi về sau làm qua `prisma migrate dev`.
+> **Nguồn chuẩn cấu trúc CSDL là `apps/api/prisma`** (`schema.prisma` + `migrations/`: 21 migration, từ `0_init` đến `20261120030100_products_brand_text`). Thư mục [`database/`](../database/) chỉ còn là tài liệu tham khảo (SQL thuần, xem [database/README.md](../database/README.md)). Mọi thay đổi về sau làm qua `prisma migrate dev`.
 
 ## 1. Tổng quan và cách dựng
 
 | Hạng mục | Số lượng |
 | --- | --- |
-| Bảng | **59** = 42 bảng chuẩn (nhóm 1–7, STT 1–44 trừ 28–29 đã bỏ cùng AR) + 17 bảng mở rộng (nhóm 8, STT 45–61) |
-| ENUM | **25** = 17 chuẩn (đã bỏ `ar_mode`) + 8 mở rộng (xem nhóm 8) |
-| Hàm PL/pgSQL / SQL | 10 |
-| Trigger | 36 (29 trigger `updated_at` + 7 trigger nghiệp vụ) |
-| Index | 168 (78 gắn với PK/UNIQUE + 90 tạo riêng, trong đó 13 partial và 2 GIN trigram) |
-| Khóa ngoại / CHECK | 74 / 47 |
+| Bảng | **32** (nhóm 1–7, STT 1–32; không còn nhóm mở rộng) |
+| ENUM | **18** (thêm `user_role`, `attribute_code`; bỏ `ar_mode` và các enum của bảng đã xóa) |
+| Sequence | 1 (`order_code_seq`, sinh mã đơn `ALV-YYYYMMDD-NNNNNN`) |
+| Hàm PL/pgSQL / SQL | 8 hàm tự viết (không tính hàm của extension) |
+| Trigger | 28 (23 trigger `updated_at` + 5 trigger nghiệp vụ) |
+| Index | 128 |
+| Khóa ngoại / CHECK | 54 / 43 |
 
-> Các dòng Hàm, Trigger, Index, Khóa ngoại/CHECK ở trên là số liệu của bộ SQL chuẩn 42 bảng (`database/`, **chưa tính lại** cho 17 bảng mở rộng và các migration sau `0_init`): **Cần xác minh** bằng `prisma migrate diff`/truy vấn `pg_catalog` nếu cần số chính xác. Cấu trúc cột/quan hệ của cả 59 bảng lấy từ `apps/api/prisma/schema.prisma` (xem các mục nhóm 8 và 5.9–5.10).
+> Số liệu Hàm, Trigger, Index, Khóa ngoại/CHECK ở trên được đếm bằng truy vấn `pg_catalog` trên `aurelia_test` (32 bảng, đã áp đủ migration) ngày 2026-11-25. Cấu trúc cột/quan hệ lấy từ `apps/api/prisma/schema.prisma`.
 
 > **Các tệp SQL dưới đây đã được gỡ khỏi `database/` ngày 2026-11-11** (lỗi thời: 44 bảng, còn AR; không script nào dùng). Bảng chỉ còn giá trị lịch sử; xem lại bằng `git log --diff-filter=D -- database/` rồi `git show <commit-trước-khi-gỡ>:database/<tệp>`. Nguồn chuẩn: `schema.prisma` và migration.
 
@@ -39,8 +42,8 @@ Dựng CSDL thật (khuyến nghị) qua Prisma:
 
 ```bash
 cd apps/api
-npx prisma migrate deploy      # áp 2 migration: 0_init, 20261006134647_media_file_size_int (hoặc từ gốc dự án: npm run db:deploy)
-npx prisma db seed             # vai trò, quyền, settings, admin + dữ liệu mẫu (SEED_SAMPLE=false để bỏ dữ liệu mẫu)
+npx prisma migrate deploy      # áp toàn bộ migration (hoặc từ gốc dự án: npm run db:deploy)
+npx prisma db seed             # settings, admin (users.role = 'admin') + dữ liệu mẫu (SEED_SAMPLE=false để bỏ dữ liệu mẫu)
 npx prisma migrate reset       # dev: xóa và dựng lại toàn bộ
 ```
 
@@ -53,9 +56,9 @@ Tài khoản mẫu (mật khẩu băm bcrypt bằng `crypt()`): `admin@aurelia.v
 - Khóa chính và khóa ngoại dùng `INTEGER` (`id INTEGER GENERATED ALWAYS AS IDENTITY`) để Prisma sinh kiểu `Int`/`number`. `media.file_size` cũng là `INTEGER` (byte, tối đa ~2 GB, CHECK ≥ 0). Thêm cột `uuid` (UNIQUE, `gen_random_uuid()`) cho `users`, `orders`, `spaces` (và `product_3d_models`) để dùng làm mã công khai ngoài API.
 - Tiền `NUMERIC(15,2)` có CHECK ≥ 0; kích thước 3D `INTEGER` (mm); góc, tỉ lệ, tọa độ `NUMERIC(9,4)`; email và mã giảm giá `CITEXT`; IP `INET`; dữ liệu linh hoạt `JSONB`.
 - Tên ràng buộc: `pk_`, `fk_<bảng>_<cột>`, `uq_`, `ck_`; tên index: `idx_`.
-- Bảng nhật ký (`activity_logs`, `inventory_movements`, `order_status_history`, `space_views`, `coupon_usages`) chỉ có `created_at`. Bảng có dữ liệu sửa được (vì các cờ `placed/captured/added_to_cart` được cập nhật khi phiên diễn ra) có thêm `updated_at` (trigger tự cập nhật). Các bảng liên kết/nhật ký khác (`role_permissions`, `user_roles`, `wishlists`, `space_bookmarks`, `order_items`, `notifications`, `password_resets`, `user_sessions`, `permissions`, `variant_attribute_values`) cũng chỉ có `created_at`.
-- `ON DELETE`: `CASCADE` cho dữ liệu con thuần túy, `RESTRICT` cho dữ liệu cần giữ lịch sử, `SET NULL` cho tham chiếu tùy chọn. Lý do ghi ngay cạnh từng khóa ngoại trong `03_tables.sql`. Hai trường hợp đặc biệt: `space_views.user_id` dùng `CASCADE` (không `SET NULL`), `space_hotspots.product_id` dùng `CASCADE`, vì `SET NULL` sẽ vi phạm CHECK của chính bảng đó.
-- Biến thể phải thuộc đúng sản phẩm được bảo đảm bằng **khóa ngoại kép** `(variant_id, product_id)` ở `product_images`, `product_3d_models`, `space_product_placements`; giá trị thuộc tính phải thuộc đúng thuộc tính bằng khóa kép `(attribute_value_id, attribute_id)` ở `variant_attribute_values`.
+- Bảng nhật ký (`activity_logs`, `order_status_history`, `coupon_usages`) chỉ có `created_at`. Bảng có dữ liệu sửa được (vì các cờ `placed/captured/added_to_cart` được cập nhật khi phiên diễn ra) có thêm `updated_at` (trigger tự cập nhật). Các bảng liên kết/nhật ký khác (`wishlists`, `order_items`, `notifications`, `password_resets`, `user_sessions`, `variant_attribute_values`) cũng chỉ có `created_at`.
+- `ON DELETE`: `CASCADE` cho dữ liệu con thuần túy, `RESTRICT` cho dữ liệu cần giữ lịch sử, `SET NULL` cho tham chiếu tùy chọn. Lý do ghi ngay cạnh từng khóa ngoại trong `03_tables.sql`. Trường hợp đặc biệt: `space_hotspots.product_id` dùng `CASCADE` (không `SET NULL`) vì `SET NULL` sẽ vi phạm CHECK của chính bảng đó.
+- Biến thể phải thuộc đúng sản phẩm được bảo đảm bằng **khóa ngoại kép** `(variant_id, product_id)` ở `product_images`, `product_3d_models`, `space_product_placements`; giá trị thuộc tính phải thuộc đúng loại thuộc tính bằng khóa kép `(attribute_value_id, attribute_code)` ở `variant_attribute_values`.
 - Các ràng buộc "tối đa một" (ảnh đại diện, mô hình chính, ảnh mở đầu, địa chỉ mặc định) là partial unique index: chặn trường hợp có **hai**, còn việc phải có **đúng một** do tầng Service bảo đảm.
 
 ## 2. Vai trò và quyền truy cập dữ liệu
@@ -64,11 +67,11 @@ Hệ thống chỉ có **3 loại người dùng**. Không có vai trò `staff`,
 
 | Vai trò | Lưu trong CSDL | Được làm gì |
 | --- | --- | --- |
-| Quản trị viên (admin) | `users` + `roles` (`admin`), có đủ 6 quyền | Toàn bộ quyền quản trị |
-| Người dùng (user) | `users` + `roles` (`user`), không có quyền quản trị | Mua hàng, giỏ hàng, áp mã giảm giá, đánh giá, yêu thích, sổ địa chỉ, lưu không gian mẫu; chỉ thao tác trên dữ liệu của chính mình |
-| Khách vãng lai | **Không lưu** (không có tài khoản, không có trong `roles`) | Chỉ xem sản phẩm, 3D/360°, không gian mẫu, trang tĩnh. Thêm giỏ, mua hàng, áp mã phải đăng ký/đăng nhập |
+| Quản trị viên (admin) | `users.role = 'admin'`, có đủ 6 quyền (hằng số `ROLE_PERMISSIONS`) | Toàn bộ quyền quản trị |
+| Người dùng (user) | `users.role = 'user'` (mặc định), không có quyền quản trị | Mua hàng, giỏ hàng, áp mã giảm giá, đánh giá, yêu thích, sổ địa chỉ, lưu không gian mẫu; chỉ thao tác trên dữ liệu của chính mình |
+| Khách vãng lai | **Không lưu** (không có tài khoản) | Chỉ xem sản phẩm, 3D/360°, không gian mẫu, trang tĩnh. Thêm giỏ, mua hàng, áp mã phải đăng ký/đăng nhập |
 
-Cách CSDL thể hiện quy định này: `carts.user_id` NOT NULL + UNIQUE (không có `session_token`); `orders`, `addresses`, `wishlists`, `reviews`, `coupon_usages`, `space_bookmarks`, `notifications`, `user_sessions`, `password_resets` có `user_id` NOT NULL; `space_views` cho phép `user_id` NULL nhưng bắt buộc có `user_id` hoặc `visitor_id` (CHECK); `activity_logs` chỉ ghi thao tác admin qua `actor_id`.
+Cách CSDL thể hiện quy định này: `carts.user_id` NOT NULL + UNIQUE (không có `session_token`); `orders`, `addresses`, `wishlists`, `reviews`, `coupon_usages`, `notifications`, `user_sessions`, `password_resets` có `user_id` NOT NULL; `activity_logs` chỉ ghi thao tác admin qua `actor_id`.
 
 ### Ma trận C/R/U/D theo bảng
 
@@ -79,59 +82,49 @@ Ký hiệu: **C** tạo, **R** xem, **U** sửa, **D** xóa, **—** không có 
 | # | Bảng | Admin | User | Khách vãng lai |
 | --- | --- | --- | --- | --- |
 | 1 | users | CRUD | R\* U\* | C‡ (đăng ký) |
-| 2 | roles | R U (không thêm vai trò mới) | — | — |
-| 3 | permissions | R | — | — |
-| 4 | role_permissions | R U | — | — |
-| 5 | user_roles | CRUD | R\* | — |
-| 6 | password_resets | — | C\* U\* | C‡ U‡ |
-| 7 | user_sessions | R D (thu hồi) | C\* R\* D\* | C‡ |
-| 8 | addresses | R | CRUD\* | — |
-| 9 | settings | CRUD | R† | R† |
-| 10 | media | CRUD | C R† | R† |
-| 11 | notifications | C R | R\* U\* D\* | — |
-| 12 | activity_logs | R (ghi C tự động) | — | — |
-| 13 | categories | CRUD | R† | R† |
-| 14 | pages | CRUD | R† | R† |
-| 15 | brands | CRUD | R† | R† |
-| 16 | products | CRUD | R† | R† |
-| 17 | attributes | CRUD | R | R |
-| 18 | attribute_values | CRUD | R | R |
-| 19 | product_variants | CRUD | R† | R† |
-| 20 | variant_attribute_values | CRUD | R† | R† |
-| 21 | product_images | CRUD | R† | R† |
-| 22 | inventory_movements | C R | — | — |
-| 23 | reviews | R U (duyệt) D | C\* R† U\* D\* | R† |
-| 24 | wishlists | R | CRD\* | — |
-| 25 | product_3d_models | CRUD | R† | R† |
-| 26 | model_files | CRUD | R† | R† |
-| 27 | model_material_variants | CRUD | R† | R† |
-| 30 | carts | R | CRU\* | — |
-| 31 | cart_items | R | CRUD\* | — |
-| 32 | coupons | CRUD | R† (áp mã) | — |
-| 33 | coupon_usages | R | C\* R\* | — |
-| 34 | orders | R U | C\* R\* U\* (hủy khi còn `pending`) | — |
-| 35 | order_items | R | C\* R\* | — |
-| 36 | order_status_history | R (ghi C tự động) | R\* | — |
-| 37 | payments | R U | C\* R\* | — |
-| 38 | shipments | CRU | R\* | — |
-| 39 | spaces | CRUD | R† | R† |
-| 40 | space_panoramas | CRUD | R† | R† |
-| 41 | space_hotspots | CRUD | R† | R† |
-| 42 | space_product_placements | CRUD | R† | R† |
-| 43 | space_bookmarks | R | CRD\* | — |
-| 44 | space_views | R | C\* | C (kèm `visitor_id`) |
+| 2 | password_resets | — | C\* U\* | C‡ U‡ |
+| 3 | user_sessions | R D (thu hồi) | C\* R\* D\* | C‡ |
+| 4 | addresses | R | CRUD\* | — |
+| 5 | settings | CRUD | R† | R† |
+| 6 | media | CRUD | C R† | R† |
+| 7 | notifications | C R | R\* U\* D\* | — |
+| 8 | activity_logs | R (ghi C tự động) | — | — |
+| 9 | categories | CRUD | R† | R† |
+| 10 | products | CRUD | R† | R† |
+| 11 | attribute_values | CRUD | R | R |
+| 12 | product_variants | CRUD | R† | R† |
+| 13 | variant_attribute_values | CRUD | R† | R† |
+| 14 | product_images | CRUD | R† | R† |
+| 15 | reviews | R U (duyệt) D | C\* R† U\* D\* | R† |
+| 16 | wishlists | R | CRD\* | — |
+| 17 | product_3d_models | CRUD | R† | R† |
+| 18 | model_files | CRUD | R† | R† |
+| 19 | model_material_variants | CRUD | R† | R† |
+| 20 | carts | R | CRU\* | — |
+| 21 | cart_items | R | CRUD\* | — |
+| 22 | coupons | CRUD | R† (áp mã) | — |
+| 23 | coupon_usages | R | C\* R\* | — |
+| 24 | orders | R U | C\* R\* U\* (hủy khi còn `pending`) | — |
+| 25 | order_items | R | C\* R\* | — |
+| 26 | order_status_history | R (ghi C tự động) | R\* | — |
+| 27 | payments | R U | C\* R\* | — |
+| 28 | shipments | CRU | R\* | — |
+| 29 | spaces | CRUD | R† | R† |
+| 30 | space_panoramas | CRUD | R† | R† |
+| 31 | space_hotspots | CRUD | R† | R† |
+| 32 | space_product_placements | CRUD | R† | R† |
 
-Phân quyền chi tiết trong khu vực quản trị dùng 6 quyền (`permissions`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Admin có cả 6; user không có quyền nào.
+Phân quyền chi tiết trong khu vực quản trị dùng 6 quyền (hằng số `ROLE_PERMISSIONS` trong `apps/api/src/common/auth/role-permissions.ts`, không còn bảng `permissions`): `manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`. Admin có cả 6; user không có quyền nào.
 
 ## 4. Từ điển dữ liệu
 
 Phần này được sinh trực tiếp từ CSDL đã dựng bằng `run_all.sql` (kiểu, ràng buộc, mô tả lấy từ `COMMENT ON`). Mọi bảng đều có khóa chính `id INTEGER GENERATED ALWAYS AS IDENTITY` (trừ các bảng liên kết dùng khóa kép).
 
-### Nhóm 1 – Người dùng và phân quyền (8 bảng)
+### Nhóm 1 – Người dùng và phân quyền (4 bảng)
 
 #### 1. `users`
 
-Tài khoản người dùng (admin và user). Khách vãng lai không có tài khoản. Hỗ trợ xóa mềm.
+Tài khoản người dùng (admin và user; vai trò là cột `role`). Khách vãng lai không có tài khoản. Hỗ trợ xóa mềm.
 
 | Cột | Kiểu | Ràng buộc | Mô tả |
 | --- | --- | --- | --- |
@@ -143,6 +136,7 @@ Tài khoản người dùng (admin và user). Khách vãng lai không có tài k
 | `password_hash` | varchar(255) | NOT NULL | Mật khẩu đã băm (bcrypt/argon2), không lưu mật khẩu gốc |
 | `avatar_media_id` | integer | FK → media.id (set null) | Ảnh đại diện (media) |
 | `status` | user_status | NOT NULL<br>DEFAULT 'active' | Trạng thái tài khoản: active, suspended (tạm khóa), banned (bị cấm) |
+| `role` | user_role | NOT NULL<br>DEFAULT 'user' | Vai trò: admin hoặc user (một người một vai trò; quyền của từng vai trò là hằng số `ROLE_PERMISSIONS` trong mã nguồn) |
 | `email_verified_at` | timestamptz | — | Thời điểm xác thực email |
 | `last_login_at` | timestamptz | — | Lần đăng nhập gần nhất |
 | `deleted_at` | timestamptz | — | Thời điểm xóa mềm; NULL = còn hoạt động |
@@ -154,60 +148,7 @@ Tài khoản người dùng (admin và user). Khách vãng lai không có tài k
 - **CHECK** `ck_users_email_format`: `((email ~ '^[^@[:space:]]+@[^@[:space:]]+$'::citext))`
 - **Partial unique index** `uq_users_email_active` trên (email): `WHERE (deleted_at IS NULL)`
 
-#### 2. `roles`
-
-Vai trò trong hệ thống: chỉ có admin và user. Khách vãng lai không lưu ở đây.
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `code` | varchar(50) | UNIQUE<br>NOT NULL | Mã vai trò: admin \| user |
-| `name` | varchar(100) | NOT NULL | Tên hiển thị |
-| `description` | text | — | Mô tả vai trò |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
-| `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
-
-#### 3. `permissions`
-
-Danh sách quyền cụ thể trong khu vực quản trị
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `code` | varchar(100) | UNIQUE<br>NOT NULL | Mã quyền, ví dụ manage_users |
-| `name` | varchar(150) | NOT NULL | Tên hiển thị |
-| `description` | text | — | Mô tả quyền |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
-
-#### 4. `role_permissions`
-
-Gán quyền cho vai trò. Admin có đủ quyền; user không có quyền quản trị.
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `role_id` | integer | PK (khóa kép)<br>FK → roles.id (cascade) | Vai trò |
-| `permission_id` | integer | PK (khóa kép)<br>FK → permissions.id (cascade) | Quyền |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm gán |
-
-**Ràng buộc cấp bảng:**
-
-- **PK** `pk_role_permissions`: (role_id, permission_id)
-
-#### 5. `user_roles`
-
-Gán vai trò cho người dùng (trigger tự gán vai trò user cho tài khoản mới)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `user_id` | integer | PK (khóa kép)<br>FK → users.id (cascade) | Người dùng |
-| `role_id` | integer | PK (khóa kép)<br>FK → roles.id (restrict) | Vai trò |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm gán |
-
-**Ràng buộc cấp bảng:**
-
-- **PK** `pk_user_roles`: (user_id, role_id)
-
-#### 6. `password_resets`
+#### 2. `password_resets`
 
 Mã đặt lại mật khẩu (đã băm), dùng một lần
 
@@ -224,7 +165,7 @@ Mã đặt lại mật khẩu (đã băm), dùng một lần
 
 - **CHECK** `ck_password_resets_expiry`: `((expires_at > created_at))`
 
-#### 7. `user_sessions`
+#### 3. `user_sessions`
 
 Phiên đăng nhập (refresh token), cho phép đăng xuất từ xa
 
@@ -240,7 +181,7 @@ Phiên đăng nhập (refresh token), cho phép đăng xuất từ xa
 | `revoked_at` | timestamptz | — | Thời điểm thu hồi (đăng xuất); NULL = còn hiệu lực |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 
-#### 8. `addresses`
+#### 4. `addresses`
 
 Sổ địa chỉ giao hàng của user; mỗi user chỉ có một địa chỉ mặc định
 
@@ -264,7 +205,7 @@ Sổ địa chỉ giao hàng của user; mỗi user chỉ có một địa chỉ
 
 ### Nhóm 2 – Hệ thống chung (4 bảng)
 
-#### 9. `settings`
+#### 5. `settings`
 
 Cấu hình website dạng khóa - giá trị JSON
 
@@ -277,7 +218,7 @@ Cấu hình website dạng khóa - giá trị JSON
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 | `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
 
-#### 10. `media`
+#### 6. `media`
 
 Kho tệp dùng chung: ảnh sản phẩm, ảnh danh mục, tệp mô hình 3D, ảnh 360°
 
@@ -297,7 +238,7 @@ Kho tệp dùng chung: ảnh sản phẩm, ảnh danh mục, tệp mô hình 3D,
 
 - **CHECK** `ck_media_file_size`: `((file_size >= 0))`
 
-#### 11. `notifications`
+#### 7. `notifications`
 
 Thông báo gửi đến user
 
@@ -310,7 +251,7 @@ Thông báo gửi đến user
 | `read_at` | timestamptz | — | Thời điểm đã đọc; NULL = chưa đọc |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 
-#### 12. `activity_logs`
+#### 8. `activity_logs`
 
 Nhật ký thao tác của quản trị viên (chỉ admin)
 
@@ -325,9 +266,9 @@ Nhật ký thao tác của quản trị viên (chỉ admin)
 | `ip_address` | inet | — | Địa chỉ IP |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm thực hiện |
 
-### Nhóm 3 – Nội dung (2 bảng)
+### Nhóm 3 – Nội dung (1 bảng)
 
-#### 13. `categories`
+#### 9. `categories`
 
 Danh mục sản phẩm nhiều cấp (tự tham chiếu parent_id)
 
@@ -349,40 +290,9 @@ Danh mục sản phẩm nhiều cấp (tự tham chiếu parent_id)
 
 - **CHECK** `ck_categories_parent_not_self`: `((parent_id <> id))`
 
-#### 14. `pages`
+### Nhóm 4 – Sản phẩm (7 bảng)
 
-Trang tĩnh (Giới thiệu, Chính sách đổi trả, Hướng dẫn mua hàng...)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `title` | varchar(255) | NOT NULL | Tiêu đề trang |
-| `slug` | varchar(180) | UNIQUE<br>NOT NULL | Đường dẫn thân thiện, duy nhất |
-| `content` | text | — | Nội dung (HTML/Markdown) |
-| `status` | content_status | NOT NULL<br>DEFAULT 'draft' | Trạng thái: draft, published, archived |
-| `meta_title` | varchar(255) | — | SEO: tiêu đề |
-| `meta_description` | varchar(500) | — | SEO: mô tả |
-| `published_at` | timestamptz | — | Thời điểm đăng |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
-| `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
-
-### Nhóm 4 – Sản phẩm (10 bảng)
-
-#### 15. `brands`
-
-Thương hiệu sản phẩm
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `name` | varchar(150) | NOT NULL | Tên thương hiệu |
-| `slug` | varchar(180) | UNIQUE<br>NOT NULL | Đường dẫn thân thiện, duy nhất |
-| `logo_media_id` | integer | FK → media.id (set null) | Logo |
-| `is_active` | boolean | NOT NULL<br>DEFAULT true | Bật/tắt hiển thị |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
-| `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
-
-#### 16. `products`
+#### 10. `products`
 
 Thông tin chung của sản phẩm; hỗ trợ xóa mềm và tìm kiếm gần đúng theo tên
 
@@ -394,7 +304,7 @@ Thông tin chung của sản phẩm; hỗ trợ xóa mềm và tìm kiếm gần
 | `short_description` | varchar(500) | — | Mô tả ngắn |
 | `description` | text | — | Mô tả chi tiết |
 | `category_id` | integer | FK → categories.id (set null) | Danh mục |
-| `brand_id` | integer | FK → brands.id (set null) | Thương hiệu |
+| `brand` | varchar(150) | — | Thương hiệu (tên dạng chữ; không còn bảng `brands`) |
 | `status` | content_status | NOT NULL<br>DEFAULT 'draft' | Trạng thái: draft, published, archived |
 | `is_featured` | boolean | NOT NULL<br>DEFAULT false | Sản phẩm nổi bật |
 | `rating_avg` | numeric(3,2) | NOT NULL<br>DEFAULT 0 | Điểm đánh giá trung bình (trigger tự tính từ review đã duyệt) |
@@ -413,36 +323,24 @@ Thông tin chung của sản phẩm; hỗ trợ xóa mềm và tìm kiếm gần
 - **CHECK** `ck_products_rating_count`: `((rating_count >= 0))`
 - **CHECK** `ck_products_sold_count`: `((sold_count >= 0))`
 
-#### 17. `attributes`
+#### 11. `attribute_values`
 
-Loại thuộc tính sản phẩm (Màu sắc, Kích thước, Chất liệu)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `code` | varchar(50) | UNIQUE<br>NOT NULL | Mã thuộc tính, duy nhất |
-| `name` | varchar(100) | UNIQUE<br>NOT NULL | Tên thuộc tính, duy nhất |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
-| `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
-
-#### 18. `attribute_values`
-
-Giá trị cụ thể của thuộc tính (Đỏ, XL, Gỗ sồi...)
+Giá trị cụ thể của thuộc tính (Đỏ, XL, Gỗ sồi...). Loại thuộc tính là enum `attribute_code` (color, size, material), không còn bảng `attributes`
 
 | Cột | Kiểu | Ràng buộc | Mô tả |
 | --- | --- | --- | --- |
 | `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `attribute_id` | integer | FK → attributes.id (cascade)<br>NOT NULL | Thuộc tính cha |
-| `value` | varchar(150) | NOT NULL | Giá trị; duy nhất trong cùng thuộc tính |
+| `attribute_code` | attribute_code | NOT NULL | Loại thuộc tính: color, size hoặc material |
+| `value` | varchar(150) | NOT NULL | Giá trị; duy nhất trong cùng loại thuộc tính |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 | `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
 
 **Ràng buộc cấp bảng:**
 
-- **UNIQUE** `uq_attribute_values_attribute_value`: (attribute_id, value)
-- **UNIQUE** `uq_attribute_values_id_attribute`: (id, attribute_id)
+- **UNIQUE** `uq_attribute_values_code_value`: (attribute_code, value)
+- **UNIQUE** `uq_attribute_values_id_code`: (id, attribute_code)
 
-#### 19. `product_variants`
+#### 12. `product_variants`
 
 Biến thể bán hàng: SKU, giá, giá khuyến mãi, tồn kho, cân nặng
 
@@ -467,24 +365,24 @@ Biến thể bán hàng: SKU, giá, giá khuyến mãi, tồn kho, cân nặng
 - **CHECK** `ck_product_variants_weight`: `(((weight_gram IS NULL) OR (weight_gram >= 0)))`
 - **UNIQUE** `uq_product_variants_id_product`: (id, product_id)
 
-#### 20. `variant_attribute_values`
+#### 13. `variant_attribute_values`
 
-Liên kết biến thể với giá trị thuộc tính; mỗi biến thể chỉ một giá trị cho mỗi thuộc tính
+Liên kết biến thể với giá trị thuộc tính; mỗi biến thể chỉ một giá trị cho mỗi loại thuộc tính
 
 | Cột | Kiểu | Ràng buộc | Mô tả |
 | --- | --- | --- | --- |
 | `variant_id` | integer | PK (khóa kép)<br>FK → product_variants.id (cascade) | Biến thể |
 | `attribute_value_id` | integer | PK (khóa kép)<br>FK → attribute_values.id (cascade) | Giá trị thuộc tính |
-| `attribute_id` | integer | FK → attribute_values.attribute_id (cascade)<br>NOT NULL | Thuộc tính (khớp với giá trị nhờ khóa ngoại kép) |
+| `attribute_code` | attribute_code | FK → attribute_values.attribute_code (cascade)<br>NOT NULL | Loại thuộc tính (khớp với giá trị nhờ khóa ngoại kép) |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 
 **Ràng buộc cấp bảng:**
 
-- **FK kép** `fk_variant_attribute_values_attribute_value_id`: (attribute_value_id, attribute_id) → attribute_values(id, attribute_id), on delete cascade
+- **FK kép** `fk_variant_attribute_values_attribute_value_id`: (attribute_value_id, attribute_code) → attribute_values(id, attribute_code), on delete cascade
 - **PK** `pk_variant_attribute_values`: (variant_id, attribute_value_id)
-- **UNIQUE** `uq_variant_attribute_values_variant_attribute`: (variant_id, attribute_id)
+- **UNIQUE** `uq_variant_attribute_values_variant_attribute`: (variant_id, attribute_code)
 
-#### 21. `product_images`
+#### 14. `product_images`
 
 Ảnh sản phẩm, có thể gắn riêng cho biến thể; mỗi sản phẩm một ảnh đại diện
 
@@ -505,26 +403,7 @@ Liên kết biến thể với giá trị thuộc tính; mỗi biến thể ch�
 - **Partial unique index** `uq_product_images_primary` trên (product_id): `WHERE is_primary`
 - **[ĐANG CHỜ DUYỆT, O-06]** Bảng này chưa có chỗ phân biệt ảnh overlay (PNG nền trong suốt cho app Android, UC-MOB-02/03). Ba phương án đang chờ chủ dự án chọn (xem `docs/DECISIONS.md` O-06); thiết kế bảng giữ nguyên cho tới khi có quyết định.
 
-#### 22. `inventory_movements`
-
-Lịch sử biến động tồn kho (nhập, bán, trả, điều chỉnh)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `variant_id` | integer | FK → product_variants.id (restrict)<br>NOT NULL | Biến thể |
-| `type` | inventory_movement_type | NOT NULL | Loại: import, sale, return, adjustment |
-| `quantity_change` | integer | NOT NULL | Số lượng thay đổi (+ nhập/trả, - xuất), khác 0 |
-| `reason` | varchar(255) | — | Lý do |
-| `reference_code` | varchar(100) | — | Mã chứng từ liên quan (mã đơn, phiếu nhập) |
-| `performed_by` | integer | FK → users.id (set null) | Người thực hiện; NULL = hệ thống |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm phát sinh |
-
-**Ràng buộc cấp bảng:**
-
-- **CHECK** `ck_inventory_movements_quantity`: `((quantity_change <> 0))`
-
-#### 23. `reviews`
+#### 15. `reviews`
 
 Đánh giá sản phẩm 1-5 sao; cần duyệt mới hiển thị và tính vào điểm trung bình
 
@@ -545,7 +424,7 @@ Lịch sử biến động tồn kho (nhập, bán, trả, điều chỉnh)
 - **CHECK** `ck_reviews_rating`: `(((rating >= 1) AND (rating <= 5)))`
 - **UNIQUE** `uq_reviews_user_product_order`: (user_id, product_id, order_id) — `NULLS NOT DISTINCT`
 
-#### 24. `wishlists`
+#### 16. `wishlists`
 
 Sản phẩm yêu thích của user
 
@@ -562,7 +441,7 @@ Sản phẩm yêu thích của user
 
 ### Nhóm 5 – Mô hình 3D (3 bảng; AR đã bỏ)
 
-#### 25. `product_3d_models`
+#### 17. `product_3d_models`
 
 Mô hình 3D của sản phẩm hoặc biến thể: kích thước thật, vị trí đặt, cấu hình trình xem
 
@@ -592,7 +471,7 @@ Mô hình 3D của sản phẩm hoặc biến thể: kích thước thật, vị
 - **FK kép** `fk_product_3d_models_variant_id`: (variant_id, product_id) → product_variants(id, product_id), on delete cascade
 - **Partial unique index** `uq_product_3d_models_primary` trên (product_id): `WHERE is_primary`
 
-#### 26. `model_files`
+#### 18. `model_files`
 
 Tệp thực tế của mô hình 3D: GLB (web/Android) theo 3 mức chi tiết; giá trị `usdz` của enum được giữ để không xóa dữ liệu sẵn có, hệ thống không nhận/xử lý USDZ (chỉ GLB)
 
@@ -616,7 +495,7 @@ Tệp thực tế của mô hình 3D: GLB (web/Android) theo 3 mức chi tiết;
 - **CHECK** `ck_model_files_texture`: `(((texture_resolution IS NULL) OR (texture_resolution > 0)))`
 - **UNIQUE** `uq_model_files_model_format_lod`: (model_id, format, lod)
 
-#### 27. `model_material_variants`
+#### 19. `model_material_variants`
 
 Đổi màu/chất liệu trên cùng một mô hình 3D theo biến thể, không tải lại mô hình
 
@@ -636,7 +515,7 @@ Tệp thực tế của mô hình 3D: GLB (web/Android) theo 3 mức chi tiết;
 
 ### Nhóm 6 – Giỏ hàng và đơn hàng (9 bảng)
 
-#### 30. `carts`
+#### 20. `carts`
 
 Giỏ hàng của user đã đăng nhập (mỗi user một giỏ; không có giỏ cho khách)
 
@@ -647,7 +526,7 @@ Giỏ hàng của user đã đăng nhập (mỗi user một giỏ; không có gi
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 | `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
 
-#### 31. `cart_items`
+#### 21. `cart_items`
 
 Sản phẩm (theo biến thể) và số lượng trong giỏ
 
@@ -665,7 +544,7 @@ Sản phẩm (theo biến thể) và số lượng trong giỏ
 - **CHECK** `ck_cart_items_quantity`: `((quantity > 0))`
 - **UNIQUE** `uq_cart_items_cart_variant`: (cart_id, variant_id)
 
-#### 32. `coupons`
+#### 22. `coupons`
 
 Mã giảm giá theo phần trăm hoặc số tiền cố định; chỉ user đã đăng nhập được áp
 
@@ -697,7 +576,7 @@ Mã giảm giá theo phần trăm hoặc số tiền cố định; chỉ user đ
 - **CHECK** `ck_coupons_used_count`: `((used_count >= 0))`
 - **CHECK** `ck_coupons_value`: `((value > (0)::numeric))`
 
-#### 33. `coupon_usages`
+#### 23. `coupon_usages`
 
 Mỗi lần dùng mã giảm giá (user nào, đơn nào) để kiểm soát giới hạn lượt dùng
 
@@ -713,7 +592,7 @@ Mỗi lần dùng mã giảm giá (user nào, đơn nào) để kiểm soát gi�
 
 - **UNIQUE** `uq_coupon_usages_coupon_order`: (coupon_id, order_id)
 
-#### 34. `orders`
+#### 24. `orders`
 
 Đơn hàng; thông tin người nhận lưu dạng bản chụp tại thời điểm đặt
 
@@ -721,7 +600,7 @@ Mỗi lần dùng mã giảm giá (user nào, đơn nào) để kiểm soát gi�
 | --- | --- | --- | --- |
 | `id` | integer | PK<br>IDENTITY | Khóa chính |
 | `uuid` | uuid | UNIQUE<br>NOT NULL<br>DEFAULT gen_random_uuid() | Mã công khai |
-| `order_code` | varchar(30) | UNIQUE<br>NOT NULL | Mã đơn hàng hiển thị cho khách, duy nhất |
+| `order_code` | varchar(30) | UNIQUE<br>NOT NULL | Mã đơn hàng hiển thị cho khách, duy nhất; sinh từ sequence `order_code_seq`, dạng `ALV-YYYYMMDD-NNNNNN` |
 | `user_id` | integer | FK → users.id (restrict)<br>NOT NULL | Người đặt hàng |
 | `status` | order_status | NOT NULL<br>DEFAULT 'pending' | Trạng thái: pending, confirmed, processing, shipping, completed, cancelled, refunded |
 | `recipient_name` | varchar(150) | NOT NULL | Tên người nhận (bản chụp) |
@@ -747,7 +626,7 @@ Mỗi lần dùng mã giảm giá (user nào, đơn nào) để kiểm soát gi�
 - **CHECK** `ck_orders_amounts`: `(((subtotal >= (0)::numeric) AND (discount_amount >= (0)::numeric) AND (shipping_fee >= (0)::numeric) AND (total >= (0)::numeric)))`
 - **CHECK** `ck_orders_total`: `((total = ((subtotal - discount_amount) + shipping_fee)))`
 
-#### 35. `order_items`
+#### 25. `order_items`
 
 Chi tiết dòng hàng; lưu tên, SKU, đơn giá tại thời điểm mua
 
@@ -768,7 +647,7 @@ Chi tiết dòng hàng; lưu tên, SKU, đơn giá tại thời điểm mua
 - **CHECK** `ck_order_items_quantity`: `((quantity > 0))`
 - **CHECK** `ck_order_items_unit_price`: `((unit_price >= (0)::numeric))`
 
-#### 36. `order_status_history`
+#### 26. `order_status_history`
 
 Lịch sử đổi trạng thái đơn hàng (trigger tự ghi)
 
@@ -782,7 +661,7 @@ Lịch sử đổi trạng thái đơn hàng (trigger tự ghi)
 | `note` | text | — | Ghi chú |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm thay đổi |
 
-#### 37. `payments`
+#### 27. `payments`
 
 Giao dịch thanh toán của đơn hàng
 
@@ -803,7 +682,7 @@ Giao dịch thanh toán của đơn hàng
 
 - **CHECK** `ck_payments_amount`: `((amount >= (0)::numeric))`
 
-#### 38. `shipments`
+#### 28. `shipments`
 
 Thông tin vận chuyển của đơn hàng
 
@@ -825,9 +704,9 @@ Thông tin vận chuyển của đơn hàng
 - **CHECK** `ck_shipments_dates`: `(((delivered_at IS NULL) OR (shipped_at IS NULL) OR (delivered_at >= shipped_at)))`
 - **CHECK** `ck_shipments_fee`: `((fee >= (0)::numeric))`
 
-### Nhóm 7 – Không gian mẫu (6 bảng)
+### Nhóm 7 – Không gian mẫu (4 bảng)
 
-#### 39. `spaces`
+#### 29. `spaces`
 
 Không gian mẫu hoàn chỉnh (ví dụ "Phòng khách tối giản 20m²"); tìm kiếm không dấu theo title
 
@@ -843,16 +722,14 @@ Không gian mẫu hoàn chỉnh (ví dụ "Phòng khách tối giản 20m²"); t
 | `category_id` | integer | FK → categories.id (set null) | Danh mục/bộ sưu tập |
 | `cover_media_id` | integer | FK → media.id (set null) | Ảnh bìa |
 | `status` | content_status | NOT NULL<br>DEFAULT 'draft' | Trạng thái: draft, published, archived |
-| `view_count` | integer | NOT NULL<br>DEFAULT 0 | Số lượt xem (trigger tự tăng khi có space_views) |
 | `published_at` | timestamptz | — | Thời điểm đăng |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 | `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
 
 **Ràng buộc cấp bảng:**
 
-- **CHECK** `ck_spaces_view_count`: `((view_count >= 0))`
 
-#### 40. `space_panoramas`
+#### 30. `space_panoramas`
 
 Ảnh 360° của không gian mẫu; mỗi không gian có đúng một ảnh mở đầu
 
@@ -875,7 +752,7 @@ Không gian mẫu hoàn chỉnh (ví dụ "Phòng khách tối giản 20m²"); t
 - **CHECK** `ck_space_panoramas_fov`: `(((default_fov > (0)::numeric) AND (default_fov < (180)::numeric)))`
 - **Partial unique index** `uq_space_panoramas_start` trên (space_id): `WHERE is_start`
 
-#### 41. `space_hotspots`
+#### 31. `space_hotspots`
 
 Điểm bấm tương tác trên ảnh 360°: product, navigation, info (CSDL kiểm tra dữ liệu khớp theo loại)
 
@@ -900,7 +777,7 @@ Không gian mẫu hoàn chỉnh (ví dụ "Phòng khách tối giản 20m²"); t
 - **CHECK** `ck_space_hotspots_not_self`: `(((target_panorama_id IS NULL) OR (target_panorama_id <> panorama_id)))`
 - **CHECK** `ck_space_hotspots_product`: `(((type <> 'product'::hotspot_type) OR (product_id IS NOT NULL)))`
 
-#### 42. `space_product_placements`
+#### 32. `space_product_placements`
 
 Đặt mô hình 3D thật của sản phẩm vào ảnh 360° với đúng phối cảnh
 
@@ -927,327 +804,24 @@ Không gian mẫu hoàn chỉnh (ví dụ "Phòng khách tối giản 20m²"); t
 - **CHECK** `ck_space_product_placements_scale`: `((scale > (0)::numeric))`
 - **FK kép** `fk_space_product_placements_variant_id`: (variant_id, product_id) → product_variants(id, product_id), on delete set null (variant_id)
 
-#### 43. `space_bookmarks`
+### Cột thêm trên bảng chuẩn
 
-Không gian mẫu yêu thích của user
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `user_id` | integer | FK → users.id (cascade)<br>NOT NULL | Người dùng |
-| `space_id` | integer | FK → spaces.id (cascade)<br>NOT NULL | Không gian mẫu |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm lưu |
-
-**Ràng buộc cấp bảng:**
-
-- **UNIQUE** `uq_space_bookmarks_user_space`: (user_id, space_id)
-
-#### 44. `space_views`
-
-Mỗi lượt xem không gian mẫu (user hoặc khách vãng lai) để đo hiệu quả bán hàng
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | Khóa chính |
-| `space_id` | integer | FK → spaces.id (cascade)<br>NOT NULL | Không gian mẫu được xem |
-| `user_id` | integer | FK → users.id (cascade) | User đã đăng nhập; NULL nếu là khách |
-| `visitor_id` | uuid | — | UUID ẩn danh do client tạo, dùng thống kê khách vãng lai |
-| `source_product_id` | integer | FK → products.id (set null) | Sản phẩm mà người xem đi từ đó vào không gian mẫu |
-| `hotspot_click_count` | integer | NOT NULL<br>DEFAULT 0 | Số lần bấm điểm tương tác |
-| `added_to_cart` | boolean | NOT NULL<br>DEFAULT false | Có thêm sản phẩm vào giỏ trong lượt xem |
-| `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm xem |
-
-**Ràng buộc cấp bảng:**
-
-- **CHECK** `ck_space_views_actor`: `(((user_id IS NOT NULL) OR (visitor_id IS NOT NULL)))`
-- **CHECK** `ck_space_views_clicks`: `((hotspot_click_count >= 0))`
-
-### Nhóm 8 – Mở rộng (17 bảng; STT 45–61)
-
-Các bảng **ngoài bộ chuẩn 42 bảng** nhưng có trong `schema.prisma` và đang được code dùng (nguồn: migration `add_backend_extras` và các migration sau). Nội dung này được **chuyển từ `CHUAN_MO_RONG.md` Phần 1** về đây (một nơi duy nhất mô tả cấu trúc DB); `CHUAN_MO_RONG.md` chỉ giữ link. Cột `Mô tả` để "—" vì `schema.prisma` không có chú thích từng cột; ý nghĩa cột xem bảng "Cột chính, để làm gì, vì sao giữ" ngay dưới.
-
-#### Cột chính, để làm gì, vì sao giữ
-
-| Bảng | Cột chính | Để làm gì | Vì sao giữ |
-|---|---|---|---|
-| `product_specs` | `product_id`, `label`, `value`, `sort_order` | Bảng thông số kỹ thuật của sản phẩm (tab "Thông số", FE màn 17/3) | Gộp vào `products` dạng JSON làm mất khả năng sửa từng dòng |
-| `product_360_configs` | `product_id` (UNIQUE), `enabled`, `auto_rotate`, `rotation_speed`, `default_color_id`, `frame_count`, `created_at`, `updated_at` | Cấu hình xem 360° (xoay ảnh) của sản phẩm | Tính năng "Xem 360°" (`PROMPT_360_SAN_PHAM.md`); chuẩn chỉ nhắc, chưa có bảng |
-| `product_360_frames` | `config_id`, `attribute_value_id` (màu), `frame_index`, `media_id` | Từng ảnh frame theo màu | như trên |
-| `review_images` | `review_id`, `media_id`, `sort_order` | Ảnh đính kèm đánh giá (≤ 5) | Khách đính ảnh khi đánh giá |
-| `product_questions` | `product_id`, `user_id`, `content`, `answer`, `answered_by`, `answered_at`, `is_public`, `status`, `created_at` | Hỏi đáp sản phẩm (FE màn 50) | FE có màn hình, đặc tả chưa có UC |
-| `coupon_scopes` | `coupon_id`, `target_type`, `target_id` | Mã giảm giá theo sản phẩm/danh mục/không gian | `target_id` là khóa đa hình **không có FK** (tránh 3 bảng nối) |
-| `user_coupons` | `user_id`, `coupon_id`, `saved_at` | "Mã đã lưu" của khách (màn 9) | FE có chức năng lưu mã |
-| `code_counters` | `key` (PK), `value` BIGINT | Cấp mã `ALV-YYYYMMDD-NNNN`, `RT…`, phiếu kho, phiếu chi không trùng khi đặt đồng thời | Test 6 đơn đồng thời; thay cho UNIQUE + retry |
-| `return_requests` | `code`, `order_id`, `user_id`, `type` (refund/exchange), `reason`, `description`, `status`, `refund_amount`, `admin_note`, `created_at`, `updated_at` | Yêu cầu đổi/trả hàng (FE màn 35, 45) | Đặc tả chỉ có "hoàn tiền thủ công" (UC-ADM-23) |
-| `return_request_items` | `request_id`, `order_item_id`, `quantity`, `exchange_variant_id` (NULL = đổi cùng biến thể) | Dòng hàng trả/đổi | như trên |
-| `return_request_images` | `request_id`, `media_id` | Ảnh minh chứng | như trên |
-| `stock_receipts` | `code`, `type` (in/out), `supplier_name` (chữ, không FK), `order_code`, `status` (draft/completed/cancelled), `created_by`, `created_at` | **Phiếu** nhập/xuất kho (trang Kho, màn 53). Xác nhận phiếu ⇒ ghi `inventory_movements` (xem 1.3) | Quyết định chủ dự án (phương án b′): giữ phiếu như chứng từ, sổ cái vẫn là `inventory_movements`. Bảng `suppliers` đã **bỏ** |
-| `stock_receipt_items` | `receipt_id`, `variant_id`, `quantity`, `cost_price` | Dòng phiếu kho | như trên |
-| `expenses` | `code`, `category`, `amount`, `note`, `date`, `order_id`, `receipt_id`, `created_at` | Phiếu chi (màn 54): hoàn tiền đổi trả tự sinh `refund` (gắn `order_id`), phiếu nhập kho hoàn tất tự sinh `cogs` (gắn `receipt_id`), còn lại admin nhập tay | Không có chỗ gộp tự nhiên |
-| `banners` | `title`, `subtitle`, `image_media_id`, `link`, `position`, `start_at`, `end_at`, `sort_order`, `is_active`, `created_at` | Banner trang chủ (màn 51) | FE quản lý nội dung |
-| `posts` | `title`, `slug`, `category`, `cover_media_id`, `content` (Markdown), `author_name`, `status`, `views`, `published_at`, `created_at` | Bài viết/blog (màn 51) | `pages` thiếu ảnh bìa, chuyên mục, lượt xem |
-| `contact_messages` | `full_name`, `phone`, `email`, `subject`, `content`, `handled_at`, `handled_by`, `created_at` | Tin nhắn từ form Liên hệ (màn 38) | FE có form, admin có xử lý |
-
-Đã **gộp/bỏ** theo quyết định: FAQ (`faq_topics`, `faq_items`) → lưu JSON trong `settings` khóa `faq`; `suppliers` → cột chữ `stock_receipts.supplier_name`.
-
-#### Từ điển cột (sinh từ `schema.prisma`)
-
-#### 45. `product_specs`
-
-Bảng thông số kỹ thuật của sản phẩm (tab "Thông số")
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `product_id` | integer | FK → products.id (cascade)<br>NOT NULL | — |
-| `label` | varchar(100) | NOT NULL | — |
-| `value` | varchar(255) | NOT NULL | — |
-| `sort_order` | integer | NOT NULL<br>DEFAULT 0 | — |
-
-#### 46. `product_360_configs`
-
-Cấu hình xem 360° (xoay ảnh) của sản phẩm
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `product_id` | integer | FK → products.id (cascade)<br>UNIQUE<br>NOT NULL | — |
-| `enabled` | boolean | NOT NULL<br>DEFAULT true | — |
-| `auto_rotate` | boolean | NOT NULL<br>DEFAULT true | — |
-| `rotation_speed` | integer | NOT NULL<br>DEFAULT 30 | — |
-| `default_color_id` | integer | — | — |
-| `frame_count` | integer | NOT NULL<br>DEFAULT 36 | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-| `updated_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 47. `product_360_frames`
-
-Từng ảnh frame của 360° theo màu
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `config_id` | integer | FK → product_360_configs.id (cascade)<br>NOT NULL | — |
-| `attribute_value_id` | integer | FK → attribute_values.id (no action)<br>NOT NULL | — |
-| `frame_index` | integer | NOT NULL | — |
-| `media_id` | integer | FK → media.id (no action)<br>NOT NULL | — |
-
-#### 48. `review_images`
-
-Ảnh đính kèm đánh giá (≤ 5)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `review_id` | integer | FK → reviews.id (cascade)<br>NOT NULL | — |
-| `media_id` | integer | FK → media.id (no action)<br>NOT NULL | — |
-| `sort_order` | integer | NOT NULL<br>DEFAULT 0 | — |
-
-#### 49. `product_questions`
-
-Hỏi đáp sản phẩm (khách hỏi, quản trị trả lời)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `product_id` | integer | FK → products.id (cascade)<br>NOT NULL | — |
-| `user_id` | integer | FK → users.id (cascade)<br>NOT NULL | — |
-| `content` | text | NOT NULL | — |
-| `answer` | text | — | — |
-| `answered_by` | varchar(150) | — | — |
-| `answered_at` | timestamptz(6) | — | — |
-| `is_public` | boolean | NOT NULL<br>DEFAULT true | — |
-| `status` | question_status | NOT NULL<br>DEFAULT unanswered | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 50. `coupon_scopes`
-
-Phạm vi áp dụng mã giảm giá (sản phẩm/danh mục/không gian); `target_id` là khóa đa hình không có FK
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `coupon_id` | integer | FK → coupons.id (cascade)<br>NOT NULL | — |
-| `target_type` | varchar(20) | NOT NULL | — |
-| `target_id` | integer | NOT NULL | — |
-
-#### 51. `user_coupons`
-
-"Mã đã lưu" của khách
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `user_id` | integer | FK → users.id (cascade)<br>NOT NULL | — |
-| `coupon_id` | integer | FK → coupons.id (cascade)<br>NOT NULL | — |
-| `saved_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 52. `code_counters`
-
-Bộ đếm cấp mã `ALV-YYYYMMDD-NNNN`, `RT…`, phiếu kho, phiếu chi không trùng khi đặt đồng thời
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `key` | varchar(40) | PK | — |
-| `value` | bigint | NOT NULL<br>DEFAULT 0 | — |
-
-#### 53. `return_requests`
-
-Yêu cầu đổi/trả hàng
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `code` | varchar(20) | UNIQUE<br>NOT NULL | — |
-| `order_id` | integer | FK → orders.id (no action)<br>NOT NULL | — |
-| `user_id` | integer | FK → users.id (no action)<br>NOT NULL | — |
-| `type` | return_type | NOT NULL | — |
-| `reason` | return_reason | NOT NULL | — |
-| `description` | text | NOT NULL<br>DEFAULT '' | — |
-| `status` | return_status | NOT NULL<br>DEFAULT pending | — |
-| `refund_amount` | numeric(15,2) | NOT NULL<br>DEFAULT 0 | — |
-| `admin_note` | text | — | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-| `updated_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 54. `return_request_items`
-
-Dòng hàng trả/đổi
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `request_id` | integer | FK → return_requests.id (cascade)<br>NOT NULL | — |
-| `order_item_id` | integer | FK → order_items.id (no action)<br>NOT NULL | — |
-| `quantity` | integer | NOT NULL | — |
-| `exchange_variant_id` | integer | — | — |
-
-#### 55. `return_request_images`
-
-Ảnh minh chứng đổi/trả
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `request_id` | integer | FK → return_requests.id (cascade)<br>NOT NULL | — |
-| `media_id` | integer | FK → media.id (no action)<br>NOT NULL | — |
-
-#### 56. `stock_receipts`
-
-Phiếu nhập/xuất kho (draft → completed/cancelled)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `code` | varchar(20) | UNIQUE<br>NOT NULL | — |
-| `type` | stock_receipt_type | NOT NULL | — |
-| `supplier_name` | varchar(150) | — | — |
-| `order_code` | varchar(30) | — | — |
-| `status` | stock_receipt_status | NOT NULL<br>DEFAULT completed | — |
-| `created_by` | integer | — | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 57. `stock_receipt_items`
-
-Dòng của phiếu kho
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `receipt_id` | integer | FK → stock_receipts.id (cascade)<br>NOT NULL | — |
-| `variant_id` | integer | FK → product_variants.id (no action)<br>NOT NULL | — |
-| `quantity` | integer | NOT NULL | — |
-| `cost_price` | numeric(15,2) | NOT NULL<br>DEFAULT 0 | — |
-
-#### 58. `expenses`
-
-Phiếu chi (hoàn tiền tự sinh `refund`, giá vốn `cogs`, chi tiêu nhập tay)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `code` | varchar(20) | UNIQUE<br>NOT NULL | — |
-| `category` | expense_category | NOT NULL | — |
-| `amount` | numeric(15,2) | NOT NULL | — |
-| `note` | text | NOT NULL<br>DEFAULT '' | — |
-| `date` | date | NOT NULL | — |
-| `order_id` | integer | FK → orders.id (set null) | — |
-| `receipt_id` | integer | FK → stock_receipts.id (set null) | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 59. `banners`
-
-Banner trang chủ
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `title` | varchar(255) | NOT NULL | — |
-| `subtitle` | varchar(500) | — | — |
-| `image_media_id` | integer | FK → media.id (no action)<br>NOT NULL | — |
-| `link` | varchar(500) | NOT NULL<br>DEFAULT '/' | — |
-| `position` | banner_position | NOT NULL | — |
-| `start_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-| `end_at` | timestamptz(6) | — | — |
-| `sort_order` | integer | NOT NULL<br>DEFAULT 0 | — |
-| `is_active` | boolean | NOT NULL<br>DEFAULT true | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 60. `posts`
-
-Bài viết/blog (Markdown)
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `title` | varchar(255) | NOT NULL | — |
-| `slug` | varchar(280) | UNIQUE<br>NOT NULL | — |
-| `category` | varchar(100) | NOT NULL | — |
-| `cover_media_id` | integer | NOT NULL | — |
-| `content` | text | NOT NULL | — |
-| `author_name` | varchar(150) | NOT NULL<br>DEFAULT 'Aurelia Living' | — |
-| `status` | content_status | NOT NULL<br>DEFAULT draft | — |
-| `views` | integer | NOT NULL<br>DEFAULT 0 | — |
-| `published_at` | timestamptz(6) | — | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### 61. `contact_messages`
-
-Tin nhắn từ form Liên hệ
-
-| Cột | Kiểu | Ràng buộc | Mô tả |
-| --- | --- | --- | --- |
-| `id` | integer | PK<br>IDENTITY | — |
-| `full_name` | varchar(150) | NOT NULL | — |
-| `phone` | varchar(30) | NOT NULL | — |
-| `email` | varchar(150) | NOT NULL | — |
-| `subject` | varchar(255) | NOT NULL | — |
-| `content` | text | NOT NULL | — |
-| `handled_at` | timestamptz(6) | — | — |
-| `handled_by` | integer | — | — |
-| `created_at` | timestamptz(6) | NOT NULL<br>DEFAULT now() | — |
-
-#### ENUM mở rộng
-
-`question_status`, `return_type`, `return_reason`, `return_status`, `stock_receipt_type`, `stock_receipt_status`, `expense_category`, `banner_position`, và giá trị `coupon_type = 'freeship'` (mã giảm phí vận chuyển).
-
-#### Cột thêm trên bảng chuẩn
+Các cột dưới đây có trong `schema.prisma` nhưng không nằm trong bộ cột chuẩn ban đầu của từng bảng ở trên.
 
 | Bảng | Cột thêm | Ghi chú |
 |---|---|---|
 | `users` | `birthday`, `gender`, `loyalty_points`, `admin_note` | `loyalty_points` **chưa có logic cộng điểm** (xem Phần 3) |
 | `addresses` | `label` | Nhãn "Nhà riêng/Công ty" |
 | `categories` | `description`, `is_featured` | |
-| `pages` | `type` | Phân loại trang tĩnh / chính sách |
 | `products` | `features` (JSONB), `style` | |
-| `attribute_values` | `color_hex` | Màu swatch + 360° |
+| `attribute_values` | `color_hex` | Màu swatch (chỉ loại `color`) |
 | `product_variants` | `cost_price`, `min_stock`, `length_cm`, `width_cm`, `height_cm` | Giá vốn, cảnh báo tồn thấp, kích thước |
 | `reviews` | `is_anonymous`, `tags` | |
 | `carts` | `coupon_id` | Mã đang áp (chuẩn nói "chỉ xem trước"; giữ cho FE – xem Phần 3) |
-| `coupons` | `name`, `description`, `applies_to`, `applies_to_label` | |
+| `coupons` | `name`, `description` | Mã áp cho toàn giỏ (đã bỏ `applies_to`, `applies_to_label`) |
 | `orders` | `internal_note` | Ghi chú nội bộ admin |
 | `order_items` | `cost_price`, `image_media_id`, `variant_label` | Chụp lại giá vốn/ảnh/nhãn lúc bán |
-| `spaces` | `combo_discount_percent` | % giảm khi mua cả bộ (**chỉ hiển thị**, giỏ hàng chưa áp – Phần 3) |
+| `spaces` | `combo_discount_percent` | % giảm khi mua cả bộ (**chỉ hiển thị**, giỏ hàng chưa áp) |
 | `password_resets` | (chuẩn: `token_hash`, `expires_at`, `used_at`) | Đã bỏ cột OTP; dùng liên kết token |
 
 Ràng buộc/index mở rộng đi theo các bảng trên (`ck_*`, `uq_*`, `idx_*` đặt tên theo quy ước).
@@ -1269,36 +843,12 @@ erDiagram
         varchar password_hash
         integer avatar_media_id FK
         user_status status
+        user_role role
         timestamptz email_verified_at
         timestamptz last_login_at
         timestamptz deleted_at
         timestamptz created_at
         timestamptz updated_at
-    }
-    roles {
-        integer id PK
-        varchar code UK
-        varchar name
-        text description
-        timestamptz created_at
-        timestamptz updated_at
-    }
-    permissions {
-        integer id PK
-        varchar code UK
-        varchar name
-        text description
-        timestamptz created_at
-    }
-    role_permissions {
-        integer role_id PK,FK
-        integer permission_id PK,FK
-        timestamptz created_at
-    }
-    user_roles {
-        integer user_id PK,FK
-        integer role_id PK,FK
-        timestamptz created_at
     }
     password_resets {
         integer id PK
@@ -1336,19 +886,12 @@ erDiagram
     users ||--o{ addresses : "user_id"
     users ||--o| carts : "user_id"
     users ||--o{ coupon_usages : "user_id"
-    users |o--o{ inventory_movements : "performed_by"
     users |o--o{ media : "uploaded_by"
     users ||--o{ notifications : "user_id"
     users ||--o{ orders : "user_id"
     users |o--o{ order_status_history : "changed_by"
     users ||--o{ password_resets : "user_id"
     users ||--o{ reviews : "user_id"
-    permissions ||--o{ role_permissions : "permission_id"
-    roles ||--o{ role_permissions : "role_id"
-    users ||--o{ space_bookmarks : "user_id"
-    users |o--o{ space_views : "user_id"
-    roles ||--o{ user_roles : "role_id"
-    users ||--o{ user_roles : "user_id"
     media |o--o{ users : "avatar_media_id"
     users ||--o{ user_sessions : "user_id"
     users ||--o{ wishlists : "user_id"
@@ -1396,7 +939,6 @@ erDiagram
         timestamptz created_at
     }
     users |o--o{ activity_logs : "actor_id"
-    media |o--o{ brands : "logo_media_id"
     media |o--o{ categories : "image_media_id"
     users |o--o{ media : "uploaded_by"
     media ||--o{ model_files : "media_id"
@@ -1425,18 +967,6 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    pages {
-        integer id PK
-        varchar title
-        varchar slug UK
-        text content
-        content_status status
-        varchar meta_title
-        varchar meta_description
-        timestamptz published_at
-        timestamptz created_at
-        timestamptz updated_at
-    }
     media |o--o{ categories : "image_media_id"
     categories |o--o{ categories : "parent_id"
     categories |o--o{ products : "category_id"
@@ -1447,15 +977,6 @@ erDiagram
 
 ```mermaid
 erDiagram
-    brands {
-        integer id PK
-        varchar name
-        varchar slug UK
-        integer logo_media_id FK
-        boolean is_active
-        timestamptz created_at
-        timestamptz updated_at
-    }
     products {
         integer id PK
         varchar name
@@ -1463,7 +984,7 @@ erDiagram
         varchar short_description
         text description
         integer category_id FK
-        integer brand_id FK
+        varchar brand
         content_status status
         boolean is_featured
         numeric rating_avg
@@ -1476,16 +997,9 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    attributes {
-        integer id PK
-        varchar code UK
-        varchar name UK
-        timestamptz created_at
-        timestamptz updated_at
-    }
     attribute_values {
         integer id PK
-        integer attribute_id FK
+        attribute_code attribute_code
         varchar value
         timestamptz created_at
         timestamptz updated_at
@@ -1505,7 +1019,7 @@ erDiagram
     variant_attribute_values {
         integer variant_id PK,FK
         integer attribute_value_id PK,FK
-        integer attribute_id FK
+        attribute_code attribute_code FK
         timestamptz created_at
     }
     product_images {
@@ -1517,16 +1031,6 @@ erDiagram
         boolean is_primary
         timestamptz created_at
         timestamptz updated_at
-    }
-    inventory_movements {
-        integer id PK
-        integer variant_id FK
-        inventory_movement_type type
-        integer quantity_change
-        varchar reason
-        varchar reference_code
-        integer performed_by FK
-        timestamptz created_at
     }
     reviews {
         integer id PK
@@ -1545,11 +1049,7 @@ erDiagram
         integer product_id FK
         timestamptz created_at
     }
-    attributes ||--o{ attribute_values : "attribute_id"
-    media |o--o{ brands : "logo_media_id"
     product_variants ||--o{ cart_items : "variant_id"
-    users |o--o{ inventory_movements : "performed_by"
-    product_variants ||--o{ inventory_movements : "variant_id"
     product_variants ||--o{ model_material_variants : "variant_id"
     product_variants |o--o{ order_items : "variant_id"
     products ||--o{ product_3d_models : "product_id"
@@ -1557,7 +1057,6 @@ erDiagram
     media ||--o{ product_images : "media_id"
     products ||--o{ product_images : "product_id"
     product_variants |o--o{ product_images : "variant_id+product_id"
-    brands |o--o{ products : "brand_id"
     categories |o--o{ products : "category_id"
     products ||--o{ product_variants : "product_id"
     orders |o--o{ reviews : "order_id"
@@ -1566,8 +1065,7 @@ erDiagram
     products |o--o{ space_hotspots : "product_id"
     products ||--o{ space_product_placements : "product_id"
     product_variants |o--o{ space_product_placements : "variant_id+product_id"
-    products |o--o{ space_views : "source_product_id"
-    attribute_values ||--o{ variant_attribute_values : "attribute_value_id+attribute_id"
+    attribute_values ||--o{ variant_attribute_values : "attribute_value_id+attribute_code"
     product_variants ||--o{ variant_attribute_values : "variant_id"
     products ||--o{ wishlists : "product_id"
     users ||--o{ wishlists : "user_id"
@@ -1768,7 +1266,6 @@ erDiagram
         integer category_id FK
         integer cover_media_id FK
         content_status status
-        integer view_count
         timestamptz published_at
         timestamptz created_at
         timestamptz updated_at
@@ -1815,24 +1312,6 @@ erDiagram
         timestamptz created_at
         timestamptz updated_at
     }
-    space_bookmarks {
-        integer id PK
-        integer user_id FK
-        integer space_id FK
-        timestamptz created_at
-    }
-    space_views {
-        integer id PK
-        integer space_id FK
-        integer user_id FK
-        uuid visitor_id
-        integer source_product_id FK
-        integer hotspot_click_count
-        boolean added_to_cart
-        timestamptz created_at
-    }
-    spaces ||--o{ space_bookmarks : "space_id"
-    users ||--o{ space_bookmarks : "user_id"
     space_panoramas ||--o{ space_hotspots : "panorama_id"
     products |o--o{ space_hotspots : "product_id"
     space_panoramas |o--o{ space_hotspots : "target_panorama_id"
@@ -1844,9 +1323,6 @@ erDiagram
     product_variants |o--o{ space_product_placements : "variant_id+product_id"
     categories |o--o{ spaces : "category_id"
     media |o--o{ spaces : "cover_media_id"
-    products |o--o{ space_views : "source_product_id"
-    spaces ||--o{ space_views : "space_id"
-    users |o--o{ space_views : "user_id"
 ```
 
 ### 5.8. Sơ đồ tổng quan (chỉ tên bảng và quan hệ)
@@ -1855,8 +1331,6 @@ erDiagram
 erDiagram
     users |o--o{ activity_logs : "actor_id"
     users ||--o{ addresses : "user_id"
-    attributes ||--o{ attribute_values : "attribute_id"
-    media |o--o{ brands : "logo_media_id"
     carts ||--o{ cart_items : "cart_id"
     product_variants ||--o{ cart_items : "variant_id"
     users ||--o| carts : "user_id"
@@ -1865,8 +1339,6 @@ erDiagram
     coupons ||--o{ coupon_usages : "coupon_id"
     orders ||--o{ coupon_usages : "order_id"
     users ||--o{ coupon_usages : "user_id"
-    users |o--o{ inventory_movements : "performed_by"
-    product_variants ||--o{ inventory_movements : "variant_id"
     users |o--o{ media : "uploaded_by"
     media ||--o{ model_files : "media_id"
     product_3d_models ||--o{ model_files : "model_id"
@@ -1887,17 +1359,12 @@ erDiagram
     media ||--o{ product_images : "media_id"
     products ||--o{ product_images : "product_id"
     product_variants |o--o{ product_images : "variant_id+product_id"
-    brands |o--o{ products : "brand_id"
     categories |o--o{ products : "category_id"
     products ||--o{ product_variants : "product_id"
     orders |o--o{ reviews : "order_id"
     products ||--o{ reviews : "product_id"
     users ||--o{ reviews : "user_id"
-    permissions ||--o{ role_permissions : "permission_id"
-    roles ||--o{ role_permissions : "role_id"
     orders ||--o{ shipments : "order_id"
-    spaces ||--o{ space_bookmarks : "space_id"
-    users ||--o{ space_bookmarks : "user_id"
     space_panoramas ||--o{ space_hotspots : "panorama_id"
     products |o--o{ space_hotspots : "product_id"
     space_panoramas |o--o{ space_hotspots : "target_panorama_id"
@@ -1909,210 +1376,22 @@ erDiagram
     product_variants |o--o{ space_product_placements : "variant_id+product_id"
     categories |o--o{ spaces : "category_id"
     media |o--o{ spaces : "cover_media_id"
-    products |o--o{ space_views : "source_product_id"
-    spaces ||--o{ space_views : "space_id"
-    users |o--o{ space_views : "user_id"
-    roles ||--o{ user_roles : "role_id"
-    users ||--o{ user_roles : "user_id"
     media |o--o{ users : "avatar_media_id"
     users ||--o{ user_sessions : "user_id"
-    attribute_values ||--o{ variant_attribute_values : "attribute_value_id+attribute_id"
+    attribute_values ||--o{ variant_attribute_values : "attribute_value_id+attribute_code"
     product_variants ||--o{ variant_attribute_values : "variant_id"
     products ||--o{ wishlists : "product_id"
     users ||--o{ wishlists : "user_id"
 ```
 
-### 5.9. Nhóm 8 – Mở rộng (17 bảng)
+### 5.9. Sơ đồ tổng quan toàn bộ 32 bảng (chỉ tên bảng và quan hệ)
 
-Sinh từ `apps/api/prisma/schema.prisma` ngày 2026-11-11. Quan hệ tới bảng chuẩn chỉ hiện tên bảng. `product_360_configs.default_color_id` không có khóa ngoại Prisma.
-
-```mermaid
-erDiagram
-    product_specs {
-        integer id PK
-        integer product_id FK
-        varchar_100 label
-        varchar_255 value
-        integer sort_order
-    }
-    product_360_configs {
-        integer id PK
-        integer product_id UK,FK
-        boolean enabled
-        boolean auto_rotate
-        integer rotation_speed
-        integer default_color_id
-        integer frame_count
-        timestamptz_6 created_at
-        timestamptz_6 updated_at
-    }
-    product_360_frames {
-        integer id PK
-        integer config_id FK
-        integer attribute_value_id FK
-        integer frame_index
-        integer media_id FK
-    }
-    review_images {
-        integer id PK
-        integer review_id FK
-        integer media_id FK
-        integer sort_order
-    }
-    product_questions {
-        integer id PK
-        integer product_id FK
-        integer user_id FK
-        text content
-        text answer
-        varchar_150 answered_by
-        timestamptz_6 answered_at
-        boolean is_public
-        question_status status
-        timestamptz_6 created_at
-    }
-    coupon_scopes {
-        integer id PK
-        integer coupon_id FK
-        varchar_20 target_type
-        integer target_id
-    }
-    user_coupons {
-        integer id PK
-        integer user_id FK
-        integer coupon_id FK
-        timestamptz_6 saved_at
-    }
-    code_counters {
-        varchar_40 key PK
-        bigint value
-    }
-    return_requests {
-        integer id PK
-        varchar_20 code UK
-        integer order_id FK
-        integer user_id FK
-        return_type type
-        return_reason reason
-        text description
-        return_status status
-        numeric_15_2 refund_amount
-        text admin_note
-        timestamptz_6 created_at
-        timestamptz_6 updated_at
-    }
-    return_request_items {
-        integer id PK
-        integer request_id FK
-        integer order_item_id FK
-        integer quantity
-        integer exchange_variant_id
-    }
-    return_request_images {
-        integer id PK
-        integer request_id FK
-        integer media_id FK
-    }
-    stock_receipts {
-        integer id PK
-        varchar_20 code UK
-        stock_receipt_type type
-        varchar_150 supplier_name
-        varchar_30 order_code
-        stock_receipt_status status
-        integer created_by
-        timestamptz_6 created_at
-    }
-    stock_receipt_items {
-        integer id PK
-        integer receipt_id FK
-        integer variant_id FK
-        integer quantity
-        numeric_15_2 cost_price
-    }
-    expenses {
-        integer id PK
-        varchar_20 code UK
-        expense_category category
-        numeric_15_2 amount
-        text note
-        date date
-        integer order_id FK
-        integer receipt_id FK
-        timestamptz_6 created_at
-    }
-    banners {
-        integer id PK
-        varchar_255 title
-        varchar_500 subtitle
-        integer image_media_id FK
-        varchar_500 link
-        banner_position position
-        timestamptz_6 start_at
-        timestamptz_6 end_at
-        integer sort_order
-        boolean is_active
-        timestamptz_6 created_at
-    }
-    posts {
-        integer id PK
-        varchar_255 title
-        varchar_280 slug UK
-        varchar_100 category
-        integer cover_media_id
-        text content
-        varchar_150 author_name
-        content_status status
-        integer views
-        timestamptz_6 published_at
-        timestamptz_6 created_at
-    }
-    contact_messages {
-        integer id PK
-        varchar_150 full_name
-        varchar_30 phone
-        varchar_150 email
-        varchar_255 subject
-        text content
-        timestamptz_6 handled_at
-        integer handled_by
-        timestamptz_6 created_at
-    }
-    products ||--o{ product_specs : "product_id"
-    products ||--o{ product_360_configs : "product_id"
-    product_360_configs ||--o{ product_360_frames : "config_id"
-    attribute_values ||--o{ product_360_frames : "attribute_value_id"
-    media ||--o{ product_360_frames : "media_id"
-    reviews ||--o{ review_images : "review_id"
-    media ||--o{ review_images : "media_id"
-    products ||--o{ product_questions : "product_id"
-    users ||--o{ product_questions : "user_id"
-    coupons ||--o{ coupon_scopes : "coupon_id"
-    users ||--o{ user_coupons : "user_id"
-    coupons ||--o{ user_coupons : "coupon_id"
-    orders ||--o{ return_requests : "order_id"
-    users ||--o{ return_requests : "user_id"
-    return_requests ||--o{ return_request_items : "request_id"
-    order_items ||--o{ return_request_items : "order_item_id"
-    return_requests ||--o{ return_request_images : "request_id"
-    media ||--o{ return_request_images : "media_id"
-    stock_receipts ||--o{ stock_receipt_items : "receipt_id"
-    product_variants ||--o{ stock_receipt_items : "variant_id"
-    orders |o--o{ expenses : "order_id"
-    stock_receipts |o--o{ expenses : "receipt_id"
-    media ||--o{ banners : "image_media_id"
-```
-
-### 5.10. Sơ đồ tổng quan toàn bộ 59 bảng (chỉ tên bảng và quan hệ)
-
-Sinh từ `schema.prisma` (86 quan hệ khóa ngoại). Bảng không có quan hệ khóa ngoại nên không xuất hiện trong sơ đồ: `pages`, `settings`, `code_counters`, `posts`, `contact_messages`. Thay thế sơ đồ 5.8 (chỉ có 42 bảng chuẩn) khi cần cái nhìn đầy đủ.
+Sinh từ `schema.prisma` (49 quan hệ khóa ngoại). Bảng không có quan hệ khóa ngoại nên không xuất hiện trong sơ đồ: `settings`.
 
 ```mermaid
 erDiagram
     users |o--o{ activity_logs : "actor_id"
     users ||--o{ addresses : "user_id"
-    attributes ||--o{ attribute_values : "attribute_id"
-    media |o--o{ brands : "logo_media_id"
     carts ||--o{ cart_items : "cart_id"
     product_variants ||--o{ cart_items : "variant_id"
     coupons |o--o{ carts : "coupon_id"
@@ -2121,8 +1400,6 @@ erDiagram
     coupons ||--o{ coupon_usages : "coupon_id"
     orders ||--o{ coupon_usages : "order_id"
     users ||--o{ coupon_usages : "user_id"
-    users |o--o{ inventory_movements : "performed_by"
-    product_variants ||--o{ inventory_movements : "variant_id"
     media ||--o{ model_files : "media_id"
     product_3d_models ||--o{ model_files : "model_id"
     product_3d_models ||--o{ model_material_variants : "model_id"
@@ -2143,16 +1420,11 @@ erDiagram
     products ||--o{ product_images : "product_id"
     product_variants |o--o{ product_images : "variant_id,product_id"
     products ||--o{ product_variants : "product_id"
-    brands |o--o{ products : "brand_id"
     categories |o--o{ products : "category_id"
     orders |o--o{ reviews : "order_id"
     products ||--o{ reviews : "product_id"
     users ||--o{ reviews : "user_id"
-    permissions ||--o{ role_permissions : "permission_id"
-    roles ||--o{ role_permissions : "role_id"
     orders ||--o{ shipments : "order_id"
-    spaces ||--o{ space_bookmarks : "space_id"
-    users ||--o{ space_bookmarks : "user_id"
     products |o--o{ space_hotspots : "product_id"
     media ||--o{ space_panoramas : "media_id"
     spaces ||--o{ space_panoramas : "space_id"
@@ -2160,57 +1432,31 @@ erDiagram
     space_panoramas ||--o{ space_product_placements : "panorama_id"
     products ||--o{ space_product_placements : "product_id"
     product_variants |o--o{ space_product_placements : "variant_id,product_id"
-    products |o--o{ space_views : "source_product_id"
-    spaces ||--o{ space_views : "space_id"
-    users |o--o{ space_views : "user_id"
     categories |o--o{ spaces : "category_id"
     media |o--o{ spaces : "cover_media_id"
-    roles ||--o{ user_roles : "role_id"
-    users ||--o{ user_roles : "user_id"
     users ||--o{ user_sessions : "user_id"
-    attribute_values ||--o{ variant_attribute_values : "attribute_value_id,attribute_id"
+    attribute_values ||--o{ variant_attribute_values : "attribute_value_id,attribute_code"
     product_variants ||--o{ variant_attribute_values : "variant_id"
     products ||--o{ wishlists : "product_id"
     users ||--o{ wishlists : "user_id"
-    products ||--o{ product_specs : "product_id"
-    products ||--o{ product_360_configs : "product_id"
-    product_360_configs ||--o{ product_360_frames : "config_id"
-    attribute_values ||--o{ product_360_frames : "attribute_value_id"
-    media ||--o{ product_360_frames : "media_id"
-    reviews ||--o{ review_images : "review_id"
-    media ||--o{ review_images : "media_id"
-    products ||--o{ product_questions : "product_id"
-    users ||--o{ product_questions : "user_id"
-    coupons ||--o{ coupon_scopes : "coupon_id"
-    users ||--o{ user_coupons : "user_id"
-    coupons ||--o{ user_coupons : "coupon_id"
-    orders ||--o{ return_requests : "order_id"
-    users ||--o{ return_requests : "user_id"
-    return_requests ||--o{ return_request_items : "request_id"
-    order_items ||--o{ return_request_items : "order_item_id"
-    return_requests ||--o{ return_request_images : "request_id"
-    media ||--o{ return_request_images : "media_id"
-    stock_receipts ||--o{ stock_receipt_items : "receipt_id"
-    product_variants ||--o{ stock_receipt_items : "variant_id"
-    orders |o--o{ expenses : "order_id"
-    stock_receipts |o--o{ expenses : "receipt_id"
-    media ||--o{ banners : "image_media_id"
 ```
 
 ## 6. Trigger và hàm tự động (`05_functions_triggers.sql`)
 
 | # | Trigger | Bảng | Sự kiện | Việc làm |
 | --- | --- | --- | --- | --- |
-| 1 | `trg_<bảng>_set_updated_at` (29 trigger) | mọi bảng có cột `updated_at` | BEFORE UPDATE | `set_updated_at()` gán `updated_at = now()`. Gắn bằng vòng lặp theo danh mục hệ thống nên thêm bảng mới không cần sửa file |
+| 1 | `trg_<bảng>_set_updated_at` (23 trigger) | mọi bảng có cột `updated_at` | BEFORE UPDATE | `set_updated_at()` gán `updated_at = now()`. Gắn bằng vòng lặp theo danh mục hệ thống nên thêm bảng mới không cần sửa file |
 | 2 | `trg_reviews_refresh_rating` | `reviews` | AFTER INSERT / UPDATE (rating, status, product_id) / DELETE | Tính lại `products.rating_avg`, `rating_count` chỉ từ review `approved` |
 | 3a | `trg_product_3d_models_refresh_flags` | `product_3d_models` | AFTER INSERT / UPDATE (status, product_id) / DELETE | Cập nhật `products.has_3d_model` (có mô hình `ready`). Đã bỏ phần `has_ar` (migration `remove_ar`) |
 | 3b | `trg_model_files_refresh_flags` | `model_files` | AFTER INSERT / UPDATE (format, model_id) / DELETE | Như trên |
-| 4 | `trg_space_views_increase_count` | `space_views` | AFTER INSERT | `spaces.view_count + 1` |
-| 5a | `trg_orders_log_status_insert` | `orders` | AFTER INSERT | Ghi dòng khởi tạo vào `order_status_history` (`from_status` NULL) |
-| 5b | `trg_orders_log_status_update` | `orders` | AFTER UPDATE OF status (khi đổi) | Ghi `from_status → to_status`. `changed_by` lấy từ biến phiên `app.current_user_id`, ghi chú từ `app.status_note` (dùng `SET LOCAL` trong transaction); không đặt thì `changed_by` là NULL |
-| 6 | `trg_users_assign_default_role` | `users` | AFTER INSERT, **CONSTRAINT TRIGGER deferred** | Cuối transaction, nếu user chưa có vai trò nào thì gán `user`. Tạo admin trong cùng transaction với việc gán vai trò `admin` sẽ không bị gán thêm `user` |
+| 4a | `trg_orders_log_status_insert` | `orders` | AFTER INSERT | Ghi dòng khởi tạo vào `order_status_history` (`from_status` NULL) |
+| 4b | `trg_orders_log_status_update` | `orders` | AFTER UPDATE OF status (khi đổi) | Ghi `from_status → to_status`. `changed_by` lấy từ biến phiên `app.current_user_id`, ghi chú từ `app.status_note` (dùng `SET LOCAL` trong transaction); không đặt thì `changed_by` là NULL |
 
 Hàm hỗ trợ: `immutable_unaccent(text)` (file 01), `refresh_product_rating(integer)`, `refresh_product_3d_flags(integer)`.
+
+Đã bỏ: `trg_space_views_increase_count` (cùng bảng `space_views` và cột `spaces.view_count`) và `trg_users_assign_default_role` (cùng hàm của nó; vai trò mặc định nay là `users.role DEFAULT 'user'`).
+
+**Sequence:** `order_code_seq` sinh số thứ tự cho mã đơn `ALV-YYYYMMDD-NNNNNN` (thay bảng `code_counters`); giá trị khởi đầu của sequence được đặt theo mã đơn lớn nhất hiện có khi chạy migration `20261119010100_remove_21_tables`.
 
 Tìm kiếm không dấu: `WHERE immutable_unaccent(title) ILIKE '%' || immutable_unaccent('phong khach') || '%'` dùng được index `idx_spaces_title_unaccent_trgm`.
 
@@ -2218,18 +1464,18 @@ Tìm kiếm không dấu: `WHERE immutable_unaccent(title) ILIKE '%' || immutabl
 
 Các việc này cần khóa dòng, trả lỗi nghiệp vụ rõ ràng và chạy **trong một transaction** ở tầng Service:
 
-1. **Trừ/hoàn tồn kho**: khi đặt hàng trừ `product_variants.stock_quantity` (dùng `SELECT ... FOR UPDATE` hoặc `UPDATE ... WHERE stock_quantity >= n`), khi hủy/trả thì cộng lại; mỗi lần đổi tồn ghi một dòng `inventory_movements` (CSDL chỉ chặn tồn âm).
+1. **Trừ/hoàn tồn kho**: khi đặt hàng trừ `product_variants.stock_quantity` (dùng `SELECT ... FOR UPDATE` hoặc `UPDATE ... WHERE stock_quantity >= n`), khi hủy thì cộng lại (CSDL chỉ chặn tồn âm). Không còn bảng lịch sử tồn kho (`inventory_movements`): trang Kho chỉ xem tồn, sửa tồn qua form biến thể của sản phẩm.
 2. **Tăng `products.sold_count`** khi đơn hoàn tất (và giảm khi hoàn tiền nếu muốn).
-3. **Mã giảm giá**: kiểm tra `is_active`, thời gian hiệu lực, `min_order_value`, `usage_limit` so với `used_count`, `per_user_limit` so với số dòng `coupon_usages` của user; tính `discount_amount` (có `max_discount`); ghi `coupon_usages` và tăng `coupons.used_count`. CSDL chỉ bảo đảm `(coupon_id, order_id)` không trùng.
+3. **Mã giảm giá**: kiểm tra `is_active`, thời gian hiệu lực, `min_order_value`, `usage_limit` so với `used_count`, `per_user_limit` so với số dòng `coupon_usages` của user; tính `discount_amount` (có `max_discount`); ghi `coupon_usages` và tăng `coupons.used_count`. Mã áp cho toàn giỏ (không còn phạm vi theo sản phẩm/danh mục). CSDL chỉ bảo đảm `(coupon_id, order_id)` không trùng.
 4. **Chỉ người đã mua mới được đánh giá**: kiểm tra `reviews.order_id` thuộc `user_id`, đơn `completed` và có chứa sản phẩm.
 5. **Tính tiền đơn hàng**: `subtotal`, `discount_amount`, `shipping_fee`, `total` (CSDL chỉ kiểm tra `total = subtotal - discount_amount + shipping_fee`); chụp địa chỉ vào `orders`, chụp tên/SKU/giá vào `order_items`.
 6. **Quy tắc "đúng một"**: bảo đảm mỗi sản phẩm luôn có một ảnh đại diện, một mô hình chính; mỗi space có một ảnh mở đầu; khi đổi địa chỉ mặc định phải bỏ cờ cũ trước khi đặt cờ mới (partial unique index chỉ chặn trường hợp có hai).
 7. **Giỏ hàng**: tạo giỏ (`carts`) lúc đăng ký hoặc lúc thêm sản phẩm đầu tiên; chỉ cho phép khi đã đăng nhập; kiểm tra biến thể còn bán (`is_active`, còn hàng).
-8. **Phân quyền truy cập**: lọc theo `user_id` của người đăng nhập (mục 2), kiểm tra quyền admin theo `role_permissions`, ghi `activity_logs` cho mọi thao tác admin và bảo đảm `actor_id` là admin.
+8. **Phân quyền truy cập**: lọc theo `user_id` của người đăng nhập (mục 2), kiểm tra quyền admin theo `users.role` và hằng số `ROLE_PERMISSIONS` (không còn bảng phân quyền), ghi `activity_logs` cho mọi thao tác admin và bảo đảm `actor_id` là admin.
 9. **Vòng đời đơn/thanh toán/vận chuyển**: chuyển trạng thái hợp lệ (ví dụ không từ `completed` về `pending`), đồng bộ `orders.payment_status` với `payments.status`, `shipments`.
 10. **Tính nhất quán 3D**: chuyển `product_3d_models.status` sang `ready` sau khi xử lý xong file; mô hình của biến thể cần cấu hình `model_material_variants` khớp sản phẩm (CSDL chưa kiểm tra `model_material_variants.variant_id` có cùng sản phẩm với mô hình).
 11. **Dọn dữ liệu**: xóa `password_resets`, `user_sessions` hết hạn; xóa mềm `users`/`products` thay vì xóa cứng (nhiều khóa ngoại `RESTRICT`).
-12. **Thống kê khách vãng lai**: client tự sinh `visitor_id` (UUID) và gửi kèm khi ghi `space_views` (xem thêm D-N24: người xem được đếm theo `visitor_id`). Bảng thống kê AR đã bỏ (D-P16).
+12. **Thống kê lượt xem không gian mẫu**: đã bỏ cùng bảng `space_views` và cột `spaces.view_count`. Bảng thống kê AR cũng đã bỏ (D-P16).
 
 ## 8. Thay đổi
 
@@ -2256,11 +1502,10 @@ Thư mục `database/` chưa tồn tại trước lần build đầu tiên; so s
 | Quyền | 7 quyền (`user.manage`, `post.manage`, `space.manage`...), phân cho editor/staff | 6 quyền (`manage_users`, `manage_products`, `view_orders`, `process_orders`, `manage_content`, `manage_settings`); chỉ admin có |
 | Khóa chính | `UUID` | `INTEGER IDENTITY` + cột `uuid` ở `users`, `orders`, `spaces`, `product_3d_models` |
 | `carts` | `user_id` nullable + `session_id` (giỏ của khách) | `user_id` NOT NULL UNIQUE, bỏ `session_id` |
-| `space_views` | `session_key`, `panorama_id`, `duration_seconds`, `referrer_product_id`, `hotspot_clicks`, `started_at` | `visitor_id UUID` + CHECK, `source_product_id`, `hotspot_click_count`, `created_at`; bỏ `panorama_id`, `duration_seconds` |
 | `activity_logs` | `user_id` UUID, `target_id` UUID | `actor_id` (admin), `target_id` INTEGER |
 | ENUM | `user_status` có `inactive`; `publish_status`; `payment_status` dùng chung; `shipment_status` không có `failed`; `model_format` 6 giá trị; `ar_placement` có `any`; `space_room_type` có `kids_room`, `outdoor` | `user_status` có `suspended`; `content_status`; tách `order_payment_status` và `payment_txn_status`; `shipment_status` thêm `failed`; `model_file_format` chỉ `glb`, `usdz`; `model_placement` chỉ `floor/wall/table`; `room_type` có `bathroom`, bỏ `kids_room`, `outdoor` |
 | Hàm bỏ dấu | `f_unaccent` | `immutable_unaccent` |
-| Khóa ngoại kép | không có | `(variant_id, product_id)`, `(attribute_value_id, attribute_id)` |
+| Khóa ngoại kép | không có | `(variant_id, product_id)`, `(attribute_value_id, attribute_code)` |
 | `reviews` | — | `UNIQUE NULLS NOT DISTINCT (user_id, product_id, order_id)` |
 | `order_status_history` | — | Trigger ghi cả dòng khởi tạo đơn (`from_status` NULL) |
 
@@ -2271,69 +1516,44 @@ Tên field là camelCase của tên cột (`full_name` → `fullName`, `created_
 | # | Bảng | Model Prisma | Truy cập trong code |
 | --- | --- | --- | --- |
 | 1 | `users` | `User` | `prisma.user` |
-| 2 | `roles` | `Role` | `prisma.role` |
-| 3 | `permissions` | `Permission` | `prisma.permission` |
-| 4 | `role_permissions` | `RolePermission` | `prisma.rolePermission` |
-| 5 | `user_roles` | `UserRole` | `prisma.userRole` |
-| 6 | `password_resets` | `PasswordReset` | `prisma.passwordReset` |
-| 7 | `user_sessions` | `UserSession` | `prisma.userSession` |
-| 8 | `addresses` | `Address` | `prisma.address` |
-| 9 | `settings` | `Setting` | `prisma.setting` |
-| 10 | `media` | `Media` | `prisma.media` |
-| 11 | `notifications` | `Notification` | `prisma.notification` |
-| 12 | `activity_logs` | `ActivityLog` | `prisma.activityLog` |
-| 13 | `categories` | `Category` | `prisma.category` |
-| 14 | `pages` | `Page` | `prisma.page` |
-| 15 | `brands` | `Brand` | `prisma.brand` |
-| 16 | `products` | `Product` | `prisma.product` |
-| 17 | `attributes` | `Attribute` | `prisma.attribute` |
-| 18 | `attribute_values` | `AttributeValue` | `prisma.attributeValue` |
-| 19 | `product_variants` | `ProductVariant` | `prisma.productVariant` |
-| 20 | `variant_attribute_values` | `VariantAttributeValue` | `prisma.variantAttributeValue` |
-| 21 | `product_images` | `ProductImage` | `prisma.productImage` |
-| 22 | `inventory_movements` | `InventoryMovement` | `prisma.inventoryMovement` |
-| 23 | `reviews` | `Review` | `prisma.review` |
-| 24 | `wishlists` | `Wishlist` | `prisma.wishlist` |
-| 25 | `product_3d_models` | `Product3DModel` | `prisma.product3DModel` |
-| 26 | `model_files` | `ModelFile` | `prisma.modelFile` |
-| 27 | `model_material_variants` | `ModelMaterialVariant` | `prisma.modelMaterialVariant` |
-| 30 | `carts` | `Cart` | `prisma.cart` |
-| 31 | `cart_items` | `CartItem` | `prisma.cartItem` |
-| 32 | `coupons` | `Coupon` | `prisma.coupon` |
-| 33 | `coupon_usages` | `CouponUsage` | `prisma.couponUsage` |
-| 34 | `orders` | `Order` | `prisma.order` |
-| 35 | `order_items` | `OrderItem` | `prisma.orderItem` |
-| 36 | `order_status_history` | `OrderStatusHistory` | `prisma.orderStatusHistory` |
-| 37 | `payments` | `Payment` | `prisma.payment` |
-| 38 | `shipments` | `Shipment` | `prisma.shipment` |
-| 39 | `spaces` | `Space` | `prisma.space` |
-| 40 | `space_panoramas` | `SpacePanorama` | `prisma.spacePanorama` |
-| 41 | `space_hotspots` | `SpaceHotspot` | `prisma.spaceHotspot` |
-| 42 | `space_product_placements` | `SpaceProductPlacement` | `prisma.spaceProductPlacement` |
-| 43 | `space_bookmarks` | `SpaceBookmark` | `prisma.spaceBookmark` |
-| 44 | `space_views` | `SpaceView` | `prisma.spaceView` |
-| 45 | `product_specs` | `ProductSpec` | `prisma.productSpec` |
-| 46 | `product_360_configs` | `Product360Config` | `prisma.product360Config` |
-| 47 | `product_360_frames` | `Product360Frame` | `prisma.product360Frame` |
-| 48 | `review_images` | `ReviewImage` | `prisma.reviewImage` |
-| 49 | `product_questions` | `ProductQuestion` | `prisma.productQuestion` |
-| 50 | `coupon_scopes` | `CouponScope` | `prisma.couponScope` |
-| 51 | `user_coupons` | `UserCoupon` | `prisma.userCoupon` |
-| 52 | `code_counters` | `CodeCounter` | `prisma.codeCounter` |
-| 53 | `return_requests` | `ReturnRequest` | `prisma.returnRequest` |
-| 54 | `return_request_items` | `ReturnRequestItem` | `prisma.returnRequestItem` |
-| 55 | `return_request_images` | `ReturnRequestImage` | `prisma.returnRequestImage` |
-| 56 | `stock_receipts` | `StockReceipt` | `prisma.stockReceipt` |
-| 57 | `stock_receipt_items` | `StockReceiptItem` | `prisma.stockReceiptItem` |
-| 58 | `expenses` | `Expense` | `prisma.expense` |
-| 59 | `banners` | `Banner` | `prisma.banner` |
-| 60 | `posts` | `Post` | `prisma.post` |
-| 61 | `contact_messages` | `ContactMessage` | `prisma.contactMessage` |
+| 2 | `password_resets` | `PasswordReset` | `prisma.passwordReset` |
+| 3 | `user_sessions` | `UserSession` | `prisma.userSession` |
+| 4 | `addresses` | `Address` | `prisma.address` |
+| 5 | `settings` | `Setting` | `prisma.setting` |
+| 6 | `media` | `Media` | `prisma.media` |
+| 7 | `notifications` | `Notification` | `prisma.notification` |
+| 8 | `activity_logs` | `ActivityLog` | `prisma.activityLog` |
+| 9 | `categories` | `Category` | `prisma.category` |
+| 10 | `products` | `Product` | `prisma.product` |
+| 11 | `attribute_values` | `AttributeValue` | `prisma.attributeValue` |
+| 12 | `product_variants` | `ProductVariant` | `prisma.productVariant` |
+| 13 | `variant_attribute_values` | `VariantAttributeValue` | `prisma.variantAttributeValue` |
+| 14 | `product_images` | `ProductImage` | `prisma.productImage` |
+| 15 | `reviews` | `Review` | `prisma.review` |
+| 16 | `wishlists` | `Wishlist` | `prisma.wishlist` |
+| 17 | `product_3d_models` | `Product3DModel` | `prisma.product3DModel` |
+| 18 | `model_files` | `ModelFile` | `prisma.modelFile` |
+| 19 | `model_material_variants` | `ModelMaterialVariant` | `prisma.modelMaterialVariant` |
+| 20 | `carts` | `Cart` | `prisma.cart` |
+| 21 | `cart_items` | `CartItem` | `prisma.cartItem` |
+| 22 | `coupons` | `Coupon` | `prisma.coupon` |
+| 23 | `coupon_usages` | `CouponUsage` | `prisma.couponUsage` |
+| 24 | `orders` | `Order` | `prisma.order` |
+| 25 | `order_items` | `OrderItem` | `prisma.orderItem` |
+| 26 | `order_status_history` | `OrderStatusHistory` | `prisma.orderStatusHistory` |
+| 27 | `payments` | `Payment` | `prisma.payment` |
+| 28 | `shipments` | `Shipment` | `prisma.shipment` |
+| 29 | `spaces` | `Space` | `prisma.space` |
+| 30 | `space_panoramas` | `SpacePanorama` | `prisma.spacePanorama` |
+| 31 | `space_hotspots` | `SpaceHotspot` | `prisma.spaceHotspot` |
+| 32 | `space_product_placements` | `SpaceProductPlacement` | `prisma.spaceProductPlacement` |
 
 Lưu ý khi dùng Prisma Client:
 
 - `User.email` **không có `@unique`** (DB dùng partial unique index trên bản ghi chưa xóa mềm): tra cứu bằng `findFirst({ where: { email, deletedAt: null } })`, không dùng `findUnique`.
-- `Product.ratingAvg`, `ratingCount`, `has3dModel`, `Space.viewCount`, `OrderItem.lineTotal` do DB tự tính: không ghi từ app.
+- `Product.ratingAvg`, `ratingCount`, `has3dModel`, `OrderItem.lineTotal` do DB tự tính: không ghi từ app.
+- `User.role` là enum Prisma `UserRole` (`admin` | `user`); vai trò kiểm tra bằng `user.role`, không còn quan hệ nhiều-nhiều. `AttributeValue.attributeCode` là enum `AttributeCode`; `Product.brand` là `String?`.
+- Mã đơn lấy từ sequence: `SELECT nextval('order_code_seq')` qua `$queryRaw`.
 - Đổi trạng thái đơn hàng trong transaction nên đặt người thực hiện: `SELECT set_config('app.current_user_id', '<id>', true)` (tương đương `SET LOCAL`) để `order_status_history.changed_by` có giá trị.
 - Tìm kiếm không dấu / gần đúng (`Space.title`, `Product.name`) dùng `$queryRaw` với `immutable_unaccent()` và `ILIKE`, vì Prisma không biểu diễn index biểu thức.
 - Số tiền là `Decimal` (`Prisma.Decimal`), không phải `number`.
@@ -2344,12 +1564,26 @@ Lưu ý khi dùng Prisma Client:
 - AR đã loại bỏ hoàn toàn khỏi schema (migration `20261109010100_remove_ar`); giá trị `usdz` của enum `model_file_format` được giữ để không xóa dữ liệu cũ, code chỉ nhận GLB.
 - `aurelia_dev` đã áp migration `remove_ar` ngày 2026-11-11 (đã sao lưu trước; `migrate status` sạch, `migrate diff` rỗng).
 
+### 8.4. Rút gọn còn 32 bảng (2026-11-19 → 2026-11-20, nhánh `db/remove-21-tables`)
+
+Migration theo thứ tự: `20261119010100_remove_21_tables`, `20261119020100_drop_coupon_applies_columns`, `20261120010100_users_role_enum`, `20261120020100_attribute_code_enum`, `20261120030100_products_brand_text`. Mỗi bước: thêm cột/chuyển dữ liệu → kiểm tra số dòng → mới xóa.
+
+| Thay đổi | Cách thay thế |
+| --- | --- |
+| Xóa 21 bảng: `product_specs`, `product_360_configs`, `product_360_frames`, `review_images`, `product_questions`, `coupon_scopes`, `user_coupons`, `code_counters`, `return_requests`, `return_request_items`, `return_request_images`, `stock_receipts`, `stock_receipt_items`, `expenses`, `banners`, `posts`, `contact_messages`, `pages`, `inventory_movements`, `space_bookmarks`, `space_views` | Tính năng tương ứng bị gỡ; mã đơn dùng sequence `order_code_seq`; trang tĩnh viết cứng ở `apps/web/src/content/static-pages.ts` |
+| Xóa `spaces.view_count`, trigger `trg_space_views_increase_count`, `coupons.applies_to`, `coupons.applies_to_label` và các enum liên quan | Mã giảm giá áp cho toàn giỏ |
+| `roles`, `permissions`, `role_permissions`, `user_roles`, trigger `trg_users_assign_default_role` | Cột `users.role` (enum `user_role`: admin/user, mặc định user) và hằng số `ROLE_PERMISSIONS` |
+| `attributes` | Enum `attribute_code` (color/size/material) trên `attribute_values` và `variant_attribute_values`; chỉ còn 3 loại cố định |
+| `brands`, `products.brand_id` | Cột chữ `products.brand` VARCHAR(150) NULL |
+
+Hành vi thay đổi: doanh thu chỉ tính đơn `completed` (net = gross − discount), không còn chi phí/lợi nhuận; kho chỉ xem tồn, sửa tồn qua form biến thể sản phẩm; một người một vai trò; admin không nằm trong danh sách khách hàng.
+
 ## 9. Quyết định đã chốt và điểm còn vướng
 
 ### 9.1. Đã xác nhận
 
 1. Đồng bộ Prisma: đã làm (mục 8.1).
-2. Giữ trigger tự gán vai trò `user` (CONSTRAINT TRIGGER deferred).
+2. ~~Giữ trigger tự gán vai trò `user` (CONSTRAINT TRIGGER deferred).~~ Đã bỏ: vai trò mặc định là `users.role DEFAULT 'user'` (mục 8.4).
 3. Đăng ký / đăng nhập / quên mật khẩu là luồng xác thực do API xử lý cho người chưa đăng nhập (ký hiệu ‡ ở mục 2).
 4. `activity_logs`: không cài trigger; tầng Service bảo đảm `actor_id` là admin.
 5. Giữ trigger ghi `order_status_history` cả lúc tạo đơn.
@@ -2360,7 +1594,7 @@ Lưu ý khi dùng Prisma Client:
 2. **`order_items.line_total`** là generated column nhưng Prisma Client thấy như cột có default (kiểu `Decimal?`); gán giá trị từ app sẽ bị PostgreSQL từ chối.
 3. **`media.file_size` là `INTEGER`** (migration `media_file_size_int`): tối đa khoảng 2 GB mỗi tệp; tệp lớn hơn cần đổi kiểu bằng migration mới.
 4. **`model_material_variants`** chưa ép biến thể cùng sản phẩm với mô hình (cần trigger hoặc cột `product_id` thừa); hiện Service kiểm tra.
-5. **`ON DELETE`**: `categories.parent_id` là `RESTRICT`; media bắt buộc (`product_images`, `model_files`, `space_panoramas`) là `RESTRICT`; `space_views.user_id`, `space_hotspots.product_id` là `CASCADE` để không vi phạm CHECK của chính bảng. Xóa cứng user bị chặn khi còn đơn hoặc lượt dùng mã; dùng xóa mềm.
+5. **`ON DELETE`**: `categories.parent_id` là `RESTRICT`; media bắt buộc (`product_images`, `model_files`, `space_panoramas`) là `RESTRICT`; `space_hotspots.product_id` là `CASCADE` để không vi phạm CHECK của chính bảng. Xóa cứng user bị chặn khi còn đơn hoặc lượt dùng mã; dùng xóa mềm.
 6. **Dữ liệu mẫu** (`seed.ts`, `07_sample_data.sql`) ghi tay các thay đổi mà Service sẽ làm (trừ kho, `sold_count`, `used_count`); chỉ dùng cho dev (`SEED_SAMPLE=false` để bỏ).
 7. **Seed** dùng `bcryptjs` (băm bcrypt, tương thích `crypt()` của pgcrypto trong phần seed SQL). Mật khẩu admin mặc định phải đổi trước khi triển khai thật.
 8. **`npm install` ở thư mục gốc** (workspaces) bị lỗi `EPERM` trên máy này khi xóa thư mục trong `node_modules`; phụ thuộc của `apps/api` được cài bằng `npm install --workspaces=false` trong `apps/api`. `package-lock.json` gốc chưa được cập nhật cho `bcryptjs`, nên cần chạy `npm install` ở gốc trên môi trường không bị lỗi này.
