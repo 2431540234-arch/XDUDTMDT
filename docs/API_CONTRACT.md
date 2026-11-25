@@ -148,7 +148,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/products/:slug/model` | public | `product.model` |  |  |  |
 | GET | `/products/:slug/related` | public | `product.related` |  |  |  |
 | GET | `/products/:slug/reviews` | public | `product.` | `rating` |  |  |
-| POST | `/products/:slug/reviews` | user | `product.createReview` |  | { orderId, rating(1-5), content?, tags?, images?, anonymous? } | `CONFLICT`, `PURCHASE_REQUIRED` |
+| POST | `/products/:slug/reviews` | user | `product.createReview` |  | { orderId, rating(1-5), content?, tags?, anonymous? } | `CONFLICT`, `PURCHASE_REQUIRED` |
 
 ### 4. `wishlist`
 

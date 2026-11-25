@@ -405,7 +405,7 @@ Thứ tự section từ trên xuống:
 
 #### 7.8 Viết đánh giá (modal) — `wireframes/34-viet-danh-gia.png`
 - Mở từ nút "Đánh giá sản phẩm" (đơn đã giao). Overlay mờ trên trang Đơn hàng của tôi.
-- Modal 620px: header "Đánh giá sản phẩm" + ✕; card SP (ảnh, tên, phân loại, mã đơn); **5 sao lớn** + nhãn (Rất tệ/Tệ/Bình thường/Hài lòng/Tuyệt vời); chip tiêu chí chọn nhiều (Chất lượng tốt, Đúng mô tả, Giao hàng nhanh, Đóng gói cẩn thận, Giá hợp lý); textarea nội dung, không bắt buộc (đếm 0/1000, nếu nhập thì tối thiểu 20 ký tự); tải ảnh/video (tối đa 5); ☐ Đánh giá ẩn danh; footer [Hủy] [Gửi đánh giá].
+- Modal 620px: header "Đánh giá sản phẩm" + ✕; card SP (ảnh, tên, phân loại, mã đơn); **5 sao lớn** + nhãn (Rất tệ/Tệ/Bình thường/Hài lòng/Tuyệt vời); chip tiêu chí chọn nhiều (Chất lượng tốt, Đúng mô tả, Giao hàng nhanh, Đóng gói cẩn thận, Giá hợp lý); textarea nội dung, không bắt buộc (đếm 0/1000, nếu nhập thì tối thiểu 20 ký tự); ☐ Đánh giá ẩn danh; footer [Hủy] [Gửi đánh giá].
 - Dùng lại modal này cho "Sửa đánh giá" ở trang Đánh giá của tôi.
 
 #### 7.9 Yêu cầu đổi trả — `wireframes/35-yeu-cau-doi-tra.png`
