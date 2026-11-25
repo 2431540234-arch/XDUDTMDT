@@ -61,11 +61,19 @@ export const envSchema = z.object({
   MODEL_SERVE_MAX_MB: z.coerce.number().positive().default(5),
 
   // VNPay sandbox: tùy chọn cho tới khi làm module thanh toán
-  VNPAY_TMN_CODE: optional(z.string()),
+  VNPAY_TMN_CODE: optional(z.string().regex(/^[A-Za-z0-9]{8}$/, 'phải gồm đúng 8 ký tự chữ/số')),
   VNPAY_HASH_SECRET: optional(z.string()),
-  VNPAY_URL: optional(z.string().url()),
+  VNPAY_PAYMENT_URL: optional(z.string().url()),
+  VNPAY_QUERY_URL: optional(z.string().url()),
+  VNPAY_VERSION: z.preprocess((v) => (v === '' ? undefined : v), z.string().default('2.1.0')),
   VNPAY_RETURN_URL: optional(z.string().url()),
   VNPAY_IPN_URL: optional(z.string().url()),
+  // querydr chỉ gọi sau ngần này giây kể từ lúc khách quay về; giới hạn số lượt mỗi phút (theo TxnRef / theo khách)
+  VNPAY_QUERYDR_DELAY_SECONDS: z.coerce.number().int().min(0).default(5),
+  VNPAY_QUERYDR_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(3),
+  VNPAY_URL_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(5),
+  // số lớp reverse proxy/tunnel đứng trước API (0 = không tin X-Forwarded-For)
+  TRUST_PROXY: z.coerce.number().int().min(0).default(0),
 
   // queue: đẩy job vào hàng đợi `mail` (retry 3 lần, backoff mũ) | direct: gửi SMTP ngay trong request
   MAIL_TRANSPORT: z.enum(['direct', 'queue']).default('queue'),
@@ -113,6 +121,14 @@ export function ttlSeconds(spec: string): number {
 export const PROD_MAX_ACCESS_TTL_SECONDS = 15 * 60;
 
 const envSchemaChecked = envSchema.superRefine((env, ctx) => {
+  // một khóa VNPAY đơn lẻ sẽ âm thầm rơi về giả lập (đơn thành "paid" giả) ⇒ không cho khởi động. Chỉ nêu TÊN biến.
+  if (Boolean(env.VNPAY_TMN_CODE) !== Boolean(env.VNPAY_HASH_SECRET)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [env.VNPAY_TMN_CODE ? 'VNPAY_HASH_SECRET' : 'VNPAY_TMN_CODE'],
+      message: 'VNPAY_TMN_CODE và VNPAY_HASH_SECRET phải cùng có hoặc cùng để trống',
+    });
+  }
   if (env.NODE_ENV === 'production' && env.PAYMENT_SANDBOX_FAKE) {
     ctx.addIssue({
       code: 'custom',

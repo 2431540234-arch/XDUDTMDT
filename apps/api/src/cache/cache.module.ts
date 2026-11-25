@@ -22,6 +22,6 @@ import { CACHE_REDIS, CacheService } from './cache.service';
     CacheService,
     CatalogCache,
   ],
-  exports: [CacheService, CatalogCache],
+  exports: [CacheService, CatalogCache, CACHE_REDIS],
 })
 export class CacheModule {}

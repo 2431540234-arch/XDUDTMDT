@@ -1,7 +1,7 @@
 // Cấu hình dùng chung cho app thật (main.ts) và app trong test e2e.
 import { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, type Express } from 'express';
 import helmet from 'helmet';
 import { errorResponseLog } from './common/middleware/error-response-log.middleware';
 import { requestId } from './common/middleware/request-id.middleware';
@@ -13,6 +13,9 @@ export function setupApp(app: INestApplication) {
 
   // /health nằm ngoài prefix để load balancer/docker healthcheck gọi gọn
   app.setGlobalPrefix('api', { exclude: ['health', 'admin/queues', 'admin/queues/(.*)'] });
+  // sau reverse proxy/tunnel: tin N lớp proxy để req.ip là IP khách (mặc định 0 = không tin X-Forwarded-For)
+  const hops = config.get('TRUST_PROXY');
+  if (hops > 0) (app.getHttpAdapter().getInstance() as Express).set('trust proxy', hops);
   app.use(requestId);
   // điều tra e2e: ghi mọi response >= 400 ra tệp (chỉ khi đặt biến môi trường)
   if (process.env.HTTP_ERROR_LOG_FILE) app.use(errorResponseLog(process.env.HTTP_ERROR_LOG_FILE));
