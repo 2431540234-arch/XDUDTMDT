@@ -201,8 +201,10 @@ export function createReview(ctx: Ctx): Result {
   const b = ctx.body ?? {};
   const errs: Record<string, string> = {};
   const rating = Number(b.rating);
+  const content = String(b.content ?? '').trim();
   if (!(rating >= 1 && rating <= 5)) errs.rating = 'Vui lòng chọn số sao.';
-  if (String(b.content ?? '').trim().length < 20) errs.content = 'Nội dung đánh giá tối thiểu 20 ký tự.';
+  if (content.length > 0 && content.length < 20)
+    errs.content = 'Nếu nhập nội dung, vui lòng viết ít nhất 20 ký tự.';
   if (String(b.content ?? '').length > 1000) errs.content = 'Nội dung đánh giá tối đa 1000 ký tự.';
   if (Object.keys(errs).length) throw validation(errs);
   const order = ctx.db.orders.find(
@@ -227,7 +229,7 @@ export function createReview(ctx: Ctx): Result {
     productId: p.id,
     orderId: order.id,
     rating,
-    content: String(b.content).trim(),
+    content: content || null,
     status: 'pending' as const,
     createdAt: at,
     updatedAt: at,
@@ -268,13 +270,14 @@ export function updateReview(ctx: Ctx): Result {
   const r = ownReview(ctx);
   const b = ctx.body ?? {};
   const errs: Record<string, string> = {};
+  const content = b.content === undefined ? undefined : String(b.content).trim();
   if (b.rating !== undefined && !(Number(b.rating) >= 1 && Number(b.rating) <= 5))
     errs.rating = 'Vui lòng chọn số sao.';
-  if (b.content !== undefined && String(b.content).trim().length < 20)
-    errs.content = 'Nội dung đánh giá tối thiểu 20 ký tự.';
+  if (content && content.length < 20) errs.content = 'Nếu nhập nội dung, vui lòng viết ít nhất 20 ký tự.';
+  if (content && content.length > 1000) errs.content = 'Nội dung đánh giá tối đa 1000 ký tự.';
   if (Object.keys(errs).length) throw validation(errs);
   if (b.rating !== undefined) r.rating = Number(b.rating);
-  if (b.content !== undefined) r.content = String(b.content).trim();
+  if (content !== undefined) r.content = content || null;
   const ex = ctx.db.reviewExtras.find((e) => e.reviewId === r.id);
   if (ex && Array.isArray(b.tags)) ex.tags = b.tags;
   r.status = 'pending'; // sửa xong phải được duyệt lại

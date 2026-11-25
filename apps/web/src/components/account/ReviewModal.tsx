@@ -100,7 +100,8 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
   const submit = () => {
     const x: typeof err = {};
     if (!rating) x.rating = 'Vui lòng chọn số sao.';
-    if (content.trim().length < 20) x.content = 'Nội dung đánh giá tối thiểu 20 ký tự.';
+    if (content.trim() && content.trim().length < 20)
+      x.content = 'Nếu nhập nội dung, vui lòng viết ít nhất 20 ký tự.';
     setErr(x);
     if (!Object.keys(x).length) save.mutate();
   };
@@ -190,7 +191,7 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
           </div>
           <div>
             <label htmlFor="review-content" className="mb-1.5 block text-sm font-medium">
-              Nội dung đánh giá <span className="text-danger">*</span>
+              Nội dung đánh giá <span className="text-muted">(không bắt buộc)</span>
             </label>
             <textarea
               id="review-content"
@@ -201,7 +202,7 @@ export default function ReviewModal({ open, onClose, order, review }: Props) {
                 setContent(e.target.value);
                 setErr((x) => ({ ...x, content: undefined }));
               }}
-              placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm (tối thiểu 20 ký tự)…"
+              placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm (nếu nhập, tối thiểu 20 ký tự)…"
               className={cn('field resize-y', err.content && 'field-error')}
             />
             <div className="mt-1 flex justify-between text-xs">

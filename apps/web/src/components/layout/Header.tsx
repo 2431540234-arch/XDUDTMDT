@@ -178,7 +178,6 @@ function AccountMenu() {
   const items = [
     { href: '/account/profile', label: 'Thông tin cá nhân' },
     { href: '/account/orders', label: 'Đơn hàng của tôi' },
-    { href: '/wishlist', label: 'Sản phẩm yêu thích' },
   ];
   return (
     <div className="relative" ref={ref}>

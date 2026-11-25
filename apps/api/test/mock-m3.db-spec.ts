@@ -167,7 +167,27 @@ describe('Mốc 3 – tương tác khách hàng & nội dung (aurelia_test)', ()
       });
       expect(bad.status).toBe(400);
       expect(bad.body.error.details.rating[0]).toBe('Vui lòng chọn số sao.');
-      expect(bad.body.error.details.content[0]).toBe('Nội dung đánh giá tối thiểu 20 ký tự.');
+      expect(bad.body.error.details.content[0]).toBe('Nếu nhập nội dung, vui lòng viết ít nhất 20 ký tự.');
+    });
+
+    it('chỉ có số sao, không có nội dung ⇒ tạo được, content = null', async () => {
+      const r = await api('post', `/products/${slug}/reviews`, cust, { orderId, rating: 5 });
+      expect(r.status).toBe(201);
+      expect(r.body.data.content).toBeNull();
+      const row = await prisma.review.findUniqueOrThrow({ where: { id: r.body.data.id } });
+      expect(row.content).toBeNull();
+      // xóa lại để các test sau còn đánh giá được cùng (sản phẩm, đơn)
+      expect((await api('delete', `/reviews/${r.body.data.id}`, cust)).status).toBeLessThan(300);
+    });
+
+    it('nội dung dài hơn 1000 ký tự ⇒ 400', async () => {
+      const r = await api('post', `/products/${slug}/reviews`, cust, {
+        orderId,
+        rating: 5,
+        content: 'a'.repeat(1001),
+      });
+      expect(r.status).toBe(400);
+      expect(r.body.error.details.content[0]).toBe('Nội dung đánh giá tối đa 1000 ký tự.');
     });
 
     it('đánh giá mới ở pending: không hiện công khai, điểm trung bình KHÔNG đổi', async () => {
