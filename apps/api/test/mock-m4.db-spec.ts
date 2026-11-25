@@ -1,19 +1,22 @@
 // E2E (supertest) Mốc 4 trên aurelia_test: Kho (tồn kho theo biến thể), báo cáo doanh thu,
-// Cài đặt hệ thống, VNPAY (URL + chữ ký, Return URL, IPN, thanh toán lại) kiểm bằng KHÓA GIẢ.
+// Cài đặt hệ thống, VNPAY (URL + chữ ký, IPN, return-status, querydr, thanh toán lại) kiểm bằng KHÓA GIẢ.
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClient } from '@prisma/client';
+import type Redis from 'ioredis';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
-import { sign, verify } from '../src/modules/payments/vnpay';
+import { CACHE_REDIS } from '../src/cache/cache.service';
+import { sign, signQueryResponse, verify } from '../src/modules/payments/vnpay';
 
 const FAKE = {
   tmn: 'FAKETMN1',
   secret: 'fake-hash-secret-for-tests',
   url: 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html',
 };
-const RETURN_URL = 'http://localhost:4000/api/payments/vnpay/return';
+const RETURN_URL = 'http://localhost:3000/checkout/vnpay-return';
+const QUERY_URL = 'https://querydr.invalid/merchant_webapi/api/transaction'; // địa chỉ giả: fetch luôn bị chặn trong test
 
 describe('Mốc 4 – kho, doanh thu, cài đặt, VNPAY (aurelia_test)', () => {
   let app: INestApplication;
@@ -50,7 +53,8 @@ describe('Mốc 4 – kho, doanh thu, cài đặt, VNPAY (aurelia_test)', () => 
     for (const [k, v] of Object.entries({
       VNPAY_TMN_CODE: FAKE.tmn,
       VNPAY_HASH_SECRET: FAKE.secret,
-      VNPAY_URL: FAKE.url,
+      VNPAY_PAYMENT_URL: FAKE.url,
+      VNPAY_QUERY_URL: QUERY_URL,
       VNPAY_RETURN_URL: RETURN_URL,
     })) {
       saved[k] = process.env[k];
@@ -463,19 +467,42 @@ describe('Mốc 4 – kho, doanh thu, cài đặt, VNPAY (aurelia_test)', () => 
       expect(r.status).toBe(201);
       return r.body.data as { id: number; orderCode: string; total: number };
     };
+    type Order = Awaited<ReturnType<typeof placeOrder>>;
+    const latestPayment = (orderId: number) =>
+      prisma.payment.findFirstOrThrow({ where: { orderId }, orderBy: { id: 'desc' } });
+    const payRow = (id: number) => prisma.payment.findUniqueOrThrow({ where: { id } });
+    const ordRow = (id: number) => prisma.order.findUniqueOrThrow({ where: { id } });
+    const state = async (id: number) => {
+      const o = await ordRow(id);
+      return [o.status, o.paymentStatus];
+    };
+    /** Tạo URL qua API và trả về tham số đã ký + id giao dịch của lần thử */
+    const attemptFrom = async (res: request.Response, orderId: number) => {
+      expect(res.status).toBe(200);
+      const q = Object.fromEntries(new URL(res.body.data.redirectUrl).searchParams.entries());
+      const pay = await latestPayment(orderId);
+      return { q, ref: q.vnp_TxnRef, paymentId: pay.id };
+    };
+    const start = async (o: Order) =>
+      attemptFrom(await api('post', `/payments/${o.id}/checkout`, cust), o.id);
+    const newOrder = async () => {
+      const o = await placeOrder();
+      return { o, a: await start(o) };
+    };
+    /** Tham số cổng gửi về (IPN/Return) ký bằng khóa giả */
     const callback = (
-      o: { orderCode: string; total: number },
-      paymentId: number,
+      o: { total: number },
+      a: { ref: string; paymentId: number },
       extra: Record<string, string> = {},
       secret = FAKE.secret,
     ) => {
       const p: Record<string, string> = {
         vnp_TmnCode: FAKE.tmn,
-        vnp_Amount: String(Math.round(Number(o.total)) * 100),
+        vnp_Amount: String(Math.round(Number(o.total) * 100)),
         vnp_BankCode: 'NCB',
-        vnp_TxnRef: `${o.orderCode}-P${paymentId}`,
-        vnp_OrderInfo: `Thanh toan don hang ${o.orderCode}`,
-        vnp_TransactionNo: String(14_000_000 + paymentId),
+        vnp_TxnRef: a.ref,
+        vnp_OrderInfo: 'Thanh toan don hang',
+        vnp_TransactionNo: String(14_000_000 + a.paymentId),
         vnp_ResponseCode: '00',
         vnp_TransactionStatus: '00',
         vnp_PayDate: '20261107100000',
@@ -483,206 +510,417 @@ describe('Mốc 4 – kho, doanh thu, cài đặt, VNPAY (aurelia_test)', () => 
       };
       return { ...p, vnp_SecureHash: sign(p, secret) };
     };
+    const FAILED = { vnp_ResponseCode: '24', vnp_TransactionStatus: '02' };
     const qs = (p: Record<string, string>) => new URLSearchParams(p).toString();
     const ipn = (p: Record<string, string>) => http.get(`/api/payments/vnpay/ipn?${qs(p)}`);
-    const ret = (p: Record<string, string>) => http.get(`/api/payments/vnpay/return?${qs(p)}`).redirects(0);
-    const latestPayment = (orderId: number) =>
-      prisma.payment.findFirstOrThrow({ where: { orderId }, orderBy: { id: 'desc' } });
+    const status = (p: Record<string, string>) => http.get(`/api/payments/vnpay/return-status?${qs(p)}`);
+    const paidNotes = (code: string) =>
+      prisma.notification.count({ where: { userId: 2, title: `Thanh toán đơn ${code} thành công` } });
+    const adminNotes = (title: string) => prisma.notification.count({ where: { userId: 1, title } });
+    const redisKey = (k: string) => `${process.env.CACHE_KEY_PREFIX}vnpay:${k}`;
+    const redis = () => app.get<Redis>(CACHE_REDIS);
+    // các case tạo nhiều URL bằng cùng một khách: xóa bộ đếm trước mỗi case (hạn mức được kiểm ở case Q5)
+    beforeEach(() => redis().del(redisKey('url:2')));
 
-    it('checkout: URL cổng có chữ ký hợp lệ, số tiền = Order.total × 100 (không nhận từ client), tham chiếu gắn id giao dịch pending', async () => {
+    // ---------------- tạo URL
+    it('checkout: chữ ký hợp lệ, số tiền = payments.amount × 100 (không nhận từ client), TxnRef lưu theo lần thử', async () => {
       const o = await placeOrder();
-      const pay = await latestPayment(o.id);
-      expect(pay.status).toBe('pending');
-      const r = await api('post', `/payments/${o.id}/checkout`, cust, { amount: 1, outcome: 'success' }); // body bị bỏ qua
-      expect(r.status).toBe(200);
-      const url = new URL(r.body.data.redirectUrl);
+      const first = await latestPayment(o.id);
+      const r = await api('post', `/payments/${o.id}/checkout`, cust, { amount: 1, outcome: 'success' });
+      const a = await attemptFrom(r, o.id);
+      expect(a.paymentId).toBe(first.id); // lần đầu dùng dòng tạo lúc đặt hàng
       expect(r.body.data.paymentUrl).toBe(r.body.data.redirectUrl);
+      const url = new URL(r.body.data.redirectUrl);
       expect(url.origin + url.pathname).toBe(FAKE.url);
-      const q = Object.fromEntries(url.searchParams.entries());
-      expect(q).toMatchObject({
+      expect(a.q).toMatchObject({
         vnp_TmnCode: FAKE.tmn,
-        vnp_Amount: String(Math.round(Number(o.total)) * 100),
-        vnp_TxnRef: `${o.orderCode}-P${pay.id}`,
+        vnp_Amount: String(Math.round(Number(o.total) * 100)),
         vnp_ReturnUrl: RETURN_URL,
         vnp_CurrCode: 'VND',
+        vnp_OrderInfo: `Thanh toan don hang ${o.orderCode.replace(/-/g, '')}`,
+        vnp_IpAddr: '127.0.0.1',
       });
-      expect(verify(q, FAKE.secret)).toBe(true);
-      expect(new Date(r.body.data.expiresAt).getTime()).toBeGreaterThan(Date.now());
-      // chưa thanh toán xong: đơn vẫn pending/unpaid
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect([row.status, row.paymentStatus]).toEqual(['pending', 'unpaid']);
+      expect(a.ref).toMatch(new RegExp(`^P${first.id}T\\d{14}$`));
+      expect(verify(a.q, FAKE.secret)).toBe(true);
+      expect((await payRow(first.id)).gatewayResponse).toEqual({
+        request: { txnRef: a.ref, createDate: a.q.vnp_CreateDate, expireDate: a.q.vnp_ExpireDate },
+      });
+      expect(await state(o.id)).toEqual(['pending', 'unpaid']);
     });
 
-    it('điều kiện: đơn người khác ⇒ 404, đơn đã thanh toán ⇒ 409, đơn đã hủy ⇒ 409; COD không qua cổng', async () => {
-      const o = await placeOrder();
+    it('mỗi lần tạo URL là một dòng payments với TxnRef mới; dòng cũ bị đóng nhưng giữ TxnRef', async () => {
+      const { o, a } = await newOrder();
+      const b = await start(o);
+      expect(b.paymentId).not.toBe(a.paymentId);
+      expect(b.ref).not.toBe(a.ref);
+      const old = await payRow(a.paymentId);
+      expect(old.status).toBe('failed');
+      expect(old.gatewayResponse).toMatchObject({ request: { txnRef: a.ref } });
+      expect(await prisma.payment.count({ where: { orderId: o.id, status: 'pending' } })).toBe(1);
+    });
+
+    it('điều kiện: người khác ⇒ 404; đã trả/đã hủy/đang xử lý ⇒ 409; COD không qua cổng', async () => {
+      const { o, a } = await newOrder();
       const other = await login((await prisma.user.findUniqueOrThrow({ where: { id: 3 } })).email, '123456');
       expect((await api('post', `/payments/${o.id}/checkout`, other)).status).toBe(404);
+      await ipn(callback(o, a));
+      expect((await api('post', `/payments/${o.id}/checkout`, cust)).status).toBe(409);
+      expect((await api('post', `/payments/${o.id}/retry`, cust)).status).toBe(409);
       const cancelled = await placeOrder();
-      expect((await api('post', `/orders/${cancelled.id}/cancel`, cust, { reason: 'Đổi ý' })).status).toBe(
-        200,
-      );
+      await api('post', `/orders/${cancelled.id}/cancel`, cust, { reason: 'Đổi ý' });
       expect((await api('post', `/payments/${cancelled.id}/checkout`, cust)).status).toBe(409);
       expect((await api('post', `/payments/${cancelled.id}/retry`, cust)).status).toBe(409);
+      const busy = await placeOrder();
+      await prisma.order.update({ where: { id: busy.id }, data: { status: 'processing' } });
+      expect((await api('post', `/payments/${busy.id}/checkout`, cust)).status).toBe(409);
+      expect((await api('post', `/payments/${busy.id}/retry`, cust)).status).toBe(409);
       const cod = await placeOrder('cod');
       const r = await api('post', `/payments/${cod.id}/checkout`, cust);
       expect(r.body.data.redirectUrl).toBe(`/checkout/success?order=${cod.orderCode}`);
     });
 
-    it('Return URL thành công: kiểm tra chữ ký, ghi nhận paid + confirmed + mã giao dịch cổng, chuyển tới trang thành công', async () => {
-      const o = await placeOrder();
-      const pay = await latestPayment(o.id);
-      const res = await ret(callback(o, pay.id));
-      expect(res.status).toBe(302);
-      expect(res.headers.location).toBe(`http://localhost:3000/checkout/success?order=${o.orderCode}`);
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect([row.status, row.paymentStatus]).toEqual(['confirmed', 'paid']);
-      const p = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
-      expect(p).toMatchObject({ status: 'success', transactionCode: String(14_000_000 + pay.id) });
-      expect(p.paidAt).not.toBeNull();
-      // mở lại Return URL: idempotent, không tạo thêm thông báo/lịch sử
-      const hist = await prisma.orderStatusHistory.count({ where: { orderId: o.id } });
-      expect((await ret(callback(o, pay.id))).headers.location).toContain('/checkout/success');
-      expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id } })).toBe(hist);
+    // ---------------- Return URL (chỉ đọc)
+    it('route Return cũ đã bỏ; return-status lần đầu KHÔNG ghi gì, KHÔNG gọi cổng, chỉ trả 4 trường', async () => {
+      const { o, a } = await newOrder();
+      expect((await http.get(`/api/payments/vnpay/return?${qs(callback(o, a))}`)).status).not.toBe(302);
+      const spy = jest.spyOn(globalThis, 'fetch');
+      const before = await payRow(a.paymentId);
+      const r = await status(callback(o, a)); // tham số báo "thành công" nhưng CSDL chưa ghi nhận
+      expect(r.status).toBe(200);
+      expect(r.body.data).toEqual({
+        valid: true,
+        orderCode: o.orderCode,
+        responseCode: '00',
+        paymentStatus: 'unpaid',
+      });
+      expect(spy).not.toHaveBeenCalled();
+      expect(await payRow(a.paymentId)).toEqual(before);
+      expect(await state(o.id)).toEqual(['pending', 'unpaid']);
+      spy.mockRestore();
     });
 
-    it('Return URL không hợp lệ: sai chữ ký, sửa số tiền, thiếu chữ ký, mã đơn lạ ⇒ về trang thất bại và KHÔNG ghi nhận thanh toán', async () => {
-      const o = await placeOrder();
-      const pay = await latestPayment(o.id);
-      const good = callback(o, pay.id);
-      const attempts: Array<Record<string, string>> = [
-        callback(o, pay.id, {}, 'khoa-sai'),
-        { ...good, vnp_Amount: '100' }, // sửa tiền sau khi ký
-        Object.fromEntries(Object.entries(good).filter(([k]) => k !== 'vnp_SecureHash')),
-        callback({ orderCode: 'ALV-00000000-0000', total: 1000 }, 1),
-      ];
-      for (const a of attempts) {
-        const res = await ret(a);
-        expect(res.status).toBe(302);
-        expect(res.headers.location).toContain('/checkout/failed');
+    it('return-status: sai chữ ký, sửa tham số, sai TmnCode, TxnRef lạ ⇒ { valid: false }', async () => {
+      const { o, a } = await newOrder();
+      const good = callback(o, a);
+      for (const p of [
+        callback(o, a, {}, 'khoa-sai'),
+        { ...good, vnp_Amount: '100' },
+        callback(o, a, { vnp_TmnCode: 'KHAC0001' }),
+        callback(o, { ref: 'P999999999T20260101000000', paymentId: 1 }),
+      ]) {
+        expect((await status(p)).body.data).toEqual({ valid: false });
       }
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect([row.status, row.paymentStatus]).toEqual(['pending', 'unpaid']);
-      expect((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status).toBe('pending');
+      expect(await state(o.id)).toEqual(['pending', 'unpaid']);
     });
 
-    it('Return URL thất bại (khách hủy mã 24): payment failed, đơn failed nhưng vẫn pending; trang thất bại có mã đơn', async () => {
-      const o = await placeOrder();
-      const pay = await latestPayment(o.id);
-      const res = await ret(callback(o, pay.id, { vnp_ResponseCode: '24', vnp_TransactionStatus: '02' }));
-      expect(res.headers.location).toBe(`http://localhost:3000/checkout/failed?order=${o.orderCode}`);
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect([row.status, row.paymentStatus]).toEqual(['pending', 'failed']);
-      expect((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status).toBe('failed');
-    });
-
-    it('IPN: 00 thành công; gọi lại ⇒ 02 (idempotent); 97 sai chữ ký; 01 không có đơn; 04 sai số tiền (đơn không đổi)', async () => {
-      const o = await placeOrder();
-      const pay = await latestPayment(o.id);
-      const bad = await ipn(callback(o, pay.id, {}, 'khoa-sai'));
+    // ---------------- IPN
+    it('IPN: 97 sai chữ ký/TmnCode; 01 không có giao dịch; 04 sai số tiền; 00 thành công; gọi lại 02', async () => {
+      const { o, a } = await newOrder();
+      const bad = await ipn(callback(o, a, {}, 'khoa-sai'));
       expect(bad.status).toBe(200);
       expect(bad.body).toEqual({ RspCode: '97', Message: 'Invalid signature' });
-      expect((await ipn(callback({ orderCode: 'ALV-00000000-0000', total: 1000 }, 1))).body.RspCode).toBe(
-        '01',
-      );
       expect((await ipn({})).body.RspCode).toBe('97');
-      const wrongAmount = await ipn(
-        callback(o, pay.id, { vnp_Amount: String((Math.round(Number(o.total)) - 1) * 100) }),
-      );
-      expect(wrongAmount.body.RspCode).toBe('04');
-      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).paymentStatus).toBe('unpaid');
+      expect((await ipn(callback(o, a, { vnp_TmnCode: 'KHAC0001' }))).body.RspCode).toBe('97');
+      // TxnRef đúng dạng nhưng hệ thống chưa từng gửi (đúng id, sai thời điểm)
+      for (const ref of ['P999999999T20260101000000', `P${a.paymentId}T20200101000000`, 'ALV-1-P1'])
+        expect((await ipn(callback(o, { ...a, ref }))).body.RspCode).toBe('01');
+      const wrong = await ipn(callback(o, a, { vnp_Amount: String((Number(o.total) - 1) * 100) }));
+      expect(wrong.body.RspCode).toBe('04');
+      expect(await state(o.id)).toEqual(['pending', 'unpaid']);
 
-      const ok = await ipn(callback(o, pay.id));
+      const ok = await ipn(callback(o, a));
       expect(ok.body).toEqual({ RspCode: '00', Message: 'Confirm Success' }); // không bọc { success, data }
-      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).paymentStatus).toBe('paid');
-      const again = await ipn(callback(o, pay.id));
-      expect(again.body.RspCode).toBe('02');
-      expect(
-        await prisma.notification.count({
-          where: { userId: 2, title: { contains: `Thanh toán đơn ${o.orderCode} thành công` } },
-        }),
-      ).toBe(1);
+      expect(await state(o.id)).toEqual(['confirmed', 'paid']);
+      const p = await payRow(a.paymentId);
+      expect(p).toMatchObject({ status: 'success', transactionCode: String(14_000_000 + a.paymentId) });
+      expect(p.paidAt).not.toBeNull();
+      const g = p.gatewayResponse as { request: unknown; result: { source: string; raw: object } };
+      expect(g.request).toMatchObject({ txnRef: a.ref });
+      expect(g.result.source).toBe('ipn');
+      expect(g.result.raw).toMatchObject({ vnp_BankCode: 'NCB', vnp_TxnRef: a.ref });
+      expect(g.result.raw).not.toHaveProperty('vnp_SecureHash');
+      // API đơn hàng không trả dữ liệu thô của cổng
+      const view = (await api('get', `/orders/${o.orderCode}`, cust)).body.data;
+      expect(view.payment).toMatchObject({ id: a.paymentId, status: 'success' });
+      expect(view.payment.gatewayResponse).toEqual({ code: '00', source: 'ipn' });
+
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('02');
+      expect(await paidNotes(o.orderCode)).toBe(1);
     });
 
-    it('hai IPN cùng lúc cho một giao dịch: đúng một lần ghi nhận (00), lần kia 02; không trùng lịch sử/thông báo', async () => {
-      const o = await placeOrder();
-      const pay = await latestPayment(o.id);
-      const cb = callback(o, pay.id);
-      const [a, b] = await Promise.all([ipn(cb), ipn(cb)]);
-      expect([a.body.RspCode, b.body.RspCode].sort()).toEqual(['00', '02']);
+    it('IPN thất bại ở lần thử hiện hành: payment failed, đơn failed nhưng vẫn pending; gọi lại 02', async () => {
+      const { o, a } = await newOrder();
+      expect((await ipn(callback(o, a, FAILED))).body.RspCode).toBe('00');
+      expect(await state(o.id)).toEqual(['pending', 'failed']);
+      expect((await payRow(a.paymentId)).status).toBe('failed');
+      expect((await ipn(callback(o, a, FAILED))).body.RspCode).toBe('02');
+    });
+
+    it('thiếu vnp_TransactionStatus ⇒ không được coi là thành công', async () => {
+      const { o, a } = await newOrder();
+      const p: Record<string, string> = callback(o, a);
+      delete p.vnp_TransactionStatus;
+      delete p.vnp_SecureHash;
+      expect((await ipn({ ...p, vnp_SecureHash: sign(p, FAKE.secret) })).body.RspCode).toBe('00');
+      expect(await state(o.id)).toEqual(['pending', 'failed']);
+    });
+
+    it('hai IPN cùng lúc: đúng một lần ghi nhận (00), lần kia 02; không trùng lịch sử/thông báo', async () => {
+      const { o, a } = await newOrder();
+      const cb = callback(o, a);
+      const [x, y] = await Promise.all([ipn(cb), ipn(cb)]);
+      expect([x.body.RspCode, y.body.RspCode].sort()).toEqual(['00', '02']);
       expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id, toStatus: 'confirmed' } })).toBe(
         1,
       );
-      expect(
-        await prisma.notification.count({
-          where: { userId: 2, title: { contains: `Thanh toán đơn ${o.orderCode} thành công` } },
-        }),
-      ).toBe(1);
+      expect(await paidNotes(o.orderCode)).toBe(1);
     });
 
-    it('thanh toán lại: giao dịch cũ failed → tạo giao dịch mới pending; URL mới mang id mới; IPN giao dịch cũ ⇒ 02, giao dịch mới ⇒ 00', async () => {
-      const o = await placeOrder();
-      const old = await latestPayment(o.id);
-      await ipn(callback(o, old.id, { vnp_ResponseCode: '24', vnp_TransactionStatus: '02' }));
-      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).paymentStatus).toBe('failed');
-
-      const r = await api('post', `/payments/${o.id}/retry`, cust, {});
-      expect(r.status).toBe(200);
-      const fresh = await latestPayment(o.id);
-      expect(fresh.id).not.toBe(old.id);
-      expect(fresh.status).toBe('pending');
-      expect((await prisma.payment.findUniqueOrThrow({ where: { id: old.id } })).status).toBe('failed');
-      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).paymentStatus).toBe('unpaid');
-      const q = Object.fromEntries(new URL(r.body.data.redirectUrl).searchParams.entries());
-      expect(q.vnp_TxnRef).toBe(`${o.orderCode}-P${fresh.id}`);
-      expect(verify(q, FAKE.secret)).toBe(true);
-
-      expect((await ipn(callback(o, old.id))).body.RspCode).toBe('02'); // giao dịch cũ đã đóng
-      expect((await prisma.order.findUniqueOrThrow({ where: { id: o.id } })).paymentStatus).toBe('unpaid');
-      expect((await ipn(callback(o, fresh.id))).body.RspCode).toBe('00');
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect([row.status, row.paymentStatus]).toEqual(['confirmed', 'paid']);
-      // đã thanh toán ⇒ không thanh toán lại được
-      expect((await api('post', `/payments/${o.id}/retry`, cust)).status).toBe(409);
+    it('thanh toán lại: TxnRef mới; IPN thất bại của lần cũ chỉ ghi vào giao dịch cũ, không đổi đơn', async () => {
+      const { o, a } = await newOrder();
+      const b = await attemptFrom(await api('post', `/payments/${o.id}/retry`, cust, {}), o.id);
+      expect(b.ref).not.toBe(a.ref);
+      expect(verify(b.q, FAKE.secret)).toBe(true);
+      expect((await ipn(callback(o, a, FAILED))).body.RspCode).toBe('00');
+      expect(await state(o.id)).toEqual(['pending', 'unpaid']);
+      expect((await payRow(b.paymentId)).status).toBe('pending');
+      expect((await ipn(callback(o, b))).body.RspCode).toBe('00');
+      expect(await state(o.id)).toEqual(['confirmed', 'paid']);
     });
 
-    it('thanh toán đến sau khi đơn đã hủy: đơn vẫn cancelled, Payment = success, paymentStatus = paid, admin nhận thông báo cần hoàn tiền; IPN lặp ⇒ 02', async () => {
-      const o = await placeOrder();
-      const pay = await latestPayment(o.id);
+    it('Q1: tiền về cho lần thử ĐÃ BỊ THAY THẾ khi đơn chưa trả ⇒ ghi nhận, đơn paid, đóng lần thử khác', async () => {
+      const { o, a } = await newOrder();
+      const b = await start(o);
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('00');
+      expect(await state(o.id)).toEqual(['confirmed', 'paid']);
+      expect((await payRow(a.paymentId)).status).toBe('success');
+      expect((await payRow(b.paymentId)).status).toBe('failed');
+    });
+
+    it('Q1: khách đã đổi sang COD rồi tiền VNPAY mới về ⇒ đơn paid và theo lại phương thức đã trả', async () => {
+      const { o, a } = await newOrder();
+      await api('post', `/payments/${o.id}/retry`, cust, { method: 'cod' });
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('00');
+      const row = await ordRow(o.id);
+      expect([row.status, row.paymentStatus, row.paymentMethod]).toEqual(['confirmed', 'paid', 'vnpay']);
+      expect(await prisma.payment.count({ where: { orderId: o.id, status: 'pending' } })).toBe(0);
+    });
+
+    it('Q2: trả hai lần ⇒ giao dịch thứ hai success, đơn không đổi, báo admin hoàn khoản dư, trả 00', async () => {
+      const { o, a } = await newOrder();
+      const b = await start(o);
+      await ipn(callback(o, b));
+      const history = await prisma.orderStatusHistory.count({ where: { orderId: o.id } });
+      const before = await ordRow(o.id);
+      const title = `Đơn ${o.orderCode} bị thanh toán hai lần, cần hoàn khoản dư`;
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('00');
+      expect((await payRow(a.paymentId)).status).toBe('success');
+      expect((await payRow(b.paymentId)).status).toBe('success');
+      expect(await ordRow(o.id)).toEqual(before);
+      expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id } })).toBe(history);
+      expect(await adminNotes(title)).toBe(1);
+      expect(await paidNotes(o.orderCode)).toBe(1);
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('02');
+      expect(await adminNotes(title)).toBe(1);
+    });
+
+    it('D-N28: tiền về sau khi đơn đã hủy ⇒ giữ cancelled, success + paid, báo admin; gọi lại 02', async () => {
+      const { o, a } = await newOrder();
       expect((await api('post', `/orders/${o.id}/cancel`, cust, { reason: 'Đổi ý' })).status).toBe(200);
-      expect((await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } })).status).toBe('failed'); // đóng lúc hủy
-      const histBefore = await prisma.orderStatusHistory.count({ where: { orderId: o.id } });
-
-      const r = await ipn(callback(o, pay.id));
-      expect(r.body.RspCode).toBe('00');
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect([row.status, row.paymentStatus]).toEqual(['cancelled', 'paid']);
-      const p = await prisma.payment.findUniqueOrThrow({ where: { id: pay.id } });
-      expect(p.status).toBe('success');
-      expect(p.transactionCode).toBe(String(14_000_000 + pay.id));
-      expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id } })).toBe(histBefore); // không đổi trạng thái đơn
-      const adminNote = await prisma.notification.findFirst({
-        where: { userId: 1, title: `Đơn ${o.orderCode} đã hủy nhưng khách đã thanh toán, cần hoàn tiền` },
-      });
-      expect(adminNote).not.toBeNull();
-      expect((adminNote!.data as { link: string }).link).toBe(`/admin/orders/${o.orderCode}`);
-      // khách không bị báo "đơn được xác nhận"
-      expect((await ipn(callback(o, pay.id))).body.RspCode).toBe('02');
-      expect(
-        await prisma.notification.count({
-          where: { userId: 1, title: { contains: `Đơn ${o.orderCode} đã hủy nhưng` } },
-        }),
-      ).toBe(1);
+      expect((await payRow(a.paymentId)).status).toBe('failed'); // đóng lúc hủy
+      const history = await prisma.orderStatusHistory.count({ where: { orderId: o.id } });
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('00');
+      expect(await state(o.id)).toEqual(['cancelled', 'paid']);
+      expect((await payRow(a.paymentId)).status).toBe('success');
+      expect(await prisma.orderStatusHistory.count({ where: { orderId: o.id } })).toBe(history);
+      const title = `Đơn ${o.orderCode} đã hủy nhưng khách đã thanh toán, cần hoàn tiền`;
+      expect(await adminNotes(title)).toBe(1);
+      expect((await ipn(callback(o, a))).body.RspCode).toBe('02');
+      expect(await adminNotes(title)).toBe(1);
     });
 
-    it('thanh toán lại đổi phương thức sang COD: không qua cổng, cập nhật phương thức; phương thức lạ ⇒ 400', async () => {
+    // ---------------- querydr
+    describe('querydr khi chưa có IPN', () => {
+      let spy: jest.SpyInstance;
+      afterEach(() => spy?.mockRestore());
+
+      /** Giả cổng: phản hồi ký bằng khóa giả theo yêu cầu nhận được */
+      const gateway = (o: { total: number }, extra: Record<string, string> = {}, secret = FAKE.secret) => {
+        spy = jest.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+          const req = JSON.parse(String(init!.body)) as Record<string, string>;
+          const body: Record<string, string> = {
+            vnp_ResponseId: 'RESP1',
+            vnp_Command: 'querydr',
+            vnp_ResponseCode: '00',
+            vnp_Message: 'QueryDR Success',
+            vnp_TmnCode: FAKE.tmn,
+            vnp_TxnRef: req.vnp_TxnRef,
+            vnp_Amount: String(Math.round(Number(o.total) * 100)),
+            vnp_BankCode: 'NCB',
+            vnp_PayDate: '20261107100200',
+            vnp_TransactionNo: String(15_000_000 + Number(/^P(\d+)T/.exec(req.vnp_TxnRef)![1])),
+            vnp_TransactionType: '01',
+            vnp_TransactionStatus: '00',
+            vnp_OrderInfo: req.vnp_OrderInfo,
+            ...extra,
+          };
+          body.vnp_SecureHash = signQueryResponse(body, secret);
+          return new Response(JSON.stringify(body), { status: 200 });
+        });
+        return spy;
+      };
+      /** Coi như khách đã quay về từ trước đó quá thời gian chờ */
+      const waited = (ref: string) =>
+        redis().set(redisKey(`seen:${ref}`), String(Date.now() - 60_000), 'EX', 600);
+
+      it('chưa đủ vài giây ⇒ chưa gọi; đủ ⇒ gọi, yêu cầu ký đúng, ghi nhận với nguồn querydr; IPN sau đó ⇒ 02', async () => {
+        const { o, a } = await newOrder();
+        const f = gateway(o);
+        expect((await status(callback(o, a))).body.data.paymentStatus).toBe('unpaid');
+        expect(f).not.toHaveBeenCalled();
+        await waited(a.ref);
+        expect((await status(callback(o, a))).body.data.paymentStatus).toBe('paid');
+        expect(f).toHaveBeenCalledTimes(1);
+        const sent = JSON.parse(String(f.mock.calls[0][1]!.body));
+        expect(f.mock.calls[0][0]).toBe(QUERY_URL);
+        expect(sent).toMatchObject({
+          vnp_Command: 'querydr',
+          vnp_TxnRef: a.ref,
+          vnp_TransactionDate: a.q.vnp_CreateDate,
+        });
+        expect(sent.vnp_RequestId).toMatch(/^[0-9a-f]{32}$/);
+        expect(sent.vnp_SecureHash).toMatch(/^[0-9a-f]{128}$/);
+        expect(await state(o.id)).toEqual(['confirmed', 'paid']);
+        expect((await payRow(a.paymentId)).gatewayResponse).toMatchObject({ result: { source: 'querydr' } });
+        expect((await ipn(callback(o, a))).body.RspCode).toBe('02');
+        // đã có kết quả ⇒ không hỏi cổng nữa
+        await status(callback(o, a));
+        expect(f).toHaveBeenCalledTimes(1);
+        expect(await paidNotes(o.orderCode)).toBe(1);
+      });
+
+      it('chữ ký phản hồi KHÔNG khớp ⇒ không ghi gì', async () => {
+        const { o, a } = await newOrder();
+        const f = gateway(o, {}, 'khoa-sai');
+        await waited(a.ref);
+        const before = await payRow(a.paymentId);
+        expect((await status(callback(o, a))).body.data.paymentStatus).toBe('unpaid');
+        expect(f).toHaveBeenCalledTimes(1);
+        expect(await payRow(a.paymentId)).toEqual(before);
+      });
+
+      it.each([
+        ['mã truy vấn lỗi (91)', { vnp_ResponseCode: '91' }],
+        ['giao dịch chưa hoàn tất (01)', { vnp_TransactionStatus: '01' }],
+        ['nghi gian lận (07)', { vnp_TransactionStatus: '07' }],
+        ['sai số tiền', { vnp_Amount: '100' }],
+        ['TxnRef khác giao dịch đã hỏi', { vnp_TxnRef: 'P1T20260101000000' }],
+        ['không phải giao dịch thanh toán', { vnp_TransactionType: '02' }],
+      ])('%s ⇒ không ghi gì', async (_name, extra) => {
+        const { o, a } = await newOrder();
+        gateway(o, extra as Record<string, string>);
+        await waited(a.ref);
+        const before = await payRow(a.paymentId);
+        await status(callback(o, a));
+        expect(await payRow(a.paymentId)).toEqual(before);
+        expect(await state(o.id)).toEqual(['pending', 'unpaid']);
+      });
+
+      it('trạng thái 02 ⇒ ghi thất bại như IPN', async () => {
+        const { o, a } = await newOrder();
+        gateway(o, { vnp_TransactionStatus: '02' });
+        await waited(a.ref);
+        expect((await status(callback(o, a, FAILED))).body.data.paymentStatus).toBe('failed');
+        expect((await payRow(a.paymentId)).status).toBe('failed');
+      });
+
+      it('tối đa 3 lần/phút cho mỗi TxnRef; cổng lỗi mạng không làm hỏng return-status', async () => {
+        const { o, a } = await newOrder();
+        spy = jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('mất mạng'));
+        await waited(a.ref);
+        for (let i = 0; i < 6; i++) expect((await status(callback(o, a))).status).toBe(200);
+        expect(spy).toHaveBeenCalledTimes(3);
+      });
+
+      it('IPN và querydr đến cùng lúc ⇒ chỉ ghi một lần', async () => {
+        const { o, a } = await newOrder();
+        gateway(o, { vnp_TransactionNo: String(14_000_000 + a.paymentId) });
+        await waited(a.ref);
+        const [x] = await Promise.all([ipn(callback(o, a)), status(callback(o, a))]);
+        expect(['00', '02']).toContain(x.body.RspCode);
+        expect(await state(o.id)).toEqual(['confirmed', 'paid']);
+        expect(await paidNotes(o.orderCode)).toBe(1);
+      });
+    });
+
+    // ---------------- giới hạn, phương thức, đơn chưa trả tiền
+    it('Q5: hết hạn mức tạo URL trong phút ⇒ 429 ở cả checkout và retry, retry KHÔNG đổi dữ liệu', async () => {
+      const o = await placeOrder();
+      await redis().set(redisKey('url:2'), '1000000', 'EX', 60);
+      try {
+        const before = await prisma.payment.findMany({ where: { orderId: o.id } });
+        const c = await api('post', `/payments/${o.id}/checkout`, cust);
+        expect([c.status, c.body.error.code]).toEqual([429, 'RATE_LIMITED']);
+        expect((await api('post', `/payments/${o.id}/retry`, cust, {})).status).toBe(429);
+        expect(await prisma.payment.findMany({ where: { orderId: o.id } })).toEqual(before);
+        // đổi sang COD không tạo URL ⇒ không bị chặn
+        expect((await api('post', `/payments/${o.id}/retry`, cust, { method: 'cod' })).status).toBe(200);
+      } finally {
+        await redis().del(redisKey('url:2'));
+      }
+    });
+
+    it('thanh toán lại đổi sang COD: không qua cổng; phương thức lạ ⇒ 400', async () => {
       const o = await placeOrder();
       expect((await api('post', `/payments/${o.id}/retry`, cust, { method: 'bitcoin' })).status).toBe(400);
       const r = await api('post', `/payments/${o.id}/retry`, cust, { method: 'cod' });
-      expect(r.status).toBe(200);
       expect(r.body.data.redirectUrl).toBe(`/checkout/success?order=${o.orderCode}`);
-      const row = await prisma.order.findUniqueOrThrow({ where: { id: o.id } });
-      expect(row.paymentMethod).toBe('cod');
+      expect((await ordRow(o.id)).paymentMethod).toBe('cod');
       expect((await latestPayment(o.id)).method).toBe('cod');
+    });
+
+    it('Q6: MoMo/ZaloPay bị từ chối ở đơn mới (khách, admin tạo hộ) và khi thanh toán lại; đơn cũ giữ nguyên', async () => {
+      const addr = await prisma.address.findFirstOrThrow({ where: { userId: 2 } });
+      const v = (await variantWithStock(12))!;
+      const o = await placeOrder();
+      for (const method of ['momo', 'zalopay']) {
+        await api('delete', '/cart', cust);
+        await api('post', '/cart/items', cust, { variantId: v.id, quantity: 1 });
+        const r = await api('post', '/orders', cust, { addressId: addr.id, paymentMethod: method });
+        expect(r.status).toBe(400);
+        expect(r.body.error.message).toContain('không còn được hỗ trợ');
+        const byAdmin = await api('post', '/admin/orders', admin, {
+          userId: 2,
+          paymentMethod: method,
+          items: [{ variantId: v.id, quantity: 1 }],
+        });
+        expect(byAdmin.status).toBe(400);
+        expect((await api('post', `/payments/${o.id}/retry`, cust, { method })).status).toBe(400);
+      }
+      await prisma.order.update({ where: { id: o.id }, data: { paymentMethod: 'momo' } });
+      expect((await api('get', `/orders/${o.orderCode}`, cust)).body.data.paymentMethod).toBe('momo');
+      expect((await api('post', `/payments/${o.id}/retry`, cust, {})).status).toBe(400);
+      expect((await api('post', `/payments/${o.id}/retry`, cust, { method: 'cod' })).status).toBe(200);
+    });
+
+    it('Q7: đơn VNPAY/thẻ chưa paid không chuyển sang processing (409, báo rõ); đã paid thì được', async () => {
+      for (const method of ['vnpay', 'card']) {
+        const o = await placeOrder(method);
+        const set = (s: string) => api('patch', `/admin/orders/${o.id}/status`, admin, { status: s });
+        expect((await set('confirmed')).status).toBe(200);
+        const blocked = await set('processing');
+        expect([blocked.status, blocked.body.error.code]).toEqual([409, 'INVALID_STATE']);
+        expect(blocked.body.error.message).toContain('chưa nhận được tiền');
+        expect((await ordRow(o.id)).status).toBe('confirmed');
+        const a = await start(o);
+        await ipn(callback(o, a));
+        expect((await set('processing')).status).toBe(200);
+      }
+      const cod = await placeOrder('cod');
+      await api('patch', `/admin/orders/${cod.id}/status`, admin, { status: 'confirmed' });
+      expect(
+        (await api('patch', `/admin/orders/${cod.id}/status`, admin, { status: 'processing' })).status,
+      ).toBe(200);
     });
   });
 });

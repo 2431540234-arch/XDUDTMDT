@@ -14,6 +14,7 @@ describe('thanh toán giả lập chỉ chạy khi PAYMENT_SANDBOX_FAKE=true VÀ
     const order = {
       id: 1,
       userId: 7,
+      status: 'pending',
       paymentStatus: 'unpaid',
       paymentMethod: 'vnpay',
       note: null,
@@ -24,7 +25,7 @@ describe('thanh toán giả lập chỉ chạy khi PAYMENT_SANDBOX_FAKE=true VÀ
     const config = {
       get: (k: string) => (k === 'PAYMENT_SANDBOX_FAKE' ? fake : k === 'NODE_ENV' ? env : undefined),
     };
-    const svc = new PaymentsService(prisma as never, {} as never, config as never, {} as never);
+    const svc = new PaymentsService(prisma as never, {} as never, config as never, {} as never, {} as never);
     const settle = jest.spyOn(svc, 'settle').mockResolvedValue('applied');
     return { svc, settle };
   };

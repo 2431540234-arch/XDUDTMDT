@@ -213,6 +213,12 @@ async function main() {
     THROTTLE_AUTH_LIMIT: '100000',
     MAIL_TRANSPORT: 'direct',
     PAYMENT_SANDBOX_FAKE: 'true',
+    // e2e luôn chạy giả lập: không đọc khóa VNPAY thật trong .env (biến môi trường ưu tiên hơn tệp .env)
+    VNPAY_TMN_CODE: '',
+    VNPAY_HASH_SECRET: '',
+    VNPAY_RETURN_URL: '',
+    VNPAY_PAYMENT_URL: '',
+    VNPAY_QUERY_URL: '',
     // hàng đợi riêng: nếu có API demo/dev đang chạy, worker của nó không được nhận job của e2e (xử lý nhầm DB)
     BULL_PREFIX: 'bull-e2e',
     CACHE_KEY_PREFIX: 'aurelia:cache-e2e:', // cache Redis BẬT, tiền tố riêng cho e2e (D-P14)
