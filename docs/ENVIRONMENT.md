@@ -99,10 +99,16 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | Biến | Bắt buộc | Mặc định | Module dùng | Ví dụ / ghi chú |
 | --- | --- | --- | --- | --- |
 | `PAYMENT_SANDBOX_FAKE` | Tùy chọn | `false` | Payments | `true` = thanh toán online giả lập (chỉ dev/test; khách không chọn được kết quả, ghi chú đơn chứa `[fail]` ép thất bại). **`NODE_ENV=production` + `true` ⇒ API không khởi động.** Tắt ⇒ `POST /payments/:id/checkout` trả 503 cho tới khi có VNPAY |
-| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Tùy chọn | trống | Payments | Từ tài khoản sandbox VNPay. **Có cả hai** ⇒ `POST /payments/:id/checkout` (VNPAY/thẻ) tạo URL cổng có chữ ký HMAC-SHA512; thiếu ⇒ giả lập. Test dùng khóa giả |
-| `VNPAY_URL` | Tùy chọn | `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html` | Payments | Địa chỉ cổng thanh toán |
-| `VNPAY_RETURN_URL` | Tùy chọn | `http://localhost:<PORT>/api/payments/vnpay/return` | Payments | Return URL (`GET /payments/vnpay/return`): khách từ cổng quay về, API ghi nhận kết quả rồi chuyển tới `APP_URL/checkout/success|failed`. Phải là địa chỉ công khai của API khi chạy thật |
-| `VNPAY_IPN_URL` | Tùy chọn | trống | Payments | Chỉ để ghi nhớ: IPN (`GET /payments/vnpay/ipn`) được khai báo trên trang quản trị VNPAY, cần địa chỉ công khai (tunnel) |
+| `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` | Tùy chọn (cùng có hoặc cùng trống) | trống | Payments | Do VNPay cấp khi đăng ký sandbox; điền ở `apps/api/.env`, không commit. Chỉ điền một khóa ⇒ API không khởi động. Có cả hai ⇒ `vnpay`/`card` đi cổng thật; trống ⇒ giả lập. Test luôn ép về rỗng rồi dùng khóa giả |
+| `VNPAY_PAYMENT_URL` | Tùy chọn | `https://sandbox.vnpayment.vn/paymentv2/vpcpay.html` | Payments | Địa chỉ cổng thanh toán (trước đây là `VNPAY_URL`) |
+| `VNPAY_QUERY_URL` | Tùy chọn | `https://sandbox.vnpayment.vn/merchant_webapi/api/transaction` | Payments | API `querydr` |
+| `VNPAY_VERSION` | Tùy chọn | `2.1.0` | Payments | `vnp_Version` |
+| `VNPAY_RETURN_URL` | Tùy chọn | `<APP_URL>/checkout/vnpay-return` | Payments | TRANG WEB khách quay về; trang chỉ đọc |
+| `VNPAY_IPN_URL` | Tùy chọn | trống | Payments | Chỉ để ghi nhớ: `<địa chỉ HTTPS công khai của API>/api/payments/vnpay/ipn` gửi cho VNPay đăng ký (cần tunnel khi chạy local) |
+| `VNPAY_QUERYDR_DELAY_SECONDS` | Tùy chọn | `5` | Payments | Chờ ngần này giây từ lần đầu khách quay về rồi mới gọi `querydr` |
+| `VNPAY_QUERYDR_LIMIT_PER_MINUTE` | Tùy chọn | `3` | Payments | Số lần `querydr` mỗi phút cho một giao dịch |
+| `VNPAY_URL_LIMIT_PER_MINUTE` | Tùy chọn | `5` | Payments | Số lượt tạo URL mỗi phút cho một khách |
+| `TRUST_PROXY` | Tùy chọn | `0` | API | Số lớp proxy/tunnel đứng trước API; đặt `1` khi chạy sau một tunnel |
 
 ## 8. Seed
 
