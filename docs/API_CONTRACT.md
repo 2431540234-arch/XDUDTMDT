@@ -148,7 +148,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/products/:slug/model` | public | `product.model` |  |  |  |
 | GET | `/products/:slug/related` | public | `product.related` |  |  |  |
 | GET | `/products/:slug/reviews` | public | `product.` | `rating` |  |  |
-| POST | `/products/:slug/reviews` | user | `product.createReview` |  | { orderId, rating(1-5), content, tags?, images?, anonymous? } | `CONFLICT`, `PURCHASE_REQUIRED` |
+| POST | `/products/:slug/reviews` | user | `product.createReview` |  | { orderId, rating(1-5), content?, tags?, images?, anonymous? } | `CONFLICT`, `PURCHASE_REQUIRED` |
 
 ### 4. `wishlist`
 
@@ -163,7 +163,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | GET | `/reviews/me` | user | `cart.list` |  |  |  |
-| PATCH | `/reviews/:id` | user | `cart.` |  | { rating, content, tags? } |  |
+| PATCH | `/reviews/:id` | user | `cart.` |  | { rating, content?, tags? } |  |
 | DELETE | `/reviews/:id` | user | `cart.remove` |  |  |  |
 
 ### 4. `spaces`
@@ -418,7 +418,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 ## 5b. Ghi chú triển khai BE (bổ sung/khác mock) – cập nhật Mốc 2
 
-- **Đánh giá có kiểm duyệt**: `POST /products/:slug/reviews` và `PATCH /reviews/:id` ⇒ `status = pending`; danh sách công khai và điểm trung bình chỉ tính `approved`; `GET /reviews/me` trả mọi trạng thái. `PATCH /admin/reviews/:id/status` nhận `pending|approved|rejected` ("Ẩn" = `rejected`); duyệt ⇒ thông báo cho khách (Mốc 3).
+- **Đánh giá có kiểm duyệt**: `POST /products/:slug/reviews` và `PATCH /reviews/:id` ⇒ `status = pending`; danh sách công khai và điểm trung bình chỉ tính `approved`; `GET /reviews/me` trả mọi trạng thái. `PATCH /admin/reviews/:id/status` nhận `pending|approved|rejected` ("Ẩn" = `rejected`); duyệt ⇒ thông báo cho khách (Mốc 3). `content` không bắt buộc: nếu nhập thì 20–1000 ký tự (sai ⇒ `400`, lỗi theo trường `content`); để trống ⇒ lưu `null`.
 - `GET /admin/orders/:code/invoice` (thêm): `{ store, order, printedAt }` để in hóa đơn. Các route `/admin/orders/:id/*` nhận id số **hoặc** mã đơn.
 - `GET /admin/coupons`: `meta` ngoài phân trang còn có `all, active, upcoming, ended` (số lượng từng tab). Mã áp cho toàn giỏ: body tạo/sửa không còn `appliesTo`, `categoryIds`, `productIds`, `spaceIds`.
 - `POST|PATCH /admin/products`: mỗi biến thể có thể kèm `costPrice, minStock, lengthCm, widthCm, heightCm`; `stockQuantity` = tồn **có thể bán**. Ảnh là `{ url, isPrimary }` với `url` là data-URL hoặc URL đã nhận từ API (BE tái sử dụng bản ghi media).

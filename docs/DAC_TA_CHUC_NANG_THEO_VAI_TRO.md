@@ -1309,11 +1309,11 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Mô tả** | User đã mua và nhận sản phẩm viết đánh giá 1–5 sao; đánh giá chờ admin duyệt. |
 | **Tiền điều kiện** | Đã đăng nhập; email đã xác thực (bắt buộc); có `OrderItem` của sản phẩm trong đơn `completed` của chính user; chưa đánh giá sản phẩm này cho đơn đó. |
 | **Hậu điều kiện** | Có `Review` status `pending`. |
-| **Luồng chính** | 1. Người dùng: Ở chi tiết đơn đã hoàn tất (hoặc trang sản phẩm) bấm "Đánh giá", chọn số sao, nhập nội dung.<br>2. Hệ thống: `POST /api/products/:slug/reviews` (CreateReviewDto).<br>3. Hệ thống: `ReviewsService.create(userId, productId, dto)` kiểm tra `emailVerifiedAt`.<br>4. Hệ thống: Kiểm tra "đã mua": `order.findFirst({ id: dto.orderId, userId, status: completed, items: { some: { variant: { productId } } } })`.<br>5. Hệ thống: Tạo `Review` (`status = pending`).<br>6. Hệ thống: Trả 201 "Đánh giá đang chờ duyệt". |
+| **Luồng chính** | 1. Người dùng: Ở chi tiết đơn đã hoàn tất (hoặc trang sản phẩm) bấm "Đánh giá", chọn số sao, nhập nội dung (không bắt buộc).<br>2. Hệ thống: `POST /api/products/:slug/reviews` (CreateReviewDto).<br>3. Hệ thống: `ReviewsService.create(userId, productId, dto)` kiểm tra `emailVerifiedAt`.<br>4. Hệ thống: Kiểm tra "đã mua": `order.findFirst({ id: dto.orderId, userId, status: completed, items: { some: { variant: { productId } } } })`.<br>5. Hệ thống: Tạo `Review` (`status = pending`).<br>6. Hệ thống: Trả 201 "Đánh giá đang chờ duyệt". |
 | **Luồng thay thế** | 3a. Email chưa xác thực → 403 kèm hướng dẫn (UC-AUTH-07).<br>4a. Chưa mua/đơn chưa hoàn tất/đơn của người khác → 403.<br>5a. Đã đánh giá sản phẩm này cho đơn đó (UNIQUE) → 409.<br>1a. Khách chưa đăng nhập → yêu cầu đăng nhập, không gọi API. |
-| **Ngoại lệ** | • `rating` ngoài 1–5 → 400 (CHECK `ck_reviews_rating`). |
+| **Ngoại lệ** | • `rating` ngoài 1–5 → 400 (CHECK `ck_reviews_rating`).<br>• Có nhập `content` nhưng dưới 20 hoặc trên 1000 ký tự → 400 (lỗi theo trường `content`). |
 | **Quy tắc nghiệp vụ** | • Điều kiện "đã mua" do Service kiểm tra (không có trigger); không nhận `orderId` từ client mà không kiểm tra (QUY_UOC §5.4).<br>• UNIQUE `(userId, productId, orderId)`.<br>• Đánh giá `pending` chưa tính vào điểm trung bình (trigger chỉ tính `approved`). |
-| **Dữ liệu vào** | • orderId (bắt buộc): đơn `completed` của user có chứa sản phẩm<br>• rating (bắt buộc): số nguyên 1–5<br>• content (tuỳ chọn): ≤ 2000 ký tự |
+| **Dữ liệu vào** | • orderId (bắt buộc): đơn `completed` của user có chứa sản phẩm<br>• rating (bắt buộc): số nguyên 1–5<br>• content (không bắt buộc): nếu nhập thì 20–1000 ký tự; để trống lưu `null` |
 | **Dữ liệu ra** | • 201: `{ id, rating, content, status: "pending" }` |
 | **Model + C/R/U/D** | Review (reviews): C<br>Order (orders): R<br>OrderItem (order_items): R<br>User (users): R |
 | **DB trigger / việc Service tự làm** | • DB trigger: `trg_reviews_refresh_rating` (chạy khi INSERT nhưng không đổi điểm vì `pending`), `trg_reviews_set_updated_at`.<br>• Service: kiểm tra đã mua, kiểm tra email xác thực. |
@@ -1325,7 +1325,7 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | --- | --- |
 | **Thông tin chung** | Nhóm: Đánh giá · Ưu tiên: **Mở rộng** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: [ĐỀ XUẤT] (reviews) |
 | **Tác nhân chính / phụ** | Người dùng |
-| **Mô tả** | User sửa nội dung/số sao hoặc xóa đánh giá của mình. Sau khi sửa đánh giá quay về `pending` để duyệt lại. |
+| **Mô tả** | User sửa nội dung/số sao hoặc xóa đánh giá của mình. Sau khi sửa đánh giá quay về `pending` để duyệt lại. Nội dung không bắt buộc: nếu nhập thì 20–1000 ký tự; gửi nội dung trống thì xóa nội dung (lưu `null`). |
 | **Luồng chính** | 1. Người dùng: Mở đơn/sản phẩm đã đánh giá, bấm "Sửa" hoặc "Xóa".<br>2. Hệ thống: `PATCH /api/reviews/:id` hoặc `DELETE /api/reviews/:id`, kiểm tra review thuộc user.<br>3. Hệ thống: Sửa → đặt lại `status = pending`; xóa → xóa bản ghi. Trigger DB tính lại điểm trung bình. |
 | **Model + C/R/U/D** | Review (reviews): U,D |
 
