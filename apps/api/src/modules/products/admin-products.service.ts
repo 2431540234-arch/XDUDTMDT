@@ -17,14 +17,15 @@ import { ProductsService } from './products.service';
 
 type Tx = Prisma.TransactionClient;
 
+/** undefined = không gửi lên ⇒ giữ giá trị cũ; null = xóa. sku/price/stockQuantity chỉ được thiếu khi PATCH không gửi `variants` */
 interface VariantInput {
   id?: number;
   color?: { name: string; hex?: string } | null;
   size?: string | null;
-  sku: string;
-  price: number;
+  sku?: string;
+  price?: number;
   salePrice?: number | null;
-  stockQuantity: number;
+  stockQuantity?: number;
   costPrice?: number;
   minStock?: number;
   lengthCm?: number | null;
@@ -33,6 +34,15 @@ interface VariantInput {
 }
 
 const PRODUCT_STATUSES = ['draft', 'published', 'archived'];
+/** Giá trị của trường không gửi lên khi TẠO MỚI. Khi cập nhật, trường không gửi lên giữ nguyên giá trị cũ */
+const CREATE_DEFAULTS = {
+  status: 'published',
+  isFeatured: false,
+  brand: '',
+  description: '',
+  metaTitle: '',
+  metaDescription: '',
+};
 const SORTS = ['name', 'price', 'stockQuantity', 'createdAt'];
 
 @Injectable()
@@ -123,11 +133,15 @@ export class AdminProductsService {
       errs.add('sku', 'Vui lòng nhập SKU.');
     if (str(b.brand).trim().length > 150) errs.add('brand', 'Thương hiệu tối đa 150 ký tự.');
     if (!b.categoryId) errs.add('categoryId', 'Vui lòng chọn danh mục.');
-    if (!Array.isArray(b.variants) || !b.variants.length) {
+    // price/stock bắt buộc khi cần dựng biến thể mặc định (tạo mới không có biến thể, hoặc gửi variants = []);
+    // PATCH không gửi variants thì chỉ kiểm tra khi có gửi
+    const list = Array.isArray(b.variants) ? b.variants : null;
+    const buildsDefault = creating ? !list?.length : list?.length === 0;
+    if (buildsDefault || (!list && b.price !== undefined))
       if (!(Number(b.price) > 0)) errs.add('price', 'Giá bán phải lớn hơn 0.');
-      if (b.stock === '' || b.stock === undefined || b.stock === null || Number(b.stock) < 0)
+    if (buildsDefault || (!list && b.stock !== undefined))
+      if (b.stock === '' || b.stock === null || !(Number(b.stock) >= 0))
         errs.add('stock', 'Vui lòng nhập tồn kho.');
-    }
     if (!str(b.shortDescription).trim()) errs.add('shortDescription', 'Vui lòng nhập mô tả ngắn.');
     if (b.status !== undefined && !PRODUCT_STATUSES.includes(str(b.status)))
       errs.add('status', 'Trạng thái không hợp lệ.');
@@ -149,20 +163,69 @@ export class AdminProductsService {
     return { attributeCode: code, id: v.id };
   }
 
-  private async saveVariants(tx: Tx, adminId: number, productId: number, b: Record<string, unknown>) {
-    const material = b.material ? str(b.material) : null;
+  /**
+   * PATCH không gửi `variants`: giữ mọi biến thể đang bán. Chỉ khi sản phẩm có đúng một biến thể thì
+   * price / originalPrice / stock / sku (nếu gửi) được áp vào nó.
+   */
+  private async untouchedVariants(tx: Tx, productId: number, b: Record<string, unknown>) {
+    const active = await tx.productVariant.findMany({
+      where: { productId, isActive: true },
+      orderBy: { id: 'asc' },
+    });
+    const inputs: VariantInput[] = active.map((v) => ({ id: v.id }));
+    if (active.length !== 1) return inputs;
+    const [cur] = active;
+    const [only] = inputs;
+    if (str(b.sku).trim()) only.sku = str(b.sku).trim();
+    if (b.stock !== undefined) only.stockQuantity = Number(b.stock);
+    if (b.price !== undefined || b.originalPrice !== undefined) {
+      const sell = b.price !== undefined ? Number(b.price) : Number(cur.salePrice ?? cur.price);
+      const listed = cur.salePrice === null ? 0 : Number(cur.price);
+      const original = b.originalPrice !== undefined ? Number(b.originalPrice) : listed;
+      only.price = original > sell ? original : sell;
+      only.salePrice = original > sell ? sell : null;
+    }
+    return inputs;
+  }
+
+  /** Chất liệu mà các biến thể đang bán dùng chung (không có hoặc khác nhau ⇒ null) */
+  private async commonMaterial(tx: Tx, productId: number) {
+    const links = await tx.variantAttributeValue.findMany({
+      where: { attributeCode: 'material', variant: { productId, isActive: true } },
+      select: { attributeValueId: true },
+    });
+    const ids = new Set(links.map((l) => l.attributeValueId));
+    return ids.size === 1 ? [...ids][0] : null;
+  }
+
+  private async saveVariants(
+    tx: Tx,
+    adminId: number,
+    productId: number,
+    b: Record<string, unknown>,
+    creating: boolean,
+  ) {
+    // undefined = không gửi ⇒ mỗi biến thể giữ chất liệu của mình; null/'' = gỡ
+    const material = b.material === undefined ? undefined : b.material ? str(b.material) : null;
     let inputs: VariantInput[];
     if (Array.isArray(b.variants) && b.variants.length) {
       inputs = (b.variants as Array<Record<string, unknown>>).map((x) => ({
         id: x.id ? toId(x.id) : undefined,
-        color: x.color && typeof x.color === 'object' ? (x.color as { name: string; hex?: string }) : null,
-        size: x.size ? str(x.size) : null,
+        color:
+          x.color === undefined
+            ? undefined
+            : x.color && typeof x.color === 'object'
+              ? (x.color as { name: string; hex?: string })
+              : null,
+        size: x.size === undefined ? undefined : x.size ? str(x.size) : null,
         sku: str(x.sku).trim(),
         price: Number(x.price),
         salePrice:
-          x.salePrice === null || x.salePrice === undefined || x.salePrice === ''
-            ? null
-            : Number(x.salePrice),
+          x.salePrice === undefined
+            ? undefined
+            : x.salePrice === null || x.salePrice === ''
+              ? null
+              : Number(x.salePrice),
         stockQuantity: Number(x.stockQuantity),
         costPrice: x.costPrice !== undefined ? Number(x.costPrice) : undefined,
         minStock: x.minStock !== undefined ? Number(x.minStock) : undefined,
@@ -170,7 +233,12 @@ export class AdminProductsService {
         widthCm: x.widthCm !== undefined ? (x.widthCm === null ? null : Number(x.widthCm)) : undefined,
         heightCm: x.heightCm !== undefined ? (x.heightCm === null ? null : Number(x.heightCm)) : undefined,
       }));
+    } else if (!creating && !Array.isArray(b.variants)) {
+      inputs = await this.untouchedVariants(tx, productId, b);
+      // sản phẩm không còn biến thể đang bán: không có gì để cập nhật
+      if (!inputs.length) return;
     } else {
+      // tạo mới không có biến thể, hoặc variants = [] (admin xóa hết dòng biến thể) ⇒ một biến thể mặc định
       const original = Number(b.originalPrice);
       const price = Number(b.price);
       const first = await tx.productVariant.findFirst({
@@ -191,23 +259,28 @@ export class AdminProductsService {
     }
     const errs = new FieldErrors();
     inputs.forEach((v, i) => {
-      if (!v.sku) errs.add(`variants.${i}.sku`, 'Vui lòng nhập SKU.');
-      if (!(v.price > 0)) errs.add(`variants.${i}.price`, 'Giá bán phải lớn hơn 0.');
-      if (v.salePrice !== null && v.salePrice !== undefined && !(v.salePrice > 0 && v.salePrice <= v.price))
+      if (v.sku === '') errs.add(`variants.${i}.sku`, 'Vui lòng nhập SKU.');
+      if (v.price !== undefined && !(v.price > 0)) errs.add(`variants.${i}.price`, 'Giá bán phải lớn hơn 0.');
+      if (v.salePrice != null && !(v.salePrice > 0 && v.salePrice <= v.price!))
         errs.add(`variants.${i}.salePrice`, 'Giá khuyến mãi phải nhỏ hơn giá gốc.');
-      if (!(v.stockQuantity >= 0)) errs.add(`variants.${i}.stockQuantity`, 'Tồn kho không hợp lệ.');
+      if (v.stockQuantity !== undefined && !(v.stockQuantity >= 0))
+        errs.add(`variants.${i}.stockQuantity`, 'Tồn kho không hợp lệ.');
     });
     errs.throwIfAny();
-    const skus = inputs.map((v) => v.sku.toLowerCase());
+    const skus = inputs.flatMap((v) => (v.sku === undefined ? [] : [v.sku.toLowerCase()]));
     if (new Set(skus).size !== skus.length)
       throw new AppException(ErrorCode.CONFLICT, 'SKU đã tồn tại.', { fields: ['sku'] });
 
+    const inherited = material === undefined ? await this.commonMaterial(tx, productId) : null;
     const keep: number[] = [];
-    for (const vi of inputs) {
+    for (const [i, vi] of inputs.entries()) {
       const own = vi.id ? await tx.productVariant.findFirst({ where: { id: vi.id, productId } }) : null;
-      const dup = await tx.productVariant.findFirst({
-        where: { sku: vi.sku, ...(own ? { id: { not: own.id } } : {}) },
-      });
+      const dup =
+        vi.sku === undefined
+          ? null
+          : await tx.productVariant.findFirst({
+              where: { sku: vi.sku, ...(own ? { id: { not: own.id } } : {}) },
+            });
       if (dup) throw new AppException(ErrorCode.CONFLICT, 'SKU đã tồn tại.', { fields: ['sku'] });
       const dims = {
         ...(vi.lengthCm !== undefined ? { lengthCm: vi.lengthCm } : {}),
@@ -216,15 +289,18 @@ export class AdminProductsService {
         ...(vi.costPrice !== undefined ? { costPrice: vi.costPrice } : {}),
         ...(vi.minStock !== undefined ? { minStock: vi.minStock } : {}),
       };
+      // giữ giá khuyến mãi cũ thì nó vẫn không được cao hơn giá niêm yết mới
+      if (vi.salePrice === undefined && vi.price !== undefined && Number(own?.salePrice ?? 0) > vi.price)
+        new FieldErrors().add(`variants.${i}.salePrice`, 'Giá khuyến mãi phải nhỏ hơn giá gốc.').throwIfAny();
       let v;
       if (own) {
         v = await tx.productVariant.update({
           where: { id: own.id },
-          // stock_quantity nhập trực tiếp
+          // stock_quantity nhập trực tiếp; trường undefined được Prisma bỏ qua ⇒ giữ giá trị cũ
           data: {
             sku: vi.sku,
             price: vi.price,
-            salePrice: vi.salePrice ?? null,
+            salePrice: vi.salePrice,
             stockQuantity: vi.stockQuantity,
             isActive: true,
             ...dims,
@@ -234,20 +310,34 @@ export class AdminProductsService {
         v = await tx.productVariant.create({
           data: {
             productId,
-            sku: vi.sku,
-            price: vi.price,
+            // biến thể mới luôn đến từ mảng variants hoặc biến thể mặc định: đã đủ sku/price/stockQuantity
+            sku: vi.sku!,
+            price: vi.price!,
             salePrice: vi.salePrice ?? null,
-            stockQuantity: vi.stockQuantity,
+            stockQuantity: vi.stockQuantity!,
             ...dims,
           },
         });
       }
       keep.push(v.id);
-      await tx.variantAttributeValue.deleteMany({ where: { variantId: v.id } });
+      // chỉ thay thuộc tính được gửi lên; biến thể mới thì lấy mặc định (cỡ "Tiêu chuẩn", chất liệu chung)
+      const changed: Array<'color' | 'size' | 'material'> = [];
       const links: Array<{ attributeCode: 'color' | 'size' | 'material'; id: number }> = [];
-      if (vi.color?.name) links.push(await this.attrValue(tx, 'color', vi.color.name, vi.color.hex));
-      links.push(await this.attrValue(tx, 'size', vi.size || 'Tiêu chuẩn'));
-      if (material) links.push(await this.attrValue(tx, 'material', material));
+      if (!own || vi.color !== undefined) {
+        changed.push('color');
+        if (vi.color?.name) links.push(await this.attrValue(tx, 'color', vi.color.name, vi.color.hex));
+      }
+      if (!own || vi.size !== undefined) {
+        changed.push('size');
+        links.push(await this.attrValue(tx, 'size', vi.size || 'Tiêu chuẩn'));
+      }
+      if (material !== undefined) {
+        changed.push('material');
+        if (material) links.push(await this.attrValue(tx, 'material', material));
+      } else if (!own && inherited) links.push({ attributeCode: 'material', id: inherited });
+      await tx.variantAttributeValue.deleteMany({
+        where: { variantId: v.id, attributeCode: { in: changed } },
+      });
       await tx.variantAttributeValue.createMany({
         data: links.map((l) => ({ variantId: v.id, attributeCode: l.attributeCode, attributeValueId: l.id })),
       });
@@ -354,30 +444,38 @@ export class AdminProductsService {
     }
   }
 
-  private async apply(tx: Tx, adminId: number, id: number, b: Record<string, unknown>, slug: string) {
+  private async apply(
+    tx: Tx,
+    adminId: number,
+    id: number,
+    b: Record<string, unknown>,
+    slug: string,
+    creating: boolean,
+  ) {
     // các lần lưu đồng thời CÙNG một sản phẩm chạy tuần tự (biến thể, ảnh, thông số luôn nhất quán với nhau)
     await tx.$queryRaw`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
     const category = await tx.category.findUnique({ where: { id: toId(b.categoryId) } });
     if (!category) new FieldErrors().add('categoryId', 'Danh mục không tồn tại.').throwIfAny();
-    const brand = str(b.brand).trim();
-    await tx.product.update({
+    /** Cột chỉ được ghi khi có trong body; undefined được Prisma bỏ qua ⇒ giữ giá trị cũ */
+    const sent = <T>(key: string, value: () => T) => (b[key] === undefined ? undefined : value());
+    const saved = await tx.product.update({
       where: { id },
       data: {
         name: str(b.name).trim(),
         slug,
         categoryId: toId(b.categoryId),
-        brand: brand || null,
-        status: (str(b.status) || 'published') as never,
-        isFeatured: Boolean(b.isFeatured),
         shortDescription: str(b.shortDescription),
-        description: str(b.description),
-        metaTitle: str(b.metaTitle) || null,
-        metaDescription: str(b.metaDescription) || null,
-        ...(b.style !== undefined ? { style: str(b.style) || null } : {}),
+        brand: sent('brand', () => str(b.brand).trim() || null),
+        status: sent('status', () => str(b.status) as 'draft' | 'published' | 'archived'),
+        isFeatured: sent('isFeatured', () => Boolean(b.isFeatured)),
+        description: sent('description', () => str(b.description)),
+        metaTitle: sent('metaTitle', () => str(b.metaTitle) || null),
+        metaDescription: sent('metaDescription', () => str(b.metaDescription) || null),
+        style: sent('style', () => str(b.style) || null),
         ...(Array.isArray(b.features) ? { features: (b.features as unknown[]).map(str) } : {}),
       },
     });
-    await this.saveVariants(tx, adminId, id, b);
+    await this.saveVariants(tx, adminId, id, b, creating);
     if (Array.isArray(b.images) || Array.isArray(b.removedImageIds))
       await this.saveImages(
         tx,
@@ -388,7 +486,7 @@ export class AdminProductsService {
         Array.isArray(b.removedImageIds) ? b.removedImageIds : [],
       );
     // DAC_TA UC-ADM-09 9a: chỉ ĐĂNG (published) khi có biến thể đang bán và có ảnh đại diện; sai ⇒ 400 và hoàn tác cả lần lưu
-    if ((str(b.status) || 'published') === 'published') {
+    if (saved.status === 'published') {
       const [activeVariants, primaryImages] = await Promise.all([
         tx.productVariant.count({ where: { productId: id, isActive: true } }),
         tx.productImage.count({ where: { productId: id, isPrimary: true } }),
@@ -413,7 +511,9 @@ export class AdminProductsService {
     const id = await this.prisma.$transaction(
       async (tx) => {
         const p = await tx.product.create({ data: { name, slug, status: 'draft' } });
-        await this.apply(tx, adminId, p.id, b, slug);
+        const filled: Record<string, unknown> = { ...b };
+        for (const [key, value] of Object.entries(CREATE_DEFAULTS)) filled[key] ??= value;
+        await this.apply(tx, adminId, p.id, filled, slug, true);
         await this.activity.log(
           {
             actorId: adminId,
@@ -445,7 +545,7 @@ export class AdminProductsService {
     }
     await this.prisma.$transaction(
       async (tx) => {
-        await this.apply(tx, adminId, id, b, slug);
+        await this.apply(tx, adminId, id, b, slug, false);
         await this.activity.log(
           {
             actorId: adminId,
