@@ -23,7 +23,8 @@ const HEADER = `// FILE SINH TỰ ĐỘNG từ apps/api/prisma/schema.prisma b�
 // KHÔNG SỬA TAY. Sửa schema.prisma rồi chạy: npm run types:generate
 `;
 
-const text = readFileSync(schemaPath, 'utf8');
+// Windows (core.autocrlf) checkout ra CRLF: chuẩn hóa về LF, nếu không biểu thức tách enum/model không khớp gì cả
+const text = readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
 
 // ---- enum ----
 const enums = [];
