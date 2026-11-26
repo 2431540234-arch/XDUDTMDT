@@ -24,6 +24,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ShipmentsModule } from './shipments/shipments.module';
 import { ReviewsModule } from './reviews/reviews.module';
 import { ProductModelsModule } from './product-models/product-models.module';
+import { Ai3dModule } from './ai3d/ai3d.module';
 import { SpacesModule } from './spaces/spaces.module';
 import { PanoramasModule } from './panoramas/panoramas.module';
 import { HotspotsModule } from './hotspots/hotspots.module';
@@ -55,6 +56,7 @@ export const FEATURE_MODULES = [
   ShipmentsModule,
   ReviewsModule,
   ProductModelsModule,
+  Ai3dModule,
   SpacesModule,
   PanoramasModule,
   HotspotsModule,

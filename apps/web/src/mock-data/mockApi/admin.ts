@@ -1302,6 +1302,19 @@ const pendingModel = (ctx: Ctx) => {
   return m;
 };
 
+/** Chế độ dữ liệu giả không gọi được AI (Q12): nút bị tắt kèm giải thích */
+export function aiStatus(): Result {
+  return ok({
+    enabled: false,
+    reason: 'Chế độ dữ liệu giả không tạo được mô hình bằng AI. Chạy với API thật và cấu hình HF_TOKEN.',
+    provider: 'mock',
+    spaces: [],
+    usage: { usedLastHour: 0, perHour: 0, usedToday: 0, perDay: 0 },
+    limitReached: null,
+    lastError: null,
+  });
+}
+
 /** GET /admin/models/:id (mock): không chuẩn hóa thật, chỉ mô phỏng màn duyệt */
 export function modelDetail(ctx: Ctx): Result {
   const db = ctx.db;

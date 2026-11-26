@@ -422,6 +422,27 @@ export interface ModelReviewDetail {
   mockPreviewUrl?: string;
 }
 
+/** GET /admin/models/ai/status */
+export interface Ai3dStatus {
+  enabled: boolean;
+  /** lý do tính năng đang tắt */
+  reason: string | null;
+  provider: string;
+  spaces: Array<{ id: string; label: string; role: 'primary' | 'fallback'; note: string }>;
+  usage: { usedLastHour: number; perHour: number; usedToday: number; perDay: number };
+  limitReached: string | null;
+  lastError: { at: string; message: string; raw: string; space: string | null } | null;
+}
+
+export interface Ai3dRequest {
+  productId: number;
+  imageId?: number;
+  space?: string;
+  removeFloor?: boolean;
+  /** xác nhận gửi ảnh cho bên thứ ba */
+  consent: true;
+}
+
 export interface Model3DAdminRow extends Model3DView {
   stage?: string | null;
   space?: string | null;

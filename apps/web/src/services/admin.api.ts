@@ -10,6 +10,8 @@ import type {
   FinanceReport,
   InventoryRow,
   Model3DAdminRow,
+  Ai3dRequest,
+  Ai3dStatus,
   ModelReviewDetail,
   ModelVariantKey,
   OrderView,
@@ -171,6 +173,11 @@ export const adminApi = {
       form.append('removeFloor', String(meta.removeFloor));
       return http.post<ModelProcessingAccepted>('/admin/models/upload', form);
     },
+    /** Tạo mô hình bằng AI */
+    aiStatus: () => http.get<Ai3dStatus>('/admin/models/ai/status'),
+    aiCreate: (body: Ai3dRequest) => http.post<ModelProcessingAccepted>('/admin/models/ai', body),
+    aiRegenerate: (modelId: number, body: Omit<Ai3dRequest, 'productId'>) =>
+      http.post<ModelProcessingAccepted>(`/admin/models/${modelId}/regenerate`, body),
     /** Màn duyệt */
     detail: (modelId: number) => http.get<ModelReviewDetail>(`/admin/models/${modelId}`),
     /** URL xem thử bản CHỜ DUYỆT (tệp private ⇒ tải có đăng nhập rồi tạo URL tạm; gọi xong nhớ revoke) */

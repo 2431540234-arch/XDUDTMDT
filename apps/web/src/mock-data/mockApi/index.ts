@@ -120,6 +120,7 @@ const routes: Route[] = [
   ['GET', '/admin/models', 'admin', admin.adminModels],
   ['POST', '/admin/models', 'admin', admin.uploadModel],
   ['DELETE', '/admin/models/model/:modelId', 'admin', admin.deleteModelById],
+  ['GET', '/admin/models/ai/status', 'admin', admin.aiStatus],
   ['GET', '/admin/models/:id', 'admin', admin.modelDetail],
   ['POST', '/admin/models/:id/approve', 'admin', admin.approveModel],
   ['POST', '/admin/models/:id/reject', 'admin', admin.rejectModel],

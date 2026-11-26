@@ -1,8 +1,9 @@
 'use client';
 
-// Tab "Mô hình 3D" của form sản phẩm: mô hình đang hiện, tải GLB lên, theo dõi xử lý và duyệt.
+// Tab "Mô hình 3D" của form sản phẩm: mô hình đang hiện, tạo bằng AI hoặc tải GLB lên, theo dõi xử lý và duyệt.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
+import AiGenerate, { useAiConsent } from '@/components/admin/AiGenerate';
 import ModelReview from '@/components/admin/ModelReview';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -75,6 +76,23 @@ export default function Model3DPanel({ product }: { product: ProductDetail }) {
     onSuccess: refresh,
     onError: (e) => toast.error(errorMessage(e)),
   });
+  const { consented } = useAiConsent();
+  /** "Tạo lại" mô hình AI: bỏ bản này rồi tạo mới từ cùng ảnh (tốn thêm một lượt) */
+  const regenerate = useMutation({
+    mutationFn: (id: number) => adminApi.models.aiRegenerate(id, { consent: true }),
+    onSuccess: () => {
+      toast.success('Đã đưa vào hàng đợi tạo lại.');
+      refresh();
+    },
+    onError: (e) => toast.error(errorMessage(e)),
+  });
+  const regenerateWithConsent = (id: number) => {
+    if (
+      consented ||
+      window.confirm('Ảnh sẽ được gửi tới máy chủ Hugging Face (bên thứ ba) để tạo lại. Bạn đồng ý?')
+    )
+      regenerate.mutate(id);
+  };
   const model = product.model;
 
   return (
@@ -114,7 +132,23 @@ export default function Model3DPanel({ product }: { product: ProductDetail }) {
         </div>
       )}
 
-      {pending && <ModelReview modelId={pending.modelId} onChanged={refresh} />}
+      {pending && (
+        <ModelReview
+          modelId={pending.modelId}
+          onChanged={refresh}
+          extraActions={(d) =>
+            d.source === 'ai' && (
+              <Button
+                variant="outline"
+                loading={regenerate.isPending}
+                onClick={() => regenerateWithConsent(d.id)}
+              >
+                Tạo lại
+              </Button>
+            )
+          }
+        />
+      )}
 
       {failed && (
         <div role="alert" data-testid="model-failed" className="rounded-card border border-danger/40 p-4">
@@ -126,6 +160,16 @@ export default function Model3DPanel({ product }: { product: ProductDetail }) {
                 Xử lý lại
               </Button>
             )}
+            {failed.source === 'ai' && (
+              <Button
+                size="sm"
+                variant="outline"
+                loading={regenerate.isPending}
+                onClick={() => regenerateWithConsent(failed.modelId)}
+              >
+                Tạo lại
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={() => discard.mutate(failed.modelId)}>
               Bỏ
             </Button>
@@ -133,9 +177,11 @@ export default function Model3DPanel({ product }: { product: ProductDetail }) {
         </div>
       )}
 
+      <AiGenerate product={product} busy={Boolean(working || pending)} onStarted={refresh} />
+
       {!working && !pending && (
         <div className="space-y-3 rounded-card border border-line p-4">
-          <p className="font-semibold">Tải tệp GLB lên</p>
+          <p className="font-semibold">Tải tệp GLB lên (khi AI lỗi hoặc đã có sẵn mô hình)</p>
           <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
