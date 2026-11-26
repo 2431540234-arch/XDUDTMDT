@@ -10,11 +10,22 @@ export interface MockPhoto {
 }
 
 export const photoManifest: {
-  products: Record<string, { photos: Array<{ source: string; file: string; color?: string }> }>;
+  products: Record<
+    string,
+    { photos: Array<{ source: string; file: string; color?: string; crop?: { right?: number } }> }
+  >;
   spaces: Record<string, { source: string; file: string }>;
 } = manifest;
 
 const available = new Set((process.env.NEXT_PUBLIC_MOCK_PHOTOS ?? '').split(',').filter(Boolean));
+
+/** Đổi khi bảng ghép hoặc bộ file ảnh đang có thay đổi (để dữ liệu mock đã lưu được nạp lại) */
+export function photoSignature(): string {
+  const text = JSON.stringify(manifest) + [...available].join(',');
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (Math.imul(h, 31) + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 
 const toPhoto = (rel: string, name: string, color?: string): MockPhoto => ({
   url: `/mock/photos/${rel}`,

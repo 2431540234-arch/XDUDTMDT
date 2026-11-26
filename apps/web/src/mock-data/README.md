@@ -22,7 +22,7 @@ npm run dev -w @aurelia-living/web              # http://localhost:3000
 | Giả lập lỗi / độ trễ               | Admin → Cài đặt → "Dữ liệu giả lập" (bật lỗi GET, tỉ lệ lỗi ngẫu nhiên, tắt độ trễ 200–500ms)                              |
 | Giả lập thanh toán online thất bại | Khi đặt hàng, ghi chú đơn hàng có chứa `[fail]` → chuyển tới `/checkout/failed`                                            |
 
-Mọi thay đổi (giỏ hàng, đơn hàng, CRUD admin…) được **lưu vào `localStorage`** (`aurelia-mock-db-v7`, kèm hậu tố `-p<số ảnh>` khi máy có ảnh thật).
+Mọi thay đổi (giỏ hàng, đơn hàng, CRUD admin…) được **lưu vào `localStorage`** (`aurelia-mock-db-v8-<mã của bảng ghép + ảnh đang có>`).
 
 ## Tài khoản test
 
@@ -61,6 +61,9 @@ mock-data/
 
 - Mỗi sản phẩm chỉ dùng ảnh thật khi có **đủ** mọi file trong manifest; thiếu một file thì cả sản phẩm dùng ảnh minh họa. Sản phẩm/không gian không có trong manifest luôn dùng ảnh minh họa; ảnh 360° của không gian, danh mục, avatar, banner vẫn là ảnh minh họa.
 - Ép dùng ảnh minh họa dù máy có ảnh: đặt biến môi trường `REAL_PHOTOS=off`.
+- Biến thể mặc định lấy theo **màu của ảnh chính** nếu ảnh chính có gắn màu (cả mock và API); không thì là màu đầu tiên. Ảnh chỉ được ghép khi màu trong ảnh khớp một màu sản phẩm đang bán.
+- Cắt mép ảnh khi chuyển (ví dụ bỏ logo, chấm màu ở mép): thêm `"crop": { "right": 0.12 }` (tỉ lệ cạnh bị cắt: `left`, `top`, `right`, `bottom`); ảnh gốc giữ nguyên.
+- Bỏ một sản phẩm khỏi manifest: chạy lại `npm run images:convert` (xóa file thừa), và với DB đã cập nhật thì chạy lại `update-real-images` để đưa về ảnh minh họa.
 - Đổi bảng ghép: sửa `photos/manifest.json` (`confidence`: `sure` chắc chắn, `guess` ghép theo phỏng đoán, cần người xem lại; `color` phải là màu sản phẩm có). Đổi ảnh thì đặt **tên file ra mới**, vì seed không ghi đè khóa đã có trong kho.
 - Không dùng `git add -f` cho các thư mục ảnh. `.gitignore` và `.dockerignore` đã loại chúng.
 - Mô hình 3D mẫu không khớp hình dáng sản phẩm trong ảnh thật.

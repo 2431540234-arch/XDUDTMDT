@@ -55,27 +55,33 @@
       "photos": [
         {
           "source": "sản phẩm/Sofa/sofa8/sofa-001-01.jpg",
-          "file": "01-37d2f89b.webp"
+          "file": "01-37d2f89b.webp",
+          "color": "Nâu"
         },
         {
           "source": "sản phẩm/Sofa/sofa8/sofa-001-02.jpg",
-          "file": "02-bbdcf2c9.webp"
+          "file": "02-bbdcf2c9.webp",
+          "color": "Nâu"
         },
         {
           "source": "sản phẩm/Sofa/sofa8/sofa-001-03.jpg",
-          "file": "03-85c37fc5.webp"
+          "file": "03-85c37fc5.webp",
+          "color": "Nâu"
         },
         {
           "source": "sản phẩm/Sofa/sofa8/sofa-001-04.jpg",
-          "file": "04-1fd7a3b5.webp"
+          "file": "04-1fd7a3b5.webp",
+          "color": "Nâu"
         },
         {
           "source": "sản phẩm/Sofa/sofa8/sofa-001-05.jpg",
-          "file": "05-a8042946.webp"
+          "file": "05-a8042946.webp",
+          "color": "Nâu"
         },
         {
           "source": "sản phẩm/Sofa/sofa8/sofa-001-06.jpg",
-          "file": "06-037013f2.webp"
+          "file": "06-037013f2.webp",
+          "color": "Nâu"
         }
       ]
     },
@@ -122,27 +128,33 @@
       "photos": [
         {
           "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-01.jpg",
-          "file": "01-1f058a86.webp"
+          "file": "01-1f058a86.webp",
+          "color": "Xám"
         },
         {
           "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-02.jpg",
-          "file": "02-cd2cd788.webp"
+          "file": "02-cd2cd788.webp",
+          "color": "Xám"
         },
         {
           "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-03.jpg",
-          "file": "03-4b9a6dd7.webp"
+          "file": "03-4b9a6dd7.webp",
+          "color": "Xám"
         },
         {
           "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-04.jpg",
-          "file": "04-e30f9096.webp"
+          "file": "04-e30f9096.webp",
+          "color": "Xám"
         },
         {
           "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-05.jpg",
-          "file": "05-bbe822e3.webp"
+          "file": "05-bbe822e3.webp",
+          "color": "Xám"
         },
         {
           "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-07.jpg",
-          "file": "06-9d443d49.webp"
+          "file": "06-9d443d49.webp",
+          "color": "Xám"
         }
       ]
     },
@@ -197,38 +209,28 @@
       "photos": [
         {
           "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-01.jpg",
-          "file": "01-ea277555.webp"
+          "file": "01-ea277555.webp",
+          "color": "Trắng"
         },
         {
           "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-02.jpg",
-          "file": "02-db2e24a8.webp"
+          "file": "02-db2e24a8.webp",
+          "color": "Trắng"
         },
         {
           "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-03.jpg",
-          "file": "03-e4cc7c02.webp"
+          "file": "03-e4cc7c02.webp",
+          "color": "Trắng"
         },
         {
           "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-04.jpg",
-          "file": "04-296f6626.webp"
+          "file": "04-296f6626.webp",
+          "color": "Trắng"
         },
         {
           "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-06.jpg",
-          "file": "05-efc5806f.webp"
-        }
-      ]
-    },
-    "ghe-an-go-cong": {
-      "confidence": "sure",
-      "photos": [
-        {
-          "source": "sản phẩm/chair/chair2/godia-chair-by-kavehome-01.jpg",
-          "file": "01-11ca65c3.webp",
-          "color": "Gỗ sồi"
-        },
-        {
-          "source": "sản phẩm/chair/chair2/godia-chair-by-kavehome-03.jpg",
-          "file": "02-eb10734f.webp",
-          "color": "Gỗ sồi"
+          "file": "05-efc5806f.webp",
+          "color": "Trắng"
         }
       ]
     },
@@ -237,18 +239,27 @@
       "photos": [
         {
           "source": "sản phẩm/chair/chair1/juno-dining-chair-orange-04.jpg",
-          "file": "01-84a369fe.webp",
-          "color": "Be"
+          "file": "01-84a369fe-crop.webp",
+          "color": "Be",
+          "crop": {
+            "right": 0.12
+          }
         },
         {
           "source": "sản phẩm/chair/chair1/juno-dining-chair-orange-03.jpg",
-          "file": "02-30297e1b.webp",
-          "color": "Xanh rêu"
+          "file": "02-30297e1b-crop.webp",
+          "color": "Xanh rêu",
+          "crop": {
+            "right": 0.12
+          }
         },
         {
           "source": "sản phẩm/chair/chair1/juno-dining-chair-orange-06.jpg",
-          "file": "03-d61f120c.webp",
-          "color": "Be"
+          "file": "03-d61f120c-crop.webp",
+          "color": "Be",
+          "crop": {
+            "right": 0.12
+          }
         }
       ]
     },
@@ -394,31 +405,6 @@
         }
       ]
     },
-    "ban-an-mo-rong": {
-      "confidence": "guess",
-      "photos": [
-        {
-          "source": "sản phẩm/table/table8/hyndell-dining-extension-table-01.jpg",
-          "file": "01-95140f65.webp"
-        },
-        {
-          "source": "sản phẩm/table/table8/hyndell-dining-extension-table-02.jpg",
-          "file": "02-1393b368.webp"
-        },
-        {
-          "source": "sản phẩm/table/table8/hyndell-dining-extension-table-03.jpg",
-          "file": "03-9079b1eb.webp"
-        },
-        {
-          "source": "sản phẩm/table/table8/hyndell-dining-extension-table-04.jpg",
-          "file": "04-3d930622.webp"
-        },
-        {
-          "source": "sản phẩm/table/table8/hyndell-dining-extension-table-05.jpg",
-          "file": "05-b5ab27a6.webp"
-        }
-      ]
-    },
     "giuong-hien-dai": {
       "confidence": "guess",
       "photos": [
@@ -508,31 +494,6 @@
         }
       ]
     },
-    "ke-trang-tri-treo-tuong": {
-      "confidence": "guess",
-      "photos": [
-        {
-          "source": "sản phẩm/bookshelf/bookshelf4/bookshelf-3d-model-01.jpg",
-          "file": "01-1b7e2558.webp"
-        },
-        {
-          "source": "sản phẩm/bookshelf/bookshelf4/bookshelf-3d-model-02.jpg",
-          "file": "02-830b8ae3.webp"
-        },
-        {
-          "source": "sản phẩm/bookshelf/bookshelf4/bookshelf-3d-model-03.jpg",
-          "file": "03-a4633aba.webp"
-        },
-        {
-          "source": "sản phẩm/bookshelf/bookshelf4/bookshelf-3d-model-05.jpg",
-          "file": "04-93af898e.webp"
-        },
-        {
-          "source": "sản phẩm/bookshelf/bookshelf4/bookshelf-3d-model-06.jpg",
-          "file": "05-aca7c34d.webp"
-        }
-      ]
-    },
     "tu-quan-ao-hien-dai": {
       "confidence": "guess",
       "photos": [
@@ -564,19 +525,6 @@
         {
           "source": "sản phẩm/wardrobe/wardrobe2/wardrobe-set-090-3d-model-03.jpg",
           "file": "03-43fdf796.webp"
-        }
-      ]
-    },
-    "tu-quan-ao-canh-kinh": {
-      "confidence": "guess",
-      "photos": [
-        {
-          "source": "sản phẩm/wardrobe/wardrobe6/wardrobe-004-01.jpg",
-          "file": "01-fb62b075.webp"
-        },
-        {
-          "source": "sản phẩm/wardrobe/wardrobe6/wardrobe-004-02.jpg",
-          "file": "02-89f5d558.webp"
         }
       ]
     }
