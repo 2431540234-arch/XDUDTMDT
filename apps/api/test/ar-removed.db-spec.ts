@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { createApprovedModel } from './model-helpers';
 
 describe('Loại bỏ AR (D-P16) và giữ nguyên 3D/360° (aurelia_test)', () => {
   let app: INestApplication;
@@ -19,6 +20,15 @@ describe('Loại bỏ AR (D-P16) và giữ nguyên 3D/360° (aurelia_test)', () 
     setupApp(app);
     await app.init();
     http = request(app.getHttpServer());
+    // seed không có mô hình 3D: tạo một mô hình đã duyệt để kiểm tra phần 3D còn hoạt động
+    const login = await http
+      .post('/api/auth/login')
+      .send({ email: 'admin@aurelia.vn', password: 'admin123', adminOnly: true });
+    const product = await prisma.product.findFirstOrThrow({
+      where: { status: 'published', deletedAt: null, productVariants: { some: {} }, has3dModel: false },
+      orderBy: { id: 'asc' },
+    });
+    await createApprovedModel(http, prisma, login.body.data.tokens.accessToken, product.id);
   }, 120_000);
 
   afterAll(async () => {

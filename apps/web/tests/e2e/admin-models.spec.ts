@@ -1,14 +1,17 @@
 import { join } from 'node:path';
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { API, FIXTURES, adminHeaders } from './model-helpers';
 
-// Xử lý nền mô hình 3D (UC-ADM-13) với API THẬT + Redis: tải lên → đang xử lý → sẵn sàng (hoặc lỗi + xử lý lại),
-// đặt mô hình chính, khách xem 3D theo LOD. Chạy: npm run test:e2e:real (nhóm admin-3d).
-// Cần Redis (hàng đợi BullMQ). Mỗi test tự chọn sản phẩm riêng chưa có mô hình 3D.
+// Mô hình 3D với API THẬT + Redis (UC-ADM-13/31/32): nút 3D chỉ hiện khi có mô hình ĐÃ DUYỆT; tải GLB → chờ duyệt →
+// xem thử → duyệt; tạo bằng AI (nhà cung cấp GIẢ LẬP, không gọi Hugging Face). Chạy: npm run test:e2e:real (nhóm admin-3d).
+// Mỗi test tự chọn sản phẩm riêng.
 
-const FIXTURES = join(process.cwd(), '..', 'api', 'test', 'fixtures');
 const SPHERE = join(FIXTURES, 'sphere.glb');
 const BROKEN = join(FIXTURES, 'broken.glb');
-const API = process.env.E2E_API_URL ?? 'http://localhost:4000';
+const BASE = `http://localhost:${process.env.E2E_PORT ?? 3100}`;
+/** PNG 1×1: ảnh chụp tối thiểu để thử luồng AI giả lập (máy CI không có ảnh thật) */
+const PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWPY2RuDFTEMLQkA7GBogUx5vpcAAAAASUVORK5CYII=';
 
 async function adminLogin(page: Page) {
   await page.goto('/admin/login');
@@ -18,90 +21,117 @@ async function adminLogin(page: Page) {
   await expect(page.getByRole('heading', { name: 'Tổng quan' })).toBeVisible({ timeout: 30_000 });
 }
 
-/**
- * Sản phẩm riêng cho từng test: lấy sản phẩm thứ `n` từ cuối danh sách và gỡ hết mô hình mẫu của nó
- * (DB aurelia_test được reset trước nhóm test này), nên mô hình trong test là dữ liệu do chính test tạo.
- */
+/** Sản phẩm riêng cho từng test: thứ `n` từ cuối danh sách, chưa có mô hình */
 async function freeProduct(request: APIRequestContext, n: number) {
-  const login = await request.post(`${API}/api/auth/login`, {
-    data: { email: 'admin@aurelia.vn', password: 'admin123', adminOnly: true },
-  });
-  const headers = { Authorization: `Bearer ${(await login.json()).data.tokens.accessToken}` };
   const list = (await (await request.get(`${API}/api/products?pageSize=100`)).json()).data as Array<{
     id: number;
     name: string;
     slug: string;
+    has3dModel: boolean;
   }>;
   const p = list[list.length - 1 - n];
-  const rows = (
-    await (await request.get(`${API}/api/admin/models?productId=${p.id}&pageSize=100`, { headers })).json()
-  ).data as Array<{ modelId: number }>;
-  for (const modelId of new Set(rows.map((r) => r.modelId)))
-    expect((await request.delete(`${API}/api/admin/models/model/${modelId}`, { headers })).ok()).toBe(true);
+  expect(p.has3dModel).toBe(false);
   return p;
 }
 
-async function uploadVia(page: Page, productId: number, file: string, opts: { createNew?: boolean } = {}) {
-  await page.goto(`/admin/models?productId=${productId}`);
-  await expect(page.getByRole('heading', { name: 'Mô hình 3D' })).toBeVisible({ timeout: 30_000 });
-  await page.getByRole('button', { name: 'Tải lên mô hình' }).click();
-  const dlg = page.getByRole('dialog');
-  await dlg.locator('input[type="file"]').setInputFiles(file);
-  if (opts.createNew) await dlg.getByLabel(/Tạo mô hình mới/).check();
-  await dlg.getByRole('button', { name: 'Tải lên', exact: true }).click();
-  // 202: máy chủ nhận tệp, mô hình chuyển sang xử lý nền
-  await expect(page.getByText(/đang được xử lý nền/)).toBeVisible({ timeout: 30_000 });
+/** Sản phẩm riêng cho luồng AI, có đúng một ảnh chụp (không lưu đè sản phẩm của seed) */
+async function newPhotoProduct(request: APIRequestContext) {
+  const headers = await adminHeaders(request);
+  const categories = (await (await request.get(`${API}/api/categories`)).json()).data as Array<{
+    children: Array<{ id: number }>;
+  }>;
+  const created = await request.post(`${API}/api/admin/products`, {
+    headers,
+    data: {
+      name: `Bàn thử AI ${Date.now()}`,
+      categoryId: categories.find((c) => c.children.length)!.children[0].id,
+      price: 1_500_000,
+      sku: `AI-E2E-${Date.now()}`,
+      stock: 5,
+      shortDescription: 'Sản phẩm dùng để thử tạo mô hình 3D.',
+      status: 'published',
+      images: [{ url: PNG, isPrimary: true }],
+    },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  return (await created.json()).data as { id: number; slug: string };
+}
+
+const publicModel = async (request: APIRequestContext, slug: string) =>
+  (await (await request.get(`${API}/api/products/${slug}/model`)).json()).data;
+
+/** Khách chưa đăng nhập: có/không có lối vào 3D ở trang sản phẩm */
+async function expectCustomer3d(browser: Browser, slug: string, visible: boolean) {
+  const context = await browser.newContext({ baseURL: BASE });
+  const page = await context.newPage();
+  await page.goto(`/products/${slug}`);
+  // trang có thêm nút này ở khối sản phẩm liên quan ⇒ lấy nút đầu (của sản phẩm đang xem)
+  await expect(page.getByRole('button', { name: 'Thêm vào giỏ hàng' }).first()).toBeVisible({
+    timeout: 45_000,
+  });
+  const count = visible ? 1 : 0;
+  await expect(page.getByRole('link', { name: /Trải nghiệm 3D ngay/ })).toHaveCount(count);
+  await expect(page.getByRole('link', { name: 'Xem mô hình 3D' })).toHaveCount(count);
+  await context.close();
 }
 
 test.describe.configure({ mode: 'serial' });
 
 let productA: { id: number; name: string; slug: string };
 
-test('admin tải GLB: được nhận (xử lý nền) rồi tự cập nhật sang Sẵn sàng với đủ 3 LOD; khách xem 3D bằng LOD medium', async ({
+test('nút 3D ẩn khi chưa có mô hình; admin tải GLB → chờ duyệt (khách chưa thấy) → duyệt → khách thấy', async ({
   page,
+  browser,
   request,
 }) => {
+  test.setTimeout(180_000);
   productA = await freeProduct(request, 0);
+  await expectCustomer3d(browser, productA.slug, false);
+  // vào thẳng trình xem của sản phẩm chưa có mô hình: thông báo rõ ràng, không lỗi
+  await page.goto(`/products/${productA.slug}/3d`);
+  await expect(page.getByText('Sản phẩm này chưa có mô hình 3D')).toBeVisible({ timeout: 45_000 });
+
   await adminLogin(page);
-  await uploadVia(page, productA.id, SPHERE);
+  await page.goto(`/admin/products/${productA.id}?tab=model`);
+  await page.getByLabel('Chọn tệp GLB').setInputFiles(SPHERE);
+  const review = page.getByTestId('model-review');
+  await expect(review).toBeVisible({ timeout: 60_000 });
+  await expect(review.getByTestId('review-sizes')).toContainText('Kích thước thật');
+  await expect(review.getByTestId('review-viewer')).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
+  expect(await publicModel(request, productA.slug)).toBeNull();
+  await expectCustomer3d(browser, productA.slug, false);
 
-  // trang tự cập nhật (polling) tới khi xong: 3 dòng LOD, tất cả Sẵn sàng
-  const statuses = page.getByTestId('model-status');
-  await expect(statuses).toHaveCount(3, { timeout: 60_000 });
-  for (let i = 0; i < 3; i++)
-    await expect(statuses.nth(i)).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
-  await expect(page.getByText('LOD high')).toBeVisible();
-  await expect(page.getByText('LOD medium')).toBeVisible();
-  await expect(page.getByText('LOD low')).toBeVisible();
-  await expect(page.getByText('Mô hình chính', { exact: true }).first()).toBeVisible();
+  const approve = review.getByRole('button', { name: /^Duyệt/ });
+  await expect(approve).toBeEnabled({ timeout: 30_000 });
+  await approve.click();
+  await expect(page.getByText('Đã duyệt. Khách hàng đã thấy nút xem 3D.')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Mô hình đang hiện cho khách')).toBeVisible();
+  await expectCustomer3d(browser, productA.slug, true);
 
-  // khách (không đăng nhập) xem 3D: trình xem tải đúng tệp LOD medium
-  const anon = await page
-    .context()
-    .browser()!
-    .newContext({ baseURL: `http://localhost:${process.env.E2E_PORT ?? 3100}` });
-  const cust = await anon.newPage();
-  const req = cust.waitForRequest(/sphere-medium\.glb/, { timeout: 45_000 });
+  // khách xem 3D: trình xem tải đúng tệp LOD medium, không tô màu đè lên mô hình, có ghi chú màu
+  const context = await browser.newContext({ baseURL: BASE });
+  const cust = await context.newPage();
+  const req = cust.waitForRequest(/sphere-medium-\w+\.glb/, { timeout: 45_000 });
   await cust.goto(`/products/${productA.slug}/3d`);
   await req;
   await expect(cust.getByTestId('viewer-3d')).toHaveAttribute('data-lod', 'medium', { timeout: 30_000 });
-  await anon.close();
+  await expect(cust.getByTestId('viewer-3d')).toHaveAttribute('data-material-applied', '');
+  await expect(cust.getByTestId('model-color-note')).toContainText('không đổi màu mô hình');
+  await context.close();
 });
 
 test('khách dùng điện thoại: trình xem chọn LOD low; tải mô hình lỗi thì hiện ảnh thay thế và thông báo', async ({
   browser,
 }) => {
-  const base = `http://localhost:${process.env.E2E_PORT ?? 3100}`;
-  const phone = await browser.newContext({ baseURL: base, viewport: { width: 390, height: 844 } });
+  const phone = await browser.newContext({ baseURL: BASE, viewport: { width: 390, height: 844 } });
   const p1 = await phone.newPage();
-  const req = p1.waitForRequest(/sphere-low\.glb/, { timeout: 45_000 });
+  const req = p1.waitForRequest(/sphere-low-\w+\.glb/, { timeout: 45_000 });
   await p1.goto(`/products/${productA.slug}/3d`);
   await req;
   await expect(p1.getByTestId('viewer-3d')).toHaveAttribute('data-lod', 'low', { timeout: 30_000 });
   await phone.close();
 
-  // tệp mô hình không tải được ⇒ ảnh thay thế + thông báo (UC-3D-01)
-  const desktop = await browser.newContext({ baseURL: base });
+  const desktop = await browser.newContext({ baseURL: BASE });
   const p2 = await desktop.newPage();
   await p2.route(/\.glb(\?|$)/, (r) => r.abort());
   await p2.goto(`/products/${productA.slug}/3d`);
@@ -111,55 +141,93 @@ test('khách dùng điện thoại: trình xem chọn LOD low; tải mô hình l
   await desktop.close();
 });
 
+test('tạo bằng AI (giả lập): bắt buộc xác nhận → chờ duyệt có hai bản → duyệt → khách thấy, kèm ghi chú', async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const p = await newPhotoProduct(request);
+  await adminLogin(page);
+  await page.goto(`/admin/products/${p.id}?tab=model`);
+  const ai = page.getByTestId('ai-generate');
+  await expect(ai.getByTestId('ai-usage')).toContainText('Hôm nay: 0/', { timeout: 45_000 });
+  await expect(ai).toContainText('gửi tới máy chủ Hugging Face');
+  const create = ai.getByRole('button', { name: 'Tạo mô hình 3D bằng AI' });
+  await expect(create).toBeDisabled();
+  await ai.getByLabel(/Tôi đồng ý gửi ảnh/).check();
+  await create.click();
+
+  const review = page.getByTestId('model-review');
+  await expect(review).toBeVisible({ timeout: 90_000 });
+  await expect(review).toContainText('Tạo bằng AI');
+  await expect(review.getByRole('tab', { name: 'Đã gỡ tấm sàn' })).toHaveAttribute('aria-selected', 'true');
+  await review.getByRole('tab', { name: 'Chưa gỡ (nguyên hình)' }).click();
+  await expect(review.getByRole('alert').filter({ hasText: 'lệch hơn 15%' })).toBeVisible();
+  await review.getByRole('tab', { name: 'Đã gỡ tấm sàn' }).click();
+  await expect(review.getByRole('button', { name: 'Tạo lại' })).toBeVisible();
+  await expect(ai.getByTestId('ai-usage')).toContainText('Hôm nay: 1/');
+  await expect(ai.getByTestId('ai-blocked')).toContainText('chờ duyệt');
+  expect(await publicModel(request, p.slug)).toBeNull();
+
+  const approve = review.getByRole('button', { name: /^Duyệt/ });
+  await expect(approve).toBeEnabled({ timeout: 30_000 });
+  await approve.click();
+  await expect(page.getByText('Đã duyệt. Khách hàng đã thấy nút xem 3D.')).toBeVisible({ timeout: 30_000 });
+  // đã xác nhận trong phiên này: không hỏi lại
+  await expect(ai.getByLabel(/Tôi đồng ý gửi ảnh/)).toHaveCount(0);
+  await expectCustomer3d(browser, p.slug, true);
+  const context = await browser.newContext({ baseURL: BASE });
+  const cust = await context.newPage();
+  await cust.goto(`/products/${p.slug}/3d`);
+  await expect(cust.getByTestId('model-color-note')).toContainText('dựng bằng AI', { timeout: 45_000 });
+  await context.close();
+});
+
+async function uploadVia(page: Page, productId: number, file: string) {
+  await page.goto(`/admin/models?productId=${productId}`);
+  await expect(page.getByRole('heading', { name: 'Mô hình 3D' })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole('button', { name: 'Tải lên mô hình' }).click();
+  const dlg = page.getByRole('dialog');
+  await dlg.locator('input[type="file"]').setInputFiles(file);
+  await dlg.getByRole('button', { name: 'Tải lên', exact: true }).click();
+  await expect(page.getByText(/chờ bạn xem thử và duyệt/)).toBeVisible({ timeout: 30_000 });
+}
+
 test('GLB hỏng: trạng thái Lỗi kèm lý do, nút Xử lý lại chạy được', async ({ page, request }) => {
-  const p = await freeProduct(request, 1);
+  const p = await freeProduct(request, 2);
   await adminLogin(page);
   await uploadVia(page, p.id, BROKEN);
 
   const status = page.getByTestId('model-status').first();
   await expect(status).toHaveAttribute('data-status', 'failed', { timeout: 60_000 });
   await expect(status.getByRole('note')).toContainText('GLB');
-  await expect(status.getByText('Lỗi')).toBeVisible();
-
   await status.getByRole('button', { name: 'Xử lý lại' }).click();
   await expect(page.getByText('Đã đưa mô hình vào hàng đợi xử lý lại.')).toBeVisible({ timeout: 30_000 });
-  // tệp gốc vẫn hỏng nên xử lý lại cho kết quả Lỗi (job chạy thật, trạng thái quay lại failed)
   await expect(page.getByTestId('model-status').first()).toHaveAttribute('data-status', 'failed', {
     timeout: 60_000,
   });
 });
 
-test('đặt làm mô hình chính: mô hình mới ready ⇒ nút Đặt làm mô hình chính ⇒ huy hiệu chuyển sang mô hình đó', async ({
+test('trang mô hình 3D: bản vừa tải ở trạng thái Chờ duyệt, nút Xem & duyệt mở đúng tab; bỏ được', async ({
   page,
   request,
 }) => {
+  const p = await freeProduct(request, 3);
   await adminLogin(page);
-  await uploadVia(page, productA.id, SPHERE, { createNew: true });
-  const statuses = page.getByTestId('model-status');
-  await expect(statuses).toHaveCount(6, { timeout: 60_000 });
-  for (let i = 0; i < 6; i++)
-    await expect(statuses.nth(i)).toHaveAttribute('data-status', 'ready', { timeout: 60_000 });
-
-  const before = (await (await request.get(`${API}/api/products/${productA.slug}/model`)).json()).data
-    .id as number;
-  await page.getByRole('button', { name: 'Đặt làm mô hình chính' }).first().click();
-  await expect(page.getByText('Đã đặt làm mô hình chính của sản phẩm.')).toBeVisible({ timeout: 30_000 });
-  await expect
-    .poll(
-      async () =>
-        (await (await request.get(`${API}/api/products/${productA.slug}/model`)).json()).data.id as number,
-      {
-        timeout: 30_000,
-      },
-    )
-    .not.toBe(before);
-  // mỗi mô hình có 3 dòng: đúng 3 dòng mang huy hiệu "Mô hình chính"
-  await expect(page.getByText('Mô hình chính', { exact: true })).toHaveCount(3);
+  await uploadVia(page, p.id, SPHERE);
+  const status = page.getByTestId('model-status').first();
+  await expect(status).toHaveAttribute('data-status', 'pending_review', { timeout: 60_000 });
+  await status.getByRole('link', { name: 'Xem & duyệt' }).click();
+  const review = page.getByTestId('model-review');
+  await expect(review).toBeVisible({ timeout: 45_000 });
+  await review.getByRole('button', { name: 'Bỏ' }).click();
+  await expect(page.getByText('Đã bỏ mô hình.')).toBeVisible({ timeout: 30_000 });
+  await expect(review).toHaveCount(0);
+  expect(await publicModel(request, p.slug)).toBeNull();
 });
 
-test('modal tải lên: xem trước đúng tệp GLB đã chọn (blob của tệp, không phải mô hình mẫu cố định); tệp hỏng ⇒ báo lỗi', async ({
-  page,
-}) => {
+test('modal tải lên: xem trước đúng tệp GLB đã chọn (blob của tệp); tệp hỏng ⇒ báo lỗi', async ({ page }) => {
   await adminLogin(page);
   await page.goto('/admin/models');
   await expect(page.getByRole('heading', { name: 'Mô hình 3D' })).toBeVisible({ timeout: 30_000 });
@@ -167,14 +235,12 @@ test('modal tải lên: xem trước đúng tệp GLB đã chọn (blob của t�
   const dlg = page.getByRole('dialog');
   await expect(dlg.getByText('Chọn tệp GLB để xem trước')).toBeVisible();
 
-  // tệp hợp lệ ⇒ model-viewer nạp URL blob của chính tệp đó
   await dlg.locator('input[type="file"]').setInputFiles(SPHERE);
   const viewer = dlg.locator('model-viewer');
   await expect(viewer).toHaveAttribute('src', /^blob:/, { timeout: 30_000 });
   await expect(viewer).toHaveAttribute('alt', /sphere\.glb/);
   await expect(dlg.getByRole('alert')).toHaveCount(0);
 
-  // bỏ tệp ⇒ quay về trạng thái chưa chọn; chọn tệp hỏng ⇒ báo lỗi không tải được
   await dlg.getByRole('button', { name: 'Bỏ tệp' }).click();
   await expect(dlg.getByText('Chọn tệp GLB để xem trước')).toBeVisible();
   await dlg.locator('input[type="file"]').setInputFiles(BROKEN);

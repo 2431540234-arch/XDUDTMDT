@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { ensureModel } from './model-helpers';
 
 // UC-ADM-14 / UC-3D-03 (API thật): đổi biến thể màu trên trang 3D thì màu vật liệu của mô hình đổi NGAY (đọc từ scene của
 // <model-viewer>, không so ảnh), không tải lại mô hình và không gọi API thêm; admin cấu hình vật liệu theo biến thể.
@@ -55,10 +56,34 @@ function colorDistance(a: string | null, b: string) {
   return Math.max(...x.map((v, k) => Math.abs(v - y[k])));
 }
 
+test.describe.configure({ mode: 'serial' });
+
+/** Seed không có mô hình: tạo mô hình đã duyệt cho sofa-nordic rồi cấu hình vật liệu "mat" cho hai biến thể khác màu */
+async function prepare(request: APIRequestContext) {
+  const slug = 'sofa-nordic';
+  const before = (await (await request.get(`${API}/api/products/${slug}`)).json()).data;
+  await ensureModel(request, before.id);
+  const headers = await adminHeaders(request);
+  const detail = (await (await request.get(`${API}/api/products/${slug}`)).json()).data;
+  // mọi cỡ của hai màu: trang 3D chọn sẵn cỡ nào thì biến thể đó cũng có cấu hình
+  const variants = detail.variants as Array<{ id: number; color: { name: string } }>;
+  const colors = [...new Set(variants.map((v) => v.color.name))].slice(0, 2);
+  for (const v of variants) {
+    const i = colors.indexOf(v.color.name);
+    if (i < 0) continue;
+    const r = await request.put(`${API}/api/admin/models/${detail.model.id}/material-variants/${v.id}`, {
+      headers,
+      data: { materialName: 'mat', config: { baseColor: i ? '#335577' : '#C9A26B' } },
+    });
+    expect(r.ok()).toBe(true);
+  }
+}
+
 test('khách đổi màu biến thể: vật liệu trong scene đổi ngay, không tải lại mô hình, không gọi API thêm', async ({
   page,
   request,
 }) => {
+  await prepare(request);
   const slug = 'sofa-nordic';
   const detail = (await (await request.get(`${API}/api/products/${slug}`)).json()).data;
   const mvs = detail.model.materialVariants as Array<{

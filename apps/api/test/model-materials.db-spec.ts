@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { createApprovedModel } from './model-helpers';
 import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.service';
 
 describe('Vật liệu theo biến thể (aurelia_test)', () => {
@@ -45,7 +46,13 @@ describe('Vật liệu theo biến thể (aurelia_test)', () => {
     admin = await login('admin@aurelia.vn', 'admin123', true);
     cust = await login('khachhang@aurelia.vn', '123456');
 
-    // một mô hình chính ready của sản phẩm có ≥ 2 biến thể + một biến thể của SẢN PHẨM KHÁC
+    // seed không có mô hình 3D: tạo mô hình đã duyệt cho một sản phẩm có ≥ 2 biến thể
+    const target = await prisma.product.findFirstOrThrow({
+      where: { status: 'published', deletedAt: null, productVariants: { some: {} }, has3dModel: false },
+      orderBy: { id: 'asc' },
+    });
+    await createApprovedModel(http, prisma, admin, target.id);
+    // một mô hình chính ready + một biến thể của SẢN PHẨM KHÁC
     const m = await prisma.product3DModel.findFirstOrThrow({
       where: { isPrimary: true, status: 'ready', product: { productVariants: { some: {} } } },
       include: { product: { include: { productVariants: { orderBy: { id: 'asc' } } } } },

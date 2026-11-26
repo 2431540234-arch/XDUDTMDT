@@ -25,23 +25,17 @@ async function adminHeaders(request: APIRequestContext) {
   return { Authorization: `Bearer ${(await login.json()).data.tokens.accessToken}` };
 }
 
-/** Sản phẩm cuối danh sách, gỡ hết mô hình mẫu để mô hình trong test là dữ liệu do chính test tạo */
-async function freeProduct(request: APIRequestContext, headers: Record<string, string>) {
+/** Sản phẩm cuối danh sách (seed không có mô hình nên mô hình trong test do chính test tạo) */
+async function freeProduct(request: APIRequestContext) {
   const list = (await (await request.get(`${API}/api/products?pageSize=100`)).json()).data as Array<{
     id: number;
     name: string;
     slug: string;
   }>;
-  const p = list[list.length - 1];
-  const rows = (
-    await (await request.get(`${API}/api/admin/models?productId=${p.id}&pageSize=100`, { headers })).json()
-  ).data as Array<{ modelId: number }>;
-  for (const modelId of new Set(rows.map((r) => r.modelId)))
-    expect((await request.delete(`${API}/api/admin/models/model/${modelId}`, { headers })).ok()).toBe(true);
-  return p;
+  return list[list.length - 1];
 }
 
-test('API báo mode presigned (driver minio); admin tải GLB từ trình duyệt: PUT thẳng lên bucket PRIVATE → xử lý nền → sẵn sàng; khách tải LOD từ bucket PUBLIC', async ({
+test('API báo mode presigned (driver minio); admin tải GLB từ trình duyệt: PUT thẳng lên bucket PRIVATE → chuẩn hóa nền → chờ duyệt → duyệt; khách tải LOD từ bucket PUBLIC', async ({
   page,
   request,
   browser,
@@ -49,7 +43,7 @@ test('API báo mode presigned (driver minio); admin tải GLB từ trình duyệ
   const headers = await adminHeaders(request);
   const cfg = (await (await request.get(`${API}/api/admin/media/upload-config`, { headers })).json()).data;
   expect(cfg).toMatchObject({ mode: 'presigned', driver: 'minio' });
-  const product = await freeProduct(request, headers);
+  const product = await freeProduct(request);
 
   await adminLogin(page);
   await page.goto(`/admin/models?productId=${product.id}`);
@@ -69,8 +63,19 @@ test('API báo mode presigned (driver minio); admin tải GLB từ trình duyệ
   expect(putRes.status()).toBe(200);
   expect(putRes.headers()['access-control-allow-origin']).toBe(WEB_BASE);
   expect((await confirm).status()).toBe(202);
-  await expect(page.getByText(/đang được xử lý nền/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/chờ bạn xem thử và duyệt/)).toBeVisible({ timeout: 30_000 });
 
+  const row = page.getByTestId('model-status').first();
+  await expect(row).toHaveAttribute('data-status', 'pending_review', { timeout: 60_000 });
+  const pending = (
+    await (await request.get(`${API}/api/admin/models?productId=${product.id}`, { headers })).json()
+  ).data as Array<{ modelId: number }>;
+  const approved = await request.post(`${API}/api/admin/models/${pending[0].modelId}/approve`, {
+    headers,
+    data: {},
+  });
+  expect(approved.status()).toBe(200);
+  await page.reload();
   const statuses = page.getByTestId('model-status');
   await expect(statuses).toHaveCount(3, { timeout: 60_000 });
   for (let i = 0; i < 3; i++)

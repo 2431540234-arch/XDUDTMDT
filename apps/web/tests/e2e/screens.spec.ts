@@ -11,7 +11,8 @@ test('storefront công khai', async ({ page }) => {
   await visit(page, '/products', 'sản phẩm');
   await visit(page, '/products?category=sofa', 'Khám phá các mẫu sofa');
   await visit(page, '/products/sofa-nordic', 'Sofa Nordic');
-  await visit(page, '/products/sofa-nordic/3d', /Trình xem 3D/);
+  // dữ liệu mẫu không có mô hình 3D: trình xem báo rõ, không lỗi
+  await visit(page, '/products/sofa-nordic/3d', /chưa có mô hình 3D/);
   await visit(page, '/search?q=sofa', /Kết quả tìm kiếm/);
   await visit(page, '/spaces', 'Không gian mẫu');
   await visit(page, '/cart', /đăng nhập để xem giỏ hàng/);
