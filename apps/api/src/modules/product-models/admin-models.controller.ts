@@ -14,11 +14,14 @@ import {
   Post,
   Put,
   Query,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { memoryStorage } from 'multer';
 import { paginated } from '../../common/interceptors/transform-response.interceptor';
 import type { RawQuery } from '../../common/utils/list-query';
@@ -27,6 +30,7 @@ import { MODEL_MAX_BYTES } from './model-file-validator';
 import { CurrentUser, Roles } from '../../common/decorators/auth.decorators';
 import { ConfirmModelFileDto, PresignModelFileDto } from './dto/model-file.dto';
 import { ModelMaterialsService } from './model-materials.service';
+import { ModelReviewService } from './model-review.service';
 import { ProductModelsService } from './product-models.service';
 import { RequirePermission } from '../../common/decorators/permissions.decorator';
 
@@ -40,6 +44,7 @@ export class AdminModelsController {
     private readonly models: ProductModelsService,
     private readonly catalog: AdminModelCatalogService,
     private readonly materials: ModelMaterialsService,
+    private readonly review: ModelReviewService,
   ) {}
 
   @Get()
@@ -53,7 +58,7 @@ export class AdminModelsController {
   @HttpCode(202)
   @ApiOperation({
     summary:
-      'Tải lên (JSON): { productId, fileName, format, fileData (data-URL), allowAr, scale, unit?, createNew? } ⇒ 202 { modelId, jobId, status: processing }',
+      'Tải lên (JSON): { productId, fileName, format, fileData (data-URL), placement?, removeFloor? } ⇒ 202 { modelId, jobId, status: processing }',
   })
   upload(@CurrentUser('id') adminId: number, @Body() body: unknown) {
     return this.catalog.uploadJson(adminId, body);
@@ -64,7 +69,7 @@ export class AdminModelsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary:
-      'Tải lên tệp thật (multipart): file + productId, variantId?, allowAr?, scale?, unit?, placement?, createNew? ⇒ 202, xử lý nền',
+      'Tải lên tệp thật (multipart): file + productId, variantId?, placement?, removeFloor? ⇒ 202, chuẩn hóa nền rồi chờ duyệt',
   })
   @UseInterceptors(
     FileInterceptor('file', {
@@ -99,8 +104,8 @@ export class AdminModelsController {
   }
 
   /**
-   * Driver MinIO/S3: chọn/tạo mô hình đích rồi cấp URL PUT thẳng lên bucket private. Body như upload (productId, scale, unit,
-   * placement, createNew…) + { fileName, size, format }. Sau khi PUT xong gọi POST :id/files/confirm.
+   * Driver MinIO/S3: chọn/tạo mô hình đích rồi cấp URL PUT thẳng lên bucket private. Body như upload (productId,
+   * placement, removeFloor…) + { fileName, size, format }. Sau khi PUT xong gọi POST :id/files/confirm.
    */
   @Post('presign')
   @HttpCode(200)
@@ -139,6 +144,51 @@ export class AdminModelsController {
     @CurrentUser('id') adminId: number,
   ) {
     return this.models.confirmFile(id, dto, adminId);
+  }
+
+  // ---- duyệt mô hình (:id là id MÔ HÌNH) ----
+  @Get(':id')
+  @ApiOperation({ summary: 'Chi tiết mô hình cho màn duyệt: quy trình, thông số chuẩn hóa, các phiên bản' })
+  detail(@Param('id', ParseIntPipe) id: number) {
+    return this.review.detail(id);
+  }
+
+  @Get(':id/preview')
+  @ApiOperation({ summary: 'Tệp GLB của bản CHỜ DUYỆT (?variant=cleaned|original&lod=high|medium|low)' })
+  async preview(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('variant') variant: string | undefined,
+    @Query('lod') lod: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const body = await this.review.preview(id, variant, lod);
+    res.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(body, { type: 'model/gltf-binary', length: body.length });
+  }
+
+  @Post(':id/approve')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Duyệt { variant?, posterDataUrl? }: thay mô hình đang hiện' })
+  approve(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
+    return this.review.approve(adminId, id, body);
+  }
+
+  @Post(':id/reject')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Bỏ bản chờ duyệt / lỗi: xóa tệp tạm và bản ghi' })
+  reject(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number) {
+    return this.review.reject(adminId, id);
+  }
+
+  @Post(':id/renormalize')
+  @HttpCode(202)
+  @ApiOperation({ summary: 'Chuẩn hóa lại { yawDeg?, removeFloor? } từ tệp gốc (không gọi AI)' })
+  renormalize(
+    @CurrentUser('id') adminId: number,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: unknown,
+  ) {
+    return this.review.renormalize(adminId, id, body);
   }
 
   // ---- UC-ADM-14: vật liệu theo biến thể (:id là id MÔ HÌNH) ----

@@ -16,10 +16,11 @@ interface Saved {
   media: Record<string, unknown>[];
   files: Record<string, unknown>[];
   status?: string;
+  pipeline?: Record<string, any>;
 }
 
 /** Prisma giả đủ dùng cho process()/markFailed(); ghi lại những gì được ghi vào CSDL */
-function setup(opts: { serveMaxMb?: number; source: Buffer; glbCount?: number }) {
+function setup(opts: { serveMaxMb?: number; source: Buffer; status?: string }) {
   const saved: Saved = { media: [], files: [] };
   const uploaded: string[] = [];
   const logs: Record<string, unknown>[] = [];
@@ -41,15 +42,33 @@ function setup(opts: { serveMaxMb?: number; source: Buffer; glbCount?: number })
       count: jest.fn(async () => 0),
     },
     product3DModel: {
-      update: jest.fn(async ({ data }: { data: { status: string } }) => {
+      findUnique: jest.fn(async () => model),
+      update: jest.fn(async ({ data }: { data: { status: string; viewerConfig?: any } }) => {
         saved.status = data.status;
+        if (data.viewerConfig) saved.pipeline = data.viewerConfig.pipeline;
       }),
-      count: jest.fn(async () => 1),
+      updateMany: jest.fn(async ({ data }: { data: { status: string; viewerConfig?: any } }) => {
+        saved.status = data.status;
+        saved.pipeline = data.viewerConfig.pipeline;
+        return { count: 1 };
+      }),
     },
   };
+  const model = {
+    id: 7,
+    productId: 1,
+    status: opts.status ?? 'processing',
+    lengthMm: 1000,
+    widthMm: 1000,
+    heightMm: 1000,
+    viewerConfig: {},
+    createdAt: new Date(),
+  };
   const prisma = {
-    product3DModel: { findUnique: jest.fn(async () => ({ id: 7 })) },
-    modelFile: { count: jest.fn(async () => opts.glbCount ?? 0) },
+    product3DModel: {
+      findUnique: jest.fn(async () => model),
+      update: jest.fn(async () => model),
+    },
     $transaction: jest.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
   };
   const storage = {
@@ -68,7 +87,6 @@ function setup(opts: { serveMaxMb?: number; source: Buffer; glbCount?: number })
     config as never,
     activity as never,
     notifications as never,
-    { invalidateProducts: jest.fn(async () => undefined) } as never,
     storage as never,
   );
   return { service, saved, uploaded, logs, notes, prisma, storage, tx };
@@ -85,29 +103,38 @@ const job = (over: Partial<ModelJobData> = {}): ModelJobData => ({
 });
 
 describe('ModelProcessingService', () => {
-  it('GLB hợp lệ: 3 LOD, polygon giảm dần, checksum SHA-256, nén, ghi một transaction rồi mới ready', async () => {
+  it('GLB hợp lệ: chuẩn hóa, 3 LOD vào kho PRIVATE rồi chờ duyệt; không tạo media/model_files', async () => {
     const t = setup({ source: fixture('sphere.glb') });
     const r = await t.service.process(job());
     expect(r.files.map((f) => f.lod)).toEqual(['high', 'medium', 'low']);
-    expect(t.uploaded).toEqual([
-      'models/7/sphere-high.glb',
-      'models/7/sphere-medium.glb',
-      'models/7/sphere-low.glb',
-    ]);
-    expect(t.prisma.$transaction).toHaveBeenCalledTimes(1); // media + model_files + ready cùng một transaction
-    const poly = t.saved.files.map((f) => f.polygonCount as number);
-    expect(poly[0]).toBeGreaterThan(poly[1]);
-    expect(poly[1]).toBeGreaterThan(poly[2]);
-    for (const f of t.saved.files) {
+    expect(t.uploaded).toHaveLength(3);
+    for (const key of t.uploaded) expect(key).toMatch(/^models\/pending\/7\/original-(high|medium|low)-/);
+    for (const call of t.storage.upload.mock.calls)
+      expect((call as unknown as [{ visibility: string }])[0].visibility).toBe('private');
+    expect(t.saved.status).toBe('pending_review');
+    expect(t.saved.media).toHaveLength(0);
+    expect(t.saved.files).toHaveLength(0);
+    const files = t.saved.pipeline!.variants.original.files;
+    expect(files.high.polygonCount).toBeGreaterThan(files.medium.polygonCount);
+    expect(files.medium.polygonCount).toBeGreaterThan(files.low.polygonCount);
+    for (const f of Object.values<any>(files)) {
       expect(f.checksum).toMatch(/^[0-9a-f]{64}$/);
       expect(f.isCompressed).toBe(true);
-      expect(f.format).toBe('glb');
     }
-    expect(
-      (t.saved.files[0].textureResolution as number) >= (t.saved.files[2].textureResolution as number),
-    ).toBe(true);
-    expect(t.saved.status).toBe('ready');
+    expect(t.saved.pipeline).toMatchObject({ source: 'upload', stage: 'review', rawKey: job().sourceKey });
+    expect(t.saved.pipeline!.variants.original.report.targetMm).toEqual({
+      length: 1000,
+      width: 1000,
+      height: 1000,
+    });
   }, 60_000);
+
+  it('job cũ chạy lại trên mô hình đã duyệt: bị loại, không đụng gì', async () => {
+    const t = setup({ source: fixture('sphere.glb'), status: 'ready' });
+    await expect(t.service.process(job())).rejects.toBeInstanceOf(InvalidModelFileError);
+    expect(t.storage.download).not.toHaveBeenCalled();
+    expect(t.saved.status).toBeUndefined();
+  });
 
   it('GLB hỏng (cắt cụt): InvalidModelFileError, chưa ghi gì, không ready', async () => {
     const t = setup({ source: fixture('broken.glb') });
@@ -116,7 +143,7 @@ describe('ModelProcessingService', () => {
     );
     expect(t.storage.upload).not.toHaveBeenCalled();
     expect(t.prisma.$transaction).not.toHaveBeenCalled();
-    expect(t.saved.status).toBeUndefined();
+    expect(t.saved.status).not.toBe('pending_review');
   });
 
   it('USDZ (AR ngoài phạm vi): job bị loại với InvalidModelFileError, không đọc kho, không ghi gì', async () => {
@@ -139,6 +166,7 @@ describe('ModelProcessingService', () => {
     expect((err as Error).message).toContain('0.01 MB');
     expect(t.storage.upload).not.toHaveBeenCalled();
     expect(t.prisma.$transaction).not.toHaveBeenCalled();
+    expect(t.saved.status).not.toBe('pending_review');
   }, 60_000);
 
   it('lỗi tạm thời (kho lỗi) KHÔNG phải InvalidModelFileError ⇒ được retry', async () => {
@@ -163,12 +191,11 @@ describe('ModelProcessingService', () => {
     expect(t.notes[0][4]).toBe('LOD quá lớn');
   });
 
-  it('markFailed luôn đặt failed, kể cả khi mô hình còn tệp GLB từ trước', async () => {
-    const t = setup({ source: Buffer.alloc(0), glbCount: 3 });
-    await t.service.markFailed(job(), 'GLB hỏng');
-    expect(t.saved.status).toBe('failed');
-    expect(t.logs).toHaveLength(1);
-    expect(t.notes).toHaveLength(1);
+  it('markFailed không kéo mô hình đã duyệt về lỗi', async () => {
+    const t = setup({ source: Buffer.alloc(0), status: 'ready' });
+    await t.service.markFailed(job(), 'job cũ');
+    expect(t.saved.status).toBeUndefined();
+    expect(t.logs).toHaveLength(0);
   });
 });
 

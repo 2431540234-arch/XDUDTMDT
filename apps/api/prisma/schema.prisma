@@ -817,6 +817,7 @@ enum ModelPlacement {
 enum ModelStatus {
   uploading
   processing
+  pending_review
   ready
   failed
 

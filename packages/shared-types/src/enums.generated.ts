@@ -45,6 +45,7 @@ export type ModelPlacement = (typeof ModelPlacement)[keyof typeof ModelPlacement
 export const ModelStatus = {
   uploading: 'uploading',
   processing: 'processing',
+  pending_review: 'pending_review',
   ready: 'ready',
   failed: 'failed',
 } as const;

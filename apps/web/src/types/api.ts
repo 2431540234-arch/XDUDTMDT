@@ -135,6 +135,10 @@ export interface AdminMaterialVariant extends MaterialVariantView {
 }
 
 export interface Model3DView extends Product3DModel {
+  /** nguồn mô hình: tạo bằng AI hay admin tải lên (null: mô hình cũ không ghi) */
+  source?: 'ai' | 'upload' | null;
+  /** màu mà mô hình thể hiện (màu của ảnh đầu vào khi tạo bằng AI) */
+  colorName?: string | null;
   files: ModelFileView[];
   materialVariants?: MaterialVariantView[];
   glbUrl: string | null;
@@ -363,7 +367,65 @@ export interface DashboardStats {
   recentActivity: Array<ActivityLog & { actorName: string; actorAvatarUrl: string | null; text: string }>;
 }
 
+export type ModelVariantKey = 'cleaned' | 'original';
+export type ModelLodKey = 'high' | 'medium' | 'low';
+
+export interface ModelNormalizeReport {
+  floorRemoved: boolean;
+  floorTriangles: number;
+  autoYawDeg: number;
+  manualYawDeg: number;
+  scale: number;
+  targetMm: { length: number; width: number; height: number };
+  measuredMm: { length: number; width: number; height: number };
+  deviationPct: { length: number; width: number; height: number };
+  distorted: boolean;
+  triangles: number;
+  warnings: string[];
+}
+
+export interface ModelVariantInfo {
+  report: ModelNormalizeReport;
+  files: Record<
+    ModelLodKey,
+    { size: number; polygonCount: number | null; textureResolution: number | null; isCompressed: boolean }
+  >;
+}
+
+/** GET /admin/models/:id – dữ liệu cho màn duyệt */
+export interface ModelReviewDetail {
+  id: number;
+  productId: number;
+  productName: string;
+  productSlug: string;
+  status: Product3DModel['status'];
+  isPrimary: boolean;
+  lengthMm: number;
+  widthMm: number;
+  heightMm: number;
+  source: 'ai' | 'upload' | null;
+  stage: string | null;
+  createdAt: string;
+  fileName: string | null;
+  rawBytes: number | null;
+  space: string | null;
+  colorName: string | null;
+  generatedSeconds: number | null;
+  sourceImageUrl: string | null;
+  options: { removeFloor: boolean; yawDeg: number };
+  defaultVariant: ModelVariantKey | null;
+  chosenVariant: ModelVariantKey | null;
+  normalization: ModelNormalizeReport | null;
+  variants: Partial<Record<ModelVariantKey, ModelVariantInfo>>;
+  error: { message: string; kind?: string; raw?: string; at: string } | null;
+  /** chỉ dữ liệu giả: tệp người dùng chọn để xem thử */
+  mockPreviewUrl?: string;
+}
+
 export interface Model3DAdminRow extends Model3DView {
+  stage?: string | null;
+  space?: string | null;
+  sizeBytes?: number;
   /** id MÔ HÌNH (id dòng `id` = id tệp, hoặc -modelId khi mô hình chưa có tệp) */
   modelId: number;
   /** null khi mô hình chưa có tệp (đang xử lý hoặc lỗi) */

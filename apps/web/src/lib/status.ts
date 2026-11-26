@@ -100,6 +100,7 @@ export const shipmentStatusInfo: Record<ShipmentStatus, StatusInfo> = {
 export const modelStatusInfo: Record<ModelStatus, StatusInfo> = {
   uploading: { label: 'Đang tải lên', tone: 'blue' },
   processing: { label: 'Đang xử lý', tone: 'yellow' },
+  pending_review: { label: 'Chờ duyệt', tone: 'purple' },
   ready: { label: 'Sẵn sàng', tone: 'green' },
   failed: { label: 'Lỗi', tone: 'red' },
 };

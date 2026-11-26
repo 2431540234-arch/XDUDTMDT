@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import FormSection, { FormGrid } from '@/components/admin/FormSection';
 import { PageHeader } from '@/components/admin/FilterBar';
+import Model3DPanel from '@/components/admin/Model3DPanel';
 import UploadDropzone, { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -14,7 +15,7 @@ import Input, { Select, Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useCategories } from '@/hooks/useProducts';
 import { cn } from '@/lib/cn';
-import { discountPercent, formatCurrency, slugify, formatFileSize } from '@/lib/format';
+import { discountPercent, formatCurrency, slugify } from '@/lib/format';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
@@ -150,6 +151,10 @@ export default function ProductForm({ productId }: { productId?: number }) {
   const qc = useQueryClient();
   const editing = Boolean(productId);
   const [tab, setTab] = useState<Tab>('basic');
+  // liên kết từ thông báo/trang mô hình mở thẳng tab 3D (?tab=model)
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'model') setTab('model');
+  }, []);
   const [v, setV] = useState<Values>(EMPTY);
   const [errs, setErrs] = useState<Record<string, string>>({});
   const [images, setImages] = useState<Array<{ url: string; isPrimary: boolean }>>([]);
@@ -446,41 +451,14 @@ export default function ProductForm({ productId }: { productId?: number }) {
           <VariantsEditor variants={variants} setVariants={setVariants} baseSku={v.sku} basePrice={price} />
         )}
 
-        {tab === 'model' && (
-          <div className="space-y-3 text-sm">
-            {q.data?.model ? (
-              <div className="rounded-card border border-line p-4">
-                <p className="font-semibold">Mô hình chính đang dùng</p>
-                <ul className="mt-2 space-y-1 text-muted">
-                  {q.data.model.files.map((f) => (
-                    <li key={f.id}>
-                      • {f.fileName} ({f.format.toUpperCase()}, {formatFileSize(f.fileSize)})
-                    </li>
-                  ))}
-                  <li>
-                    • Kích thước thật: {q.data.model.lengthMm} × {q.data.model.widthMm} ×{' '}
-                    {q.data.model.heightMm} mm · Đặt trên:{' '}
-                    {q.data.model.placement === 'floor'
-                      ? 'sàn nhà'
-                      : q.data.model.placement === 'wall'
-                        ? 'tường'
-                        : 'mặt bàn'}
-                  </li>
-                </ul>
-                <LinkButton href={`/products/${q.data.slug}/3d`} variant="outline" size="sm" className="mt-3">
-                  Xem trước 3D
-                </LinkButton>
-              </div>
-            ) : (
-              <p className="rounded-card bg-surface-muted/60 p-4 text-muted">
-                Sản phẩm này chưa có mô hình 3D.
-              </p>
-            )}
-            <LinkButton href={`/admin/models${productId ? `?productId=${productId}` : ''}`} variant="outline">
-              <Icon name="upload" size={16} /> Quản lý & tải lên mô hình 3D
-            </LinkButton>
-          </div>
-        )}
+        {tab === 'model' &&
+          (editing && q.data ? (
+            <Model3DPanel product={q.data} />
+          ) : (
+            <p className="rounded-card bg-surface-muted/60 p-4 text-sm text-muted">
+              Hãy lưu sản phẩm trước, sau đó mở lại để thêm mô hình 3D.
+            </p>
+          ))}
 
         {tab === 'attrs' && (
           <div className="space-y-5">

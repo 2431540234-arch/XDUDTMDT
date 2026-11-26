@@ -1260,7 +1260,148 @@ function modelRows(db: Db): Model3DAdminRow[] {
       glbUrl: f.format === 'glb' ? md.filePath : model3DView(db, m).glbUrl,
     });
   }
+  // mô hình chưa có tệp công khai (chờ duyệt)
+  for (const m of db.product3dModels) {
+    if (db.modelFiles.some((x) => x.modelId === m.id)) continue;
+    const p = db.products.find((x) => x.id === m.productId)!;
+    const mock = mockPipeline(m);
+    rows.push({
+      ...model3DView(db, m),
+      id: -m.id,
+      modelId: m.id,
+      fileId: null,
+      failureReason: null,
+      lod: null,
+      productName: p.name,
+      productThumbnailUrl: mediaPath(
+        db,
+        db.productImages.find((i) => i.productId === p.id && i.isPrimary)?.mediaId,
+      ),
+      format: 'glb' as const,
+      fileName: mock.fileName,
+      sizeMB: Math.round((mock.bytes / 1024 / 1024) * 10) / 10,
+      sizeBytes: mock.bytes,
+      uploadedAt: m.createdAt,
+      glbUrl: null,
+    });
+  }
   return rows;
+}
+
+interface MockPipeline {
+  fileName: string;
+  fileUrl: string;
+  bytes: number;
+}
+const mockPipeline = (m: Db['product3dModels'][number]): MockPipeline =>
+  (m.viewerConfig as { mock?: MockPipeline }).mock ?? { fileName: 'model.glb', fileUrl: '', bytes: 0 };
+
+const pendingModel = (ctx: Ctx) => {
+  const m = ctx.db.product3dModels.find((x) => x.id === Number(ctx.params.id));
+  if (!m) throw notFound('Mô hình');
+  return m;
+};
+
+/** GET /admin/models/:id (mock): không chuẩn hóa thật, chỉ mô phỏng màn duyệt */
+export function modelDetail(ctx: Ctx): Result {
+  const db = ctx.db;
+  const m = pendingModel(ctx);
+  const p = db.products.find((x) => x.id === m.productId)!;
+  const mock = mockPipeline(m);
+  const size = { length: m.lengthMm, width: m.widthMm, height: m.heightMm };
+  const file = { size: mock.bytes, polygonCount: null, textureResolution: null, isCompressed: false };
+  return ok({
+    id: m.id,
+    productId: p.id,
+    productName: p.name,
+    productSlug: p.slug,
+    status: m.status,
+    isPrimary: m.isPrimary,
+    lengthMm: m.lengthMm,
+    widthMm: m.widthMm,
+    heightMm: m.heightMm,
+    source: 'upload',
+    stage: m.status === 'pending_review' ? 'review' : 'approved',
+    createdAt: m.createdAt,
+    fileName: mock.fileName,
+    rawBytes: mock.bytes,
+    space: null,
+    colorName: null,
+    generatedSeconds: null,
+    sourceImageUrl: null,
+    options: { removeFloor: true, yawDeg: 0 },
+    defaultVariant: 'original',
+    chosenVariant: null,
+    normalization: null,
+    variants:
+      m.status === 'pending_review'
+        ? {
+            original: {
+              files: { high: file, medium: file, low: file },
+              report: {
+                floorRemoved: false,
+                floorTriangles: 0,
+                autoYawDeg: 0,
+                manualYawDeg: 0,
+                scale: 1,
+                targetMm: size,
+                measuredMm: size,
+                deviationPct: { length: 0, width: 0, height: 0 },
+                distorted: false,
+                triangles: 0,
+                warnings: ['Dữ liệu giả: tệp không được chuẩn hóa, chỉ mô phỏng màn duyệt.'],
+              },
+            },
+          }
+        : {},
+    error: null,
+    mockPreviewUrl: mock.fileUrl,
+  });
+}
+
+export function approveModel(ctx: Ctx): Result {
+  const db = ctx.db;
+  const m = pendingModel(ctx);
+  if (m.status !== 'pending_review')
+    throw new ApiFail('INVALID_STATE', 'Chỉ duyệt được mô hình đang chờ duyệt.');
+  for (const old of db.product3dModels.filter((x) => x.productId === m.productId && x.id !== m.id)) {
+    db.modelFiles = db.modelFiles.filter((f) => f.modelId !== old.id);
+    db.product3dModels.splice(db.product3dModels.indexOf(old), 1);
+  }
+  const mock = mockPipeline(m);
+  const at = nowIso();
+  db.modelFiles.push({
+    id: nextId(db.modelFiles),
+    modelId: m.id,
+    format: 'glb',
+    lod: 'high',
+    mediaId: mediaFrom(db, mock.fileUrl, mock.fileName, 'model/gltf-binary', mock.bytes),
+    polygonCount: null,
+    textureResolution: null,
+    isCompressed: false,
+    checksum: `mock-${m.id}`,
+    createdAt: at,
+    updatedAt: at,
+  });
+  m.status = 'ready';
+  m.isPrimary = true;
+  db.products.find((x) => x.id === m.productId)!.has3dModel = true;
+  log(ctx, 'model.approve', 'product3dmodel', m.id, {});
+  return ok({ modelId: m.id, productId: m.productId, status: 'ready' });
+}
+
+export function rejectModel(ctx: Ctx): Result {
+  const m = pendingModel(ctx);
+  if (m.status !== 'pending_review')
+    throw new ApiFail('INVALID_STATE', 'Chỉ bỏ được mô hình đang chờ duyệt.');
+  ctx.db.product3dModels.splice(ctx.db.product3dModels.indexOf(m), 1);
+  log(ctx, 'model.reject', 'product3dmodel', m.id, {});
+  return ok(null);
+}
+
+export function renormalizeModel(ctx: Ctx): Result {
+  const m = pendingModel(ctx);
+  return ok({ modelId: m.id, jobId: 'mock', status: 'processing' });
 }
 
 export function adminModels(ctx: Ctx): Result {
@@ -1292,59 +1433,40 @@ export function uploadModel(ctx: Ctx): Result {
   if (b.format !== 'glb') errs.format = 'Hệ thống chỉ hỗ trợ tệp GLB';
   if (!(Number(b.sizeMB) > 0) || Number(b.sizeMB) > 50) errs.file = 'Tệp phải nhỏ hơn hoặc bằng 50MB.';
   if (Object.keys(errs).length) throw validation(errs);
-  let m = db.product3dModels.find((x) => x.productId === p!.id && x.isPrimary);
+  if (db.product3dModels.some((x) => x.productId === p!.id && x.status === 'pending_review'))
+    throw new ApiFail(
+      'CONFLICT',
+      'Sản phẩm đang có một mô hình đang xử lý hoặc chờ duyệt. Hãy duyệt hoặc bỏ mô hình đó trước.',
+    );
   const at = nowIso();
-  if (!m) {
-    const ex = db.productExtras.find((e) => e.productId === p!.id);
-    const spec = productSpecs.find((s) => s.name === p!.name);
-    const [l, w, h] = spec?.dims ?? [1000, 800, 800];
-    m = {
-      id: nextId(db.product3dModels),
-      uuid: `10000000-0000-4000-8000-${String(nextId(db.product3dModels)).padStart(12, '0')}`,
-      productId: p!.id,
-      variantId: null,
-      lengthMm: l,
-      widthMm: w,
-      heightMm: h,
-      placement: 'floor',
-      allowScaling: true,
-      viewerConfig: { autoRotate: true, exposure: 1 },
-      posterMediaId: db.productImages.find((i) => i.productId === p!.id && i.isPrimary)?.mediaId ?? null,
-      status: 'ready',
-      version: 1,
-      isPrimary: true,
-      createdAt: at,
-      updatedAt: at,
-    };
-    db.product3dModels.push(m);
-    void ex;
-  }
-  // Mock không xử lý tệp: dùng đúng tệp người dùng chọn qua URL tạm của trình duyệt (mất khi tải lại trang)
-  const filePath = String(b.fileUrl || `mock-upload/${Date.now()}.glb`);
-  const mediaId = mediaFrom(
-    db,
-    filePath,
-    String(b.fileName),
-    'model/gltf-binary',
-    Math.round(Number(b.sizeMB) * 1024 * 1024),
-  );
-  const f = {
-    id: nextId(db.modelFiles),
-    modelId: m.id,
-    format: 'glb' as const,
-    lod: 'high' as const,
-    mediaId,
-    polygonCount: b.format === 'glb' ? 42_000 : null,
-    textureResolution: 2048,
-    isCompressed: true,
-    checksum: `sha256-${Date.now().toString(16)}`,
+  const [l, w, h] = productSpecs.find((s) => s.name === p!.name)?.dims ?? [1000, 800, 800];
+  const id = nextId(db.product3dModels);
+  const bytes = Math.round(Number(b.sizeMB) * 1024 * 1024);
+  db.product3dModels.push({
+    id,
+    uuid: `10000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
+    productId: p!.id,
+    variantId: null,
+    lengthMm: l,
+    widthMm: w,
+    heightMm: h,
+    placement: 'floor',
+    allowScaling: false,
+    // Mock không xử lý tệp: giữ URL tạm của tệp người dùng chọn (mất khi tải lại trang)
+    viewerConfig: {
+      autoRotate: true,
+      exposure: 1,
+      mock: { fileName: String(b.fileName), fileUrl: String(b.fileUrl ?? ''), bytes },
+    },
+    posterMediaId: db.productImages.find((i) => i.productId === p!.id && i.isPrimary)?.mediaId ?? null,
+    status: 'pending_review',
+    version: 1,
+    isPrimary: false,
     createdAt: at,
     updatedAt: at,
-  };
-  db.modelFiles.push(f);
-  p!.has3dModel = true;
-  log(ctx, 'model.upload', 'product3dmodel', m.id, { fileName: b.fileName });
-  return created(modelRows(db).find((r) => r.id === f.id));
+  });
+  log(ctx, 'model.upload', 'product3dmodel', id, { fileName: b.fileName });
+  return created({ modelId: id, jobId: 'mock', status: 'processing' });
 }
 
 /** Mock: mô hình luôn ready (không có hàng đợi), nên chỉ trả kết quả hợp lệ để giao diện không lỗi */
