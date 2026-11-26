@@ -78,3 +78,45 @@ test('admin: danh sách sản phẩm tìm kiếm và đơn hàng chuyển trạn
   await page.getByRole('button', { name: 'Xác nhận đơn hàng' }).click();
   await expect(page.getByText('Đã cập nhật trạng thái đơn hàng.')).toBeVisible();
 });
+
+test('admin: lưu sản phẩm không sửa ảnh ⇒ ảnh gắn màu còn nguyên', async ({ page, request }) => {
+  test.skip(process.env.E2E_USE_MOCK !== 'false', 'cần API thật');
+  test.setTimeout(150_000);
+  const api = process.env.E2E_API_URL ?? 'http://localhost:4000';
+  const login = await request.post(`${api}/api/auth/login`, {
+    data: { email: 'admin@aurelia.vn', password: 'admin123', adminOnly: true },
+  });
+  const headers = { Authorization: `Bearer ${(await login.json()).data.tokens.accessToken}` };
+  type Img = { id: number; mediaId: number; variantId: number | null; isPrimary: boolean; sortOrder: number };
+  const detail = async (id: number) =>
+    (await (await request.get(`${api}/api/admin/products/${id}`, { headers })).json()).data as {
+      id: number;
+      images: Img[];
+    };
+  const list = (await (await request.get(`${api}/api/admin/products?pageSize=100`, { headers })).json())
+    .data as Array<{ id: number }>;
+  let target: Awaited<ReturnType<typeof detail>> | undefined;
+  for (const row of list) {
+    const p = await detail(row.id);
+    if (p.images.length > 1 && p.images.some((i) => i.variantId !== null)) {
+      target = p;
+      break;
+    }
+  }
+  expect(target, 'seed phải có sản phẩm có ảnh gắn màu').toBeDefined();
+  const key = (p: { images: Img[] }) =>
+    p.images.map((i) => [i.id, i.mediaId, i.variantId, i.isPrimary, i.sortOrder]);
+
+  await adminLogin(page);
+  await page.goto(`/admin/products/${target!.id}`);
+  await expect(page.getByText(/Sửa:/).first()).toBeVisible({ timeout: 45_000 });
+  await page.getByRole('tab', { name: 'Hình ảnh' }).click();
+  await expect(page.getByRole('group', { name: /^Màu / }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Xóa ảnh' })).toHaveCount(target!.images.length);
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === 'PATCH' && r.url().includes(`/admin/products/${target!.id}`),
+  );
+  await page.getByRole('button', { name: 'Lưu sản phẩm' }).click();
+  expect((await saved).status()).toBe(200);
+  expect(key(await detail(target!.id))).toEqual(key(target!));
+});

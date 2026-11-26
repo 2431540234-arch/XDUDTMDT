@@ -265,8 +265,9 @@ export class AdminProductsService {
    * - mỗi ảnh gửi lên là { mediaId } (ảnh đã có trong kho) hoặc { url } (URL kho / data-URL / đường dẫn); thứ tự mảng = thứ tự hiển thị
    * - ảnh đã có (cùng mediaId) giữ nguyên dòng và id, chỉ cập nhật thứ tự; variantId giữ nguyên nếu không gửi, null để gỡ liên kết,
    *   số để gắn với biến thể (phải thuộc sản phẩm này, nếu không 400)
-   * - ảnh không còn trong danh sách: xóa DÒNG liên kết product_images; tệp media và tệp vật lý KHÔNG bị xóa (có thể đang được
-   *   sản phẩm/mô hình khác dùng; việc dọn tệp thuộc UC-ADM-04)
+   * - CHỈ gỡ ảnh có id (dòng product_images) nằm trong removedImageIds: xóa DÒNG liên kết; tệp media và tệp vật lý KHÔNG bị xóa
+   *   (có thể đang được sản phẩm/mô hình khác dùng; việc dọn tệp thuộc UC-ADM-04). id không thuộc sản phẩm này bị bỏ qua
+   * - ảnh KHÔNG được gửi lên và không bị yêu cầu gỡ: giữ nguyên dòng và variantId, xếp sau các ảnh đã gửi
    * - luôn đúng một ảnh đại diện (ảnh được đánh dấu đầu tiên, nếu không thì ảnh đại diện cũ còn lại, nếu không thì ảnh đầu)
    */
   private async saveImages(
@@ -275,6 +276,7 @@ export class AdminProductsService {
     adminId: number,
     slug: string,
     images: Array<{ url?: string; mediaId?: unknown; variantId?: unknown; isPrimary?: boolean }>,
+    removedImageIds: unknown[],
   ) {
     const existing = await tx.productImage.findMany({ where: { productId }, orderBy: { id: 'asc' } });
     const prevByMedia = new Map<number, (typeof existing)[number]>();
@@ -326,8 +328,16 @@ export class AdminProductsService {
     errs.throwIfAny();
 
     const usedRowIds = new Set(desired.flatMap((d) => (d.prev ? [d.prev.id] : [])));
-    const stale = existing.filter((e) => !usedRowIds.has(e.id)).map((e) => e.id); // đã gỡ khỏi danh sách (và dòng trùng mediaId cũ)
+    const removeIds = new Set(removedImageIds.map(toId));
+    const unsent = existing.filter((e) => !usedRowIds.has(e.id));
+    // ảnh vừa được gửi lên vừa nằm trong danh sách gỡ (xóa rồi tải lại đúng ảnh đó) ⇒ giữ
+    const stale = unsent.filter((e) => removeIds.has(e.id)).map((e) => e.id);
     if (stale.length) await tx.productImage.deleteMany({ where: { id: { in: stale } } });
+    const untouched = unsent
+      .filter((e) => !removeIds.has(e.id))
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+    for (const prev of untouched)
+      desired.push({ mediaId: prev.mediaId, variantId: prev.variantId, wantPrimary: false, prev });
     // bỏ cờ đại diện trước khi đặt lại (partial unique uq_product_images_primary: tối đa một ảnh đại diện)
     await tx.productImage.updateMany({ where: { productId, isPrimary: true }, data: { isPrimary: false } });
     const primaryIdx = (() => {
@@ -368,8 +378,15 @@ export class AdminProductsService {
       },
     });
     await this.saveVariants(tx, adminId, id, b);
-    if (Array.isArray(b.images))
-      await this.saveImages(tx, id, adminId, slug, b.images as Array<Record<string, unknown>>);
+    if (Array.isArray(b.images) || Array.isArray(b.removedImageIds))
+      await this.saveImages(
+        tx,
+        id,
+        adminId,
+        slug,
+        Array.isArray(b.images) ? (b.images as Array<Record<string, unknown>>) : [],
+        Array.isArray(b.removedImageIds) ? b.removedImageIds : [],
+      );
     // DAC_TA UC-ADM-09 9a: chỉ ĐĂNG (published) khi có biến thể đang bán và có ảnh đại diện; sai ⇒ 400 và hoàn tác cả lần lưu
     if ((str(b.status) || 'published') === 'published') {
       const [activeVariants, primaryImages] = await Promise.all([

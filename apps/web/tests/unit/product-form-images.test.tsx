@@ -69,7 +69,7 @@ async function openImagesTab() {
     </QueryClientProvider>,
   );
   await screen.findByDisplayValue('Sofa thử');
-  fireEvent.click(screen.getByRole('button', { name: 'Hình ảnh' }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Hình ảnh' }));
 }
 
 async function save(): Promise<Sent> {
@@ -136,7 +136,7 @@ describe('mock API: lưu sản phẩm giữ ảnh gắn màu', () => {
     localStorage.setItem('aurelia-mock-config', JSON.stringify({ latency: false }));
     const call = async (method: string, path: string, body?: unknown, token: string | null = null) => {
       const r = await handleMockRequest({ method, path, query: {}, body, token });
-      return (r.body as { data: never }).data;
+      return (r.body as unknown as { data: never }).data;
     };
     const login = (await call('POST', '/auth/login', {
       email: 'admin@aurelia.vn',
