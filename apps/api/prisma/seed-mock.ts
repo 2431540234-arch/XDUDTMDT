@@ -79,6 +79,12 @@ async function renderSvg(url: string): Promise<string | null> {
   }
 }
 
+const MIME: Record<string, string> = {
+  glb: 'model/gltf-binary',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+};
+
 /** Đưa một URL của mock (ảnh SVG sinh động hoặc tệp tĩnh trong public/mock) lên kho; trả về khóa lưu trữ */
 async function ingest(url: string): Promise<{ key: string; size: number; mime: string }> {
   if (url.startsWith('/mock-img/')) {
@@ -93,8 +99,7 @@ async function ingest(url: string): Promise<{ key: string; size: number; mime: s
     const file = resolve(WEB_SRC, '../public', path.slice(1));
     const body = await readFile(file);
     const ext = path.split('.').pop()!.toLowerCase();
-    const mime =
-      ext === 'glb' ? 'model/gltf-binary' : ext === 'svg' ? 'image/svg+xml' : 'application/octet-stream';
+    const mime = MIME[ext] ?? 'application/octet-stream';
     // Cùng một tệp GLB dùng cho nhiều sản phẩm (?p=<id>) → mỗi bản ghi media cần khóa riêng
     const key = query ? path.slice(1).replace(/(\.\w+)$/, `-${hex(url)}$1`) : path.slice(1);
     const size = await storeObject(key, body, mime);
@@ -159,6 +164,11 @@ function withOverriding(tx: Prisma.TransactionClient): Prisma.TransactionClient 
 
 // ---------------------------------------------------------------- main
 async function main() {
+  // Ảnh thật (không nằm trong git): máy có thì seed dùng, không có thì dùng ảnh minh họa. Phải đặt TRƯỚC khi nạp mock
+  const photoLister = await import(resolve(WEB_SRC, '../scripts/list-mock-photos.js'));
+  process.env.NEXT_PUBLIC_MOCK_PHOTOS = photoLister.listMockPhotos();
+  const photoCount = photoLister.listMockPhotos().split(',').filter(Boolean).length;
+  log(photoCount ? `dùng ${photoCount} ảnh thật` : 'không có ảnh thật → dùng ảnh minh họa');
   const dbMod = await import('../../web/src/mock-data/db');
   const db: MockDb = dbMod.buildSeed();
   log(
@@ -355,7 +365,16 @@ async function main() {
         })),
         skipDuplicates: true,
       });
-      await tx.productImage.createMany({ data: db.productImages, skipDuplicates: true });
+      // Chỉ thêm ảnh cho sản phẩm CHƯA có ảnh: bộ ảnh mock đổi theo ảnh thật trên máy, seed lại không được chèn chồng
+      const hasImages = new Set(
+        (await rawTx.productImage.findMany({ select: { productId: true }, distinct: ['productId'] })).map(
+          (x) => x.productId,
+        ),
+      );
+      await tx.productImage.createMany({
+        data: db.productImages.filter((i) => !hasImages.has(i.productId)),
+        skipDuplicates: true,
+      });
       await tx.product3DModel.createMany({
         data: db.product3dModels.map((m) => ({ ...m, uuid: fixUuid(m.uuid) })) as never,
         skipDuplicates: true,
