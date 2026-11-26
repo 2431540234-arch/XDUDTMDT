@@ -26,7 +26,7 @@ export default function ProductGallery({ images, name, active, onActive, model3d
     <div>
       <div className="relative aspect-[4/3] overflow-hidden rounded-card border border-line bg-surface-muted">
         {cur && (
-          <img src={cur.url} alt={`${name} – ảnh ${active + 1}`} className="h-full w-full object-cover" />
+          <img src={cur.url} alt={`${name} – ảnh ${active + 1}`} className="h-full w-full object-contain" />
         )}
         {discount ? (
           <span
@@ -77,7 +77,7 @@ export default function ProductGallery({ images, name, active, onActive, model3d
               i === active ? 'border-primary' : 'border-transparent hover:border-line',
             )}
           >
-            <img src={im.url} alt="" className="h-full w-full object-cover" />
+            <img src={im.url} alt="" className="h-full w-full object-contain" />
           </button>
         ))}
         {model3dHref && (

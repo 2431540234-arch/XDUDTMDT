@@ -159,7 +159,7 @@ export default function ProductDetailPage() {
                   className="flex items-center gap-3 rounded-card border border-line bg-white p-2 transition hover:border-primary"
                 >
                   <span className="h-16 w-24 shrink-0 overflow-hidden rounded-md bg-surface-muted">
-                    {s.coverUrl && <img src={s.coverUrl} alt="" className="h-full w-full object-cover" />}
+                    {s.coverUrl && <img src={s.coverUrl} alt="" className="h-full w-full object-contain" />}
                   </span>
                   <span className="min-w-0">
                     <span className="line-clamp-2 font-semibold">{s.title}</span>

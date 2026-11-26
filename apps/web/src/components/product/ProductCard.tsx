@@ -41,7 +41,7 @@ export default function ProductCard({ product: p, layout = 'grid', compact }: Pr
               src={p.thumbnailUrl}
               alt={p.name}
               loading="lazy"
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.03]"
             />
           ) : (
             <span className="flex h-full w-full items-center justify-center text-muted">
