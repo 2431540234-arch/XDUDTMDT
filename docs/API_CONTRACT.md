@@ -255,7 +255,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/products` | admin | `admin.list` | `category`, `q`, `sort`, `status` |  |  |
 | POST | `/admin/products` | admin | `admin.create` |  | như PATCH, đầy đủ trường bắt buộc | `CONFLICT` |
 | GET | `/admin/products/:id` | admin | `admin.get` |  |  |  |
-| PATCH | `/admin/products/:id` | admin | `admin.` |  | Product form 6 tab (tên, mô tả, danh mục, thương hiệu, trạng thái, biến thể[], ảnh[], specs[], features[]) |  |
+| PATCH | `/admin/products/:id` | admin | `admin.` |  | Product form 6 tab (tên, mô tả, danh mục, thương hiệu, trạng thái, biến thể[], ảnh[], specs[], features[]); `removedImageIds?: number[]` = id các ảnh cần gỡ, ảnh không gửi trong `images` vẫn được giữ |  |
 | DELETE | `/admin/products/:id` | admin | `admin.remove` |  |  |  |
 
 ### 4. `admin/categories`
