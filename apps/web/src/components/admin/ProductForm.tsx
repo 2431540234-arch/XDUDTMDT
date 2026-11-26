@@ -42,6 +42,8 @@ interface FormImage {
 }
 interface VariantRow {
   id?: number;
+  /** tên màu lúc nạp: không đổi màu thì không gửi mã hex (mã màu dùng chung, sửa ở trang Thuộc tính) */
+  savedColor?: string;
   colorName: string;
   colorHex: string;
   size: string;
@@ -55,6 +57,7 @@ interface Values {
   sku: string;
   categoryId: string;
   status: 'published' | 'draft' | 'archived';
+  isFeatured: boolean;
   brand: string;
   price: string;
   originalPrice: string;
@@ -72,6 +75,7 @@ const EMPTY: Values = {
   sku: '',
   categoryId: '',
   status: 'published',
+  isFeatured: false,
   brand: '',
   price: '',
   originalPrice: '',
@@ -180,6 +184,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
       sku: p.sku,
       categoryId: String(p.categoryId ?? ''),
       status: p.status,
+      isFeatured: Boolean(p.isFeatured),
       brand: p.brand ?? '',
       price: String(p.salePrice ?? p.price),
       originalPrice: p.salePrice ? String(p.price) : '',
@@ -207,6 +212,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
         .filter((x) => x.isActive)
         .map((x) => ({
           id: x.id,
+          savedColor: x.color?.name ?? '',
           colorName: x.color?.name ?? '',
           colorHex: x.color?.hex ?? '#D8C3A5',
           size: x.size ?? '',
@@ -235,12 +241,14 @@ export default function ProductForm({ productId }: { productId?: number }) {
         categoryId: Number(v.categoryId),
         brand: v.brand.trim() || null,
         status: v.status,
+        isFeatured: v.isFeatured,
         price: Number(v.price),
         originalPrice: Number(v.originalPrice) || undefined,
         stock: Number(v.stock),
         shortDescription: v.shortDescription,
         description: v.description,
-        material: v.material || null,
+        // ô chất liệu là chung cho cả sản phẩm: chỉ gửi khi admin đổi, để mỗi biến thể giữ chất liệu của mình
+        ...(editing && v.material === (q.data?.material ?? '') ? {} : { material: v.material || null }),
         style: v.style,
         slug: v.slug || slugify(v.name),
         metaTitle: v.metaTitle,
@@ -256,17 +264,18 @@ export default function ProductForm({ productId }: { productId?: number }) {
           .split('\n')
           .map((s) => s.trim())
           .filter(Boolean),
-        variants: variants.length
-          ? variants.map((x) => ({
-              id: x.id,
-              color: x.colorName ? { name: x.colorName, hex: x.colorHex } : null,
-              size: x.size || null,
-              sku: x.sku,
-              price: Number(x.price),
-              salePrice: x.salePrice === '' ? null : Number(x.salePrice),
-              stockQuantity: Number(x.stockQuantity),
-            }))
-          : undefined,
+        // [] = admin xóa hết dòng ⇒ gộp về biến thể mặc định (không gửi mảng nghĩa là giữ nguyên)
+        variants: variants.map((x) => ({
+          id: x.id,
+          color: x.colorName
+            ? { name: x.colorName, ...(x.colorName === x.savedColor ? {} : { hex: x.colorHex }) }
+            : null,
+          size: x.size || null,
+          sku: x.sku,
+          price: Number(x.price),
+          salePrice: x.salePrice === '' ? null : Number(x.salePrice),
+          stockQuantity: Number(x.stockQuantity),
+        })),
       };
       return editing ? adminApi.products.update(productId!, body) : adminApi.products.create(body);
     },
@@ -441,6 +450,15 @@ export default function ProductForm({ productId }: { productId?: number }) {
                 error={errs.shortDescription}
                 wrapperClassName="sm:col-span-2"
               />
+              <label className="flex items-center gap-2 text-sm font-medium sm:col-span-2">
+                <input
+                  type="checkbox"
+                  checked={v.isFeatured}
+                  onChange={(e) => set('isFeatured', e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                Sản phẩm nổi bật
+              </label>
             </FormGrid>
             <RichEditor value={v.description} onChange={(d) => set('description', d)} />
           </div>
