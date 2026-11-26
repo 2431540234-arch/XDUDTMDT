@@ -13,7 +13,6 @@
     "test:e2e:db": "jest --config ./test/jest-db.config.js --runInBand --forceExit",
     "test:e2e:minio": "jest --config ./test/jest-minio.config.js --runInBand --forceExit",
     "db:seed": "dotenv -e ../../.env -- prisma db seed",
-    "db:process-models": "dotenv -e ../../.env -- ts-node --transpile-only prisma/seed-models-cli.ts",
     "prisma:generate": "dotenv -e ../../.env -- prisma generate",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:status": "dotenv -e ../../.env -- prisma migrate status",

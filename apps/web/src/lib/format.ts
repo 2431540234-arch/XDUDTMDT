@@ -90,3 +90,10 @@ export function slugify(text: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+/** Dung lượng tệp dễ đọc: dưới 0,1 MB hiện theo KB để không thành "0.0 MB" */
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB';
+  if (bytes < 104857.6) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1048576).toFixed(1)} MB`;
+}

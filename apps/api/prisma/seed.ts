@@ -216,68 +216,6 @@ async function seedSample() {
     }
   }
 
-  // Mô hình 3D sofa (chỉ GLB; AR/USDZ ngoài phạm vi, D-P11 => trigger bật has_3d_model)
-  let model = await prisma.product3DModel.findFirst({ where: { productId: sofa.id, isPrimary: true } });
-  if (!model) {
-    const poster = await media(
-      admin.id,
-      'sofa-oslo-poster.webp',
-      'image/webp',
-      60000,
-      'Ảnh chờ mô hình Sofa Oslo',
-    );
-    model = await prisma.product3DModel.create({
-      data: {
-        productId: sofa.id,
-        lengthMm: 2100,
-        widthMm: 900,
-        heightMm: 820,
-        placement: 'floor',
-        allowScaling: false,
-        viewerConfig: {
-          camera_orbit: '45deg 70deg 3m',
-          auto_rotate: true,
-          exposure: 1.0,
-          shadow_intensity: 0.8,
-        },
-        posterMediaId: poster.id,
-        status: 'ready',
-        isPrimary: true,
-      },
-    });
-    const glb = await media(admin.id, 'sofa-oslo-high.glb', 'model/gltf-binary', 4200000, 'GLB sofa');
-    await prisma.modelFile.createMany({
-      data: [
-        {
-          modelId: model.id,
-          format: 'glb',
-          lod: 'high',
-          mediaId: glb.id,
-          polygonCount: 85000,
-          textureResolution: 2048,
-          isCompressed: true,
-          checksum: 'a3f5c1d2e4b6a8f0c2d4e6f8a0b2c4d6e8f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8',
-        },
-      ],
-    });
-    await prisma.modelMaterialVariant.createMany({
-      data: [
-        {
-          modelId: model.id,
-          variantId: vSofaXam.id,
-          materialName: 'fabric_main',
-          config: { baseColor: '#8A8D91', roughness: 0.9 },
-        },
-        {
-          modelId: model.id,
-          variantId: vSofaBe.id,
-          materialName: 'fabric_main',
-          config: { baseColor: '#D9C7A7', roughness: 0.9 },
-        },
-      ],
-    });
-  }
-
   // Không gian mẫu: 2 ảnh 360° + đủ 3 loại hotspot + 1 placement
   let space = await prisma.space.findUnique({ where: { slug: 'phong-khach-toi-gian-20m2' } });
   if (!space) {
@@ -360,7 +298,6 @@ async function seedSample() {
         panoramaId: pano1.id,
         productId: sofa.id,
         variantId: vSofaXam.id,
-        modelId: model.id,
         yaw: 15.5,
         pitch: -12,
         distance: 2.8,
@@ -495,7 +432,7 @@ async function seedSample() {
         productId: sofa.id,
         orderId: order.id,
         rating: 5,
-        content: 'Sofa êm, đúng kích thước như xem AR.',
+        content: 'Sofa êm, đúng kích thước như mô tả.',
         status: 'pending',
       },
     });
@@ -561,11 +498,6 @@ async function main() {
   } else if (process.env.SEED_SAMPLE !== 'false') {
     await seedSample();
     await syncSampleObjects();
-  }
-  // Mô hình 3D mẫu đi qua luồng xử lý nền (đủ 3 LOD, checksum, ready); SEED_SKIP_MODEL_PROCESSING=true để bỏ qua
-  if (process.env.SEED_SAMPLE !== 'false' && process.env.SEED_SKIP_MODEL_PROCESSING !== 'true') {
-    const { processSeedModels } = await import('./seed-models');
-    await processSeedModels();
   }
   console.log('Seed hoàn tất.');
 }

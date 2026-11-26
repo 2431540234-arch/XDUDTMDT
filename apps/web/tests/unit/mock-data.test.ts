@@ -13,7 +13,10 @@ describe('mock-data: số lượng theo yêu cầu', () => {
   });
   it('sản phẩm, 3D, không gian, đơn, đánh giá, coupon, thông báo', () => {
     expect(db.products.length).toBeGreaterThanOrEqual(48);
-    expect(db.product3dModels.length).toBeGreaterThanOrEqual(20);
+    // dữ liệu mẫu không có mô hình 3D: chỉ có khi admin tạo/tải lên và duyệt
+    expect(db.product3dModels).toHaveLength(0);
+    expect(db.modelFiles).toHaveLength(0);
+    expect(db.products.some((p) => p.has3dModel)).toBe(false);
     expect(db.spaces.length).toBeGreaterThanOrEqual(12);
     expect(db.orders.length).toBeGreaterThanOrEqual(60);
     expect(db.reviews.length).toBeGreaterThanOrEqual(80);

@@ -1,7 +1,7 @@
 // Seed dữ liệu từ chính mock-data của Frontend (apps/web/src/mock-data) để giao diện chạy với API thật
 // giống hệt khi chạy với mock. Idempotent: bản ghi đã có (theo khóa chính giữ nguyên id của mock) được bỏ qua.
 //   npm run db:seed -w @aurelia-living/api          (SEED_SOURCE=mock là mặc định)
-// Quy trình: nạp bảng mock (buildSeed) → copy ảnh/GLB/frame 360 vào kho → chèn bảng theo thứ tự khóa ngoại
+// Quy trình: nạp bảng mock (buildSeed) → copy ảnh vào kho → chèn bảng theo thứ tự khóa ngoại
 //            (tắt trigger trong transaction để giữ nguyên lịch sử trạng thái, rating... của mock) → đặt lại sequence.
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -37,7 +37,6 @@ interface MediaOut {
 }
 
 const MIME: Record<string, string> = {
-  glb: 'model/gltf-binary',
   svg: 'image/svg+xml',
   webp: 'image/webp',
 };
@@ -332,11 +331,6 @@ async function main() {
         data: db.productImages.filter((i) => !hasImages.has(i.productId)),
         skipDuplicates: true,
       });
-      await tx.product3DModel.createMany({
-        data: db.product3dModels.map((m) => ({ ...m, uuid: fixUuid(m.uuid) })) as never,
-        skipDuplicates: true,
-      });
-      await tx.modelFile.createMany({ data: db.modelFiles as never, skipDuplicates: true });
 
       // không gian mẫu
       await tx.space.createMany({

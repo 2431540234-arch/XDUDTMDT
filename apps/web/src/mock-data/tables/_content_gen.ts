@@ -65,8 +65,8 @@ export const faqTopics = [
         'Bấm ô "3D" ở hình ảnh sản phẩm hoặc nút "Trải nghiệm 3D ngay" để mở trình xem 3D.',
       ],
       [
-        'Xem AR tại nhà cần thiết bị gì?',
-        'iPhone/iPad (iOS 12+) dùng AR Quick Look, thiết bị Android hỗ trợ ARCore dùng Scene Viewer.',
+        'Sản phẩm nào cũng có mô hình 3D không?',
+        'Chưa. Nút 3D chỉ hiện ở sản phẩm đã có mô hình được duyệt. Mô hình mang tính minh họa, màu và chi tiết có thể khác sản phẩm thật.',
       ],
     ],
   },

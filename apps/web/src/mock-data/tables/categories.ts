@@ -194,7 +194,7 @@ tree.forEach((p, pi) => {
     sortOrder: pi + 1,
     isActive: true,
     metaTitle: `${p.name} – Aurelia Living`,
-    metaDescription: `Nội thất ${p.name.toLowerCase()} hiện đại, xem 3D/AR trước khi mua.`,
+    metaDescription: `Nội thất ${p.name.toLowerCase()} hiện đại, chất liệu chọn lọc cho không gian sống.`,
     createdAt: created,
     updatedAt: created,
   });

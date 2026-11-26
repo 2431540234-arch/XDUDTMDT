@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Icon, { type IconName } from '@/components/ui/Icon';
 import { cn } from '@/lib/cn';
+import { formatFileSize } from '@/lib/format';
 import type { Model3DView } from '@/types/api';
 
 interface MV extends HTMLElement {
@@ -73,13 +74,11 @@ export function pickGlb(
 export default function ProductViewer3D({
   model,
   alt,
-  tint,
   variantId,
   fallbackImage,
 }: {
   model: Model3DView;
   alt: string;
-  tint?: string | null;
   /** Biến thể đang chọn: nếu mô hình có cấu hình vật liệu cho biến thể này thì áp ngay lên vật liệu tương ứng (không tải lại mô hình) */
   variantId?: number | null;
   /** Ảnh thay thế khi không tải được mô hình (mặc định ảnh poster của mô hình) */
@@ -109,30 +108,37 @@ export default function ProductViewer3D({
   const mv = variantId == null ? undefined : model.materialVariants?.find((x) => x.variantId === variantId);
   const [applied, setApplied] = useState('');
 
-  // đổi màu realtime: có cấu hình vật liệu của biến thể thì áp lên đúng vật liệu theo tên; không thì nhuộm vật liệu thân chính
+  // đổi màu realtime CHỈ khi mô hình có cấu hình vật liệu cho biến thể (áp đúng vật liệu theo tên).
+  // Không có cấu hình thì giữ nguyên màu của mô hình: tô đè một màu sẽ làm hỏng texture.
+  const original = useRef(new Map<string, number[]>());
   useEffect(() => {
     const el = ref.current;
-    if (!el || (!mv && !tint)) return;
+    if (!el) return;
     const apply = () => {
       const mats = el.model?.materials;
       if (!mats?.length) return;
-      if (mv) {
-        const m = mats.find((x) => x.name === mv.materialName);
-        if (!m) return;
-        const c = mv.config;
-        if (c.baseColor) m.pbrMetallicRoughness.setBaseColorFactor(c.baseColor);
-        if (c.roughness !== undefined) m.pbrMetallicRoughness.setRoughnessFactor(c.roughness);
-        if (c.metalness !== undefined) m.pbrMetallicRoughness.setMetallicFactor(c.metalness);
-        setApplied(`${mv.materialName}=${c.baseColor ?? ''}`);
-      } else {
-        mats[0].pbrMetallicRoughness.setBaseColorFactor(tint!);
-        setApplied('');
+      for (const m of mats) {
+        // trả vật liệu đã đổi về màu gốc trước khi áp cấu hình khác
+        const saved = original.current.get(m.name);
+        if (saved) m.pbrMetallicRoughness.setBaseColorFactor(saved);
       }
+      const m = mv && mats.find((x) => x.name === mv.materialName);
+      if (!mv || !m) {
+        setApplied('');
+        return;
+      }
+      if (!original.current.has(m.name))
+        original.current.set(m.name, [...m.pbrMetallicRoughness.baseColorFactor]);
+      const c = mv.config;
+      if (c.baseColor) m.pbrMetallicRoughness.setBaseColorFactor(c.baseColor);
+      if (c.roughness !== undefined) m.pbrMetallicRoughness.setRoughnessFactor(c.roughness);
+      if (c.metalness !== undefined) m.pbrMetallicRoughness.setMetallicFactor(c.metalness);
+      setApplied(`${mv.materialName}=${c.baseColor ?? ''}`);
     };
     if (el.model) apply();
     el.addEventListener('load', apply);
     return () => el.removeEventListener('load', apply);
-  }, [mv, tint, ready]);
+  }, [mv, ready]);
 
   useEffect(() => {
     const el = ref.current;
@@ -249,7 +255,7 @@ export default function ProductViewer3D({
         </p>
         <p className="mt-1 text-muted">
           GLB{glb.lod ? ` · LOD ${glb.lod}` : ''}
-          {glb.size ? ` · ${(glb.size / 1048576).toFixed(1)} MB` : ''}
+          {glb.size ? ` · ${formatFileSize(glb.size)}` : ''}
         </p>
       </div>
       {view === 'dims' && (

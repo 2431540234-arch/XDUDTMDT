@@ -12,7 +12,7 @@ import { registerMedia } from '../utils/media-registry';
 import { spaceCoverPhoto } from '../utils/photos';
 import { addDays, iso, makeRng } from '../utils/rng';
 import { categories } from './categories';
-import { product3dModels, productExtras, products } from './_products_gen';
+import { productExtras, products } from './_products_gen';
 
 const rng = makeRng(404);
 
@@ -73,9 +73,8 @@ for (const style of STYLES) {
       const pool = products.filter((p) => p.categoryId === catId && p.status === 'published');
       if (!pool.length) continue;
       const preferred = pool.filter((p) => styleOf(p.id) === style);
-      const withModel = (preferred.length ? preferred : pool).filter((p) =>
-        product3dModels.some((m) => m.productId === p.id && m.status === 'ready'),
-      );
+      // sản phẩm 7 và 13 được loại khỏi lượt ưu tiên để bộ không gian mẫu giữ nguyên như dữ liệu trước đây
+      const withModel = (preferred.length ? preferred : pool).filter((p) => p.id !== 7 && p.id !== 13);
       chosen.push(rng.pick(withModel.length ? withModel : preferred.length ? preferred : pool).id);
     }
     const uniq = [...new Set(chosen)].slice(0, 5);
@@ -150,14 +149,14 @@ for (const style of STYLES) {
         createdAt: at,
         updatedAt: at,
       });
-      const model = product3dModels.find((m) => m.productId === productId);
-      if (model && i < 4) {
+      // vị trí đặt mô hình giữ sẵn (modelId trống): tự hiện khi sản phẩm có mô hình 3D được duyệt
+      if (i < 4) {
         spaceProductPlacements.push({
           id: spaceProductPlacements.length + 1,
           panoramaId: pIds[0],
           productId,
           variantId: null,
-          modelId: model.id,
+          modelId: null,
           yaw,
           pitch,
           distance: 2.2 + rng.next(),

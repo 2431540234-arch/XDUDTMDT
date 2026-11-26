@@ -3,7 +3,7 @@ import type { AttributeCode, OrderStatus, ReviewStatus } from '@aurelia-living/s
 import type { DashboardStats, FinanceReport, InventoryRow, Model3DAdminRow } from '@/types/api';
 import { nextId, resetDb, type Db } from '../db';
 import { ATTRIBUTE_INFO } from '../tables/attributes';
-import { modelFor, productSpecs, sizeSets } from '../tables/_products_spec';
+import { productSpecs, sizeSets } from '../tables/_products_spec';
 import { slugify } from '@/lib/format';
 import { cancelOrderCore, notify, placeOrderCore } from './shop';
 import { settingsView } from './catalog';
@@ -1049,7 +1049,6 @@ function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body) {
       minStock: 5,
       features: [],
       type: 'sofa',
-      modelKey: null,
     };
     db.productExtras.push(ex);
   }
@@ -1320,9 +1319,8 @@ export function uploadModel(ctx: Ctx): Result {
     db.product3dModels.push(m);
     void ex;
   }
-  const spec = productSpecs.find((s) => s.name === p!.name);
-  const modelKey = (spec && modelFor(spec)) ?? 'sofa';
-  const filePath = `/mock/models/${modelKey}.glb?u=${Date.now()}`;
+  // Mock không xử lý tệp: dùng đúng tệp người dùng chọn qua URL tạm của trình duyệt (mất khi tải lại trang)
+  const filePath = String(b.fileUrl || `mock-upload/${Date.now()}.glb`);
   const mediaId = mediaFrom(
     db,
     filePath,

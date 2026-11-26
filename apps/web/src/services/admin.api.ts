@@ -145,6 +145,7 @@ export const adminApi = {
           sizeMB: Math.max(0.1, file.size / 1048576),
           format: meta.format,
           scale: meta.scale,
+          fileUrl: URL.createObjectURL(file),
         });
       }
       // Kho MinIO/S3 (UC-ADM-13 bước 4–5): presign ⇒ PUT thẳng lên bucket PRIVATE ⇒ confirm (202, xử lý nền)

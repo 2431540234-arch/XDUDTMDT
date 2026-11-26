@@ -14,7 +14,7 @@ import Input, { Select, Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
 import { useCategories } from '@/hooks/useProducts';
 import { cn } from '@/lib/cn';
-import { discountPercent, formatCurrency, slugify } from '@/lib/format';
+import { discountPercent, formatCurrency, slugify, formatFileSize } from '@/lib/format';
 import { ApiClientError } from '@/services/api-client';
 import { adminApi } from '@/services/admin.api';
 import { toast } from '@/store/uiStore';
@@ -454,7 +454,7 @@ export default function ProductForm({ productId }: { productId?: number }) {
                 <ul className="mt-2 space-y-1 text-muted">
                   {q.data.model.files.map((f) => (
                     <li key={f.id}>
-                      • {f.fileName} ({f.format.toUpperCase()}, {(f.fileSize / 1048576).toFixed(1)} MB)
+                      • {f.fileName} ({f.format.toUpperCase()}, {formatFileSize(f.fileSize)})
                     </li>
                   ))}
                   <li>

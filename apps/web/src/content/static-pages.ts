@@ -19,7 +19,7 @@ export const STATIC_PAGES: StaticPage[] = [
     title: 'Về chúng tôi',
     type: 'static',
     content:
-      '## 1. Câu chuyện của Aurelia Living\nAurelia Living ra đời với mong muốn mang không gian sống mơ ước đến gần mọi gia đình Việt. Chúng tôi kết hợp nội thất chất lượng cao với trải nghiệm xem 3D, thực tế tăng cường (AR) và không gian mẫu 360° để bạn hình dung rõ ràng trước khi mua.\n\n## 2. Giá trị cốt lõi\n- Chất lượng: vật liệu chọn lọc, kiểm tra 5 bước.\n- Minh bạch: giá niêm yết rõ ràng, đổi trả dễ dàng.\n- Sáng tạo: công nghệ 3D giúp chọn đồ chính xác.\n- Tận tâm: đồng hành cùng bạn từ tư vấn đến lắp đặt.\n\n_Về chúng tôi – cập nhật lần cuối 01/10/2026._',
+      '## 1. Câu chuyện của Aurelia Living\nAurelia Living ra đời với mong muốn mang không gian sống mơ ước đến gần mọi gia đình Việt. Chúng tôi kết hợp nội thất chất lượng cao với trải nghiệm xem 3D và không gian mẫu 360° để bạn hình dung rõ ràng trước khi mua.\n\n## 2. Giá trị cốt lõi\n- Chất lượng: vật liệu chọn lọc, kiểm tra 5 bước.\n- Minh bạch: giá niêm yết rõ ràng, đổi trả dễ dàng.\n- Sáng tạo: công nghệ 3D giúp chọn đồ chính xác.\n- Tận tâm: đồng hành cùng bạn từ tư vấn đến lắp đặt.\n\n_Về chúng tôi – cập nhật lần cuối 01/10/2026._',
     metaTitle: 'Về chúng tôi – Aurelia Living',
     metaDescription: 'Về chúng tôi',
     updatedAt: '2026-10-01T08:00:00.000Z',

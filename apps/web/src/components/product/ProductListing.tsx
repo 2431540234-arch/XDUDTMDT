@@ -92,11 +92,11 @@ export default function ProductListing({ mode }: { mode: 'list' | 'search' }) {
                 <p className="mt-1 font-medium text-primary">
                   {currentCat
                     ? `Khám phá các mẫu ${currentCat.name.toLowerCase()} tại Aurelia Living`
-                    : 'Nơi nội thất 3D sống gần hơn với bạn'}
+                    : 'Nội thất cho không gian sống của bạn'}
                 </p>
                 <p className="mt-2 max-w-xl text-sm text-muted">
                   {currentCat?.description ??
-                    'Bộ sưu tập nội thất hiện đại, chất liệu chọn lọc, hỗ trợ xem 3D trước khi mua.'}
+                    'Bộ sưu tập nội thất hiện đại, chất liệu chọn lọc cho mọi không gian.'}
                 </p>
               </>
             )}

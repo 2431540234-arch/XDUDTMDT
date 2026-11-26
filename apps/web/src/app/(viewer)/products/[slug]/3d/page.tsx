@@ -40,7 +40,6 @@ export default function Viewer3DPage() {
 
   const variant =
     p?.variants.find((v) => (v.color?.name ?? null) === color && (v.size ?? null) === size) ?? null;
-  const hex = p?.colors.find((c) => c.name === color)?.hex ?? null;
 
   if (q.isLoading)
     return (
@@ -112,7 +111,6 @@ export default function Viewer3DPage() {
           <ProductViewer3D
             model={p.model}
             alt={`Mô hình 3D ${p.name}`}
-            tint={hex}
             variantId={variant?.id ?? null}
             fallbackImage={p.images[0]?.url ?? null}
           />
