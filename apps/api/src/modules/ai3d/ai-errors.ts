@@ -6,6 +6,7 @@ export type AiErrorKind =
   | 'auth'
   | 'timeout'
   | 'bad_output'
+  | 'bad_input'
   | 'interrupted'
   | 'unknown';
 
@@ -22,6 +23,8 @@ const FRIENDLY: Record<AiErrorKind, string> = {
   auth: 'Hugging Face từ chối token. Kiểm tra HF_TOKEN trong cấu hình máy chủ.',
   timeout: 'Quá thời gian chờ tạo mô hình.',
   bad_output: 'Máy chủ AI không trả về tệp GLB hợp lệ.',
+  bad_input:
+    'Không đọc được ảnh đầu vào (tệp ảnh hỏng hoặc không còn trên kho). Hãy chọn ảnh khác. Chưa gọi máy chủ AI.',
   interrupted: 'Việc tạo bị gián đoạn (máy chủ khởi động lại). Không tự chạy lại để tránh tốn thêm lượt.',
   unknown: 'Lỗi không rõ từ máy chủ AI. Xem thông báo nguyên văn bên dưới.',
 };

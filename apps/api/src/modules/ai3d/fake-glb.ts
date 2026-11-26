@@ -62,7 +62,12 @@ export async function buildFakeGlb(options: FakeGlbOptions = {}): Promise<Buffer
   const buffer = doc.createBuffer();
   const accessor = (type: 'VEC3' | 'VEC2' | 'SCALAR', array: Float32Array | Uint32Array) =>
     doc.createAccessor().setType(type).setArray(array).setBuffer(buffer);
-  const pixels = sharp({ create: { width: 64, height: 64, channels: 3, background: '#b98d5c' } });
+  // ảnh chuyển màu (không một màu) để bước dọn tệp không thay texture bằng màu phẳng
+  const side = 64;
+  const raw = Buffer.alloc(side * side * 3);
+  for (let i = 0; i < side * side; i++)
+    raw.set([185, 141 - ((i % side) >> 1), 92 - (Math.floor(i / side) >> 1)], i * 3);
+  const pixels = sharp(raw, { raw: { width: side, height: side, channels: 3 } });
   const image = options.jpegAsPng ? await pixels.jpeg().toBuffer() : await pixels.png().toBuffer();
   const texture = doc.createTexture('color').setImage(new Uint8Array(image)).setMimeType('image/png');
   const material = doc

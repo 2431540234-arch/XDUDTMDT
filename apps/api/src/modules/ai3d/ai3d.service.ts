@@ -70,10 +70,13 @@ export class Ai3dService {
   async status() {
     const reason = this.provider.unavailableReason();
     const usage = await this.usage();
-    const last = await this.prisma.activityLog.findFirst({
+    // lỗi gần nhất TỪ máy chủ AI: bỏ qua lỗi ảnh đầu vào (chưa gọi đi)
+    const failures = await this.prisma.activityLog.findMany({
       where: { action: 'model.ai_failed' },
       orderBy: { id: 'desc' },
+      take: 20,
     });
+    const last = failures.find((l) => (l.changes as { kind?: string } | null)?.kind !== 'bad_input');
     const changes = (last?.changes ?? {}) as { message?: string; raw?: string; space?: string };
     return {
       enabled: !reason,
@@ -216,6 +219,19 @@ export class Ai3dService {
     return this.request(adminId, next);
   }
 
+  /** Ảnh gửi đi: PNG, cạnh dài tối đa 1600 px. Lỗi ở đây là lỗi phía mình, chưa gọi máy chủ AI */
+  private async prepareImage(key: string): Promise<Buffer> {
+    try {
+      return await sharp(await this.storage.download(key, 'public'))
+        .rotate()
+        .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
+        .png()
+        .toBuffer();
+    } catch (e) {
+      throw new AiProviderError('bad_input', rawMessage(e));
+    }
+  }
+
   /** Thân job: gọi nhà cung cấp rồi chuyển sang chuẩn hóa. Ném AiProviderError khi lỗi (chưa đổi trạng thái). */
   async runGeneration({ modelId, adminId }: Ai3dJobData): Promise<void> {
     const model = await this.prisma.product3DModel.findUnique({ where: { id: modelId } });
@@ -223,12 +239,8 @@ export class Ai3dService {
     // đã bị bỏ, hoặc đã có tệp thô (job chạy lại): không gọi AI nữa
     if (!model || model.status !== 'processing' || pipeline?.source !== 'ai' || pipeline.rawKey) return;
     const media = await this.prisma.media.findUnique({ where: { id: pipeline.sourceImageMediaId! } });
-    if (!media) throw new AiProviderError('unknown', 'Ảnh đầu vào không còn tồn tại.');
-    const image = await sharp(await this.storage.download(media.filePath, 'public'))
-      .rotate()
-      .resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true })
-      .png()
-      .toBuffer();
+    if (!media) throw new AiProviderError('bad_input', 'Ảnh đầu vào không còn tồn tại.');
+    const image = await this.prepareImage(media.filePath);
 
     pipeline.stage = 'generating';
     delete pipeline.error;

@@ -11,6 +11,6 @@ import { ProductModelsService } from './product-models.service';
   imports: [ProductsModule],
   controllers: [AdminModelsController],
   providers: [ProductModelsService, AdminModelCatalogService, ModelMaterialsService, ModelReviewService],
-  exports: [ProductModelsService, AdminModelCatalogService],
+  exports: [ProductModelsService, AdminModelCatalogService, ModelReviewService],
 })
 export class ProductModelsModule {}
