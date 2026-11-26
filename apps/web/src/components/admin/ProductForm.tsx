@@ -33,6 +33,14 @@ const TABS: Array<{ key: Tab; label: string }> = [
 const MATERIALS = ['Vải', 'Da', 'Nỉ', 'Gỗ', 'Kim loại', 'Đá', 'Kính'];
 const STYLES = ['Hiện đại', 'Bắc Âu', 'Tối giản', 'Japandi', 'Cổ điển', 'Luxury'];
 
+/** Một ảnh trên form. Ảnh đã lưu có id (dòng product_images) và giữ nguyên liên kết biến thể */
+interface FormImage {
+  id?: number;
+  mediaId?: number;
+  variantId: number | null;
+  url: string;
+  isPrimary: boolean;
+}
 interface VariantRow {
   id?: number;
   colorName: string;
@@ -157,7 +165,9 @@ export default function ProductForm({ productId }: { productId?: number }) {
   }, []);
   const [v, setV] = useState<Values>(EMPTY);
   const [errs, setErrs] = useState<Record<string, string>>({});
-  const [images, setImages] = useState<Array<{ url: string; isPrimary: boolean }>>([]);
+  const [images, setImages] = useState<FormImage[]>([]);
+  // chỉ những ảnh đã lưu mà admin bấm xóa trên form mới bị gỡ khỏi sản phẩm
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [features, setFeatures] = useState('');
   const cats = useCategories();
@@ -188,8 +198,15 @@ export default function ProductForm({ productId }: { productId?: number }) {
       metaDescription: p.metaDescription ?? '',
     });
     setImages(
-      p.images.filter((i) => i.variantId === null).map((i) => ({ url: i.url, isPrimary: i.isPrimary })),
+      p.images.map((i) => ({
+        id: i.id,
+        mediaId: i.mediaId,
+        variantId: i.variantId ?? null,
+        url: i.url,
+        isPrimary: i.isPrimary,
+      })),
     );
+    setRemovedImageIds([]);
     setVariants(
       p.variants
         .filter((x) => x.isActive)
@@ -233,7 +250,13 @@ export default function ProductForm({ productId }: { productId?: number }) {
         slug: v.slug || slugify(v.name),
         metaTitle: v.metaTitle,
         metaDescription: v.metaDescription,
-        images,
+        images: images.map((i) => ({
+          url: i.url,
+          isPrimary: i.isPrimary,
+          // ảnh mới tải lên chưa có mediaId/biến thể
+          ...(i.id === undefined ? {} : { mediaId: i.mediaId, variantId: i.variantId }),
+        })),
+        removedImageIds,
         features: features
           .split('\n')
           .map((s) => s.trim())
@@ -439,11 +462,20 @@ export default function ProductForm({ productId }: { productId?: number }) {
                 const urls = await Promise.all(files.map(readAsDataUrl));
                 setImages((cur) => [
                   ...cur,
-                  ...urls.map((url, i) => ({ url, isPrimary: cur.length === 0 && i === 0 })),
+                  ...urls.map((url, i) => ({ url, variantId: null, isPrimary: cur.length === 0 && i === 0 })),
                 ]);
               }}
             />
-            <ImagesEditor images={images} setImages={setImages} />
+            <ImagesEditor
+              images={images}
+              setImages={setImages}
+              onRemove={(id) => setRemovedImageIds((cur) => [...cur, id])}
+              groupOf={(variantId) => {
+                if (variantId === null) return 'Ảnh chung';
+                const x = q.data?.variants.find((y) => y.id === variantId);
+                return x?.color?.name ? `Màu ${x.color.name}` : `Biến thể ${x?.sku ?? variantId}`;
+              }}
+            />
           </div>
         )}
 
@@ -519,78 +551,103 @@ export default function ProductForm({ productId }: { productId?: number }) {
 function ImagesEditor({
   images,
   setImages,
+  onRemove,
+  groupOf,
 }: {
-  images: Array<{ url: string; isPrimary: boolean }>;
-  setImages: (v: Array<{ url: string; isPrimary: boolean }>) => void;
+  images: FormImage[];
+  setImages: (v: FormImage[]) => void;
+  onRemove: (id: number) => void;
+  groupOf: (variantId: number | null) => string;
 }) {
-  const move = (i: number, d: number) => {
-    const j = i + d;
-    if (j < 0 || j >= images.length) return;
+  // nhóm chỉ để hiển thị: thứ tự lưu vẫn là thứ tự của cả danh sách; các cỡ cùng màu chung một nhóm
+  const groups = new Map<string, number[]>([['Ảnh chung', []]]);
+  images.forEach((im, i) => {
+    const name = groupOf(im.variantId);
+    groups.set(name, [...(groups.get(name) ?? []), i]);
+  });
+  /** Đổi chỗ với ảnh liền trước/sau TRONG CÙNG nhóm */
+  const move = (members: number[], at: number, d: number) => {
+    const i = members[at];
+    const j = members[at + d];
+    if (j === undefined) return;
     const next = [...images];
     [next[i], next[j]] = [next[j], next[i]];
     setImages(next);
   };
+  const remove = (i: number) => {
+    const { id } = images[i];
+    if (id !== undefined) onRemove(id);
+    setImages(
+      images
+        .filter((_, k) => k !== i)
+        .map((x, k, arr) => ({ ...x, isPrimary: arr.some((y) => y.isPrimary) ? x.isPrimary : k === 0 })),
+    );
+  };
   return (
-    <div>
-      <p className="mb-2 text-sm text-muted">
-        {images.length} ảnh · ảnh đầu tiên (hoặc ảnh được đánh dấu) là ảnh đại diện.
+    <div className="space-y-4">
+      <p className="text-sm text-muted">
+        {images.length} ảnh · ảnh đầu tiên (hoặc ảnh được đánh dấu) là ảnh đại diện. Ảnh mới tải lên vào nhóm
+        Ảnh chung.
       </p>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {images.map((im, i) => (
-          <li key={i} className="overflow-hidden rounded-card border border-line">
-            <div className="aspect-[4/3] bg-surface-muted">
-              <img src={im.url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
-            </div>
-            <div className="flex items-center justify-between gap-1 p-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setImages(images.map((x, k) => ({ ...x, isPrimary: k === i })))}
-                className={cn(
-                  'rounded px-2 py-1 font-semibold',
-                  im.isPrimary ? 'bg-primary text-white' : 'bg-surface-muted hover:bg-line',
-                )}
-              >
-                {im.isPrimary ? 'Ảnh chính' : 'Đặt làm chính'}
-              </button>
-              <span className="flex">
-                <button
-                  type="button"
-                  aria-label="Lên"
-                  onClick={() => move(i, -1)}
-                  className="p-1 hover:text-primary"
-                >
-                  <Icon name="chevronLeft" size={14} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Xuống"
-                  onClick={() => move(i, 1)}
-                  className="p-1 hover:text-primary"
-                >
-                  <Icon name="chevronRight" size={14} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Xóa ảnh"
-                  onClick={() =>
-                    setImages(
-                      images
-                        .filter((_, k) => k !== i)
-                        .map((x, k, arr) => ({
-                          ...x,
-                          isPrimary: arr.some((y) => y.isPrimary) ? x.isPrimary : k === 0,
-                        })),
-                    )
-                  }
-                  className="p-1 hover:text-danger"
-                >
-                  <Icon name="trash" size={14} />
-                </button>
-              </span>
-            </div>
-          </li>
+      {[...groups]
+        .filter(([, members]) => members.length)
+        .map(([name, members]) => (
+          <div key={name} role="group" aria-label={name}>
+            <p className="mb-2 text-sm font-semibold">
+              {name} ({members.length})
+            </p>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {members.map((i, at) => {
+                const im = images[i];
+                return (
+                  <li key={im.id ?? `moi-${i}`} className="overflow-hidden rounded-card border border-line">
+                    <div className="aspect-[4/3] bg-surface-muted">
+                      <img src={im.url} alt={`Ảnh ${i + 1}`} className="h-full w-full object-cover" />
+                    </div>
+                    <div className="flex items-center justify-between gap-1 p-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setImages(images.map((x, k) => ({ ...x, isPrimary: k === i })))}
+                        className={cn(
+                          'rounded px-2 py-1 font-semibold',
+                          im.isPrimary ? 'bg-primary text-white' : 'bg-surface-muted hover:bg-line',
+                        )}
+                      >
+                        {im.isPrimary ? 'Ảnh chính' : 'Đặt làm chính'}
+                      </button>
+                      <span className="flex">
+                        <button
+                          type="button"
+                          aria-label="Lên"
+                          onClick={() => move(members, at, -1)}
+                          className="p-1 hover:text-primary"
+                        >
+                          <Icon name="chevronLeft" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Xuống"
+                          onClick={() => move(members, at, 1)}
+                          className="p-1 hover:text-primary"
+                        >
+                          <Icon name="chevronRight" size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="Xóa ảnh"
+                          onClick={() => remove(i)}
+                          className="p-1 hover:text-danger"
+                        >
+                          <Icon name="trash" size={14} />
+                        </button>
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         ))}
-      </ul>
     </div>
   );
 }

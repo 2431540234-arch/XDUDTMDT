@@ -990,6 +990,50 @@ function validateProduct(b: Record<string, unknown>, creating: boolean) {
   if (Object.keys(errs).length) throw validation(errs);
 }
 
+function saveImages(db: Db, p: Db['products'][number], b: Body) {
+  const existing = db.productImages.filter((i) => i.productId === p.id);
+  const used = new Set<number>();
+  const desired: Array<{ row: Db['productImages'][number]; wantPrimary: boolean }> = [];
+  const sent = (Array.isArray(b.images) ? b.images : []) as Array<{
+    url: string;
+    variantId?: number | null;
+    isPrimary?: boolean;
+  }>;
+  sent.forEach((im, idx) => {
+    let row = existing.find((e) => !used.has(e.id) && mediaPath(db, e.mediaId) === im.url);
+    if (!row) {
+      row = {
+        id: nextId(db.productImages),
+        productId: p.id,
+        variantId: null,
+        mediaId: mediaFrom(db, im.url, `${p.slug}-${idx + 1}.png`),
+        sortOrder: 0,
+        isPrimary: false,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      db.productImages.push(row);
+    }
+    if (im.variantId !== undefined) row.variantId = im.variantId;
+    used.add(row.id);
+    desired.push({ row, wantPrimary: Boolean(im.isPrimary) });
+  });
+  const removed = new Set(((b.removedImageIds ?? []) as unknown[]).map(Number));
+  existing
+    .filter((e) => !used.has(e.id) && !removed.has(e.id))
+    .sort((x, y) => x.sortOrder - y.sortOrder || x.id - y.id)
+    .forEach((row) => desired.push({ row, wantPrimary: false }));
+  const keep = new Set(desired.map((d) => d.row.id));
+  db.productImages = db.productImages.filter((i) => i.productId !== p.id || keep.has(i.id));
+  const flagged = desired.findIndex((d) => d.wantPrimary);
+  const previous = desired.findIndex((d) => d.row.isPrimary);
+  const primary = flagged >= 0 ? flagged : Math.max(previous, 0);
+  desired.forEach(({ row }, i) => {
+    row.sortOrder = i + 1;
+    row.isPrimary = i === primary;
+  });
+}
+
 function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body) {
   const db = ctx.db;
   p.name = String(b.name).trim();
@@ -1020,22 +1064,8 @@ function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body) {
           },
         ];
   saveVariants(db, p.id, variants, material);
-  // Ảnh
-  if (Array.isArray(b.images)) {
-    db.productImages = db.productImages.filter((i) => i.productId !== p.id);
-    (b.images as Array<{ url: string; isPrimary?: boolean }>).forEach((im, idx) => {
-      db.productImages.push({
-        id: nextId(db.productImages),
-        productId: p.id,
-        variantId: null,
-        mediaId: mediaFrom(db, im.url, `${p.slug}-${idx + 1}.png`),
-        sortOrder: idx + 1,
-        isPrimary: Boolean(im.isPrimary) || idx === 0,
-        createdAt: nowIso(),
-        updatedAt: nowIso(),
-      });
-    });
-  }
+  // Ảnh (cùng quy tắc với API thật): chỉ gỡ ảnh trong removedImageIds; ảnh không gửi lên giữ nguyên dòng và biến thể
+  if (Array.isArray(b.images) || Array.isArray(b.removedImageIds)) saveImages(db, p, b);
   // Mở rộng (chưa có trong DB)
   let ex = db.productExtras.find((e) => e.productId === p.id);
   if (!ex) {

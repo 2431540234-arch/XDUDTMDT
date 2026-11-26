@@ -234,6 +234,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         ...baseBody('go-a'),
         variants: [variantBody(`IMG-${tag}-6A`, { id: a.variants[0].id })],
         images: [ref(i2)],
+        removedImageIds: [i1.id],
       });
       expect(r.status).toBe(200);
       expect((r.body.data.images as Img[]).map((i) => i.mediaId)).toEqual([i2.mediaId]);
@@ -266,11 +267,13 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         p.images[1].mediaId,
       ]);
 
+      const all = p.images.map((i) => i.id);
       // đang đăng (published) mà gỡ hết ảnh ⇒ 400 theo trường images, ảnh giữ nguyên (DAC_TA UC-ADM-09 9a)
       const refused = await api('patch', `/admin/products/${p.id}`, admin, {
         ...baseBody('rong'),
         variants: v,
         images: [],
+        removedImageIds: all,
       });
       expect(refused.status).toBe(400);
       expect(Object.keys(refused.body.error.details)).toContain('images');
@@ -280,6 +283,7 @@ describe('Biến thể và ảnh sản phẩm – admin (aurelia_test)', () => {
         ...baseBody('rong', { status: 'draft' }),
         variants: v,
         images: [],
+        removedImageIds: all,
       });
       expect(empty.status).toBe(200);
       expect(empty.body.data.images).toEqual([]);
