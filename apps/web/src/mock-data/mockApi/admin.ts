@@ -914,15 +914,19 @@ export function adminProduct(ctx: Ctx): Result {
   return ok({ ...detail, allVariants: detail.variants });
 }
 
+/** undefined = không gửi lên ⇒ giữ giá trị cũ; null = xóa (cùng quy tắc với API thật) */
 interface VariantInput {
   id?: number;
-  color?: { name: string; hex: string } | null;
+  color?: { name: string; hex?: string } | null;
   size?: string | null;
-  sku: string;
-  price: number;
+  sku?: string;
+  price?: number;
   salePrice?: number | null;
-  stockQuantity: number;
+  stockQuantity?: number;
 }
+
+const defined = <T extends object>(o: T) =>
+  Object.fromEntries(Object.entries(o).filter(([, value]) => value !== undefined)) as Partial<T>;
 
 function ensureAttrValue(db: Db, attributeCode: AttributeCode, value: string, hex?: string) {
   let v = db.attributeValues.find((x) => x.attributeCode === attributeCode && x.value === value);
@@ -934,18 +938,35 @@ function ensureAttrValue(db: Db, attributeCode: AttributeCode, value: string, he
   return v.id;
 }
 
-function saveVariants(db: Db, productId: number, inputs: VariantInput[], material: string | null) {
+function saveVariants(
+  db: Db,
+  productId: number,
+  inputs: VariantInput[],
+  material: string | null | undefined,
+) {
   const keep = new Set<number>();
+  // chất liệu chung của các biến thể đang bán, dành cho biến thể mới khi không gửi material
+  const materialIds = new Set(
+    db.variantAttributeValues
+      .filter(
+        (x) =>
+          x.attributeCode === 'material' &&
+          db.productVariants.some((v) => v.id === x.variantId && v.productId === productId && v.isActive),
+      )
+      .map((x) => x.attributeValueId),
+  );
+  const inherited = materialIds.size === 1 ? [...materialIds][0] : null;
   for (const vi of inputs) {
     let v = vi.id ? db.productVariants.find((x) => x.id === vi.id && x.productId === productId) : undefined;
+    const own = Boolean(v);
     if (!v) {
       v = {
         id: nextId(db.productVariants),
         productId,
-        sku: vi.sku,
-        price: vi.price,
+        sku: vi.sku!,
+        price: vi.price!,
         salePrice: vi.salePrice ?? null,
-        stockQuantity: vi.stockQuantity,
+        stockQuantity: vi.stockQuantity!,
         weightGram: null,
         isActive: true,
         createdAt: nowIso(),
@@ -954,15 +975,24 @@ function saveVariants(db: Db, productId: number, inputs: VariantInput[], materia
       db.productVariants.push(v);
     } else
       Object.assign(v, {
-        sku: vi.sku,
-        price: vi.price,
-        salePrice: vi.salePrice ?? null,
-        stockQuantity: vi.stockQuantity,
+        ...defined({
+          sku: vi.sku,
+          price: vi.price,
+          salePrice: vi.salePrice,
+          stockQuantity: vi.stockQuantity,
+        }),
         isActive: true,
         updatedAt: nowIso(),
       });
     keep.add(v.id);
-    db.variantAttributeValues = db.variantAttributeValues.filter((x) => x.variantId !== v!.id);
+    // chỉ thay thuộc tính được gửi lên
+    const changed: AttributeCode[] = [];
+    if (!own || vi.color !== undefined) changed.push('color');
+    if (!own || vi.size !== undefined) changed.push('size');
+    if (material !== undefined) changed.push('material');
+    db.variantAttributeValues = db.variantAttributeValues.filter(
+      (x) => x.variantId !== v!.id || !changed.includes(x.attributeCode),
+    );
     const link = (attributeCode: AttributeCode, valueId: number) =>
       db.variantAttributeValues.push({
         variantId: v!.id,
@@ -970,9 +1000,11 @@ function saveVariants(db: Db, productId: number, inputs: VariantInput[], materia
         attributeCode,
         createdAt: nowIso(),
       });
-    if (vi.color) link('color', ensureAttrValue(db, 'color', vi.color.name, vi.color.hex));
-    link('size', ensureAttrValue(db, 'size', vi.size || 'Tiêu chuẩn'));
+    if (changed.includes('color') && vi.color)
+      link('color', ensureAttrValue(db, 'color', vi.color.name, vi.color.hex));
+    if (changed.includes('size')) link('size', ensureAttrValue(db, 'size', vi.size || 'Tiêu chuẩn'));
     if (material) link('material', ensureAttrValue(db, 'material', material));
+    else if (material === undefined && !own && inherited) link('material', inherited);
   }
   db.productVariants
     .filter((v) => v.productId === productId && !keep.has(v.id))
@@ -984,8 +1016,11 @@ function validateProduct(b: Record<string, unknown>, creating: boolean) {
   if (String(b.name ?? '').trim().length < 2) errs.name = 'Vui lòng nhập tên sản phẩm.';
   if (creating && !String(b.sku ?? '').trim()) errs.sku = 'Vui lòng nhập SKU.';
   if (!b.categoryId) errs.categoryId = 'Vui lòng chọn danh mục.';
-  if (!(Number(b.price) > 0)) errs.price = 'Giá bán phải lớn hơn 0.';
-  if (Number(b.stock) < 0 || b.stock === '' || b.stock === undefined) errs.stock = 'Vui lòng nhập tồn kho.';
+  // PATCH không gửi price/stock là hợp lệ, trừ khi cần dựng biến thể mặc định (variants = [])
+  const required = creating || (Array.isArray(b.variants) && !b.variants.length);
+  if ((required || b.price !== undefined) && !(Number(b.price) > 0)) errs.price = 'Giá bán phải lớn hơn 0.';
+  if ((required || b.stock !== undefined) && (b.stock === '' || b.stock === null || !(Number(b.stock) >= 0)))
+    errs.stock = 'Vui lòng nhập tồn kho.';
   if (!String(b.shortDescription ?? '').trim()) errs.shortDescription = 'Vui lòng nhập mô tả ngắn.';
   if (Object.keys(errs).length) throw validation(errs);
 }
@@ -1034,36 +1069,58 @@ function saveImages(db: Db, p: Db['products'][number], b: Body) {
   });
 }
 
-function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body) {
+/** PATCH không gửi variants: giữ mọi biến thể; chỉ khi có đúng một biến thể thì price/originalPrice/stock/sku được áp vào nó */
+function untouchedVariants(db: Db, productId: number, b: Body): VariantInput[] {
+  const active = db.productVariants.filter((v) => v.productId === productId && v.isActive);
+  const inputs: VariantInput[] = active.map((v) => ({ id: v.id }));
+  if (active.length !== 1) return inputs;
+  const [cur] = active;
+  const [only] = inputs;
+  if (String(b.sku ?? '').trim()) only.sku = String(b.sku).trim();
+  if (b.stock !== undefined) only.stockQuantity = Number(b.stock);
+  if (b.price !== undefined || b.originalPrice !== undefined) {
+    const sell = b.price !== undefined ? Number(b.price) : Number(cur.salePrice ?? cur.price);
+    const listed = cur.salePrice === null ? 0 : Number(cur.price);
+    const original = b.originalPrice !== undefined ? Number(b.originalPrice) : listed;
+    only.price = original > sell ? original : sell;
+    only.salePrice = original > sell ? sell : null;
+  }
+  return inputs;
+}
+
+/** Trường không có trong body thì giữ nguyên giá trị cũ; khi tạo mới, p đã mang sẵn giá trị mặc định */
+function applyProductBody(ctx: Ctx, p: Db['products'][number], b: Body, creating: boolean) {
   const db = ctx.db;
   p.name = String(b.name).trim();
   if (b.slug) p.slug = slugify(String(b.slug));
   p.categoryId = Number(b.categoryId);
-  p.brand = String(b.brand ?? '').trim() || null;
-  p.status = b.status ?? 'published';
-  p.isFeatured = Boolean(b.isFeatured);
+  if (b.brand !== undefined) p.brand = String(b.brand ?? '').trim() || null;
+  if (b.status !== undefined) p.status = b.status;
+  if (b.isFeatured !== undefined) p.isFeatured = Boolean(b.isFeatured);
   p.shortDescription = String(b.shortDescription ?? '');
-  p.description = String(b.description ?? '');
-  p.metaTitle = b.metaTitle || null;
-  p.metaDescription = b.metaDescription || null;
+  if (b.description !== undefined) p.description = String(b.description ?? '');
+  if (b.metaTitle !== undefined) p.metaTitle = b.metaTitle || null;
+  if (b.metaDescription !== undefined) p.metaDescription = b.metaDescription || null;
   p.updatedAt = nowIso();
   // Biến thể
-  const material = b.material ? String(b.material) : null;
+  const material = b.material === undefined ? undefined : b.material ? String(b.material) : null;
   const variants: VariantInput[] =
     Array.isArray(b.variants) && b.variants.length
       ? b.variants
-      : [
-          {
-            id: db.productVariants.find((v) => v.productId === p.id && v.isActive)?.id,
-            sku: String(b.sku),
-            price: Number(b.originalPrice) > Number(b.price) ? Number(b.originalPrice) : Number(b.price),
-            salePrice: Number(b.originalPrice) > Number(b.price) ? Number(b.price) : null,
-            stockQuantity: Number(b.stock),
-            color: null,
-            size: null,
-          },
-        ];
-  saveVariants(db, p.id, variants, material);
+      : !creating && !Array.isArray(b.variants)
+        ? untouchedVariants(db, p.id, b)
+        : [
+            {
+              id: db.productVariants.find((v) => v.productId === p.id && v.isActive)?.id,
+              sku: String(b.sku),
+              price: Number(b.originalPrice) > Number(b.price) ? Number(b.originalPrice) : Number(b.price),
+              salePrice: Number(b.originalPrice) > Number(b.price) ? Number(b.price) : null,
+              stockQuantity: Number(b.stock),
+              color: null,
+              size: null,
+            },
+          ];
+  if (variants.length) saveVariants(db, p.id, variants, material);
   // Ảnh (cùng quy tắc với API thật): chỉ gỡ ảnh trong removedImageIds; ảnh không gửi lên giữ nguyên dòng và biến thể
   if (Array.isArray(b.images) || Array.isArray(b.removedImageIds)) saveImages(db, p, b);
   // Mở rộng (chưa có trong DB)
@@ -1118,7 +1175,7 @@ export function createProduct(ctx: Ctx): Result {
     updatedAt: at,
   };
   ctx.db.products.push(p);
-  applyProductBody(ctx, p, { ...b, slug });
+  applyProductBody(ctx, p, { ...b, slug }, true);
   log(ctx, 'product.create', 'product', id, { name });
   return created(productDetail(ctx.db, p));
 }
@@ -1128,7 +1185,7 @@ export function updateProduct(ctx: Ctx): Result {
   if (!p) throw notFound('Sản phẩm');
   const b = { ...ctx.body };
   validateProduct({ sku: 'x', ...b }, false);
-  applyProductBody(ctx, p, b);
+  applyProductBody(ctx, p, b, false);
   log(ctx, 'product.update', 'product', p.id, { name: p.name });
   return ok(productDetail(ctx.db, p));
 }
