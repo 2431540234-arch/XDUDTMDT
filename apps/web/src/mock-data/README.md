@@ -48,7 +48,7 @@ mock-data/
   index.ts           gom tất cả bảng
 ```
 
-Ảnh minh họa SVG (tông kem–nâu) sinh bởi route `apps/web/src/app/mock-img/[kind]/route.ts` (sản phẩm, phòng, ảnh 360°, avatar). Mô hình 3D mẫu `apps/web/public/mock/models/*.glb` do `apps/web/scripts/gen-mock-glb.mjs` tự sinh (CC0, không vướng bản quyền) – chạy lại bằng `node apps/web/scripts/gen-mock-glb.mjs`.
+Ảnh minh họa SVG (tông kem–nâu) sinh bởi route `apps/web/src/app/mock-img/[kind]/route.ts` (sản phẩm, phòng, ảnh 360°, avatar). Dữ liệu mẫu không có mô hình 3D: nút 3D chỉ hiện khi admin tạo/tải lên và duyệt. Ở chế độ mock, tải GLB chỉ được mô phỏng (tệp giữ bằng URL tạm của trình duyệt) và không có tạo bằng AI.
 
 ## Ảnh thật (không nằm trong git)
 
@@ -66,7 +66,6 @@ mock-data/
 - Bỏ một sản phẩm khỏi manifest: chạy lại `npm run images:convert` (xóa file thừa), và với DB đã cập nhật thì chạy lại `update-real-images` để đưa về ảnh minh họa.
 - Đổi bảng ghép: sửa `photos/manifest.json` (`confidence`: `sure` chắc chắn, `guess` ghép theo phỏng đoán, cần người xem lại; `color` phải là màu sản phẩm có). Đổi ảnh thì đặt **tên file ra mới**, vì seed không ghi đè khóa đã có trong kho.
 - Không dùng `git add -f` cho các thư mục ảnh. `.gitignore` và `.dockerignore` đã loại chúng.
-- Mô hình 3D mẫu không khớp hình dáng sản phẩm trong ảnh thật.
 
 ## Các bảng (khớp tên bảng và tên trường `packages/shared-types`)
 
@@ -77,7 +76,7 @@ mock-data/
 | `categories`                                                                 | 22                     | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá                                                                   |
 | `attribute_values`                                                           | 30                     | màu (kèm mã hex), kích thước, chất liệu (loại thuộc tính là enum `attribute_code`)                         |
 | `products`, `product_variants`, `variant_attribute_values`, `product_images` | 52 / 200+              | giá gốc/sale, tồn kho (có hết hàng/sắp hết), ảnh thật (tối đa 6/SP) nếu máy có, không thì 4–5 ảnh minh họa |
-| `product_3d_models`, `model_files`                                           | 30+                    | GLB thật dùng được; vài bản ghi USDZ giữ chỗ (hệ thống chỉ nhận GLB, USDZ ⇒ 415; AR đã loại bỏ)            |
+| `product_3d_models`, `model_files`                                           | 0                      | không có mô hình mẫu                                                                            |
 | `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`    | 24 / 48 / …            | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId)                                     |
 | `carts`, `cart_items`, `wishlists`                                           |                        | giỏ hàng/yêu thích cho tài khoản test                                                                      |
 | `coupons`, `coupon_usages`                                                   | 14 / …                 | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc                                      |

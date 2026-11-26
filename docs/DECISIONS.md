@@ -88,6 +88,16 @@ Các quyết định D-N01..D-N19 trùng số thứ tự với bảng 12.1 của
 | D-D14 | **Loại thuộc tính là enum `attribute_code`** (`color` \| `size` \| `material`) trên `attribute_values` và `variant_attribute_values`; bỏ bảng `attributes`. Chỉ còn 3 loại cố định (id API giữ 1/2/3); bỏ tạo/sửa/xóa loại, giữ quản lý giá trị; xóa các thuộc tính `finish`, `thuoctinh…` và giá trị không dùng. Migration `20261120020100_attribute_code_enum` | 2026-11-20 | Hệ thống chỉ dùng 3 loại thuộc tính | CAU_TRUC_DB, DATABASE_SCHEMA, DAC_TA (UC-ADM-08), API_CONTRACT |
 | D-D15 | **Thương hiệu là cột chữ `products.brand`** VARCHAR(150) NULL; bỏ bảng `brands` và `products.brand_id`; bỏ module `brands`, `GET /brands`, `/admin/brands`, trang và mục menu quản trị thương hiệu, việc đếm logo thương hiệu trong thư viện media. Bộ lọc `?brand=` so khớp theo tên, không phân biệt hoa thường. Migration `20261120030100_products_brand_text` | 2026-11-20 | Thương hiệu chỉ là nhãn hiển thị, không cần logo/slug/bật tắt | CAU_TRUC_DB, DATABASE_SCHEMA, DAC_TA (UC-ADM-06), API_CONTRACT |
 | D-D16 | **Schema chốt 32 bảng, 18 enum** sau D-D10 … D-D15 (nhóm 1: 4, nhóm 2: 4, nhóm 3: 1, nhóm 4: 7, nhóm 5: 3, nhóm 6: 9, nhóm 7: 4); không còn nhóm bảng mở rộng. Thay con số 59/44/42/38 bảng ở các quyết định cũ | 2026-11-20 | Tổng hợp kết quả rút gọn | CAU_TRUC_DB, DATABASE_SCHEMA, README |
+| D-D17 | **Thêm giá trị enum `model_status.pending_review`** (migration `20261126010000_model_status_pending_review`). Thông tin quy trình tạo/duyệt (nguồn, space, ảnh đầu vào, thời gian, thông số chuẩn hóa, lỗi) lưu trong `product_3d_models.viewer_config.pipeline`, KHÔNG thêm bảng hay cột (vẫn 32 bảng), không lưu token; khóa `pipeline` bị loại khỏi mọi dữ liệu công khai | 2026-11-26 | Cần bước duyệt trước khi khách thấy mô hình | CAU_TRUC_DB, API_CONTRACT |
+
+## 3b. Mô hình 3D: tạo bằng AI, chuẩn hóa và duyệt (2026-11-26)
+
+| Mã | Quyết định |
+| --- | --- |
+| D-P18 | **Bỏ mô hình mẫu dạng khối.** Sản phẩm chưa có mô hình ĐÃ DUYỆT thì ẩn mọi lối vào 3D. Mọi mô hình (AI hay tải tay) đi chung: chuẩn hóa → chờ duyệt → duyệt / bỏ / tạo lại. Mỗi lần là một bản ghi mới; mô hình đang hiện không bị đụng tới. Duyệt thì mô hình cũ bị XÓA (không giữ lịch sử) |
+| D-P19 | **AI:** space Hugging Face qua `@gradio/client`; chính `trellis-community/TRELLIS`, dự phòng `tencent/Hunyuan3D-2.1` do admin TỰ chọn (không tự chuyển). Giao diện `ThreeDProvider` để thêm dịch vụ khác. Hàng đợi `ai3d-generation` concurrency 1; chỉ tự thử lại 1 lần với lỗi chắc chắn tạm thời (space ngủ/không truy cập được, quá tải hàng đợi); hết lượt GPU và lỗi lạ không thử lại; không chạy lại job bị gián đoạn. Giới hạn cả hệ thống 3 lượt/giờ và 10 lượt/ngày (giờ Việt Nam), cấu hình qua env |
+| D-P20 | **Chuẩn hóa:** sửa kiểu ảnh texture theo nội dung thật; đặt lại metallic/roughness; gỡ tấm sàn chỉ khi phát hiện tấm mỏng ở đáy rộng hơn rõ rệt (admin xem cả hai bản và chọn, có công tắc tắt); xoay quanh trục đứng, admin xoay thêm 90°; co ĐỀU theo kích thước biến thể mặc định, cảnh báo khi một chiều lệch quá 15% |
+| D-P21 | Trình xem **không tô** màu đang chọn lên mô hình khi không có cấu hình vật liệu; ghi chú màu mô hình thể hiện. Ảnh chờ chụp từ trình xem lúc admin duyệt. Ảnh gửi tới Hugging Face (bên thứ ba): admin xác nhận một lần mỗi phiên, máy chủ bắt buộc `consent`. Chế độ mock không có AI |
 
 ## 4. Kỹ thuật và hạ tầng
 

@@ -122,3 +122,9 @@ Trạng thái chức năng: ✅ Đủ · 🟡 Lệch đã ghi ở CHUAN_MO_RONG/
 
 **Mức bằng chứng (trung thực):** mỗi UC trong ma trận ở FINAL_READY_TO_MERGE_REPORT.md mang mức A (đã đọc assertion của test cho từng quy tắc chính) hoặc B (test gọi đúng route và có nhánh lỗi 4xx; quy tắc nhỏ chưa đọc từng dòng). Bộ `dac-conformance.db-spec.ts` thêm 8 nhóm kiểm ràng buộc DAC cho các UC ORD/PAY/CAT/ADM/SPACE/AUTH.
 
+## Bổ sung 2026-11-26 (nhánh `feat/ai-3d-models`)
+
+| UC | Backend | Frontend | Test |
+| --- | --- | --- | --- |
+| UC-ADM-31 Tạo mô hình 3D bằng AI | `modules/ai3d/` | `components/admin/AiGenerate.tsx` | `ai3d.spec.ts`, `ai3d.db-spec.ts`, e2e `admin-models.spec.ts` (nhà cung cấp giả lập; gọi Hugging Face thật chỉ thử tay) |
+| UC-ADM-32 Duyệt mô hình 3D | `model-review.service.ts`, `normalize.ts` | `ModelReview.tsx`, `Model3DPanel.tsx` | `normalize.spec.ts`, `models-processing.db-spec.ts`, e2e `admin-models.spec.ts` |

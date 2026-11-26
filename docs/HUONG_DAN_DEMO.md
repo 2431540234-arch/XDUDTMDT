@@ -86,3 +86,18 @@ Dữ liệu mẫu: 21 danh mục, 53 sản phẩm có ảnh (10 sản phẩm có
 | Web báo lỗi mạng | API chưa chạy ở cổng 4000 hoặc `NEXT_PUBLIC_API_URL` sai |
 | Đăng nhập báo hết phiên | Phiên tự làm mới; nếu vẫn lỗi, đăng nhập lại |
 | Dữ liệu demo đã bị sửa nhiều | Dừng API, chạy `node scripts/db-reset.mjs aurelia_demo`, chạy lại API |
+
+## Áp dụng nhánh mô hình 3D lên aurelia_demo (làm một lần, tự chạy)
+
+Tắt demo trước. Chạy ở gốc repo, kiểm tra đúng tên DB ở mỗi lệnh; **không** dùng `dotenv -o`.
+
+1. Sao lưu: `docker exec xdudtmdt-postgres-1 pg_dump -U aurelia -Fc -d aurelia_demo -f /tmp/demo.dump` rồi `docker cp xdudtmdt-postgres-1:/tmp/demo.dump <thư mục sao lưu ngoài repo>`; kiểm tra bằng `pg_restore --list`.
+2. Cài package và sinh client: `npm ci` (hoặc `npm install`), `npm run build:types`, trong `apps/api`: `npx prisma generate`.
+3. Đặt `DATABASE_URL` trỏ tới `aurelia_demo` trong cửa sổ lệnh (ví dụ PowerShell: `$env:DATABASE_URL='postgresql://aurelia:aurelia@localhost:55432/aurelia_demo?schema=public'`).
+4. Migration (trong `apps/api`): `npx prisma migrate deploy` (chỉ thêm giá trị `pending_review`).
+5. Chạy thử dọn mô hình mẫu (trong `apps/api`, MinIO đang chạy):
+   `$env:STORAGE_DRIVER='minio'; $env:S3_ENDPOINT='http://localhost:9000'; node ../../node_modules/dotenv-cli/cli.js -e ../../.env -- npx ts-node --transpile-only prisma/remove-sample-models.ts --db aurelia_demo`
+   Đọc kế hoạch (số mô hình sẽ xóa và danh sách giữ nguyên). Đúng thì thêm `--apply`.
+6. Xóa biến `DATABASE_URL` khỏi cửa sổ lệnh, rồi `npm run demo`.
+
+Không gian mẫu vẫn giữ vị trí đặt (kể cả không gian bạn tự tạo); mô hình hiện lại khi sản phẩm tương ứng được duyệt. Mô tả sản phẩm cũ trong DB còn nhắc AR/3D (seed mới đã bỏ); script không sửa mô tả.
