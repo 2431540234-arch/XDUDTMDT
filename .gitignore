@@ -107,3 +107,10 @@ docs/**/*.dump
 
 # Bằng chứng khi test e2e thật fail (trace, screenshot, log response >= 400)
 .e2e-logs/
+
+# Ảnh thật: KHÔNG commit (chưa xác minh quyền phát tán). Cách dùng: apps/web/src/mock-data/README.md
+/sản phẩm/
+/không gia mẫu/
+/apps/web/public/mock/photos/
+# tệp khóa tạm của Word
+~$*.docx

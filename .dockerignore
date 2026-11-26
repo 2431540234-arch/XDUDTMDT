@@ -9,4 +9,8 @@ docs
 database
 apps/mobile
 apps/api/uploads
+# ảnh thật không được phát tán (kể cả qua image Docker)
+sản phẩm
+không gia mẫu
+apps/web/public/mock/photos
 apps/api/.tmp-uploads
