@@ -67,12 +67,17 @@ export class CatalogViews {
     return Number(v.salePrice ?? v.price);
   }
 
-  /** Biến thể mặc định: nhóm theo màu của biến thể đầu tiên, lấy phần tử thứ 2 của nhóm (giống mock) */
+  /**
+   * Biến thể mặc định (giống mock): chọn một màu rồi lấy phần tử thứ 2 của nhóm màu đó. Màu = màu của ảnh chính nếu ảnh
+   * chính gắn với biến thể (ảnh đang hiện khớp màu đang chọn), không thì màu của biến thể đầu tiên.
+   */
   defaultVariant(p: ProductRow): VariantRow | null {
     const vs = p.productVariants.filter((v) => v.isActive);
     if (!vs.length) return null;
-    const firstColor = this.color(vs[0])?.name;
-    const group = vs.filter((v) => this.color(v)?.name === firstColor);
+    const primary = p.productImages.find((i) => i.isPrimary) ?? p.productImages[0];
+    const pictured = vs.find((v) => v.id === primary?.variantId);
+    const color = this.color(pictured ?? vs[0])?.name;
+    const group = vs.filter((v) => this.color(v)?.name === color);
     return group[Math.min(1, group.length - 1)] ?? vs[0];
   }
 

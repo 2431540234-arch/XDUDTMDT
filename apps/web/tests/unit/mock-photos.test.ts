@@ -86,6 +86,32 @@ describe('mock-data: ảnh thật', () => {
     for (const pano of db.spacePanoramas) expect(pathOfMedia(db, pano.mediaId)).toMatch(/^\/mock-img\/pano/);
   });
 
+  it('biến thể mặc định theo màu ảnh chính; giá không đổi; không có ảnh thật thì như cũ', async () => {
+    const colorOf = (db: Seed, variantId: number) => {
+      const l = db.variantAttributeValues.find(
+        (x) => x.variantId === variantId && x.attributeCode === 'color',
+      )!;
+      return db.attributeValues.find((a) => a.id === l.attributeValueId)!.value;
+    };
+    const withPhotos = await loadSeed(allFiles);
+    const views = await import('@/mock-data/mockApi/views');
+    const without = await loadSeed([]);
+    const viewsWithout = await import('@/mock-data/mockApi/views');
+    for (const p of withPhotos.products) {
+      const dv = views.defaultVariant(withPhotos, p.id)!;
+      const old = viewsWithout.defaultVariant(without, p.id)!;
+      const color = photoManifest.products[p.slug]?.photos[0].color;
+      expect(colorOf(withPhotos, dv.id), p.slug).toBe(color ?? colorOf(without, old.id));
+      expect([dv.price, dv.salePrice], p.slug).toEqual([old.price, old.salePrice]);
+      expect(colorOf(without, old.id), p.slug).toBe(
+        colorOf(
+          without,
+          Math.min(...without.productVariants.filter((v) => v.productId === p.id).map((v) => v.id)),
+        ),
+      );
+    }
+  });
+
   it('thiếu MỘT file của bộ → cả sản phẩm quay về ảnh minh họa, dữ liệu khác không đổi', async () => {
     const [slug, entry] = Object.entries(photoManifest.products)[0];
     const missing = `products/${slug}/${entry.photos[0].file}`;
