@@ -5,22 +5,11 @@
 //            (tắt trigger trong transaction để giữ nguyên lịch sử trạng thái, rating... của mock) → đặt lại sequence.
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import Module from 'node:module';
 import { resolve } from 'node:path';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { WEB_SRC, hex, illustrationKey, renderSvg } from './mock-source';
 import { storeObject } from './seed-storage';
-
-const WEB_SRC = resolve(__dirname, '../../web/src');
-
-// Mock-data dùng alias `@/…` của Next.js → ánh xạ sang apps/web/src khi chạy ngoài Next
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const M = Module as any;
-const origResolve = M._resolveFilename;
-M._resolveFilename = function (request: string, ...rest: unknown[]) {
-  if (request.startsWith('@/')) request = resolve(WEB_SRC, request.slice(2));
-  return origResolve.call(this, request, ...rest);
-};
 
 type MockDb = import('../../web/src/mock-data/db').Db;
 
@@ -34,8 +23,6 @@ const fixUuid = (v: string) => {
   const h = createHash('md5').update(v).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-const hex = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 12);
-
 // ---------------------------------------------------------------- media
 interface MediaOut {
   id: number;
@@ -49,36 +36,6 @@ interface MediaOut {
   updatedAt: string;
 }
 
-async function renderSvg(url: string): Promise<string | null> {
-  const svgMod = await import(resolve(WEB_SRC, 'mock-data/utils/svg'));
-  const u = new URL(url, 'http://x');
-  const sp = u.searchParams;
-  const kind = u.pathname.replace('/mock-img/', '').replace(/\.svg$/, '');
-  const num = (k: string, d: number) => {
-    const n = Number(sp.get(k));
-    return Number.isFinite(n) && sp.get(k) !== null ? n : d;
-  };
-  switch (kind) {
-    case 'product':
-      return svgMod.productSvg(
-        sp.get('t') ?? 'sofa',
-        sp.get('c') ?? 'C9B6A0',
-        num('v', 1),
-        sp.get('l') ?? undefined,
-      );
-    case 'room':
-      return svgMod.roomSvg(sp.get('s') ?? 'Hiện đại', sp.get('r') ?? 'living_room', num('n', 1));
-    case 'pano':
-      return svgMod.panoSvg(sp.get('s') ?? 'Hiện đại', sp.get('r') ?? 'living_room', num('n', 1));
-    case 'banner':
-      return svgMod.bannerSvg(num('n', 1), sp.get('s') ?? 'Hiện đại');
-    case 'avatar':
-      return svgMod.avatarSvg(sp.get('n') ?? 'A');
-    default:
-      return null;
-  }
-}
-
 const MIME: Record<string, string> = {
   glb: 'model/gltf-binary',
   svg: 'image/svg+xml',
@@ -90,7 +47,7 @@ async function ingest(url: string): Promise<{ key: string; size: number; mime: s
   if (url.startsWith('/mock-img/')) {
     const svg = await renderSvg(url);
     if (svg === null) throw new Error(`Không dựng được ảnh ${url}`);
-    const key = `mock/img/${hex(url)}.svg`;
+    const key = illustrationKey(url);
     const size = await storeObject(key, Buffer.from(svg, 'utf8'), 'image/svg+xml');
     return { key, size, mime: 'image/svg+xml' };
   }
