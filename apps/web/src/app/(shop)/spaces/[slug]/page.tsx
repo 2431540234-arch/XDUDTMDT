@@ -214,7 +214,7 @@ export default function SpaceDetailPage() {
                 >
                   <span className="h-10 w-10 shrink-0 overflow-hidden rounded bg-surface-muted">
                     {a.thumbnailUrl && (
-                      <img src={a.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={a.thumbnailUrl} alt="" className="h-full w-full object-contain" />
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -248,7 +248,7 @@ export default function SpaceDetailPage() {
         <div className="flex gap-3">
           <div className="h-16 w-16 shrink-0 overflow-hidden rounded-md bg-surface-muted">
             {selected.product.thumbnailUrl && (
-              <img src={selected.product.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+              <img src={selected.product.thumbnailUrl} alt="" className="h-full w-full object-contain" />
             )}
           </div>
           <div className="min-w-0 flex-1">
@@ -399,7 +399,7 @@ export default function SpaceDetailPage() {
                     className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-surface-muted"
                   >
                     {p.thumbnailUrl && (
-                      <img src={p.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={p.thumbnailUrl} alt="" className="h-full w-full object-contain" />
                     )}
                   </Link>
                   <div className="min-w-0 flex-1">

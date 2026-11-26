@@ -32,11 +32,13 @@ import { attributeValues, colorHexByValueId } from './tables/attributes';
 import { addressLabels, addresses } from './tables/addresses';
 import { categories, categoryExtras } from './tables/categories';
 import { couponExtras, coupons } from './tables/coupons';
+import { photoSignature } from './utils/photos';
 import { media } from './tables/media';
 import { credentials, userProfiles, users } from './tables/users';
 
 // Đổi số phiên bản khi cấu trúc dữ liệu mock thay đổi (dữ liệu cũ trong localStorage sẽ tự bị bỏ, nạp lại dữ liệu mẫu)
-export const DB_STORAGE_KEY = 'aurelia-mock-db-v6';
+// Hậu tố theo bảng ghép và ảnh thật đang có: đổi một trong hai thì dữ liệu đã lưu cũng được nạp lại
+export const DB_STORAGE_KEY = `aurelia-mock-db-v8-${photoSignature()}`;
 export const CONFIG_STORAGE_KEY = 'aurelia-mock-config';
 
 export interface MockConfig {

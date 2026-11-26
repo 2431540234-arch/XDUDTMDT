@@ -5,22 +5,11 @@
 //            (tắt trigger trong transaction để giữ nguyên lịch sử trạng thái, rating... của mock) → đặt lại sequence.
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import Module from 'node:module';
 import { resolve } from 'node:path';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { hash } from 'bcryptjs';
+import { WEB_SRC, hex, illustrationKey, renderSvg } from './mock-source';
 import { storeObject } from './seed-storage';
-
-const WEB_SRC = resolve(__dirname, '../../web/src');
-
-// Mock-data dùng alias `@/…` của Next.js → ánh xạ sang apps/web/src khi chạy ngoài Next
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const M = Module as any;
-const origResolve = M._resolveFilename;
-M._resolveFilename = function (request: string, ...rest: unknown[]) {
-  if (request.startsWith('@/')) request = resolve(WEB_SRC, request.slice(2));
-  return origResolve.call(this, request, ...rest);
-};
 
 type MockDb = import('../../web/src/mock-data/db').Db;
 
@@ -34,8 +23,6 @@ const fixUuid = (v: string) => {
   const h = createHash('md5').update(v).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
-const hex = (s: string) => createHash('sha1').update(s).digest('hex').slice(0, 12);
-
 // ---------------------------------------------------------------- media
 interface MediaOut {
   id: number;
@@ -49,42 +36,18 @@ interface MediaOut {
   updatedAt: string;
 }
 
-async function renderSvg(url: string): Promise<string | null> {
-  const svgMod = await import(resolve(WEB_SRC, 'mock-data/utils/svg'));
-  const u = new URL(url, 'http://x');
-  const sp = u.searchParams;
-  const kind = u.pathname.replace('/mock-img/', '').replace(/\.svg$/, '');
-  const num = (k: string, d: number) => {
-    const n = Number(sp.get(k));
-    return Number.isFinite(n) && sp.get(k) !== null ? n : d;
-  };
-  switch (kind) {
-    case 'product':
-      return svgMod.productSvg(
-        sp.get('t') ?? 'sofa',
-        sp.get('c') ?? 'C9B6A0',
-        num('v', 1),
-        sp.get('l') ?? undefined,
-      );
-    case 'room':
-      return svgMod.roomSvg(sp.get('s') ?? 'Hiện đại', sp.get('r') ?? 'living_room', num('n', 1));
-    case 'pano':
-      return svgMod.panoSvg(sp.get('s') ?? 'Hiện đại', sp.get('r') ?? 'living_room', num('n', 1));
-    case 'banner':
-      return svgMod.bannerSvg(num('n', 1), sp.get('s') ?? 'Hiện đại');
-    case 'avatar':
-      return svgMod.avatarSvg(sp.get('n') ?? 'A');
-    default:
-      return null;
-  }
-}
+const MIME: Record<string, string> = {
+  glb: 'model/gltf-binary',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+};
 
 /** Đưa một URL của mock (ảnh SVG sinh động hoặc tệp tĩnh trong public/mock) lên kho; trả về khóa lưu trữ */
 async function ingest(url: string): Promise<{ key: string; size: number; mime: string }> {
   if (url.startsWith('/mock-img/')) {
     const svg = await renderSvg(url);
     if (svg === null) throw new Error(`Không dựng được ảnh ${url}`);
-    const key = `mock/img/${hex(url)}.svg`;
+    const key = illustrationKey(url);
     const size = await storeObject(key, Buffer.from(svg, 'utf8'), 'image/svg+xml');
     return { key, size, mime: 'image/svg+xml' };
   }
@@ -93,8 +56,7 @@ async function ingest(url: string): Promise<{ key: string; size: number; mime: s
     const file = resolve(WEB_SRC, '../public', path.slice(1));
     const body = await readFile(file);
     const ext = path.split('.').pop()!.toLowerCase();
-    const mime =
-      ext === 'glb' ? 'model/gltf-binary' : ext === 'svg' ? 'image/svg+xml' : 'application/octet-stream';
+    const mime = MIME[ext] ?? 'application/octet-stream';
     // Cùng một tệp GLB dùng cho nhiều sản phẩm (?p=<id>) → mỗi bản ghi media cần khóa riêng
     const key = query ? path.slice(1).replace(/(\.\w+)$/, `-${hex(url)}$1`) : path.slice(1);
     const size = await storeObject(key, body, mime);
@@ -159,6 +121,11 @@ function withOverriding(tx: Prisma.TransactionClient): Prisma.TransactionClient 
 
 // ---------------------------------------------------------------- main
 async function main() {
+  // Ảnh thật (không nằm trong git): máy có thì seed dùng, không có thì dùng ảnh minh họa. Phải đặt TRƯỚC khi nạp mock
+  const photoLister = await import(resolve(WEB_SRC, '../scripts/list-mock-photos.js'));
+  process.env.NEXT_PUBLIC_MOCK_PHOTOS = photoLister.listMockPhotos();
+  const photoCount = photoLister.listMockPhotos().split(',').filter(Boolean).length;
+  log(photoCount ? `dùng ${photoCount} ảnh thật` : 'không có ảnh thật → dùng ảnh minh họa');
   const dbMod = await import('../../web/src/mock-data/db');
   const db: MockDb = dbMod.buildSeed();
   log(
@@ -355,7 +322,16 @@ async function main() {
         })),
         skipDuplicates: true,
       });
-      await tx.productImage.createMany({ data: db.productImages, skipDuplicates: true });
+      // Chỉ thêm ảnh cho sản phẩm CHƯA có ảnh: bộ ảnh mock đổi theo ảnh thật trên máy, seed lại không được chèn chồng
+      const hasImages = new Set(
+        (await rawTx.productImage.findMany({ select: { productId: true }, distinct: ['productId'] })).map(
+          (x) => x.productId,
+        ),
+      );
+      await tx.productImage.createMany({
+        data: db.productImages.filter((i) => !hasImages.has(i.productId)),
+        skipDuplicates: true,
+      });
       await tx.product3DModel.createMany({
         data: db.product3dModels.map((m) => ({ ...m, uuid: fixUuid(m.uuid) })) as never,
         skipDuplicates: true,

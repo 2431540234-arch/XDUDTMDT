@@ -1,0 +1,598 @@
+{
+  "products": {
+    "sofa-goc-hien-dai": {
+      "confidence": "sure",
+      "photos": [
+        {
+          "source": "sản phẩm/Sofa/sofa3/module-corner-sofa-ercol-trieste-04-01.jpg",
+          "file": "01-555ec873.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa3/module-corner-sofa-ercol-trieste-04-02.jpg",
+          "file": "02-ac97b36e.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa3/module-corner-sofa-ercol-trieste-04-03.jpg",
+          "file": "03-bbca0225.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa3/module-corner-sofa-ercol-trieste-04-04.jpg",
+          "file": "04-eadb683a.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa3/module-corner-sofa-ercol-trieste-04-05.jpg",
+          "file": "05-a39dfc76.webp"
+        }
+      ]
+    },
+    "sofa-nordic": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/Sofa/sofa2/sofa-large-ercol-avanti-01.jpg",
+          "file": "01-75441fa7.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa2/sofa-large-ercol-avanti-02.jpg",
+          "file": "02-fe2c4f45.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa2/sofa-large-ercol-avanti-04.jpg",
+          "file": "03-c30b6d78.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa2/sofa-large-ercol-avanti-05.jpg",
+          "file": "04-1f2ab491.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa2/sofa-large-ercol-avanti-06.jpg",
+          "file": "05-e0b59d31.webp"
+        }
+      ]
+    },
+    "sofa-luxury": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/Sofa/sofa8/sofa-001-01.jpg",
+          "file": "01-37d2f89b.webp",
+          "color": "Nâu"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa8/sofa-001-02.jpg",
+          "file": "02-bbdcf2c9.webp",
+          "color": "Nâu"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa8/sofa-001-03.jpg",
+          "file": "03-85c37fc5.webp",
+          "color": "Nâu"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa8/sofa-001-04.jpg",
+          "file": "04-1fd7a3b5.webp",
+          "color": "Nâu"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa8/sofa-001-05.jpg",
+          "file": "05-a8042946.webp",
+          "color": "Nâu"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa8/sofa-001-06.jpg",
+          "file": "06-037013f2.webp",
+          "color": "Nâu"
+        }
+      ]
+    },
+    "sofa-vang-toi-gian": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/Sofa/sofa4/alfie-sofa-01.jpg",
+          "file": "01-351c8e42.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa4/alfie-sofa-02.jpg",
+          "file": "02-62a1d2f7.webp"
+        }
+      ]
+    },
+    "sofa-da-cao-cap": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/Sofa/sofa5/leather-sofa-set-21-02.jpg",
+          "file": "01-14615c1a.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa5/leather-sofa-set-21-03.jpg",
+          "file": "02-95cb9bc2.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa5/leather-sofa-set-21-04.jpg",
+          "file": "03-79912f15.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa5/leather-sofa-set-21-05.jpg",
+          "file": "04-22dca1f7.webp"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa5/leather-sofa-set-21-06.jpg",
+          "file": "05-993bd446.webp"
+        }
+      ]
+    },
+    "sofa-module": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-01.jpg",
+          "file": "01-1f058a86.webp",
+          "color": "Xám"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-02.jpg",
+          "file": "02-cd2cd788.webp",
+          "color": "Xám"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-03.jpg",
+          "file": "03-4b9a6dd7.webp",
+          "color": "Xám"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-04.jpg",
+          "file": "04-e30f9096.webp",
+          "color": "Xám"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-05.jpg",
+          "file": "05-bbe822e3.webp",
+          "color": "Xám"
+        },
+        {
+          "source": "sản phẩm/Sofa/sofa7/eichholtz-vermont-sofa-07.jpg",
+          "file": "06-9d443d49.webp",
+          "color": "Xám"
+        }
+      ]
+    },
+    "ke-tivi-treo-tuong": {
+      "confidence": "sure",
+      "photos": [
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder3/modern-floating-tv-cabinet-3d-model-blender-formats-02.jpg",
+          "file": "01-ef38021b.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder3/modern-floating-tv-cabinet-3d-model-blender-formats-03.jpg",
+          "file": "02-09d2f6ab.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder3/modern-floating-tv-cabinet-3d-model-blender-formats-04.jpg",
+          "file": "03-e3ff4be2.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder3/modern-floating-tv-cabinet-3d-model-blender-formats-05.jpg",
+          "file": "04-20b8334f.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder3/modern-floating-tv-cabinet-3d-model-blender-formats-07.jpg",
+          "file": "05-f91b6b3f.webp"
+        }
+      ]
+    },
+    "ke-tivi-go-oc-cho": {
+      "confidence": "sure",
+      "photos": [
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder5/carveli-kristian-sideboard-02.jpg",
+          "file": "01-f7a59abe.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder5/carveli-kristian-sideboard-01.jpg",
+          "file": "02-f1ad6a16.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder5/carveli-kristian-sideboard-03.jpg",
+          "file": "03-6681af99.webp"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder5/carveli-kristian-sideboard-05.jpg",
+          "file": "04-cf57b887.webp"
+        }
+      ]
+    },
+    "ke-tivi-hien-dai": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-01.jpg",
+          "file": "01-ea277555.webp",
+          "color": "Trắng"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-02.jpg",
+          "file": "02-db2e24a8.webp",
+          "color": "Trắng"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-03.jpg",
+          "file": "03-e4cc7c02.webp",
+          "color": "Trắng"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-04.jpg",
+          "file": "04-296f6626.webp",
+          "color": "Trắng"
+        },
+        {
+          "source": "sản phẩm/TV cabinet/TV cfolder1/french-floor-standing-tv-cabinet-06.jpg",
+          "file": "05-efc5806f.webp",
+          "color": "Trắng"
+        }
+      ]
+    },
+    "ghe-an-boc-ni": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/chair/chair1/juno-dining-chair-orange-04.jpg",
+          "file": "01-84a369fe-crop.webp",
+          "color": "Be",
+          "crop": {
+            "right": 0.12
+          }
+        },
+        {
+          "source": "sản phẩm/chair/chair1/juno-dining-chair-orange-03.jpg",
+          "file": "02-30297e1b-crop.webp",
+          "color": "Xanh rêu",
+          "crop": {
+            "right": 0.12
+          }
+        },
+        {
+          "source": "sản phẩm/chair/chair1/juno-dining-chair-orange-06.jpg",
+          "file": "03-d61f120c-crop.webp",
+          "color": "Be",
+          "crop": {
+            "right": 0.12
+          }
+        }
+      ]
+    },
+    "ghe-thu-gian": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/chair/chair5/ace-swivel-chair-02.jpg",
+          "file": "01-792afc86.webp",
+          "color": "Kem"
+        },
+        {
+          "source": "sản phẩm/chair/chair5/ace-swivel-chair-03.jpg",
+          "file": "02-0a53ef47.webp",
+          "color": "Be"
+        },
+        {
+          "source": "sản phẩm/chair/chair5/ace-swivel-chair-05.jpg",
+          "file": "03-3a061bb8.webp",
+          "color": "Xanh rêu"
+        },
+        {
+          "source": "sản phẩm/chair/chair5/ace-swivel-chair-06.jpg",
+          "file": "04-55cf7a12.webp",
+          "color": "Be"
+        }
+      ]
+    },
+    "ghe-banh-bac-au": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/chair/chair6/tirup-chair-01.jpg",
+          "file": "01-be22c9b3.webp"
+        },
+        {
+          "source": "sản phẩm/chair/chair6/tirup-chair-02.jpg",
+          "file": "02-6c2f1cd5.webp"
+        },
+        {
+          "source": "sản phẩm/chair/chair6/tirup-chair-03.jpg",
+          "file": "03-e7c2cd0f.webp"
+        },
+        {
+          "source": "sản phẩm/chair/chair6/tirup-chair-04.jpg",
+          "file": "04-98010ba9.webp"
+        },
+        {
+          "source": "sản phẩm/chair/chair6/tirup-chair-05.jpg",
+          "file": "05-f6a5dfc7.webp"
+        }
+      ]
+    },
+    "ban-lam-viec": {
+      "confidence": "sure",
+      "photos": [
+        {
+          "source": "sản phẩm/desk/desk1/desk-table-for-work-01.jpg",
+          "file": "01-d4159702.webp"
+        },
+        {
+          "source": "sản phẩm/desk/desk1/desk-table-for-work-02.jpg",
+          "file": "02-6f5f3d22.webp"
+        },
+        {
+          "source": "sản phẩm/desk/desk1/desk-table-for-work-03.jpg",
+          "file": "03-ad69a832.webp"
+        }
+      ]
+    },
+    "ban-lam-viec-chu-l": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/desk/desk6/gallotti-and-radice-air-desk-w-02.jpg",
+          "file": "01-a793a090.webp"
+        },
+        {
+          "source": "sản phẩm/desk/desk6/gallotti-and-radice-air-desk-w-01.jpg",
+          "file": "02-80365461.webp"
+        },
+        {
+          "source": "sản phẩm/desk/desk6/gallotti-and-radice-air-desk-w-03.jpg",
+          "file": "03-0935500d.webp"
+        },
+        {
+          "source": "sản phẩm/desk/desk6/gallotti-and-radice-air-desk-w-04.jpg",
+          "file": "04-aaf45862.webp"
+        },
+        {
+          "source": "sản phẩm/desk/desk6/gallotti-and-radice-air-desk-w-05.jpg",
+          "file": "05-95436598.webp"
+        }
+      ]
+    },
+    "ban-tra-long-nhau": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/table/table3/epoxy-river-coffee-tables-set-01.jpg",
+          "file": "01-e4f1abd6.webp"
+        },
+        {
+          "source": "sản phẩm/table/table3/epoxy-river-coffee-tables-set-02.jpg",
+          "file": "02-679b3120.webp"
+        },
+        {
+          "source": "sản phẩm/table/table3/epoxy-river-coffee-tables-set-03.jpg",
+          "file": "03-05e1723e.webp"
+        },
+        {
+          "source": "sản phẩm/table/table3/epoxy-river-coffee-tables-set-04.jpg",
+          "file": "04-ae166e4b.webp"
+        },
+        {
+          "source": "sản phẩm/table/table3/epoxy-river-coffee-tables-set-05.jpg",
+          "file": "05-faf75976.webp"
+        }
+      ]
+    },
+    "ban-an-go-tu-nhien": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/table/table4/dining-set-table-and-chairs-01.jpg",
+          "file": "01-c36086ab.webp"
+        },
+        {
+          "source": "sản phẩm/table/table4/dining-set-table-and-chairs-02.jpg",
+          "file": "02-79c914e3.webp"
+        },
+        {
+          "source": "sản phẩm/table/table4/dining-set-table-and-chairs-04.jpg",
+          "file": "03-0581e8ca.webp"
+        },
+        {
+          "source": "sản phẩm/table/table4/dining-set-table-and-chairs-06.jpg",
+          "file": "04-949951a5.webp"
+        },
+        {
+          "source": "sản phẩm/table/table4/dining-set-table-and-chairs-08.jpg",
+          "file": "05-dfdcd905.webp"
+        }
+      ]
+    },
+    "giuong-hien-dai": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/bed/bed7/shellon-desiree-bed-by-miliashop-02.jpg",
+          "file": "01-eae8e363.webp"
+        },
+        {
+          "source": "sản phẩm/bed/bed7/shellon-desiree-bed-by-miliashop-01.jpg",
+          "file": "02-01f98288.webp"
+        },
+        {
+          "source": "sản phẩm/bed/bed7/shellon-desiree-bed-by-miliashop-03.jpg",
+          "file": "03-da4ab949.webp"
+        },
+        {
+          "source": "sản phẩm/bed/bed7/shellon-desiree-bed-by-miliashop-04.jpg",
+          "file": "04-d4e360ef.webp"
+        },
+        {
+          "source": "sản phẩm/bed/bed7/shellon-desiree-bed-by-miliashop-05.jpg",
+          "file": "05-782a9a6d.webp"
+        }
+      ]
+    },
+    "giuong-boc-ni": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/bed/bed5/miuzza-bed-elegant-upholstered-bed-frame-01.jpg",
+          "file": "01-1cf4f035.webp",
+          "color": "Xanh"
+        },
+        {
+          "source": "sản phẩm/bed/bed5/miuzza-bed-elegant-upholstered-bed-frame-02.jpg",
+          "file": "02-c19bca71.webp",
+          "color": "Xanh"
+        },
+        {
+          "source": "sản phẩm/bed/bed5/miuzza-bed-elegant-upholstered-bed-frame-05.jpg",
+          "file": "03-7f61aab5.webp",
+          "color": "Xanh"
+        },
+        {
+          "source": "sản phẩm/bed/bed5/miuzza-bed-elegant-upholstered-bed-frame-09.jpg",
+          "file": "04-1bba6061.webp",
+          "color": "Xanh"
+        },
+        {
+          "source": "sản phẩm/bed/bed5/miuzza-bed-elegant-upholstered-bed-frame-10.jpg",
+          "file": "05-73851d97.webp",
+          "color": "Xanh"
+        },
+        {
+          "source": "sản phẩm/bed/bed5/miuzza-bed-elegant-upholstered-bed-frame-13.jpg",
+          "file": "06-a7ca85ee.webp",
+          "color": "Xanh"
+        }
+      ]
+    },
+    "ke-sach-5-tang": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/bookshelf/bookshelf1/natural-bamboo-bookshelf-store-03.jpg",
+          "file": "01-3c112d50.webp"
+        },
+        {
+          "source": "sản phẩm/bookshelf/bookshelf1/natural-bamboo-bookshelf-store-01.jpg",
+          "file": "02-5199511f.webp"
+        },
+        {
+          "source": "sản phẩm/bookshelf/bookshelf1/natural-bamboo-bookshelf-store-02.jpg",
+          "file": "03-b605ba46.webp"
+        },
+        {
+          "source": "sản phẩm/bookshelf/bookshelf1/natural-bamboo-bookshelf-store-04.jpg",
+          "file": "04-49bd512e.webp"
+        },
+        {
+          "source": "sản phẩm/bookshelf/bookshelf1/natural-bamboo-bookshelf-store-05.jpg",
+          "file": "05-cb4de098.webp"
+        },
+        {
+          "source": "sản phẩm/bookshelf/bookshelf1/natural-bamboo-bookshelf-store-06.jpg",
+          "file": "06-e9cd3c79.webp"
+        }
+      ]
+    },
+    "tu-quan-ao-hien-dai": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/wardrobe/wardrobe3/wardrobe-set-064-3d-model-01.jpg",
+          "file": "01-776d5705.webp"
+        },
+        {
+          "source": "sản phẩm/wardrobe/wardrobe3/wardrobe-set-064-3d-model-02.jpg",
+          "file": "02-62713e85.webp"
+        },
+        {
+          "source": "sản phẩm/wardrobe/wardrobe3/wardrobe-set-064-3d-model-03.jpg",
+          "file": "03-b6104569.webp"
+        }
+      ]
+    },
+    "tu-quan-ao-4-canh": {
+      "confidence": "guess",
+      "photos": [
+        {
+          "source": "sản phẩm/wardrobe/wardrobe2/wardrobe-set-090-3d-model-01.jpg",
+          "file": "01-62bff45d.webp"
+        },
+        {
+          "source": "sản phẩm/wardrobe/wardrobe2/wardrobe-set-090-3d-model-02.jpg",
+          "file": "02-89fa990f.webp"
+        },
+        {
+          "source": "sản phẩm/wardrobe/wardrobe2/wardrobe-set-090-3d-model-03.jpg",
+          "file": "03-43fdf796.webp"
+        }
+      ]
+    }
+  },
+  "spaces": {
+    "phong-khach-hien-dai": {
+      "source": "không gia mẫu/phòng khách/c1efcd7d78fcebb9821677e84eb399db.jpg",
+      "file": "cover-24a9c6b8.webp"
+    },
+    "phong-khach-phong-cach-bac-au": {
+      "source": "không gia mẫu/phòng khách/7fbaea1b963259b4f3fe74e5f8ebba37.jpg",
+      "file": "cover-66adaa57.webp"
+    },
+    "phong-khach-toi-gian": {
+      "source": "không gia mẫu/phòng khách/8167af309d69049872a074f1923bdb1a.jpg",
+      "file": "cover-12a22181.webp"
+    },
+    "phong-khach-phong-cach-japandi": {
+      "source": "không gia mẫu/phòng khách/e3a22b5035deeb1378fe4973c2504b3b.jpg",
+      "file": "cover-64e1ef36.webp"
+    },
+    "phong-khach-sang-trong-luxury": {
+      "source": "không gia mẫu/phòng khách/e23ec92b6207d0d9108136fa70397da6.jpg",
+      "file": "cover-28e5393e.webp"
+    },
+    "phong-ngu-hien-dai": {
+      "source": "không gia mẫu/phòng ngủ/141b3464c0d4316f4420a0d2d40fccb7.jpg",
+      "file": "cover-9f213a26.webp"
+    },
+    "phong-ngu-phong-cach-bac-au": {
+      "source": "không gia mẫu/phòng ngủ/c917c25dec31cd58ab7828852cd447d6.jpg",
+      "file": "cover-a4f4e867.webp"
+    },
+    "phong-ngu-toi-gian": {
+      "source": "không gia mẫu/phòng ngủ/aebcd15afbb676297a4f818b085e495d.jpg",
+      "file": "cover-ca99906b.webp"
+    },
+    "phong-ngu-phong-cach-japandi": {
+      "source": "không gia mẫu/phòng ngủ/6299b13885cfa382ee98526e55c444d0.jpg",
+      "file": "cover-d8171171.webp"
+    },
+    "phong-ngu-sang-trong-luxury": {
+      "source": "không gia mẫu/phòng ngủ/e1c7c953a1de0c475b2af13232721e73.jpg",
+      "file": "cover-6f2bb19f.webp"
+    },
+    "phong-lam-viec-hien-dai": {
+      "source": "không gia mẫu/phòng làm việc/7a4dd712334f860886310acdcb852ae5.jpg",
+      "file": "cover-800bce89.webp"
+    },
+    "phong-lam-viec-phong-cach-bac-au": {
+      "source": "không gia mẫu/phòng làm việc/a8b86d240f9efad235f225d11072e128.jpg",
+      "file": "cover-083b5f22.webp"
+    },
+    "phong-lam-viec-toi-gian": {
+      "source": "không gia mẫu/phòng làm việc/dd1851f9a22ccbd526c0a47e4df89a90.jpg",
+      "file": "cover-4527dc6a.webp"
+    },
+    "phong-lam-viec-phong-cach-japandi": {
+      "source": "không gia mẫu/phòng làm việc/680e49a4475867f011e9379622ec628a.jpg",
+      "file": "cover-63f77231.webp"
+    },
+    "phong-lam-viec-co-dien": {
+      "source": "không gia mẫu/phòng làm việc/51a218adfa3c5e5389c76d81b6b1e01d.jpg",
+      "file": "cover-111af0db.webp"
+    },
+    "phong-lam-viec-sang-trong-luxury": {
+      "source": "không gia mẫu/phòng làm việc/3a7ec9f93883f5a1321c1d6237560ff1.jpg",
+      "file": "cover-9561c479.webp"
+    }
+  }
+}

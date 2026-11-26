@@ -9,6 +9,7 @@ import type {
 import { slugify } from '@/lib/format';
 import { panoImg, roomImg } from '../utils/img';
 import { registerMedia } from '../utils/media-registry';
+import { spaceCoverPhoto } from '../utils/photos';
 import { addDays, iso, makeRng } from '../utils/rng';
 import { categories } from './categories';
 import { product3dModels, productExtras, products } from './_products_gen';
@@ -79,13 +80,17 @@ for (const style of STYLES) {
     }
     const uniq = [...new Set(chosen)].slice(0, 5);
 
-    const coverMediaId = registerMedia(
-      roomImg(style, r.room, id),
-      `space-${slugify(title)}-cover.svg`,
-      'image/svg+xml',
-      9000,
-      title,
-    );
+    // ảnh bìa: ảnh thật nếu máy có, không thì ảnh minh họa (ảnh 360° luôn là minh họa)
+    const cover = spaceCoverPhoto(slugify(title));
+    const coverMediaId = cover
+      ? registerMedia(cover.url, cover.fileName, 'image/webp', 90_000, title)
+      : registerMedia(
+          roomImg(style, r.room, id),
+          `space-${slugify(title)}-cover.svg`,
+          'image/svg+xml',
+          9000,
+          title,
+        );
     spaces.push({
       id,
       uuid: `20000000-0000-4000-8000-${String(id).padStart(12, '0')}`,

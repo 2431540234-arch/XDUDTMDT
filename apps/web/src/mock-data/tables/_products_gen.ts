@@ -12,6 +12,7 @@ import type {
 import { slugify } from '@/lib/format';
 import { productImg } from '../utils/img';
 import { mediaRows, registerMedia } from '../utils/media-registry';
+import { productPhotos } from '../utils/photos';
 import { addDays, iso, makeRng, roundPrice } from '../utils/rng';
 import { COLORS, valueId } from './attributes';
 import { categories } from './categories';
@@ -181,30 +182,41 @@ productSpecs.forEach((s, idx) => {
     });
   });
 
-  // ----- Ảnh: 4–5 ảnh chung + 1 ảnh riêng mỗi màu phụ -----
-  const base = colors[0];
-  const views = idx % 2 === 0 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
-  views.forEach((v, i) => {
-    const mid = registerMedia(
-      productImg(s.type, base.hex, v),
-      `${slug}-${v}.svg`,
-      'image/svg+xml',
-      7000 + v * 300,
-      `${s.name} – góc ${v}`,
-    );
-    addProductImage(id, null, mid, i + 1, i === 0, createdAt);
-  });
-  colors.slice(1).forEach((col, i) => {
-    const vid = firstVariantByColor.get(col.name)!;
-    const mid = registerMedia(
-      productImg(s.type, col.hex, 1),
-      `${slug}-${slugify(col.name)}.svg`,
-      'image/svg+xml',
-      7200,
-      `${s.name} màu ${col.name}`,
-    );
-    addProductImage(id, vid, mid, views.length + i + 1, false, createdAt);
-  });
+  // ----- Ảnh: ảnh thật nếu máy có (xem utils/photos), không thì 4–5 ảnh minh họa + 1 ảnh riêng mỗi màu phụ -----
+  const photos = productPhotos(slug);
+  if (photos) {
+    photos.forEach((ph, i) => {
+      const alt = ph.color ? `${s.name} màu ${ph.color}` : `${s.name} – ảnh ${i + 1}`;
+      const mid = registerMedia(ph.url, ph.fileName, 'image/webp', 90_000, alt);
+      // ảnh có gắn màu ⇒ gắn vào biến thể đầu tiên của màu đó để thư viện ảnh nhảy theo màu đang chọn
+      const vid = ph.color ? (firstVariantByColor.get(ph.color) ?? null) : null;
+      addProductImage(id, vid, mid, i + 1, i === 0, createdAt);
+    });
+  } else {
+    const base = colors[0];
+    const views = idx % 2 === 0 ? [1, 2, 3, 4, 5] : [1, 2, 3, 4];
+    views.forEach((v, i) => {
+      const mid = registerMedia(
+        productImg(s.type, base.hex, v),
+        `${slug}-${v}.svg`,
+        'image/svg+xml',
+        7000 + v * 300,
+        `${s.name} – góc ${v}`,
+      );
+      addProductImage(id, null, mid, i + 1, i === 0, createdAt);
+    });
+    colors.slice(1).forEach((col, i) => {
+      const vid = firstVariantByColor.get(col.name)!;
+      const mid = registerMedia(
+        productImg(s.type, col.hex, 1),
+        `${slug}-${slugify(col.name)}.svg`,
+        'image/svg+xml',
+        7200,
+        `${s.name} màu ${col.name}`,
+      );
+      addProductImage(id, vid, mid, views.length + i + 1, false, createdAt);
+    });
+  }
 
   // ----- Phần mở rộng -----
   const [l, w, h] = s.dims;

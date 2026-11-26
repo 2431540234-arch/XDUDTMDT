@@ -22,7 +22,7 @@ npm run dev -w @aurelia-living/web              # http://localhost:3000
 | Giả lập lỗi / độ trễ               | Admin → Cài đặt → "Dữ liệu giả lập" (bật lỗi GET, tỉ lệ lỗi ngẫu nhiên, tắt độ trễ 200–500ms)                              |
 | Giả lập thanh toán online thất bại | Khi đặt hàng, ghi chú đơn hàng có chứa `[fail]` → chuyển tới `/checkout/failed`                                            |
 
-Mọi thay đổi (giỏ hàng, đơn hàng, CRUD admin…) được **lưu vào `localStorage`** (`aurelia-mock-db-v5`).
+Mọi thay đổi (giỏ hàng, đơn hàng, CRUD admin…) được **lưu vào `localStorage`** (`aurelia-mock-db-v8-<mã của bảng ghép + ảnh đang có>`).
 
 ## Tài khoản test
 
@@ -42,32 +42,51 @@ mock-data/
   mockApi/           lớp giả lập API (cùng URL/method/response như Backend thật)
     index.ts           bộ định tuyến + xác thực token + độ trễ + giả lập lỗi
     auth.ts catalog.ts shop.ts admin.ts   handler theo nhóm; views.ts = ghép entity + quan hệ
-  utils/             rng (PRNG có hạt giống), svg (ảnh minh họa), vi (dữ liệu tiếng Việt), media-registry
+  utils/             rng (PRNG có hạt giống), svg (ảnh minh họa), photos (ảnh thật), vi, media-registry
+  photos/            manifest.json – bảng ghép ảnh thật ↔ sản phẩm/không gian (chỉ có đường dẫn, không có ảnh)
   db.ts              nạp bảng, lưu localStorage, resetDb(), tính lại số tổng hợp
   index.ts           gom tất cả bảng
 ```
 
 Ảnh minh họa SVG (tông kem–nâu) sinh bởi route `apps/web/src/app/mock-img/[kind]/route.ts` (sản phẩm, phòng, ảnh 360°, avatar). Mô hình 3D mẫu `apps/web/public/mock/models/*.glb` do `apps/web/scripts/gen-mock-glb.mjs` tự sinh (CC0, không vướng bản quyền) – chạy lại bằng `node apps/web/scripts/gen-mock-glb.mjs`.
 
+## Ảnh thật (không nằm trong git)
+
+Ảnh thật **không được commit** (chưa xác minh quyền phát tán), kể cả bản WebP đã chuyển. Máy không có ảnh (máy mới, CI, test) thì mock và seed **tự dùng ảnh minh họa**, không báo lỗi.
+
+1. Chép (xin từ người giữ bộ ảnh) hai thư mục `sản phẩm/` và `không gia mẫu/` vào **thư mục gốc repo**, giữ nguyên tên thư mục và tên file.
+2. Ở thư mục gốc: `npm install` rồi `npm run images:convert` (chuyển sang WebP, cạnh dài tối đa 1600 px, chất lượng 80, vào `apps/web/public/mock/photos/`; chỉ đọc ảnh gốc; thêm `-- --force` để chuyển lại). Script báo số file thiếu.
+3. Chế độ mock: **khởi động lại** `next dev` (danh sách ảnh được đọc lúc khởi động).
+4. API thật: ảnh vào kho lưu trữ khi seed (`node scripts/db-reset.mjs aurelia_demo`; với MinIO đặt `STORAGE_DRIVER=minio` hoặc chạy `npm run minio:sync` sau khi seed ra đĩa). DB đã có dữ liệu muốn thay ảnh mà **không** nạp lại: xem đầu file `apps/api/prisma/update-real-images.ts` (sao lưu DB trước).
+
+- Mỗi sản phẩm chỉ dùng ảnh thật khi có **đủ** mọi file trong manifest; thiếu một file thì cả sản phẩm dùng ảnh minh họa. Sản phẩm/không gian không có trong manifest luôn dùng ảnh minh họa; ảnh 360° của không gian, danh mục, avatar, banner vẫn là ảnh minh họa.
+- Ép dùng ảnh minh họa dù máy có ảnh: đặt biến môi trường `REAL_PHOTOS=off`.
+- Biến thể mặc định lấy theo **màu của ảnh chính** nếu ảnh chính có gắn màu (cả mock và API); không thì là màu đầu tiên. Ảnh chỉ được ghép khi màu trong ảnh khớp một màu sản phẩm đang bán.
+- Cắt mép ảnh khi chuyển (ví dụ bỏ logo, chấm màu ở mép): thêm `"crop": { "right": 0.12 }` (tỉ lệ cạnh bị cắt: `left`, `top`, `right`, `bottom`); ảnh gốc giữ nguyên.
+- Bỏ một sản phẩm khỏi manifest: chạy lại `npm run images:convert` (xóa file thừa), và với DB đã cập nhật thì chạy lại `update-real-images` để đưa về ảnh minh họa.
+- Đổi bảng ghép: sửa `photos/manifest.json` (`confidence`: `sure` chắc chắn, `guess` ghép theo phỏng đoán, cần người xem lại; `color` phải là màu sản phẩm có). Đổi ảnh thì đặt **tên file ra mới**, vì seed không ghi đè khóa đã có trong kho.
+- Không dùng `git add -f` cho các thư mục ảnh. `.gitignore` và `.dockerignore` đã loại chúng.
+- Mô hình 3D mẫu không khớp hình dáng sản phẩm trong ảnh thật.
+
 ## Các bảng (khớp tên bảng và tên trường `packages/shared-types`)
 
-| File                                                                         | Số bản ghi (≈)         | Ghi chú                                                                                         |
-| ---------------------------------------------------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
-| `users`                                                                      | 34                     | 1 admin (`role = admin`) + 33 khách; trạng thái `active`/`suspended`/`banned`                   |
-| `addresses`                                                                  | 60+                    | 1–3 địa chỉ/khách, đúng 1 mặc định                                                              |
-| `categories`                                                                 | 22                     | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá                                                        |
-| `attribute_values`                                                           | 30                     | màu (kèm mã hex), kích thước, chất liệu (loại thuộc tính là enum `attribute_code`)              |
-| `products`, `product_variants`, `variant_attribute_values`, `product_images` | 52 / 200+              | giá gốc/sale, tồn kho (có hết hàng/sắp hết), 4–5 ảnh/SP                                         |
-| `product_3d_models`, `model_files`                                           | 30+                    | GLB thật dùng được; vài bản ghi USDZ giữ chỗ (hệ thống chỉ nhận GLB, USDZ ⇒ 415; AR đã loại bỏ) |
-| `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`    | 24 / 48 / …            | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId)                          |
-| `carts`, `cart_items`, `wishlists`                                           |                        | giỏ hàng/yêu thích cho tài khoản test                                                           |
-| `coupons`, `coupon_usages`                                                   | 14 / …                 | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc                           |
-| `orders`, `order_items`, `order_status_history`, `payments`, `shipments`     | 74 / …                 | tháng 01–11/2026, đủ mọi trạng thái + phương thức, tổng tiền tính đúng                          |
-| `reviews`                                                                    | 80+                    | chỉ gắn đơn đã giao; có chờ duyệt / bị ẩn                                                       |
-| `notifications`, `activity_logs`                                             | 16+ (khách test) / 25+ |                                                                                                 |
-| `settings`                                                                   | 3                      | cửa hàng, thanh toán, phí vận chuyển (trang tĩnh viết cứng ở `src/content/static-pages.ts`)     |
-| `faq_topics`                                                                 | 6                      | FAQ                                                                                             |
-| `review_extras`, `product_extras`                                            |                        | chip đánh giá; phong cách, giá vốn, đặc điểm SP                                                 |
+| File                                                                         | Số bản ghi (≈)         | Ghi chú                                                                                                    |
+| ---------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `users`                                                                      | 34                     | 1 admin (`role = admin`) + 33 khách; trạng thái `active`/`suspended`/`banned`                              |
+| `addresses`                                                                  | 60+                    | 1–3 địa chỉ/khách, đúng 1 mặc định                                                                         |
+| `categories`                                                                 | 22                     | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá                                                                   |
+| `attribute_values`                                                           | 30                     | màu (kèm mã hex), kích thước, chất liệu (loại thuộc tính là enum `attribute_code`)                         |
+| `products`, `product_variants`, `variant_attribute_values`, `product_images` | 52 / 200+              | giá gốc/sale, tồn kho (có hết hàng/sắp hết), ảnh thật (tối đa 6/SP) nếu máy có, không thì 4–5 ảnh minh họa |
+| `product_3d_models`, `model_files`                                           | 30+                    | GLB thật dùng được; vài bản ghi USDZ giữ chỗ (hệ thống chỉ nhận GLB, USDZ ⇒ 415; AR đã loại bỏ)            |
+| `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`    | 24 / 48 / …            | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId)                                     |
+| `carts`, `cart_items`, `wishlists`                                           |                        | giỏ hàng/yêu thích cho tài khoản test                                                                      |
+| `coupons`, `coupon_usages`                                                   | 14 / …                 | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc                                      |
+| `orders`, `order_items`, `order_status_history`, `payments`, `shipments`     | 74 / …                 | tháng 01–11/2026, đủ mọi trạng thái + phương thức, tổng tiền tính đúng                                     |
+| `reviews`                                                                    | 80+                    | chỉ gắn đơn đã giao; có chờ duyệt / bị ẩn                                                                  |
+| `notifications`, `activity_logs`                                             | 16+ (khách test) / 25+ |                                                                                                            |
+| `settings`                                                                   | 3                      | cửa hàng, thanh toán, phí vận chuyển (trang tĩnh viết cứng ở `src/content/static-pages.ts`)                |
+| `faq_topics`                                                                 | 6                      | FAQ                                                                                                        |
+| `review_extras`, `product_extras`                                            |                        | chip đánh giá; phong cách, giá vốn, đặc điểm SP                                                            |
 
 Các số tổng hợp (doanh thu, số đơn theo trạng thái, top bán chạy, KPI dashboard, báo cáo thu chi, rating, đã bán, lượt dùng coupon) **được tính ra từ dữ liệu** (xem `mockApi/admin.ts`, `db.ts → recomputeAggregates`), không gõ cứng.
 

@@ -104,8 +104,11 @@ export function defaultVariant(db: Db, productId: number) {
     .filter((v) => v.productId === productId && v.isActive)
     .sort((a, b) => a.id - b.id);
   if (!vs.length) return null;
-  const firstColor = colorOfVariant(db, vs[0].id)?.name;
-  const group = vs.filter((v) => colorOfVariant(db, v.id)?.name === firstColor);
+  // màu của ảnh chính nếu ảnh chính gắn với biến thể, không thì màu của biến thể đầu tiên (giống API)
+  const primary = db.productImages.find((i) => i.productId === productId && i.isPrimary);
+  const pictured = vs.find((v) => v.id === primary?.variantId);
+  const color = colorOfVariant(db, (pictured ?? vs[0]).id)?.name;
+  const group = vs.filter((v) => colorOfVariant(db, v.id)?.name === color);
   return group[Math.min(1, group.length - 1)] ?? vs[0];
 }
 

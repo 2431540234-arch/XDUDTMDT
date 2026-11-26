@@ -1,6 +1,7 @@
 const path = require('node:path');
 const { loadEnvConfig } = require('@next/env');
 const { PHASE_PRODUCTION_BUILD } = require('next/constants');
+const { listMockPhotos } = require('./scripts/list-mock-photos');
 
 // Dùng MỘT file .env duy nhất ở gốc monorepo (Next mặc định chỉ đọc apps/web/.env)
 loadEnvConfig(path.resolve(__dirname, '../..'), process.env.NODE_ENV !== 'production', console, true);
@@ -19,6 +20,10 @@ const nextConfig = {
   // Thư mục build riêng cho e2e (NEXT_DIST_DIR) để chạy Playwright không đè lên server dev đang dùng .next
   distDir: process.env.NEXT_DIST_DIR || '.next',
   transpilePackages: ['@aurelia-living/shared-types'],
+  // Chế độ mock: cho mã trình duyệt biết máy này có những ảnh thật nào (ảnh không nằm trong git)
+  env: {
+    NEXT_PUBLIC_MOCK_PHOTOS: process.env.NEXT_PUBLIC_USE_MOCK === 'true' ? listMockPhotos() : '',
+  },
 };
 
 // Bản build production (next build) KHÔNG được nhúng chế độ dữ liệu giả: NEXT_PUBLIC_USE_MOCK được cố định vào mã lúc build,

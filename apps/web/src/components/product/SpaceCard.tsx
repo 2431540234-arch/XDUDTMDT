@@ -30,7 +30,7 @@ export default function SpaceCard({
               src={s.coverUrl}
               alt={s.title}
               loading="lazy"
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.04]"
+              className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.04]"
             />
           )}
           {featured && (
