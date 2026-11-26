@@ -1,6 +1,6 @@
 # docs/api – đặc tả OpenAPI sinh từ code
 
-Cập nhật lần cuối: 2026-11-25 – theo commit `a13386e`.
+Cập nhật lần cuối: 2026-11-26 – nhánh `feat/vnpay-sandbox`.
 
 [openapi.json](openapi.json) là spec OpenAPI 3.0 **xuất trực tiếp từ API đang chạy** (Swagger của NestJS, `apps/api/src/app.setup.ts`), không viết tay: 152 operation / 117 path, khớp đúng 152 dòng `Mapped {…}` khi API khởi động. Mô tả từng route nằm ở trường `summary` (tiếng Việt), quyền ở `security`.
 
@@ -23,4 +23,4 @@ curl -s http://localhost:4000/docs-json | node -e "let s='';process.stdin.on('da
 
 Giao diện xem trực tiếp: `http://localhost:4000/docs`. Sau khi xuất lại, cập nhật số liệu ở đầu tệp này và đối chiếu bảng endpoint của [API_CONTRACT.md](../API_CONTRACT.md) (mục 4).
 
-Ghi chú: lần xuất ngày 2026-11-25 chạy API một lần (không ghi dữ liệu) rồi tắt ngay; spec không chứa dữ liệu, chỉ chứa cấu trúc route.
+Ghi chú: lần xuất ngày 2026-11-26 chạy API một lần (không ghi dữ liệu) rồi tắt ngay; spec không chứa dữ liệu, chỉ chứa cấu trúc route.

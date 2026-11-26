@@ -1,6 +1,6 @@
 // Service gọi API giỏ hàng, mã giảm giá, đặt hàng, thanh toán, đơn hàng
 import type { OrderStatus, PaymentMethod } from '@aurelia-living/shared-types';
-import type { CartView, OrderView, ReviewView } from '@/types/api';
+import type { CartView, OrderView, ReviewView, VnpayReturnStatus } from '@/types/api';
 import { http } from './api-client';
 
 export const cartApi = {
@@ -33,6 +33,12 @@ export const orderApi = {
   checkout: (orderId: number) => http.post<{ redirectUrl: string }>(`/payments/${orderId}/checkout`),
   retryPayment: (orderId: number, method?: PaymentMethod) =>
     http.post<{ redirectUrl: string }>(`/payments/${orderId}/retry`, { method }),
+};
+
+export const paymentApi = {
+  /** Gửi nguyên tham số cổng trả về; API kiểm chữ ký và đọc trạng thái trong CSDL */
+  vnpayReturnStatus: (query: Record<string, string>) =>
+    http.get<VnpayReturnStatus>('/payments/vnpay/return-status', query),
 };
 
 export const myReviewApi = {

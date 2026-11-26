@@ -1,7 +1,8 @@
-// M12 – Thanh toán: /payments/:orderId/checkout, /payments/:orderId/retry (khách) và /payments/vnpay/return, /payments/vnpay/ipn
-// (cổng gọi, công khai nhưng bắt buộc đúng chữ ký HMAC). Bảng: payments, orders
+// M12 – Thanh toán: /payments/:orderId/checkout, /payments/:orderId/retry (khách), /payments/vnpay/ipn (cổng gọi) và
+// /payments/vnpay/return-status (trang Return URL). Hai route vnpay công khai nhưng bắt buộc đúng chữ ký HMAC. Bảng: payments, orders
 import { Body, Controller, Get, HttpCode, Param, ParseIntPipe, Post, Query, Req, Res } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { CurrentUser, Public } from '../../common/decorators/auth.decorators';
 import { PaymentsService } from './payments.service';
@@ -14,16 +15,18 @@ export class PaymentsController {
 
   // các route tĩnh (vnpay/…) khai báo trước route có tham số
   @Public()
-  @Get('vnpay/return')
+  @Get('vnpay/return-status')
   @ApiOperation({
-    summary: 'Return URL VNPAY: kiểm tra chữ ký, ghi nhận kết quả, chuyển tới /checkout/success|failed',
+    summary:
+      'Trang Return URL: kiểm chữ ký, trả { valid, orderCode, responseCode, paymentStatus }; còn pending thì hỏi cổng (querydr)',
   })
-  async vnpayReturn(@Query() query: Record<string, unknown>, @Res() res: Response) {
-    // trả thẳng bằng @Res(): không đi qua lớp bọc { success, data }
-    res.redirect(302, await this.payments.returnUrl(query));
+  returnStatus(@Query() query: Record<string, unknown>) {
+    return this.payments.returnStatus(query);
   }
 
+  // IPN gọi từ máy chủ cổng: không áp rate limit chung (chữ ký là lớp bảo vệ)
   @Public()
+  @SkipThrottle({ default: true })
   @Get('vnpay/ipn')
   @ApiOperation({
     summary: 'IPN VNPAY (server-to-server), idempotent, trả { RspCode, Message } theo chuẩn VNPAY',

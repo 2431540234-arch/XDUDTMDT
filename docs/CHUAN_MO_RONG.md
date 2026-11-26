@@ -40,7 +40,7 @@ Mọi bảng/cột mở rộng bên dưới tuân theo `QUY_UOC_CODE_DB.md`: tê
 | 10 | **Lưu tệp driver `local`** cho demo/test (`apps/api/uploads`, URL `/uploads`). Ảnh nhỏ (đại diện, đánh giá…) gửi data-URL trong JSON (body ≤ 25 MB); **frame 360° (≤ 2 MB) và panorama (≤ 20 MB) tải từng tệp bằng multipart `POST /admin/media` (`kind=frame|panorama`)** rồi gửi URL, nên không bị giới hạn body; mô hình 3D ≤ 100 MB (multipart `POST /admin/models/upload`) | Chưa làm MinIO/presign ở lượt này (xem Phần 3) |
 | 11 | Thêm gói: `react-markdown@9.1.0` (web), `dotenv-cli` (chạy với `.env` gốc) | Xem 2 và scripts |
 | 12 | **Test:** Jest (unit, supertest DB thật `aurelia_test`) + Vitest (web) + Playwright chạy với API thật (`npm run test:e2e:real`, 5 nhóm). **Không chạy hai bộ test cùng lúc trên `aurelia_test`** (dùng chung một DB nên kết quả sai); script có khóa chặn việc này | Chuẩn chỉ nói Jest/Vitest/Playwright, chưa nêu cách chạy API thật |
-| 13 | **VNPAY**: tự viết chữ ký HMAC-SHA512 bằng `node:crypto` (`modules/payments/vnpay.ts`), không thêm thư viện; thử bằng khóa giả, giữ chế độ giả lập cho demo | Ít phụ thuộc, hàm thuần dễ test; chưa có khóa sandbox thật |
+| 13 | **VNPAY**: tự viết chữ ký HMAC-SHA512 bằng `node:crypto` (`modules/payments/vnpay.ts`), không thêm thư viện; thử bằng khóa giả, giữ chế độ giả lập cho demo. Kết quả chỉ ghi qua IPN hoặc `querydr` (D-N42, D-T63); trang Return URL chỉ đọc | Ít phụ thuộc, hàm thuần dễ test |
 
 Số liệu thống kê trong `CONG_NGHE.md` (số route, test, migration…) chỉ là ảnh chụp lúc viết, **không phải quy tắc**.
 
@@ -58,7 +58,7 @@ Những chỗ code **chưa theo chuẩn/đặc tả** hoặc còn thiếu, đã 
 | 4 | `PermissionsGuard` / vai trò-quyền chi tiết (UC-ADM-02) | Chỉ phân biệt khách/admin | Mốc 5 |
 | 5 | `ActivityLogInterceptor` | Nhật ký ghi trực tiếp trong service (`activity_logs`) | Chuyển sang interceptor |
 | 6 | UC "Mốc 5" còn lại: đổi chất liệu 3D, đặt đồ trong không gian (placement), thống kê (AR đã LOẠI BỎ hoàn toàn, xem mục 27; quản lý phiên, xóa tài khoản, gửi thông báo thủ công, màn nhật ký, vai trò/phân quyền **đã làm**, D-P15, mục 35) | Chưa làm (thương hiệu, thuộc tính, media, vận chuyển và 5 UC Mở rộng nhẹ đã làm) | Mốc 5 |
-| 7 | VNPAY khóa thật | Đã làm URL/chữ ký/Return URL/IPN/thanh toán lại và kiểm bằng khóa giả; chưa có khóa sandbox thật nên chưa thử qua cổng thật | Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` khi có tài khoản |
+| 7 | VNPAY khóa thật | Đã làm URL/chữ ký/IPN/return-status/querydr/thanh toán lại và kiểm bằng khóa giả; **chưa thử qua cổng sandbox thật** (đặc biệt checksum phản hồi `querydr` có lỗi gõ trong tài liệu). Giao dịch đã bị thay thế hoặc đã đóng khi hủy đơn chỉ được ghi nhận qua IPN | Điền `VNPAY_TMN_CODE`, `VNPAY_HASH_SECRET` ở `apps/api/.env` rồi thử; không khớp chữ ký thì dừng và báo, không nới lỏng kiểm tra |
 | 8 | Android (`apps/mobile`) | Không đụng tới | Mốc 6 |
 | 9 | `users.loyalty_points` | Giữ nguyên cột, chưa có logic cộng/dùng điểm (ngoài đặc tả) | Quyết định khi có yêu cầu |
 | 10 | `carts.coupon_id` | Giữ nguyên (FE lưu mã trong giỏ; chuẩn D-N16 nói chỉ xem trước) | Quyết định khi có yêu cầu |

@@ -32,3 +32,13 @@ process.env.CACHE_KEY_PREFIX = 'cache-test:';
 process.env.CACHE_ENABLED = 'true';
 process.env.MAIL_TRANSPORT = 'queue';
 process.env.MAILPIT_API_URL ??= `http://localhost:${process.env.MAILPIT_UI_PORT ?? '8025'}`;
+
+// Test KHÔNG BAO GIỜ dùng khóa VNPAY thật trong apps/api/.env hay .env gốc: đặt rỗng trong process.env (ưu tiên hơn mọi tệp .env).
+for (const k of [
+  'VNPAY_TMN_CODE',
+  'VNPAY_HASH_SECRET',
+  'VNPAY_RETURN_URL',
+  'VNPAY_PAYMENT_URL',
+  'VNPAY_QUERY_URL',
+])
+  process.env[k] = '';

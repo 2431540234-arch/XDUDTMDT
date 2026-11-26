@@ -22,3 +22,13 @@ process.env.S3_SECRET_KEY ??= 'aurelia123';
 process.env.S3_BUCKET_PUBLIC = 'aurelia-test-public';
 process.env.S3_BUCKET_PRIVATE = 'aurelia-test-private';
 process.env.STORAGE_PUBLIC_URL = `${process.env.S3_ENDPOINT}/aurelia-test-public`;
+
+// Test KHÔNG BAO GIỜ dùng khóa VNPAY thật trong apps/api/.env hay .env gốc: đặt rỗng trong process.env (ưu tiên hơn mọi tệp .env).
+for (const k of [
+  'VNPAY_TMN_CODE',
+  'VNPAY_HASH_SECRET',
+  'VNPAY_RETURN_URL',
+  'VNPAY_PAYMENT_URL',
+  'VNPAY_QUERY_URL',
+])
+  process.env[k] = '';

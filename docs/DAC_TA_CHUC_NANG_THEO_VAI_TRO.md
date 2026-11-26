@@ -1271,16 +1271,16 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Thông tin chung** | Nhóm: Thanh toán · Ưu tiên: **Bắt buộc** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (payments, orders) |
 | **Tác nhân chính / phụ** | Người dùng · phụ: Cổng thanh toán (VNPay sandbox) |
 | **Mô tả** | Tạo yêu cầu thanh toán tại cổng và chuyển người dùng sang trang thanh toán của cổng. |
-| **Tiền điều kiện** | Đơn `pending`, `paymentStatus = unpaid`, phương thức online (`momo`, `vnpay`, `zalopay`, `card`). |
-| **Hậu điều kiện** | `Payment` có mã tham chiếu giao dịch; người dùng được chuyển sang cổng. |
-| **Luồng chính** | 1. Người dùng: Sau khi đặt hàng (hoặc ở chi tiết đơn) bấm "Thanh toán".<br>2. Hệ thống: `POST /api/payments/:orderId/checkout`.<br>3. Hệ thống: `PaymentsService.createCheckout(userId, orderId)` kiểm tra đơn thuộc user, `pending`, chưa `paid`.<br>4. Hệ thống: Lấy `Payment` pending của đơn; tạo URL thanh toán có chữ ký (số tiền = `Order.total`, mã tham chiếu = `orderCode`, URL return/IPN).<br>5. Hệ thống: Trả 200 `{ paymentUrl }`.<br>6. Người dùng: Trình duyệt chuyển sang cổng, thanh toán.<br>7. Hệ thống ngoài: Cổng gọi IPN (UC-PAY-02) và chuyển người dùng về `GET /api/payments/:gateway/return`, rồi về `/orders/:orderCode`. |
-| **Luồng thay thế** | 3a. Đơn đã `paid` hoặc không `pending` → 409.<br>3b. Phương thức COD/chuyển khoản → không có bước này (admin xác nhận, UC-ADM-24). |
-| **Ngoại lệ** | • Cổng lỗi/không phản hồi → 502, giữ nguyên đơn; user thử lại (UC-PAY-03). |
-| **Quy tắc nghiệp vụ** | • Số tiền gửi cổng luôn lấy từ `Order.total` trong CSDL, không nhận từ client.<br>• Chữ ký (HMAC) tính bằng khóa bí mật của từng cổng (biến môi trường). |
+| **Tiền điều kiện** | Đơn `pending` hoặc `confirmed`, chưa `paid`; phương thức online `vnpay` hoặc `card` (MoMo/ZaloPay đã ngừng, D-N44). |
+| **Hậu điều kiện** | Có một `Payment` `pending` mang `vnp_TxnRef` riêng; người dùng được chuyển sang cổng. |
+| **Luồng chính** | 1. Người dùng: Sau khi đặt hàng (hoặc ở chi tiết đơn) bấm "Thanh toán".<br>2. Hệ thống: `POST /api/payments/:orderId/checkout`.<br>3. Hệ thống: kiểm tra đơn thuộc user, `pending`/`confirmed`, chưa `paid`, còn hạn mức tạo URL (D-N43).<br>4. Hệ thống: trong transaction, mỗi URL một dòng `Payment` (dòng cũ chưa dùng, hoặc đóng dòng cũ và tạo mới); tạo URL ký HMAC-SHA512 (số tiền = `Payment.amount` × 100, `vnp_TxnRef = P<paymentId>T<yyyyMMddHHmmss>`, hạn 15 phút) và lưu thông tin yêu cầu (D-T63).<br>5. Hệ thống: Trả 200 `{ redirectUrl, paymentUrl, expiresAt }`.<br>6. Người dùng: Trình duyệt chuyển sang cổng, thanh toán.<br>7. Hệ thống ngoài: Cổng gọi IPN (UC-PAY-02) và đưa người dùng về trang `/checkout/vnpay-return`; trang gọi `GET /api/payments/vnpay/return-status` (chỉ hiển thị). |
+| **Luồng thay thế** | 3a. Đơn đã `paid`, đã hủy hoặc đã sang `processing` trở đi → 409.<br>3b. Quá 5 lượt tạo URL/phút → 429.<br>3c. Phương thức COD/chuyển khoản → không có bước này (admin xác nhận, UC-ADM-24).<br>3d. Chưa cấu hình khóa VNPay → giả lập (chỉ dev/test) hoặc 503. |
+| **Ngoại lệ** | • Khách không thanh toán: URL hết hạn sau 15 phút, đơn KHÔNG tự hủy, tồn kho giữ đến khi hủy (D-N41). |
+| **Quy tắc nghiệp vụ** | • Số tiền gửi cổng luôn lấy từ CSDL (`Payment.amount`), không nhận từ client.<br>• Khóa bí mật chỉ nằm trong biến môi trường; không ghi log. |
 | **Dữ liệu vào** | • orderId (bắt buộc): id đơn của user |
-| **Dữ liệu ra** | • 200: `{ paymentUrl, expiresAt }` |
+| **Dữ liệu ra** | • 200: `{ redirectUrl, paymentUrl, expiresAt }` |
 | **Model + C/R/U/D** | Order (orders): R<br>Payment (payments): R,U |
-| **DB trigger / việc Service tự làm** | • Không có DB trigger. `Payment.transactionCode` có thể được lưu ngay khi cổng trả mã giao dịch. |
+| **DB trigger / việc Service tự làm** | • Service: tạo/đóng dòng `Payment` trong transaction khóa dòng đơn. |
 
 #### UC-PAY-03 – Thanh toán lại đơn chưa thanh toán
 
@@ -1289,11 +1289,11 @@ Người dùng làm được mọi việc của khách (mục 6) và các chức
 | **Thông tin chung** | Nhóm: Thanh toán · Ưu tiên: **Nên có** · Khách: cần đăng nhập · User: chỉ của mình · Admin: ✘ · Nguồn: CSDL (payments) |
 | **Tác nhân chính / phụ** | Người dùng · phụ: Cổng thanh toán |
 | **Mô tả** | Khi thanh toán thất bại hoặc bỏ dở, user thanh toán lại hoặc đổi phương thức mà không phải đặt lại đơn. |
-| **Tiền điều kiện** | Đơn `pending`, `paymentStatus ∈ {unpaid, failed}`. |
+| **Tiền điều kiện** | Đơn `pending` hoặc `confirmed`, `paymentStatus ∈ {unpaid, failed}`. |
 | **Hậu điều kiện** | Có `Payment` pending mới; chuyển sang cổng. |
-| **Luồng chính** | 1. Người dùng: Ở chi tiết đơn bấm "Thanh toán lại" (có thể chọn phương thức khác).<br>2. Hệ thống: `POST /api/payments/:orderId/retry` (RetryPaymentDto).<br>3. Hệ thống: Kiểm tra điều kiện; đánh dấu `Payment` cũ còn pending là `failed`; tạo `Payment` mới (status `pending`); `Order.paymentMethod` cập nhật nếu đổi, `paymentStatus = unpaid`.<br>4. Hệ thống: Tiếp tục như UC-PAY-01 (bước 4–7). |
-| **Luồng thay thế** | 3a. Đơn đã `paid` hoặc đã hủy → 409. |
-| **Ngoại lệ** |  |
+| **Luồng chính** | 1. Người dùng: Ở chi tiết đơn hoặc trang thanh toán thất bại bấm "Thanh toán lại" (có thể chọn `vnpay`, `card`, chuyển khoản, COD).<br>2. Hệ thống: `POST /api/payments/:orderId/retry { method? }`.<br>3. Hệ thống: kiểm tra điều kiện; `Payment` cũ còn pending → `failed`; tạo `Payment` mới; `Order.paymentMethod` cập nhật nếu đổi, `paymentStatus = unpaid`.<br>4. Hệ thống: Tiếp tục như UC-PAY-01 (bước 4–7), `vnp_TxnRef` mới. |
+| **Luồng thay thế** | 3a. Đơn đã `paid`, đã hủy hoặc không còn `pending`/`confirmed` → 409.<br>3b. Chọn MoMo/ZaloPay, hoặc đơn cũ dùng hai phương thức này mà không đổi → 400 (D-N44).<br>3c. Quá 5 lượt tạo URL/phút (tính chung với UC-PAY-01) → 429, không đổi dữ liệu (D-N43). |
+| **Ngoại lệ** | • Tiền về trên URL cũ sau khi đã thanh toán lại vẫn được ghi nhận (D-N39, D-N40). |
 | **Dữ liệu vào** |  |
 | **Dữ liệu ra** |  |
 | **Model + C/R/U/D** | Order (orders): R,U<br>Payment (payments): C,R |
@@ -1667,7 +1667,7 @@ UC này **đã gỡ** (D-D12, 2026-11-19/20). Tính năng, bảng và API tươn
 | **Luồng chính** | 1. Admin: Ở chi tiết đơn chọn hành động ("Xác nhận", "Bắt đầu xử lý", "Giao hàng") và (tuỳ chọn) ghi chú.<br>2. Hệ thống: `PATCH /api/admin/orders/:id/status` (UpdateOrderStatusDto: `status`, `note`).<br>3. Hệ thống: `OrdersService.updateStatus(adminId, id, dto)` mở `$transaction`, kiểm tra chuyển trạng thái hợp lệ.<br>4. Hệ thống: Đặt `SET LOCAL app.current_user_id` (và `app.status_note`) rồi cập nhật `Order.status`.<br>5. CSDL: Trigger ghi `OrderStatusHistory` (từ → đến, `changedBy`).<br>6. Hệ thống: Khi sang `shipping`: yêu cầu đã có `Shipment` (UC-ADM-25).<br>7. Hệ thống: Tạo `Notification` cho user, gửi email; trả 200. |
 | **Luồng thay thế** | 3a. Chuyển trạng thái không hợp lệ (ví dụ `pending` → `shipping`) → 409.<br>3b. Yêu cầu `status = completed` → 409 "Hoàn tất khi vận đơn được đánh dấu đã giao (UC-ADM-25)".<br>6a. Sang `shipping` khi chưa có vận đơn → 400. |
 | **Ngoại lệ** | • Đơn đã `cancelled`/`refunded`/`completed` → không đổi được (409). |
-| **Quy tắc nghiệp vụ** | • Chuyển hợp lệ tại UC này: `pending→confirmed→processing→shipping`. `pending→confirmed` cũng xảy ra tự động khi thanh toán online thành công (UC-PAY-02, `changedBy = NULL`). `completed` do UC-ADM-25; hủy ở UC-ADM-22; hoàn tiền ở UC-ADM-23.<br>• `OrderStatusHistory` do DB trigger ghi; Service KHÔNG tự `create` (QUY_UOC §6). Người đổi lấy từ `app.current_user_id`. |
+| **Quy tắc nghiệp vụ** | • Chuyển hợp lệ tại UC này: `pending→confirmed→processing→shipping`. `pending→confirmed` cũng xảy ra tự động khi thanh toán online thành công (UC-PAY-02, `changedBy = NULL`). Đơn `vnpay`/`card` chưa `paid` KHÔNG chuyển được sang `processing` (409, D-N45). `completed` do UC-ADM-25; hủy ở UC-ADM-22; hoàn tiền ở UC-ADM-23.<br>• `OrderStatusHistory` do DB trigger ghi; Service KHÔNG tự `create` (QUY_UOC §6). Người đổi lấy từ `app.current_user_id`. |
 | **Dữ liệu vào** | • status (bắt buộc): `confirmed`, `processing` hoặc `shipping` theo thứ tự<br>• note (tuỳ chọn): ≤ 500 ký tự |
 | **Dữ liệu ra** | • 200: đơn mới kèm lịch sử |
 | **Model + C/R/U/D** | Order (orders): R,U<br>OrderItem (order_items): R<br>Shipment (shipments): R<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |
@@ -1938,12 +1938,12 @@ Khi `ready`, DB trigger cập nhật `Product.has3dModel`.
 | **Thông tin chung** | Nhóm: Thanh toán · Ưu tiên: **Bắt buộc** · Khách: hệ thống ngoài · User: hệ thống ngoài · Admin: hệ thống ngoài · Nguồn: CSDL (payments, orders) |
 | **Tác nhân chính / phụ** | Cổng thanh toán (VNPay sandbox) |
 | **Mô tả** | Cổng gọi máy chủ để báo kết quả thanh toán; hệ thống xác thực chữ ký rồi cập nhật Payment và Order. |
-| **Tiền điều kiện** | Có `Payment` pending tương ứng. |
+| **Tiền điều kiện** | Có `Payment` mang đúng `vnp_TxnRef` mà hệ thống đã gửi cổng. |
 | **Hậu điều kiện** | `Payment.status` = `success` hoặc `failed`; `Order.paymentStatus` tương ứng; khi thành công và đơn đang `pending` thì đơn tự chuyển `confirmed`. |
-| **Luồng chính** | 1. Hệ thống ngoài: Cổng gửi `POST\|GET /api/payments/:gateway/ipn` kèm dữ liệu và chữ ký.<br>2. Hệ thống: Endpoint công khai (không JWT); `PaymentsService.handleCallback(gateway, payload)` xác thực chữ ký HMAC.<br>3. Hệ thống: Tìm `Payment` theo mã tham chiếu; đối chiếu `amount` với `Order.total`.<br>4. Hệ thống: Mở `$transaction`; nếu `Payment.status` đã `success` → bỏ qua (idempotent).<br>5. Hệ thống: Kết quả thành công → `Payment.status = success`, `transactionCode`, `gatewayResponse`, `paidAt`; `Order.paymentStatus = paid`.<br>6. Hệ thống: Nếu `Order.status = pending`: tự chuyển `confirmed` trong cùng transaction. KHÔNG đặt `app.current_user_id` nên trigger ghi `OrderStatusHistory` với `changedBy = NULL`; đặt `app.status_note = 'Thanh toán online thành công'`.<br>7. Hệ thống: Kết quả thất bại → `Payment.status = failed`, `gatewayResponse`; `Order.paymentStatus = failed`; đơn vẫn `pending`.<br>8. Hệ thống: Tạo `Notification` cho user; trả cổng đúng định dạng quy định (ví dụ `{ RspCode: "00" }`). |
-| **Luồng thay thế** | 2a. Chữ ký sai → từ chối (400/`RspCode 97`), ghi log bảo mật, không đổi dữ liệu.<br>3a. Không tìm thấy giao dịch hoặc sai số tiền → từ chối (`RspCode 01/04`).<br>4a. Callback lặp lại → trả thành công nhưng không xử lý lại.<br>5a. Callback thành công đến khi đơn đã `cancelled` (đã hủy trước khi cổng báo) → chỉ ghi `Payment` success, KHÔNG đổi trạng thái đơn, tạo cảnh báo cho admin để hoàn tiền thủ công (UC-ADM-23) [ĐỀ XUẤT]. |
-| **Ngoại lệ** | • Lỗi CSDL → trả mã lỗi để cổng gọi lại sau. |
-| **Quy tắc nghiệp vụ** | • Callback là nguồn sự thật duy nhất để xác nhận thanh toán online; không tin redirect của trình duyệt.<br>• `transactionCode` UNIQUE: giao dịch trùng bị từ chối.<br>• Thanh toán online thành công TỰ chuyển đơn `pending → confirmed` (đã quyết định); lịch sử do DB trigger ghi, Service chỉ đặt biến phiên `app.status_note`. |
+| **Luồng chính** | 1. Hệ thống ngoài: Cổng gọi `GET /api/payments/vnpay/ipn` kèm dữ liệu và chữ ký.<br>2. Hệ thống: Endpoint công khai (không JWT, không rate limit chung); xác thực chữ ký HMAC-SHA512 và `vnp_TmnCode` trước mọi xử lý.<br>3. Hệ thống: Tìm `Payment` theo `vnp_TxnRef`; đối chiếu `vnp_Amount` với `Payment.amount` × 100.<br>4. Hệ thống: `$transaction`, khóa dòng đơn; lần thử này đã có kết quả → trả `02`.<br>5. Hệ thống: Thành công (`vnp_ResponseCode` và `vnp_TransactionStatus` đều `00`) → `Payment.status = success`, `transactionCode`, `paidAt`, lưu dữ liệu cổng và nguồn (`ipn`/`querydr`); đơn chưa trả → `paid`, `pending → confirmed` (lịch sử `changedBy = NULL`).<br>6. Hệ thống: Thất bại → `Payment.status = failed`; chỉ lần thử hiện hành mới làm `Order.paymentStatus = failed`.<br>7. Hệ thống: Tạo `Notification`; trả `{ RspCode, Message }`.<br>8. Dự phòng khi chưa có IPN: `return-status` gọi `querydr`, phản hồi đúng chữ ký đi qua cùng bước 3–7 (D-N42). |
+| **Luồng thay thế** | 2a. Chữ ký hoặc TmnCode sai → `RspCode 97`, không đổi dữ liệu.<br>3a. Không tìm thấy giao dịch → `01`; sai số tiền → `04`.<br>4a. Gọi lặp → `02`, không xử lý lại.<br>5a. Thành công khi đơn đã `cancelled` → giữ `cancelled`, `Payment = success`, `paymentStatus = paid`, báo admin hoàn tiền (D-N28).<br>5b. Thành công trên lần thử đã bị thay thế, đơn chưa trả → đơn `paid` theo phương thức đã trả (D-N39).<br>5c. Đơn đã trả mà một lần thử khác thành công → ghi giao dịch, đơn không đổi, báo admin hoàn khoản dư, trả `00` (D-N40). |
+| **Ngoại lệ** | • Lỗi CSDL → `RspCode 99`, rollback; cổng gọi lại (tối đa 10 lần, cách nhau 5 phút). |
+| **Quy tắc nghiệp vụ** | • IPN (và `querydr` đã xác thực chữ ký) là nguồn sự thật duy nhất; trang Return URL không cập nhật gì theo tham số trình duyệt.<br>• `transactionCode` UNIQUE.<br>• Thanh toán online thành công TỰ chuyển đơn `pending → confirmed`; lịch sử do DB trigger ghi, Service chỉ đặt biến phiên `app.status_note`. |
 | **Dữ liệu vào** | • payload của từng cổng (bắt buộc): chữ ký hợp lệ |
 | **Dữ liệu ra** | • Phản hồi theo chuẩn từng cổng |
 | **Model + C/R/U/D** | Payment (payments): R,U<br>Order (orders): R,U<br>Notification (notifications): C<br>OrderStatusHistory (order_status_history): C (trigger) |

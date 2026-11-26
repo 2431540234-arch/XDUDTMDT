@@ -2560,10 +2560,10 @@
         ]
       }
     },
-    "/api/payments/vnpay/return": {
+    "/api/payments/vnpay/return-status": {
       "get": {
-        "operationId": "PaymentsController_vnpayReturn",
-        "summary": "Return URL VNPAY: kiểm tra chữ ký, ghi nhận kết quả, chuyển tới /checkout/success|failed",
+        "operationId": "PaymentsController_returnStatus",
+        "summary": "Trang Return URL: kiểm chữ ký, trả { valid, orderCode, responseCode, paymentStatus }; còn pending thì hỏi cổng (querydr)",
         "parameters": [],
         "responses": {
           "200": {

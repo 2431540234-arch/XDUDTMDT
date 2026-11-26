@@ -7,11 +7,12 @@ import { PaymentsController } from './payments.controller';
 import { AdminPaymentsController } from './admin-payments.controller';
 import { OrdersModule } from '../orders/orders.module';
 import { PaymentsService } from './payments.service';
+import { VnpayGuard } from './vnpay-guard';
 
 @Module({
   imports: [OrdersModule],
   controllers: [PaymentsController, AdminPaymentsController],
-  providers: [PaymentsService],
+  providers: [PaymentsService, VnpayGuard],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}

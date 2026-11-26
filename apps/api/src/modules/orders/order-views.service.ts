@@ -31,6 +31,26 @@ export const ORDER_INCLUDE = {
 
 export type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
+/**
+ * Giao dịch đại diện của đơn: giao dịch đã thu tiền nếu có, nếu không thì lần thử mới nhất. Không trả dữ liệu thô của cổng
+ * (lưu để đối soát) ra API: chỉ giữ mã và nguồn cập nhật.
+ */
+function currentPayment<T extends { status: string; gatewayResponse: unknown }>(payments: T[]) {
+  const p = payments.find((x) => x.status === 'success') ?? payments[payments.length - 1];
+  if (!p) return null;
+  const g = (p.gatewayResponse ?? {}) as {
+    code?: string;
+    message?: string;
+    result?: { source?: string; responseCode?: string };
+  };
+  const gatewayResponse = g.result
+    ? { code: g.result.responseCode, source: g.result.source }
+    : g.code
+      ? { code: g.code, message: g.message }
+      : null;
+  return serialize({ ...p, gatewayResponse });
+}
+
 @Injectable()
 export class OrderViewsService {
   constructor(
@@ -110,7 +130,7 @@ export class OrderViewsService {
             h.changedBy === null ? 'Hệ thống' : isAdmin ? 'Admin' : (changedByUser?.fullName ?? 'Khách hàng'),
         };
       }),
-      payment: payments[0] ? serialize(payments[0]) : null,
+      payment: currentPayment(payments),
       shipment: shipment ? serialize(shipment) : null,
       shipments: o.shipments.map((x) => serialize(x)),
       couponCode: coupon?.code ?? null,

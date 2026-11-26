@@ -42,7 +42,7 @@ Sửa trong `.env`:
 
 - `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`: chuỗi ngẫu nhiên tối thiểu 16 ký tự (`openssl rand -hex 32`). Backend **từ chối khởi động** nếu thiếu/ngắn và in rõ biến nào sai. Web từ chối khởi động nếu thiếu `NEXT_PUBLIC_API_URL`.
 - Cổng mặc định: **API 4000, web 3000, Redis 6379, MinIO API 9000, MinIO Console 9011**. Máy đã có Redis khác chiếm 6379: đặt `REDIS_PORT=6380` (cả `.env` lẫn compose đọc biến này). Nếu bị chiếm, đổi đồng bộ `PORT`, `API_PORT`, `NEXT_PUBLIC_API_URL`, `STORAGE_PUBLIC_URL`, `CORS_ORIGINS`. PostgreSQL: `POSTGRES_PORT` và cổng trong `DATABASE_URL`; Mailpit: `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`.
-- Biến `VNPAY_*` để trống cho tới khi làm module thanh toán. Mọi biến, kiểu, mặc định và module dùng: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
+- Thanh toán VNPay (sandbox): để trống `VNPAY_*` thì chạy giả lập. Muốn dùng sandbox thật, tạo `apps/api/.env` (đã bị git bỏ qua) chứa `VNPAY_TMN_CODE` và `VNPAY_HASH_SECRET` (điền cả hai), rồi khởi động lại API; Return URL mặc định là `<APP_URL>/checkout/vnpay-return`. IPN cần địa chỉ HTTPS công khai `<API>/api/payments/vnpay/ipn` (tunnel); không có tunnel thì API tự hỏi cổng bằng `querydr` khi khách quay về. Mọi biến, kiểu, mặc định và module dùng: [docs/ENVIRONMENT.md](docs/ENVIRONMENT.md).
 
 `.env` đã nằm trong `.gitignore`: **không commit**. Giải thích từng biến: [.env.example](.env.example).
 

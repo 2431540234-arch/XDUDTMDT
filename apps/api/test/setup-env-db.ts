@@ -20,3 +20,13 @@ process.env.THROTTLE_AUTH_LIMIT = '100000';
 process.env.CACHE_KEY_PREFIX = 'cache-e2e-db:';
 process.env.MAIL_TRANSPORT = 'direct';
 process.env.PAYMENT_SANDBOX_FAKE = 'true';
+
+// Test KHÔNG BAO GIỜ dùng khóa VNPAY thật trong apps/api/.env hay .env gốc: đặt rỗng trong process.env (ưu tiên hơn mọi tệp .env).
+for (const k of [
+  'VNPAY_TMN_CODE',
+  'VNPAY_HASH_SECRET',
+  'VNPAY_RETURN_URL',
+  'VNPAY_PAYMENT_URL',
+  'VNPAY_QUERY_URL',
+])
+  process.env[k] = '';

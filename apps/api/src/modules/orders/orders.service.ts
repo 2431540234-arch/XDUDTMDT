@@ -2,7 +2,7 @@
 // Tồn kho (QUY_UOC_CODE_DB 5.1): tạo đơn ⇒ stock_quantity −= qty + movement "sale" (khóa dòng variant, chống bán vượt);
 // hủy đơn ⇒ cộng lại + movement "return"; đổi trả được duyệt nhận hàng về ⇒ cộng lại tồn.
 // sold_count chỉ tăng khi đơn completed (AdminOrdersService.setStatus), không tăng lúc đặt (QUY_UOC_CODE_DB 5.2).
-import { assertPaymentMethodEnabled } from '../../common/utils/payment-methods';
+import { assertPaymentMethodEnabled, assertPaymentMethodSupported } from '../../common/utils/payment-methods';
 import { Injectable } from '@nestjs/common';
 import { OrderStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
@@ -122,6 +122,7 @@ export class OrdersService {
     }
     if (str(b.note).length > 500) errs.add('note', 'Ghi chú tối đa 500 ký tự.');
     errs.throwIfAny();
+    assertPaymentMethodSupported(b.paymentMethod as string);
     await assertPaymentMethodEnabled(this.prisma, b.paymentMethod as string);
 
     const itemIds = Array.isArray(b.itemIds) ? (b.itemIds as unknown[]).map(Number) : [];

@@ -60,7 +60,11 @@ function Content() {
       </div>
     );
   const o = q.data!;
-  const methods: PaymentMethod[] = ['vnpay', 'card', 'momo', 'zalopay', 'bank_transfer', 'cod'];
+  const methods: PaymentMethod[] = ['vnpay', 'card', 'bank_transfer', 'cod'];
+  // chỉ thanh toán lại được khi đơn chờ xác nhận/đã xác nhận và chưa trả tiền
+  const payable = (o.status === 'pending' || o.status === 'confirmed') && o.paymentStatus !== 'paid';
+  // đơn cũ dùng MoMo/ZaloPay phải chọn phương thức khác
+  const retired = o.paymentMethod === 'momo' || o.paymentMethod === 'zalopay';
   return (
     <div className="container-page py-6">
       <Breadcrumb
@@ -81,12 +85,16 @@ function Content() {
           hàng vẫn được giữ, bạn có thể thanh toán lại hoặc chọn phương thức khác.
         </p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <Button size="lg" loading={retry.isPending} onClick={() => retry.mutate(undefined)}>
-            Thử thanh toán lại
-          </Button>
-          <Button size="lg" variant="outline" onClick={() => setPick(true)}>
-            Chọn phương thức khác
-          </Button>
+          {payable && !retired && (
+            <Button size="lg" loading={retry.isPending} onClick={() => retry.mutate(undefined)}>
+              Thử thanh toán lại
+            </Button>
+          )}
+          {payable && (
+            <Button size="lg" variant="outline" onClick={() => setPick(true)}>
+              Chọn phương thức khác
+            </Button>
+          )}
         </div>
         <LinkButton href={`/account/orders/${o.orderCode}`} variant="ghost" className="mt-3">
           Xem chi tiết đơn hàng

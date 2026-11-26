@@ -10,6 +10,7 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { ErrorCode } from '@aurelia-living/shared-types';
 import { ActivityLogService } from '../../activity-log/activity-log.service';
 import { AppException } from '../../common/exceptions/app.exception';
+import { assertPaymentMethodSupported } from '../../common/utils/payment-methods';
 import { qList, qStr, resolvePage, type RawQuery } from '../../common/utils/list-query';
 import { FieldErrors, asBody, cancelReasonError, str, toId } from '../../common/utils/validate';
 import { foldVi } from '../../common/utils/vi-fold';
@@ -25,6 +26,13 @@ export const ORDER_NEXT: Partial<Record<OrderStatus, OrderStatus[]>> = {
   processing: ['shipping', 'cancelled'],
   shipping: ['completed'],
 };
+
+/** D-N45: đơn trả qua cổng VNPAY (vnpay/thẻ) chưa paid thì chưa được xử lý */
+export function awaitingGatewayPayment(method: string, paymentStatus: string): boolean {
+  return (method === 'vnpay' || method === 'card') && paymentStatus !== 'paid';
+}
+export const UNPAID_GATEWAY_MESSAGE =
+  'Đơn thanh toán qua VNPAY/thẻ chưa nhận được tiền nên chưa thể chuyển sang "Đang xử lý". Chờ khách thanh toán, hoặc để khách đổi sang phương thức khác.';
 
 export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_NEXT[from]?.includes(to) ?? false;
@@ -156,6 +164,7 @@ export class AdminOrdersService {
       const vid = toId(it.variantId);
       merged.set(vid, (merged.get(vid) ?? 0) + Math.max(1, Math.floor(Number(it.quantity) || 1)));
     }
+    assertPaymentMethodSupported(str(b.paymentMethod)); // D-N44: đơn tạo hộ cũng không dùng MoMo/ZaloPay
     const order = await this.orders.placeOrder({
       userId: user!.id,
       actorId: adminId,
@@ -189,11 +198,14 @@ export class AdminOrdersService {
     }
     await this.prisma.$transaction(async (tx) => {
       const [locked] = await tx.$queryRaw<
-        Array<{ status: OrderStatus }>
-      >`SELECT status FROM orders WHERE id = ${cur.id} FOR UPDATE`;
+        Array<{ status: OrderStatus; payment_status: string; payment_method: string }>
+      >`SELECT status, payment_status, payment_method FROM orders WHERE id = ${cur.id} FOR UPDATE`;
       const from = locked.status;
       if (!canTransition(from, to)) {
         throw new AppException(ErrorCode.INVALID_STATE, `Không thể chuyển đơn từ "${from}" sang "${to}".`);
+      }
+      if (to === 'processing' && awaitingGatewayPayment(locked.payment_method, locked.payment_status)) {
+        throw new AppException(ErrorCode.INVALID_STATE, UNPAID_GATEWAY_MESSAGE);
       }
       if (to === 'shipping') {
         // UC-ADM-25: phải có vận đơn đang hoạt động trước khi giao (không tự tạo vận đơn nữa)

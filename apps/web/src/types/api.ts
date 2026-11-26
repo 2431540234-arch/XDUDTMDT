@@ -24,6 +24,7 @@ import type {
   User,
   CartItem,
   Media,
+  OrderPaymentStatus,
 } from '@aurelia-living/shared-types';
 
 export type {
@@ -186,6 +187,12 @@ export interface UserView extends User {
 export interface AddressView extends Address {
   label: string; // "Nhà riêng", "Văn phòng"
 }
+
+// ---------- Thanh toán VNPAY ----------
+/** GET /payments/vnpay/return-status: trang Return URL chỉ đọc */
+export type VnpayReturnStatus =
+  | { valid: false }
+  | { valid: true; orderCode: string; responseCode: string; paymentStatus: OrderPaymentStatus };
 
 // ---------- Giỏ hàng ----------
 export interface CartItemView extends CartItem {

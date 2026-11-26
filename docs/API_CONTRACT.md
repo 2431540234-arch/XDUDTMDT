@@ -62,7 +62,8 @@
 | `POST /auth/verify-email` | `null`; token sai/hết hạn ⇒ `400 BAD_REQUEST` |
 | `POST /auth/resend-verification` | `{ sent: true }` |
 | `GET /orders/counts`, `GET /admin/orders/counts` | `{ all, pending, confirmed, processing, shipping, completed, cancelled, refunded }` (số đơn theo trạng thái; admin: toàn hệ thống, khách: của mình) |
-| `POST /payments/:orderId/checkout`, `/retry` | `{ redirectUrl: string }` – URL tương đối của FE (`/checkout/success?order=<code>` hoặc `/checkout/failed?order=<code>`) hoặc URL cổng thanh toán (VNPAY) |
+| `POST /payments/:orderId/checkout`, `/retry` | `{ redirectUrl: string, paymentUrl?, expiresAt? }` – URL tương đối của FE (`/checkout/success?order=<code>` hoặc `/checkout/failed?order=<code>`) hoặc URL cổng thanh toán (VNPAY) |
+| `GET /payments/vnpay/return-status` | `{ valid: false }` hoặc `{ valid: true, orderCode, responseCode, paymentStatus }` |
 | `GET /notifications/unread-count` | `{ count: number }` |
 | `GET /products/:slug/model` | `Model3DView \| null` (kèm `materialVariants[{ variantId, materialName, config }]`, D-T56) |
 | `GET /products/facets` | `ProductFacets` (theo bộ lọc hiện tại, trừ chính nó) |
@@ -202,8 +203,10 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
-| POST | `/payments/:orderId/checkout` | user | `cart.` |  | (không có body; nếu có `outcome` sẽ bị bỏ qua) | `INVALID_STATE`, `503` khi tắt giả lập và chưa có VNPAY |
-| POST | `/payments/:orderId/retry` | user | `cart.` |  | { method? } | `INVALID_STATE` |
+| POST | `/payments/:orderId/checkout` | user | `cart.` |  | (không có body; nếu có `outcome`/`amount` sẽ bị bỏ qua) | `INVALID_STATE` (đã trả/đã hủy/không còn pending\|confirmed), `RATE_LIMITED`, `503` khi tắt giả lập và chưa có VNPAY |
+| POST | `/payments/:orderId/retry` | user | `cart.` |  | { method? } (`vnpay`, `card`, `bank_transfer`, `cod`) | `INVALID_STATE`, `RATE_LIMITED`, `VALIDATION_FAILED` (momo/zalopay) |
+| GET | `/payments/vnpay/return-status` | public (chữ ký VNPay) | `payment.vnpayReturnStatus` | nguyên các tham số `vnp_*` của Return URL |  |  |
+| GET | `/payments/vnpay/ipn` | public (chữ ký VNPay) | — | tham số `vnp_*` |  | trả `{ RspCode, Message }` |
 
 ### 4. `notifications`
 
@@ -411,7 +414,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 |---|---|---|
 | POST | `/auth/refresh` | Đổi `refreshToken` lấy cặp token mới (xoay vòng, thu hồi token cũ) |
 | GET | `/health` | Health check (đã có ở khung BE) |
-| GET | `/payments/vnpay/return` | Return URL VNPAY: kiểm tra chữ ký, cập nhật payment, chuyển hướng tới `/checkout/success|failed?order=<code>` |
+| GET | `/payments/vnpay/return-status` | Trang Return URL (`/checkout/vnpay-return`): kiểm chữ ký, trả trạng thái trong CSDL; còn `pending` thì gọi `querydr` |
 | GET | `/payments/vnpay/ipn` | IPN VNPAY (server-to-server), idempotent, trả `{RspCode, Message}` theo chuẩn VNPAY |
 | POST | `/admin/media`, `/admin/media/presign`, `/admin/media/confirm` | Upload ảnh/GLB/frame 360 (đã có khung trong BE). FE hiện gửi ảnh dạng data-URL/đường dẫn trong body (`images[]`, `frames[]`, `imageUrl`) nên BE phải **chấp nhận cả URL lẫn data-URL base64** và tự lưu vào `StorageService` |
 | GET | `/admin/media/upload-config` | `{ mode: "presigned" \| "multipart", driver, limitsMB: { image, panorama, model } }`: FE tự chọn cách tải theo driver kho (minio/s3 ⇒ presigned; local ⇒ multipart) |
@@ -860,10 +863,12 @@ export interface FinanceReport {
 - `PUT /admin/settings/store` (trang Cài đặt) chỉ ghi phần được gửi; lỗi theo tên ô (`name`, `email`, `hotline`, `payments.<i>.method`, `shippingZones.<i>.fee`…). `PUT /admin/settings/:key { value }`: khóa ngoài danh sách ⇒ 400, sai kiểu ⇒ 400. Mỗi lần sửa ghi `activity_logs` (`setting.update`, trước/sau). Cài đặt công khai vẫn là `GET /settings/public`.
 
 ### VNPAY sandbox (UC-PAY-01/02/03)
-- Có `VNPAY_TMN_CODE` + `VNPAY_HASH_SECRET`: `POST /payments/:orderId/checkout` trả `{ redirectUrl, paymentUrl, expiresAt }` – URL cổng có chữ ký HMAC-SHA512 (số tiền = `Order.total × 100` lấy từ CSDL, `vnp_TxnRef = <orderCode>-P<paymentId>`, hạn 15 phút). Chưa có khóa: giả lập như cũ (`PAYMENT_SANDBOX_FAKE=true`, không production), nếu không ⇒ `503`.
-- `GET /payments/vnpay/return` (công khai): kiểm tra chữ ký, ghi nhận kết quả (idempotent) rồi `302` tới `APP_URL/checkout/success|failed?order=<code>`; sai chữ ký/số tiền ⇒ `/checkout/failed`, không ghi nhận.
-- `GET /payments/vnpay/ipn` (công khai, server-to-server): trả JSON **không bọc** `{ RspCode, Message }`: `00` thành công, `01` không thấy đơn, `02` đã xử lý, `04` sai số tiền, `97` sai chữ ký, `99` lỗi khác.
-- `POST /payments/:orderId/retry { method? }` (UC-PAY-03): giao dịch pending cũ ⇒ `failed`, tạo giao dịch pending mới; đơn đã `paid`/đã hủy ⇒ `409`; phương thức lạ ⇒ `400`.
+- Có `VNPAY_TMN_CODE` + `VNPAY_HASH_SECRET`: `POST /payments/:orderId/checkout` trả `{ redirectUrl, paymentUrl, expiresAt }` – URL cổng ký HMAC-SHA512. Mỗi URL là một dòng `payments`: `vnp_Amount = payments.amount × 100` (lấy từ CSDL), `vnp_TxnRef = P<paymentId>T<yyyyMMddHHmmss>`, hạn 15 phút, `vnp_OrderType=other`, `vnp_Locale=vn`. Tối đa 5 lượt tạo URL/phút cho một khách (chung `checkout` và `retry`, D-N43). Chưa có khóa: giả lập (`PAYMENT_SANDBOX_FAKE=true`, không production), nếu không ⇒ `503`.
+- `GET /payments/vnpay/return-status` (công khai, thay route `vnpay/return` đã bỏ): trình duyệt quay về `VNPAY_RETURN_URL` (mặc định `<APP_URL>/checkout/vnpay-return`), trang gửi nguyên tham số. Sai chữ ký/TmnCode/TxnRef lạ ⇒ `{ valid: false }`. Không ghi gì theo tham số URL. Giao dịch còn `pending` sau ≥ 5 giây ⇒ API gọi `querydr` (tối đa 3 lần/phút mỗi TxnRef); chỉ phản hồi đúng chữ ký mới được ghi, qua cùng hàm xử lý với IPN (D-N42).
+- `GET /payments/vnpay/ipn` (công khai, server-to-server, không áp rate limit chung): JSON **không bọc** `{ RspCode, Message }`: `00` đã ghi nhận, `01` không có giao dịch, `02` lần thử đã có kết quả, `04` sai số tiền, `97` sai chữ ký/TmnCode, `99` lỗi khác. Thành công khi `vnp_ResponseCode` và `vnp_TransactionStatus` đều `00`. Quy tắc: D-N28, D-N39, D-N40. `payments.gateway_response` lưu yêu cầu, dữ liệu cổng (bỏ chữ ký) và nguồn `ipn`/`querydr`; API đơn hàng chỉ trả `{ code, source }`; `OrderView.payment` là giao dịch đã thu tiền, nếu chưa có thì lần thử mới nhất.
+- `POST /payments/:orderId/retry { method? }` (UC-PAY-03): chỉ đơn `pending`/`confirmed` chưa trả; giao dịch pending cũ ⇒ `failed`, tạo giao dịch pending mới; ngược lại ⇒ `409`; phương thức lạ hoặc `momo`/`zalopay` ⇒ `400`.
+- **MoMo/ZaloPay đã ngừng (D-N44):** `POST /orders`, `POST /admin/orders`, `retry` từ chối (`400`); đơn cũ giữ nguyên.
+- **Đơn `vnpay`/`card` chưa `paid`:** `PATCH /admin/orders/:id/status { status: "processing" }` ⇒ `409 INVALID_STATE` (D-N45).
 
 ---
 

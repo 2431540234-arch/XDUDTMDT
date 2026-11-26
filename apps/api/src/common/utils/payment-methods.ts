@@ -13,6 +13,15 @@ const LABEL: Record<string, string> = {
   zalopay: 'Ví ZaloPay',
 };
 
+/** D-N44: MoMo/ZaloPay không còn nhận giao dịch mới (đơn cũ giữ nguyên) */
+export const RETIRED_METHODS: readonly string[] = ['momo', 'zalopay'];
+
+export function assertPaymentMethodSupported(method: string): void {
+  if (!RETIRED_METHODS.includes(method)) return;
+  const msg = `Phương thức "${LABEL[method] ?? method}" không còn được hỗ trợ. Vui lòng chọn phương thức thanh toán khác.`;
+  throw new AppException(ErrorCode.VALIDATION_FAILED, msg, { paymentMethod: [msg] });
+}
+
 export async function assertPaymentMethodEnabled(
   prisma: Pick<PrismaService, 'setting'>,
   method: string,

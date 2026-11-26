@@ -68,6 +68,7 @@ const routes: Route[] = [
   ['GET', '/orders/counts', 'user', shop.orderCounts],
   ['GET', '/orders/:code', 'user', shop.orderDetail],
   ['POST', '/orders/:id/cancel', 'user', shop.cancelOrder],
+  ['GET', '/payments/vnpay/return-status', 'public', shop.vnpayReturnStatus],
   ['POST', '/payments/:orderId/checkout', 'user', shop.checkoutPayment],
   ['POST', '/payments/:orderId/retry', 'user', shop.retryPayment],
 

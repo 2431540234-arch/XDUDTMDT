@@ -99,3 +99,32 @@ describe('validateEnv', () => {
     expect(() => validateEnv({ ...base, ...minio, STORAGE_DRIVER: 'gcs' })).toThrow(/STORAGE_DRIVER/);
   });
 });
+
+describe('validateEnv – VNPAY', () => {
+  const env = { ...base, ...minio };
+
+  it('hai khóa phải cùng có hoặc cùng trống; lỗi chỉ nêu tên biến, không lộ giá trị', () => {
+    expect(() => validateEnv(env)).not.toThrow();
+    expect(() => validateEnv({ ...env, VNPAY_TMN_CODE: '', VNPAY_HASH_SECRET: '' })).not.toThrow();
+    let message = '';
+    try {
+      validateEnv({ ...env, VNPAY_HASH_SECRET: 'GIA-TRI-BI-MAT-GIA' });
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toContain('VNPAY_TMN_CODE');
+    expect(message).not.toContain('GIA-TRI-BI-MAT-GIA');
+    expect(() => validateEnv({ ...env, VNPAY_TMN_CODE: 'TESTTMN1' })).toThrow(/VNPAY_HASH_SECRET/);
+  });
+
+  it('TMN code phải đúng 8 ký tự chữ/số; giá trị mặc định', () => {
+    expect(() => validateEnv({ ...env, VNPAY_TMN_CODE: 'NGAN', VNPAY_HASH_SECRET: 's' })).toThrow(
+      /VNPAY_TMN_CODE.*8 ký tự/s,
+    );
+    const v = validateEnv({ ...env, VNPAY_TMN_CODE: 'TESTTMN1', VNPAY_HASH_SECRET: 's' });
+    expect(v.VNPAY_VERSION).toBe('2.1.0');
+    expect(v.VNPAY_QUERYDR_LIMIT_PER_MINUTE).toBe(3);
+    expect(v.VNPAY_URL_LIMIT_PER_MINUTE).toBe(5);
+    expect(v.TRUST_PROXY).toBe(0);
+  });
+});
