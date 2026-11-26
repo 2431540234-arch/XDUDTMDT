@@ -76,7 +76,7 @@ mock-data/
 | `categories`                                                                 | 22                     | cây 2 cấp: 5 nhóm phòng → 17 danh mục lá                                                                   |
 | `attribute_values`                                                           | 30                     | màu (kèm mã hex), kích thước, chất liệu (loại thuộc tính là enum `attribute_code`)                         |
 | `products`, `product_variants`, `variant_attribute_values`, `product_images` | 52 / 200+              | giá gốc/sale, tồn kho (có hết hàng/sắp hết), ảnh thật (tối đa 6/SP) nếu máy có, không thì 4–5 ảnh minh họa |
-| `product_3d_models`, `model_files`                                           | 0                      | không có mô hình mẫu                                                                            |
+| `product_3d_models`, `model_files`                                           | 0                      | không có mô hình mẫu                                                                                       |
 | `spaces`, `space_panoramas`, `space_hotspots`, `space_product_placements`    | 24 / 48 / …            | 6 phong cách × 4 loại phòng, ảnh 360°, hotspot (yaw/pitch → productId)                                     |
 | `carts`, `cart_items`, `wishlists`                                           |                        | giỏ hàng/yêu thích cho tài khoản test                                                                      |
 | `coupons`, `coupon_usages`                                                   | 14 / …                 | giảm %, giảm tiền, freeship; đang diễn ra / sắp diễn ra / đã kết thúc                                      |
