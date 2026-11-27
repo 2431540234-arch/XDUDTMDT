@@ -9,6 +9,9 @@ process.env.DATABASE_URL =
   process.env.E2E_DATABASE_URL ??
   `postgresql://aurelia:aurelia@localhost:${process.env.POSTGRES_PORT ?? '55432'}/aurelia_test?schema=public`;
 process.env.SWAGGER_ENABLED = 'false';
+// CI không có .env: tự đặt khóa JWT của test (máy dev vẫn dùng giá trị trong .env nếu có)
+process.env.JWT_ACCESS_SECRET ??= 'test-access-secret-0123456789';
+process.env.JWT_REFRESH_SECRET ??= 'test-refresh-secret-0123456789';
 process.env.REDIS_HOST ??= 'localhost';
 process.env.THROTTLE_DEFAULT_LIMIT = '100000';
 process.env.THROTTLE_AUTH_LIMIT = '100000';
