@@ -152,7 +152,14 @@ test('admin cấu hình vật liệu cho biến thể trên trang mô hình 3D; 
 
   await adminLogin(page);
   await page.goto('/admin/models');
+  // chờ kết quả ĐÃ LỌC: ô tìm kiếm trễ 300 ms rồi bảng nạp lại (bỏ các dòng cũ, đóng luôn menu đang mở); dòng khớp
+  // đã có sẵn trong danh sách chưa lọc nên chỉ chờ dòng hiện ra là không đủ
+  const filtered = page.waitForResponse((res) => {
+    const u = new URL(res.url());
+    return u.pathname.endsWith('/api/admin/models') && u.searchParams.get('q') === detail.name;
+  });
   await page.getByPlaceholder('Tìm theo tên tệp, sản phẩm…').fill(detail.name);
+  await filtered;
   await expect(page.getByRole('row').filter({ hasText: detail.name }).first()).toBeVisible({
     timeout: 30_000,
   });

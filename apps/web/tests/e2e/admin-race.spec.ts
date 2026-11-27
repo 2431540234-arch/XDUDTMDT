@@ -58,11 +58,13 @@ test('khách hàng: tìm kiếm rồi khóa tài khoản ngay ⇒ danh sách hi�
   );
 
   await row.getByRole('button', { name: 'Thao tác' }).click(); // mở menu thao tác (dữ liệu cũ vẫn hiển thị)
-  await page.getByPlaceholder(/Tìm theo tên, email/).fill(email); // gõ tìm kiếm: khóa truy vấn mới sau 300 ms
   const wrote = page.waitForResponse(
     (r) => /\/api\/admin\/users\/\d+\/status/.test(r.url()) && r.request().method() === 'PATCH',
   );
-  await page.getByRole('button', { name: 'Khóa / Mở khóa' }).click(); // lưu ngay, trước khi kết quả tìm kiếm về
+  // Bấm TRƯỚC khi gõ: route giữ PATCH lại cho tới khi lần tải tìm kiếm đã đọc xong dữ liệu cũ, nên thứ tự phía máy chủ
+  // vẫn là đọc cũ → ghi. Gõ trước rồi mới bấm thì phải kịp trong 300 ms, vì sau đó bảng nạp lại và menu mất theo.
+  await page.getByRole('button', { name: 'Khóa / Mở khóa' }).click();
+  await page.getByPlaceholder(/Tìm theo tên, email/).fill(email); // gõ tìm kiếm: khóa truy vấn mới sau 300 ms
   expect((await wrote).status()).toBe(200);
   await expect(page.getByText('Đã khóa tài khoản.')).toBeVisible({ timeout: 30_000 });
 

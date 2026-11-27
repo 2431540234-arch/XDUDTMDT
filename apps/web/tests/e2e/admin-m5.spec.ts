@@ -13,6 +13,19 @@ async function adminLogin(page: Page) {
 
 test.describe.configure({ mode: 'serial' });
 
+/**
+ * Gõ vào ô tìm media rồi CHỜ kết quả đã lọc. Ô tìm trễ 300 ms, sau đó lưới bị thay bằng khung chờ; thẻ khớp đã có sẵn
+ * trong danh sách chưa lọc, nên bấm ngay có thể rơi đúng lúc thẻ bị gỡ.
+ */
+async function searchMedia(page: Page, text: string) {
+  const filtered = page.waitForResponse((res) => {
+    const u = new URL(res.url());
+    return u.pathname.endsWith('/api/admin/media') && u.searchParams.get('q') === text;
+  });
+  await page.getByLabel('Tìm media').fill(text);
+  await filtered;
+}
+
 test('thuộc tính: thêm giá trị (trùng báo lỗi), giá trị đang dùng không xóa được, giá trị mới có trong form biến thể', async ({
   page,
 }) => {
@@ -94,7 +107,7 @@ test('media: tải ảnh lên (quá 5 MB bị từ chối), tìm, sửa mô tả
     { name: 'ghe-e2e.png', mimeType: 'image/png', buffer: png },
   ]);
   await expect(page.getByText('Đã tải lên 2 tệp.')).toBeVisible({ timeout: 30_000 });
-  await page.getByLabel('Tìm media').fill('ban an e2e');
+  await searchMedia(page, 'ban an e2e');
   const card = page.getByTestId('media-card').filter({ hasText: 'ban-an-e2e.png' });
   await expect(card).toHaveCount(1, { timeout: 30_000 });
   await expect(card.getByText('Chưa dùng')).toBeVisible();
@@ -141,7 +154,7 @@ test('media: tải ảnh lên (quá 5 MB bị từ chối), tìm, sửa mô tả
   expect(usedName.length).toBeGreaterThan(0);
 
   // dọn: xóa ghe-e2e.png
-  await page.getByLabel('Tìm media').fill('ghe e2e');
+  await searchMedia(page, 'ghe e2e');
   await page
     .getByTestId('media-card')
     .filter({ hasText: 'ghe-e2e.png' })
