@@ -100,7 +100,9 @@ function killPort(port) {
     );
     return out.status === 0;
   }
-  spawnSync('sh', ['-c', `lsof -ti tcp:${port} | xargs -r kill -9`]);
+  // CHỈ tiến trình đang LISTEN (như nhánh Windows). Thiếu -sTCP:LISTEN thì lsof liệt kê cả phía client: script này còn giữ
+  // kết nối tới API (CLOSE_WAIT, vì spawnSync chặn vòng lặp sự kiện) nên tự kill -9 chính nó ⇒ mã 137 dù mọi test đạt.
+  spawnSync('sh', ['-c', `lsof -ti tcp:${port} -sTCP:LISTEN | xargs -r kill -9`]);
   return true;
 }
 
