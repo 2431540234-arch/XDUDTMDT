@@ -12,6 +12,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.service';
+import { clearTestPublicPrefix } from './public-bucket';
 
 const skip = process.env.MINIO_TESTS_SKIP === '1';
 const suite = skip ? describe.skip : describe;
@@ -206,6 +207,8 @@ suite('MinIO thật: presign → PUT → confirm (aurelia_test + aurelia-test-* 
     expect((await prisma.product3DModel.findUniqueOrThrow({ where: { id: modelId } })).status).toBe(
       'uploading',
     );
+
+    await clearTestPublicPrefix(`models/${modelId}/`); // tệp công khai của lượt chạy trước (cùng id mô hình)
 
     // đọc ẩn danh bucket private bị từ chối; PUT sai dung lượng bị từ chối
     expect((await fetch(`${endpoint}/${PRIV}/${key}`)).status).toBe(403);

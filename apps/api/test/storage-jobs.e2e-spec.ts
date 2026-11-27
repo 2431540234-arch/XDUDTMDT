@@ -10,6 +10,7 @@ import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.service';
+import { clearTestPublicPrefix } from './public-bucket';
 
 const fixture = (name: string) => readFileSync(resolve(__dirname, 'fixtures', name));
 
@@ -128,6 +129,7 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
     const anonStatus = async (url: string) => (await fetch(url)).status;
     const privateUrl = (key: string) => `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_PRIVATE}/${key}`;
 
+    await clearTestPublicPrefix(`models/${model.id}/`); // tệp công khai của lượt chạy trước (cùng id mô hình)
     const res = await uploadModel(model.id, fixture('sphere.glb'), 'glb', 'sphere.glb');
     expect(res.status).toBe(202);
     expect(res.body.data).toMatchObject({ modelId: model.id, status: 'processing' });
