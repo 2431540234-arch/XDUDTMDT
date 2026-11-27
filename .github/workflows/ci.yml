@@ -70,10 +70,15 @@ jobs:
         run: npm run test
       - name: Cài trình duyệt cho Playwright (đúng phiên bản của apps/web)
         run: npx -w @aurelia-living/web playwright install --with-deps chromium
+
+      # Bước 1: E2E của API (Jest). Chạy xong hẳn rồi mới tới Playwright, hai bộ test không chạy song song.
       - name: E2E API (Jest + PostgreSQL, Redis, MinIO, Mailpit)
         run: npm run test:e2e:api
-      # Playwright chạy với API THẬT (script tự build API, reset aurelia_test, chạy từng nhóm spec). Các spec ở tests/e2e
-      # kiểm luồng ghi dữ liệu nên cần backend; chế độ dữ liệu giả (npm run test:e2e) không chạy được chúng.
+
+      # Bước 2: Playwright chạy với API THẬT (script tự build API, reset aurelia_test, chạy từng nhóm spec).
+      # Các spec ở tests/e2e kiểm luồng ghi dữ liệu nên cần backend; chế độ dữ liệu giả (npm run test:e2e)
+      # KHÔNG chạy được chúng, nên không dùng `npm run test:e2e` ở đây.
+      # >>> KIỂM TRA TÊN SCRIPT: thay `test:e2e:real` bằng đúng tên script "API thật" trong package.json gốc. <<<
       - name: E2E Playwright (API thật)
         run: npm run test:e2e:real
         env:
@@ -83,6 +88,7 @@ jobs:
           JWT_REFRESH_SECRET: ci-only-refresh-secret-0123456789
           REDIS_HOST: 127.0.0.1
           S3_ENDPOINT: http://127.0.0.1:9000
+
       # Giữ bằng chứng khi E2E đỏ (trace, ảnh chụp, log response >= 400 của API) vì runner bị xóa sau khi job kết thúc
       - name: Lưu log và trace E2E khi lỗi
         if: failure()
