@@ -114,3 +114,9 @@ docs/**/*.dump
 /apps/web/public/mock/photos/
 # tệp khóa tạm của Word
 ~$*.docx
+
+# Tệp và thư mục chỉ để ở máy, không commit
+mô hình 3D/
+apps/api/.tmp-uploads-minio/
+*.tmp
+docs/BIEU DO CLASS/
