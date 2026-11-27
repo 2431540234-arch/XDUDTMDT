@@ -75,7 +75,18 @@ jobs:
       - name: E2E API (Jest + PostgreSQL, Redis, MinIO, Mailpit)
         run: npm run test:e2e:api
 
-      # Bước 2: Playwright chạy với API THẬT (script tự build API, reset aurelia_test, chạy từng nhóm spec).
+      # Bước 2: db-spec (Jest + aurelia_test đã nạp dữ liệu mẫu). Test làm thay đổi dữ liệu nên reset DB ngay trước khi chạy.
+      - name: E2E API trên dữ liệu mẫu (db-spec)
+        run: |
+          node scripts/db-reset.mjs aurelia_test
+          npm run test:e2e:db
+        env:
+          POSTGRES_PORT: 5433
+          PG_HOST: 127.0.0.1
+          E2E_DATABASE_URL: postgresql://aurelia:aurelia@127.0.0.1:5433/aurelia_test?schema=public
+          REDIS_HOST: 127.0.0.1
+
+      # Bước 3: Playwright chạy với API THẬT (script tự build API, reset aurelia_test, chạy từng nhóm spec).
       # Các spec ở tests/e2e kiểm luồng ghi dữ liệu nên cần backend; chế độ dữ liệu giả (npm run test:e2e)
       # KHÔNG chạy được chúng, nên không dùng `npm run test:e2e` ở đây.
       # >>> KIỂM TRA TÊN SCRIPT: thay `test:e2e:real` bằng đúng tên script "API thật" trong package.json gốc. <<<
