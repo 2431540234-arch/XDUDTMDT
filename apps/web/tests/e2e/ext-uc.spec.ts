@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test } from './helpers/test';
 import { ensureModel } from './model-helpers';
 
 // Use case Mở rộng nhẹ (API thật): UC-ADM-27 nhật ký hoạt động, UC-ADM-02 vai trò, UC-ACC-03 phiên đăng nhập,

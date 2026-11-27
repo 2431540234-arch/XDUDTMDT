@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { test } from './helpers/test';
 import { ensureModel } from './model-helpers';
 
 // UC-ADM-17 / UC-SPACE-04/05 (API thật): admin đặt mô hình 3D vào ảnh 360° của một không gian chưa có placement, khách thấy

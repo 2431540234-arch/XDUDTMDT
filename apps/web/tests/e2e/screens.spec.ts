@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test';
+import { expect } from '@playwright/test';
+import { test } from './helpers/test';
 import { visit } from './helpers/visit';
 
 // Duyệt lần lượt các màn hình: không lỗi console (kể cả hydration), không request lỗi, không ảnh vỡ. Hàm visit ở helpers/visit.ts.

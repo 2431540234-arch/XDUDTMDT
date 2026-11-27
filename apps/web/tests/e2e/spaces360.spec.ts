@@ -1,4 +1,5 @@
-import { expect, test, type ConsoleMessage, type Page, type Response } from '@playwright/test';
+import { expect, type ConsoleMessage, type Page, type Response } from '@playwright/test';
+import { test } from './helpers/test';
 
 // Rà soát 360° KHÔNG GIAN MẪU với API thật: khách xem/xoay/bấm hotspot/thêm bộ vào giỏ, trên desktop và mobile.
 // Chạy: npm run test:e2e:real (nhóm xem-360) hoặc E2E_USE_MOCK=false E2E_API_URL=http://localhost:4000

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test } from './helpers/test';
 
 // Tải lên TRỰC TIẾP từ trình duyệt lên MinIO thật (presigned PUT): kiểm CORS, bucket private/public, xử lý nền tới ready.
 // Chỉ chạy với: node scripts/e2e-real.mjs --minio  (npm run test:e2e:real:minio). Cần MinIO + Redis đang chạy.

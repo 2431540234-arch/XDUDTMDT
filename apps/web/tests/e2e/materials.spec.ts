@@ -1,4 +1,5 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { test } from './helpers/test';
 import { ensureModel } from './model-helpers';
 
 // UC-ADM-14 / UC-3D-03 (API thật): đổi biến thể màu trên trang 3D thì màu vật liệu của mô hình đổi NGAY (đọc từ scene của

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { test } from './helpers/test';
 import { API, FIXTURES, adminHeaders } from './model-helpers';
 
 // Mô hình 3D với API THẬT + Redis (UC-ADM-13/31/32): nút 3D chỉ hiện khi có mô hình ĐÃ DUYỆT; tải GLB → chờ duyệt →

@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
+import { test } from './helpers/test';
 
 // Mốc 5 (web, API thật): thuộc tính, media, vận chuyển.
 // Chạy: npm run test:e2e:real (nhóm admin-m5) hoặc E2E_USE_MOCK=false E2E_API_URL=http://localhost:4000

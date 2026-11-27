@@ -1,4 +1,5 @@
-import { expect, test, type ConsoleMessage, type Page, type Response } from '@playwright/test';
+import { expect, type ConsoleMessage, type Page, type Response } from '@playwright/test';
+import { test } from './helpers/test';
 
 // Màn hình admin của Mốc 2 (Tổng quan, Sản phẩm, Danh mục, Đơn hàng, Khách hàng, Khuyến mãi).
 // Chạy được với mock (mặc định) và với API thật: E2E_USE_MOCK=false E2E_API_URL=http://localhost:4000
