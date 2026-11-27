@@ -9,6 +9,7 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.service';
 
 const fixture = (name: string) => readFileSync(resolve(__dirname, 'fixtures', name));
 
@@ -25,6 +26,7 @@ async function waitFor<T>(fn: () => Promise<T | null | undefined | false>, ms = 
 describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
+  let storage: StorageService;
   let adminToken: string;
   let userToken: string;
   let adminId: number;
@@ -59,6 +61,7 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
     setupApp(app);
     await app.init();
     prisma = app.get(PrismaService);
+    storage = app.get(STORAGE_SERVICE);
     const jwt = app.get(JwtService);
     const admin = await prisma.user.create({
       data: {
@@ -111,14 +114,62 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
     expect(res.body.error.code).toBe('PAYLOAD_TOO_LARGE');
   });
 
-  it('GLB hợp lệ: PUT thẳng lên MinIO -> job -> 3 LOD, model_files đủ số liệu, status ready', async () => {
-    const model = await newModel();
+  it('GLB hợp lệ: PUT lên MinIO -> job -> chờ duyệt (chưa công khai) -> duyệt -> ready, 3 LOD công khai', async () => {
+    // sản phẩm ĐANG BÁN riêng cho ca này: khách xem được sản phẩm, nên "chưa thấy mô hình" là do chưa duyệt
+    const slug = `sp-glb-${Date.now()}`;
+    const product = await prisma.product.create({ data: { name: 'SP GLB', slug, status: 'published' } });
+    const model = await prisma.product3DModel.create({
+      data: { productId: product.id, lengthMm: 800, widthMm: 800, heightMm: 800 },
+    });
+    const publicModel = async () =>
+      (await request(app.getHttpServer()).get(`/api/products/${slug}/model`).expect(200)).body.data;
+    const has3d = async () =>
+      (await prisma.product.findUniqueOrThrow({ where: { id: product.id } })).has3dModel;
+    const anonStatus = async (url: string) => (await fetch(url)).status;
+    const privateUrl = (key: string) => `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_PRIVATE}/${key}`;
+
     const res = await uploadModel(model.id, fixture('sphere.glb'), 'glb', 'sphere.glb');
     expect(res.status).toBe(202);
     expect(res.body.data).toMatchObject({ modelId: model.id, status: 'processing' });
 
-    await waitFor(async () => (await statusOf(model.id)) === 'ready');
+    await waitFor(async () => (await statusOf(model.id)) === 'pending_review');
 
+    // CHƯA DUYỆT: khách không thấy; không có model_files/media; tệp chỉ nằm ở bucket private
+    expect(await publicModel()).toBeNull();
+    expect(await has3d()).toBe(false);
+    expect(await prisma.modelFile.count({ where: { modelId: model.id } })).toBe(0);
+    expect(await prisma.media.count({ where: { filePath: { startsWith: `models/${model.id}/` } } })).toBe(0);
+    const row = await prisma.product3DModel.findUniqueOrThrow({ where: { id: model.id } });
+    const { pipeline } = row.viewerConfig as unknown as {
+      pipeline: {
+        rawKey: string;
+        variants: Record<string, { files: Record<string, { key: string; checksum: string }> }>;
+      };
+    };
+    const pending = Object.values(pipeline.variants).flatMap((v) => Object.entries(v.files));
+    expect(pending.length).toBeGreaterThanOrEqual(3);
+    const privateKeys = [pipeline.rawKey, ...pending.map(([, f]) => f.key)];
+    for (const key of privateKeys) {
+      expect(await storage.head(key, 'private')).not.toBeNull();
+      expect(await storage.head(key, 'public')).toBeNull();
+      expect([403, 404]).toContain(await anonStatus(`${publicBase()}/${key}`));
+      expect(await anonStatus(privateUrl(key))).toBe(403); // tệp có thật nhưng không đọc ẩn danh được
+    }
+    // địa chỉ công khai mà bản duyệt sẽ dùng: lúc này chưa đọc được
+    for (const [lod, f] of pending) {
+      const future = `models/${model.id}/sphere-${lod}-${f.checksum.slice(0, 12)}.glb`;
+      expect([403, 404]).toContain(await anonStatus(`${publicBase()}/${future}`));
+    }
+
+    await request(app.getHttpServer())
+      .post(`/api/admin/models/${model.id}/approve`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({})
+      .expect(200);
+
+    expect(await statusOf(model.id)).toBe('ready');
+    expect(await has3d()).toBe(true);
+    expect(await publicModel()).toMatchObject({ status: 'ready' });
     const files = await prisma.modelFile.findMany({ where: { modelId: model.id }, include: { media: true } });
     expect(files.map((f) => f.lod).sort()).toEqual(['high', 'low', 'medium']);
     const by = Object.fromEntries(files.map((f) => [f.lod, f]));
@@ -128,19 +179,15 @@ describe('Storage + Jobs (e2e, MinIO + Redis thật)', () => {
     for (const f of files) {
       expect(f.format).toBe('glb');
       expect(f.checksum).toMatch(/^[0-9a-f]{64}$/);
-      expect(f.media.filePath).toBe(`models/${model.id}/sphere-${f.lod}.glb`); // key, không phải URL
+      // key (không phải URL), tên mang 12 ký tự đầu của checksum
+      expect(f.media.filePath).toBe(`models/${model.id}/sphere-${f.lod}-${f.checksum!.slice(0, 12)}.glb`);
+      // đã duyệt: đọc công khai được qua URL ghép từ STORAGE_PUBLIC_URL
+      const pub = await fetch(`${publicBase()}/${f.media.filePath}`);
+      expect(pub.status).toBe(200);
+      expect(Buffer.from(await pub.arrayBuffer()).toString('ascii', 0, 4)).toBe('glTF');
     }
-
-    // Bản đã xử lý đọc công khai được qua URL ghép từ STORAGE_PUBLIC_URL
-    const pub = await fetch(`${publicBase()}/${by.high.media.filePath}`);
-    expect(pub.status).toBe(200);
-    expect(Buffer.from(await pub.arrayBuffer()).toString('ascii', 0, 4)).toBe('glTF');
-
-    // Bucket private không đọc ẩn danh được
-    const anon = await fetch(
-      `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET_PRIVATE}/models/incoming/${model.id}/x.glb`,
-    );
-    expect([403, 404]).toContain(anon.status);
+    // duyệt xong: tệp tạm và tệp thô ở bucket private đã được dọn
+    for (const key of privateKeys) expect(await storage.head(key, 'private')).toBeNull();
   });
 
   it('GLB hỏng: job thất bại, status failed, không có model_files', async () => {

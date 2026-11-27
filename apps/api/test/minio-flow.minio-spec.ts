@@ -1,5 +1,5 @@
 // E2E với MinIO THẬT (npm run test:e2e:minio; tự bỏ qua nếu MinIO không chạy): presign → PUT → confirm cho panorama và mô hình,
-// mô hình đi hết tới ready, URL ký đúng Content-Type/Content-Length, tệp gốc nằm ở bucket PRIVATE còn LOD ở bucket PUBLIC.
+// mô hình qua chờ duyệt rồi được duyệt thành ready, URL ký đúng Content-Type/Content-Length; trước khi duyệt mọi tệp ở bucket PRIVATE.
 // Đồng thời kiểm THẬT các route presign/confirm từng chỉ được phân tích tĩnh: ActivityLogInterceptor ghi log khi service không ghi.
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -11,6 +11,7 @@ import sharp from 'sharp';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { STORAGE_SERVICE, type StorageService } from '../src/storage/storage.service';
 
 const skip = process.env.MINIO_TESTS_SKIP === '1';
 const suite = skip ? describe.skip : describe;
@@ -188,7 +189,7 @@ suite('MinIO thật: presign → PUT → confirm (aurelia_test + aurelia-test-* 
     expect(bad.status).toBe(415);
   });
 
-  it('mô hình GLB: presign ⇒ PUT vào bucket PRIVATE ⇒ confirm 202 ⇒ job đọc private, ghi 3 LOD vào PUBLIC ⇒ ready', async () => {
+  it('mô hình GLB: presign ⇒ PUT bucket PRIVATE ⇒ confirm 202 ⇒ chờ duyệt (chưa công khai) ⇒ duyệt ⇒ ready, LOD ở PUBLIC', async () => {
     const p = await newProduct('glb');
     const pre = await auth(http.post('/api/admin/models/presign')).send({
       productId: p.id,
@@ -227,17 +228,51 @@ suite('MinIO thật: presign → PUT → confirm (aurelia_test + aurelia-test-* 
     expect(conf.body.data).toMatchObject({ modelId, status: 'processing' });
 
     await waitFor(
-      async () => (await prisma.product3DModel.findUnique({ where: { id: modelId } }))?.status === 'ready',
+      async () =>
+        (await prisma.product3DModel.findUnique({ where: { id: modelId } }))?.status === 'pending_review',
     );
+
+    // CHƯA DUYỆT: khách không thấy; không có model_files/media; tệp chỉ nằm ở bucket private
+    const storage = app.get<StorageService>(STORAGE_SERVICE);
+    expect((await http.get(`/api/products/${p.slug}/model`).expect(200)).body.data).toBeNull();
+    expect((await prisma.product.findUniqueOrThrow({ where: { id: p.id } })).has3dModel).toBe(false);
+    expect(await prisma.modelFile.count({ where: { modelId } })).toBe(0);
+    expect(await prisma.media.count({ where: { filePath: { startsWith: `models/${modelId}/` } } })).toBe(0);
+    const row = await prisma.product3DModel.findUniqueOrThrow({ where: { id: modelId } });
+    const { pipeline } = row.viewerConfig as unknown as {
+      pipeline: { variants: Record<string, { files: Record<string, { key: string; checksum: string }> }> };
+    };
+    const pending = Object.values(pipeline.variants).flatMap((v) => Object.entries(v.files));
+    expect(pending.length).toBeGreaterThanOrEqual(3);
+    const privateKeys = [key, ...pending.map(([, f]) => f.key)];
+    for (const k of privateKeys) {
+      expect(await storage.head(k, 'private')).not.toBeNull();
+      expect(await storage.head(k, 'public')).toBeNull();
+      expect([403, 404]).toContain((await fetch(`${endpoint}/${PUB}/${k}`)).status);
+      expect((await fetch(`${endpoint}/${PRIV}/${k}`)).status).toBe(403);
+    }
+    // địa chỉ công khai mà bản duyệt sẽ dùng: lúc này chưa đọc được
+    for (const [lod, f] of pending) {
+      const future = `models/${modelId}/sphere-minio-${lod}-${f.checksum.slice(0, 12)}.glb`;
+      expect([403, 404]).toContain((await fetch(`${endpoint}/${PUB}/${future}`)).status);
+    }
+
+    expect((await auth(http.post(`/api/admin/models/${modelId}/approve`)).send({})).status).toBe(200);
+    expect((await prisma.product3DModel.findUniqueOrThrow({ where: { id: modelId } })).status).toBe('ready');
+    expect(await logs({ action: 'model.approve', targetId: modelId })).toHaveLength(1);
     const files = await prisma.modelFile.findMany({ where: { modelId }, include: { media: true } });
     expect(files.map((f) => f.lod).sort()).toEqual(['high', 'low', 'medium']);
     for (const f of files) {
       expect(f.checksum).toMatch(/^[0-9a-f]{64}$/);
+      expect(f.media.filePath).toBe(
+        `models/${modelId}/sphere-minio-${f.lod}-${f.checksum!.slice(0, 12)}.glb`,
+      );
       const r = await fetch(`${endpoint}/${PUB}/${f.media.filePath}`); // LOD nằm ở bucket public
       expect(r.status).toBe(200);
       expect(r.headers.get('content-type')).toContain('model/gltf-binary');
     }
-    expect((await fetch(`${endpoint}/${PRIV}/${key}`)).status).toBe(403); // tệp gốc vẫn ở private
+    // duyệt xong: tệp tạm và tệp thô ở bucket private đã được dọn
+    for (const k of privateKeys) expect(await storage.head(k, 'private')).toBeNull();
     const pub = await http.get(`/api/products/${p.slug}/model`);
     expect(pub.body.data.files).toHaveLength(3);
     expect((await prisma.product.findUniqueOrThrow({ where: { id: p.id } })).has3dModel).toBe(true);
