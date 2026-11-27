@@ -129,22 +129,24 @@ export default function ProductDetailPage() {
         />
       </div>
 
-      <section className="mt-10 flex flex-col items-start justify-between gap-4 rounded-2xl bg-surface-muted p-6 sm:flex-row sm:items-center sm:p-8">
-        <div className="flex items-center gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-primary">
-            <Icon name="cube" size={28} />
-          </span>
-          <div>
-            <h2 className="text-lg font-extrabold">Trải nghiệm sản phẩm 3D</h2>
-            <p className="text-sm text-muted">
-              Xoay, phóng to và quan sát {p.name} từ mọi góc ngay trên website.
-            </p>
+      {p.model && (
+        <section className="mt-10 flex flex-col items-start justify-between gap-4 rounded-2xl bg-surface-muted p-6 sm:flex-row sm:items-center sm:p-8">
+          <div className="flex items-center gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white text-primary">
+              <Icon name="cube" size={28} />
+            </span>
+            <div>
+              <h2 className="text-lg font-extrabold">Trải nghiệm sản phẩm 3D</h2>
+              <p className="text-sm text-muted">
+                Xoay, phóng to và quan sát {p.name} từ mọi góc ngay trên website.
+              </p>
+            </div>
           </div>
-        </div>
-        <LinkButton href={`/products/${p.slug}/3d`} size="lg">
-          Trải nghiệm 3D ngay <Icon name="arrowRight" size={16} />
-        </LinkButton>
-      </section>
+          <LinkButton href={`/products/${p.slug}/3d`} size="lg">
+            Trải nghiệm 3D ngay <Icon name="arrowRight" size={16} />
+          </LinkButton>
+        </section>
+      )}
 
       {inSpaces.data && inSpaces.data.items.length > 0 && (
         <section className="mt-10" data-testid="spaces-with-product" aria-labelledby="in-spaces">

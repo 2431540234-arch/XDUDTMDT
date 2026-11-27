@@ -30,3 +30,9 @@ for (const k of [
   'VNPAY_QUERY_URL',
 ])
   process.env[k] = '';
+// Test KHÔNG gọi Hugging Face thật: token rỗng và nhà cung cấp giả lập
+process.env.HF_TOKEN = '';
+process.env.AI3D_PROVIDER = 'fake';
+// hạn mức cố định để kiểm tra được (không phụ thuộc .env của máy)
+process.env.AI3D_MAX_JOBS_PER_HOUR = '3';
+process.env.AI3D_MAX_JOBS_PER_DAY = '10';

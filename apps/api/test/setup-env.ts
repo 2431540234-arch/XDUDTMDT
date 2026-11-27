@@ -42,3 +42,6 @@ for (const k of [
   'VNPAY_QUERY_URL',
 ])
   process.env[k] = '';
+// Test KHÔNG gọi Hugging Face thật: token rỗng và nhà cung cấp giả lập
+process.env.HF_TOKEN = '';
+process.env.AI3D_PROVIDER = 'fake';

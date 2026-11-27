@@ -1,6 +1,6 @@
 // Đưa tệp mẫu của seed lên kho (MinIO hoặc đĩa local) để dữ liệu mẫu trỏ tới tệp thật. Idempotent:
 // tệp đã có thì bỏ qua. Chạy ngoài Nest nên tự đọc biến môi trường (dotenv-cli nạp .env gốc).
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import sharp from 'sharp';
@@ -42,14 +42,11 @@ async function exists(key: string): Promise<boolean> {
 const localPath = (key: string) =>
   resolve(__dirname, '..', env.STORAGE_LOCAL_DIR ?? './uploads', 'public', key);
 
-/** Tạo nội dung giả hợp lệ theo loại tệp: ảnh màu đơn sắc, GLB lấy từ fixture. */
+/** Tạo nội dung giả hợp lệ theo loại tệp: ảnh màu đơn sắc. */
 async function placeholder(key: string, mimeType: string): Promise<Buffer> {
   if (mimeType.startsWith('image/')) {
     const img = sharp({ create: { width: 800, height: 600, channels: 3, background: '#b08d6e' } });
     return mimeType === 'image/png' ? img.png().toBuffer() : img.jpeg({ quality: 70 }).toBuffer();
-  }
-  if (mimeType === 'model/gltf-binary') {
-    return readFile(resolve(__dirname, '../test/fixtures/sphere.glb'));
   }
   // loại khác: nội dung giả tối thiểu (hệ thống không tạo USDZ, D-P11)
   return Buffer.alloc(64, 0);

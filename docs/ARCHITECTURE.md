@@ -82,3 +82,7 @@ Thành phần dùng chung ở `components/` (`ui`, `layout`, `product`, `cart`, 
 ## 6. Kiểm thử
 
 Jest unit (API, `src/**/*.spec.ts`), Vitest (web, `apps/web/tests/unit`), supertest trên DB `aurelia_test` (`apps/api/test/*.db-spec.ts`, cần DB dựng mới), MinIO thật (`*.minio-spec.ts`), Playwright với API thật (`npm run test:e2e:real`, 11 nhóm, chạy `next dev` + API cổng 4002). Lệnh và điều kiện: [../README.md](../README.md) mục 6; kết quả gần nhất: [FINAL_READY_TO_MERGE_REPORT.md](FINAL_READY_TO_MERGE_REPORT.md).
+
+## Mô hình 3D (2026-11-26)
+
+`modules/ai3d` (nhà cung cấp `ThreeDProvider`, hàng đợi `ai3d-generation`) → tệp GLB thô ở kho private → hàng đợi `model-processing` (`normalize.ts` + sinh LOD) → `pending_review` → `ModelReviewService` (duyệt mới chép ra kho public). Module `ai` (gợi ý, mô tả tự động) vẫn ngoài phạm vi.

@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { createApprovedModel } from './model-helpers';
 
 describe('Mô hình 3D trong ảnh 360° (aurelia_test)', () => {
   let app: INestApplication;
@@ -56,6 +57,23 @@ describe('Mô hình 3D trong ảnh 360° (aurelia_test)', () => {
     panoId = space.spacePanoramas[0].id;
     await prisma.spaceProductPlacement.deleteMany({ where: { panoramaId: panoId } });
 
+    // seed không có mô hình 3D: tạo mô hình đã duyệt cho hai sản phẩm cùng danh mục (để "Đổi món" có lựa chọn)
+    const published = await prisma.product.findMany({
+      where: {
+        status: 'published',
+        deletedAt: null,
+        productVariants: { some: {} },
+        categoryId: { not: null },
+      },
+      orderBy: { id: 'asc' },
+    });
+    const first = published.find((a) =>
+      published.some((b) => b.id !== a.id && b.categoryId === a.categoryId),
+    )!;
+    const second = published.find((b) => b.id !== first.id && b.categoryId === first.categoryId)!;
+    for (const p of [first, second])
+      if (!(await prisma.product3DModel.count({ where: { productId: p.id, status: 'ready' } })))
+        await createApprovedModel(http, prisma, admin, p.id);
     // sản phẩm có mô hình chính ready, ≥ 1 biến thể, và có sản phẩm khác cùng danh mục cũng có mô hình ready
     const models = await prisma.product3DModel.findMany({
       where: { isPrimary: true, status: 'ready', product: { status: 'published', deletedAt: null } },

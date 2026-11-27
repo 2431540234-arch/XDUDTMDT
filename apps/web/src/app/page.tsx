@@ -39,6 +39,11 @@ function ProductRow({ params }: { params: Parameters<typeof productApi.list>[0] 
 }
 
 export default function HomePage() {
+  // banner 3D chỉ hiện khi có ít nhất một sản phẩm đã có mô hình được duyệt
+  const has3d = Boolean(
+    useQuery({ queryKey: ['home-has-3d'], queryFn: () => productApi.list({ has3d: true, pageSize: 1 }) }).data
+      ?.meta.total,
+  );
   const cats = useCategories();
   const featured =
     cats.data
@@ -87,31 +92,35 @@ export default function HomePage() {
           <ProductRow params={{ featured: true, sort: 'soldCount:desc', pageSize: 4 }} />
         </section>
 
-        <section className="overflow-hidden rounded-2xl bg-surface-muted">
-          <div className="grid items-center gap-6 md:grid-cols-2">
-            <div className="p-8 sm:p-12">
-              <p className="text-xs font-semibold tracking-[0.25em] text-primary">CÔNG NGHỆ 3D</p>
-              <h2 className="mt-2 text-2xl font-extrabold uppercase sm:text-3xl">Trải nghiệm sản phẩm 3D</h2>
-              <p className="mt-3 max-w-md text-sm text-muted">
-                Xoay, phóng to và quan sát sản phẩm từ mọi góc 360° ngay trên website trước khi quyết định
-                mua.
-              </p>
-              <LinkButton href="/products?has3d=true" size="lg" className="mt-5">
-                TRẢI NGHIỆM NGAY <Icon name="arrowRight" size={16} />
-              </LinkButton>
+        {has3d && (
+          <section className="overflow-hidden rounded-2xl bg-surface-muted">
+            <div className="grid items-center gap-6 md:grid-cols-2">
+              <div className="p-8 sm:p-12">
+                <p className="text-xs font-semibold tracking-[0.25em] text-primary">CÔNG NGHỆ 3D</p>
+                <h2 className="mt-2 text-2xl font-extrabold uppercase sm:text-3xl">
+                  Trải nghiệm sản phẩm 3D
+                </h2>
+                <p className="mt-3 max-w-md text-sm text-muted">
+                  Xoay, phóng to và quan sát sản phẩm từ mọi góc 360° ngay trên website trước khi quyết định
+                  mua.
+                </p>
+                <LinkButton href="/products?has3d=true" size="lg" className="mt-5">
+                  TRẢI NGHIỆM NGAY <Icon name="arrowRight" size={16} />
+                </LinkButton>
+              </div>
+              <div className="relative h-64 md:h-full md:min-h-[300px]">
+                <img
+                  src="/mock-img/product?t=sofa&c=C9B8A0&v=4"
+                  alt="Sofa xem 360 độ"
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute bottom-4 right-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-sm font-extrabold text-primary shadow">
+                  360°
+                </span>
+              </div>
             </div>
-            <div className="relative h-64 md:h-full md:min-h-[300px]">
-              <img
-                src="/mock-img/product?t=sofa&c=C9B8A0&v=4"
-                alt="Sofa xem 360 độ"
-                className="h-full w-full object-cover"
-              />
-              <span className="absolute bottom-4 right-4 flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-sm font-extrabold text-primary shadow">
-                360°
-              </span>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <section>
           <SectionHead title="Sản phẩm mới" href="/products?sort=createdAt:desc" />

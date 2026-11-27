@@ -16,7 +16,7 @@ import { productPhotos } from '../utils/photos';
 import { addDays, iso, makeRng, roundPrice } from '../utils/rng';
 import { COLORS, valueId } from './attributes';
 import { categories } from './categories';
-import { BRAND_NAMES, modelFor, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
+import { BRAND_NAMES, productSpecs, sizeSets, type ProductSpec } from './_products_spec';
 
 const rng = makeRng(303);
 
@@ -30,7 +30,6 @@ export interface ProductExtra {
   minStock: number;
   features: string[];
   type: ProductSpec['type'];
-  modelKey: ProductSpec['model'];
 }
 
 export const products: Product[] = [];
@@ -70,7 +69,6 @@ const featurePool: Record<string, string[]> = {
   Kính: ['Kính cường lực 8mm an toàn', 'Viền khung hoàn thiện sắc nét', 'Bản lề giảm chấn êm ái'],
 };
 const commonFeatures = [
-  'Có mô hình 3D, xem trước kích thước trong không gian của bạn',
   'Giao hàng toàn quốc, hỗ trợ lắp đặt tại nhà',
   'Đổi trả trong 7 ngày nếu có lỗi từ nhà sản xuất',
 ];
@@ -106,7 +104,7 @@ productSpecs.forEach((s, idx) => {
 
   const desc = [
     `${s.name} mang phong cách ${s.style.toLowerCase()} với chất liệu ${s.material.toLowerCase()} được chọn lọc kỹ lưỡng, phù hợp cho cả căn hộ chung cư lẫn nhà phố. Đường nét thiết kế mềm mại giúp sản phẩm dễ dàng hòa hợp với nhiều không gian sống.`,
-    `Mỗi sản phẩm được hoàn thiện thủ công bởi đội ngũ thợ lành nghề, trải qua 5 bước kiểm tra chất lượng trước khi đến tay bạn. Bạn có thể xem mô hình 3D và đặt thử sản phẩm vào căn phòng của mình bằng AR để chắc chắn về kích thước và màu sắc.`,
+    `Mỗi sản phẩm được hoàn thiện thủ công bởi đội ngũ thợ lành nghề, trải qua 5 bước kiểm tra chất lượng trước khi đến tay bạn.`,
     `Bảo hành chính hãng ${s.warrantyMonths ?? 12} tháng, hỗ trợ giao hàng và lắp đặt tận nơi.`,
   ].join('\n\n');
 
@@ -125,7 +123,7 @@ productSpecs.forEach((s, idx) => {
     soldCount: 0, // tính lại từ order_items khi khởi tạo db
     has3dModel: false,
     metaTitle: `${s.name} | Aurelia Living`,
-    metaDescription: `Mua ${s.name.toLowerCase()} chính hãng, xem 3D/AR trước khi đặt hàng.`,
+    metaDescription: `Mua ${s.name.toLowerCase()} chính hãng, xem ảnh và kích thước trước khi đặt hàng.`,
     deletedAt: null,
     createdAt,
     updatedAt: createdAt,
@@ -219,7 +217,6 @@ productSpecs.forEach((s, idx) => {
   }
 
   // ----- Phần mở rộng -----
-  const [l, w, h] = s.dims;
   const costRatio = rng.pick([0.58, 0.6, 0.62, 0.65]);
   productExtras.push({
     productId: id,
@@ -233,66 +230,13 @@ productSpecs.forEach((s, idx) => {
     minStock: 5,
     features: [...(featurePool[s.material] ?? featurePool['Gỗ']), ...commonFeatures].slice(0, 5),
     type: s.type,
-    modelKey: modelFor(s),
   });
   void defaultVariantIdx;
 
-  // ----- Mô hình 3D: mọi sản phẩm có model đúng loại (modelFor) -----
-  {
-    const modelName = modelFor(s);
-    if (!modelName) throw new Error(`Thiếu mô hình 3D cho loại ${s.type}`);
-    const mid = product3dModels.length + 1;
-    const placement = ['mirror', 'bookshelf'].includes(s.type)
-      ? 'wall'
-      : ['coffee_table', 'lamp', 'nightstand'].includes(s.type)
-        ? 'table'
-        : 'floor';
-    const status = mid === 7 ? 'processing' : mid === 13 ? 'failed' : 'ready';
-    const posterMediaId = productImages.find((p) => p.productId === id && p.isPrimary)!.mediaId;
-    product3dModels.push({
-      id: mid,
-      uuid: `10000000-0000-4000-8000-${String(mid).padStart(12, '0')}`,
-      productId: id,
-      variantId: null,
-      lengthMm: l,
-      widthMm: w,
-      heightMm: h,
-      placement,
-      allowScaling: false,
-      viewerConfig: { autoRotate: true, exposure: 1, shadowIntensity: 1, cameraOrbit: '45deg 70deg auto' },
-      posterMediaId,
-      status,
-      version: 1,
-      isPrimary: true,
-      createdAt: iso(addDays(new Date(createdAt), 2)),
-      updatedAt: iso(addDays(new Date(createdAt), 2)),
-    });
-    const sizeBytes = Math.round((2.2 + rng.next() * 15) * 1024 * 1024);
-    const glbMedia = registerMedia(
-      `/mock/models/${modelName}.glb?p=${id}`,
-      `${slug.replace(/-/g, '_')}.glb`,
-      'model/gltf-binary',
-      sizeBytes,
-      `Mô hình 3D ${s.name}`,
-    );
-    modelFiles.push({
-      id: modelFiles.length + 1,
-      modelId: mid,
-      format: 'glb',
-      lod: 'high',
-      mediaId: glbMedia,
-      polygonCount: rng.int(18, 90) * 1000,
-      textureResolution: 2048,
-      isCompressed: true,
-      checksum: `sha256-${(id * 7919).toString(16).padStart(8, '0')}${(mid * 104729).toString(16).padStart(8, '0')}`,
-      createdAt,
-      updatedAt: createdAt,
-    });
-    if (status === 'ready') {
-      const p = products[products.length - 1];
-      p.has3dModel = true;
-    }
-  }
+  // Dữ liệu mẫu KHÔNG có mô hình 3D: mô hình chỉ có khi admin tạo/tải lên và duyệt.
+  // Vẫn tiêu thụ đúng 2 số ngẫu nhiên như trước để tồn kho, đơn hàng… sinh sau đó không đổi.
+  rng.next();
+  rng.int(18, 90);
 });
 
 void mediaRows;

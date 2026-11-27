@@ -34,7 +34,7 @@ Tài liệu đặc tả toàn bộ chức năng của hệ thống theo từng v
 
 ### 1.4. Phạm vi hiệu lực (cập nhật 2026-11-09)
 
-Tài liệu mô tả **80 use case**. Phạm vi triển khai và nghiệm thu hiện hành là **65 use case đang hoạt động**; 15 use case còn lại nằm ngoài phạm vi:
+Tài liệu mô tả **82 use case** (thêm UC-ADM-31, UC-ADM-32 ngày 2026-11-26). Phạm vi triển khai và nghiệm thu hiện hành là **67 use case đang hoạt động**; 15 use case còn lại nằm ngoài phạm vi:
 
 | Nhóm loại khỏi phạm vi | Số UC | Mã UC | Căn cứ |
 | --- | ---: | --- | --- |
@@ -42,7 +42,7 @@ Tài liệu mô tả **80 use case**. Phạm vi triển khai và nghiệm thu hi
 | AR (đã loại bỏ hoàn toàn) | 6 | UC-3D-02, UC-3D-04, UC-3D-05, UC-3D-06, UC-3D-07, UC-ADM-30 | D-P11, D-P16 |
 | Gỡ khi rút gọn CSDL | 5 | UC-ADM-06, UC-ADM-07, UC-ADM-29, UC-SPACE-04, UC-SPACE-06 | D-D10, D-D12, D-D15 |
 | **Tổng ngoài phạm vi** | **15** | | |
-| **Đang hoạt động** | **65** | | 80 − 4 − 6 − 5 |
+| **Đang hoạt động** | **67** | | 82 − 4 − 6 − 5 |
 
 Chi tiết 6 UC AR đã loại bỏ: [mục 15](#15-đã-loại-bỏ-không-còn-trong-phạm-vi). Trạng thái triển khai từng UC (65/65 có BE, FE và test): [DOI_CHIEU_UC.md](DOI_CHIEU_UC.md). Chức năng có trong code nhưng đặc tả chưa có: [mục 16](#16-bổ-sung-theo-code-chưa-có-trong-đặc-tả-gốc). Đăng nhập Google: **Đã hoãn** (mục 16).
 
@@ -144,6 +144,8 @@ Tổng: **80 UC** (29 Bắt buộc, 36 Nên có, 15 Mở rộng), trong đó 4 U
 | UC-ADM-28 | Xem thống kê tổng quan | Quản trị | Admin | Mở rộng | Order, OrderItem, Product, User | [ĐỀ XUẤT] (orders, order_items, users) |
 | UC-ADM-29 | ~~Thống kê phễu không gian mẫu~~ **[ĐÃ GỠ – D-D10]** | Quản trị | Admin | Mở rộng | — | — |
 | UC-ADM-30 | ~~Gỡ ảnh AR công khai không phù hợp~~ **[ĐÃ LOẠI BỎ – D-P16]** | Quản trị | Admin | Mở rộng | — | — |
+| UC-ADM-31 | Tạo mô hình 3D bằng AI từ ảnh sản phẩm | Quản trị | Admin | Nên có | Product3DModel, ProductImage, Media, ActivityLog, Notification | [ĐỀ XUẤT] (product_3d_models) |
+| UC-ADM-32 | Duyệt mô hình 3D | Quản trị | Admin | Nên có | Product3DModel, ModelFile, Media, SpaceProductPlacement | [ĐỀ XUẤT] (product_3d_models, model_files) |
 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Category, Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-02 (categories, products) |
 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductVariant, ProductImage, Media | Dùng lại API của UC-CAT-04 (products) |
 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | Ứng dụng Android | Khách, User, Admin | Nên có | Product, ProductImage, Media | [ĐỀ XUẤT] (ảnh overlay: xem 12.2 #11) |
@@ -233,6 +235,8 @@ Giá trị: ✔ được dùng · ✘ không · *chỉ của mình* · *cần đ
 | UC-ADM-28 | Xem thống kê tổng quan | ✘ | ✘ | ✔ |
 | UC-ADM-29 | ~~Thống kê phễu không gian mẫu~~ **[ĐÃ GỠ – D-D10]** | ✘ | ✘ | ✔ |
 | UC-ADM-30 | ~~Gỡ ảnh AR công khai không phù hợp~~ **[ĐÃ LOẠI BỎ – D-P16]** | ✘ | ✘ | ✔ |
+| UC-ADM-31 | Tạo mô hình 3D bằng AI từ ảnh sản phẩm | ✘ | ✘ | ✔ |
+| UC-ADM-32 | Duyệt mô hình 3D | ✘ | ✘ | ✔ |
 | UC-MOB-01 | Xem danh mục và danh sách sản phẩm trên app Android | ✔ | ✔ | ✔ |
 | UC-MOB-02 | Xem chi tiết sản phẩm trên app Android | ✔ | ✔ | ✔ |
 | UC-MOB-03 | Xem sản phẩm qua camera với overlay ảnh | ✔ | ✔ | ✔ |
@@ -1528,6 +1532,8 @@ UC này **đã gỡ** (D-D12, 2026-11-19/20). Tính năng, bảng và API tươn
 
 #### UC-ADM-13 – Tải và quản lý mô hình 3D sản phẩm
 
+> **Cập nhật 2026-11-26 (D-P18, D-P20):** tải tệp xong, job chuẩn hóa rồi dừng ở `pending_review`; mô hình chỉ `ready` sau khi duyệt (UC-ADM-32). Mỗi lần tải là một bản ghi mới; không còn ghi đè mô hình đang hiện, không còn ô tỉ lệ/đơn vị. Các dòng dưới đây nói "ready sau xử lý" được hiểu theo luồng này.
+
 | Mục | Nội dung |
 | --- | --- |
 | **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: CSDL (product_3d_models, model_files) |
@@ -1554,6 +1560,32 @@ UC này **đã gỡ** (D-D12, 2026-11-19/20). Tính năng, bảng và API tươn
 | **Mô tả** | Gắn cấu hình vật liệu (màu, độ nhám) cho từng biến thể trên cùng một mô hình để đổi màu không cần tải mô hình mới. |
 | **Luồng chính** | 1. Admin: Mở mô hình 3D, mục "Vật liệu theo biến thể".<br>2. Hệ thống: `PUT /api/admin/models/:id/material-variants/:variantId` ({ materialName, config }) kiểm tra biến thể cùng sản phẩm với mô hình, UNIQUE `(modelId, variantId)`.<br>3. Hệ thống: Lưu và trả 200. |
 | **Model + C/R/U/D** | ModelMaterialVariant (model_material_variants): C,R,U,D<br>ProductVariant (product_variants): R |
+
+#### UC-ADM-31 – Tạo mô hình 3D bằng AI từ ảnh sản phẩm
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] |
+| **Tác nhân chính / phụ** | Quản trị viên (quyền `manage_products`) · phụ: space Hugging Face (bên thứ ba), worker BullMQ |
+| **Mô tả** | Chọn MỘT ảnh chụp của sản phẩm để AI dựng mô hình; kết quả đi qua chuẩn hóa rồi chờ duyệt (UC-ADM-32). |
+| **Tiền điều kiện** | Máy chủ có `HF_TOKEN`; sản phẩm có ảnh JPG/PNG/WebP; không có mô hình đang xử lý hoặc chờ duyệt; còn hạn mức. |
+| **Hậu điều kiện** | Có mô hình `pending_review` (khách chưa thấy) hoặc `failed` kèm lý do. |
+| **Luồng chính** | 1. Admin: mở tab "Mô hình 3D" của sản phẩm; hệ thống hiện số lượt đã dùng hôm nay và lỗi gần nhất (`GET /api/admin/models/ai/status`).<br>2. Admin: chọn ảnh, chọn space (nếu cần dự phòng), xác nhận cho phép gửi ảnh tới Hugging Face (lần đầu mỗi phiên).<br>3. Hệ thống: `POST /api/admin/models/ai` kiểm tra điều kiện, tạo `Product3DModel` (`processing`), ghi `model.ai_requested`, đẩy job.<br>4. Worker: gửi ảnh, nhận GLB, lưu bản thô vào kho private, chuyển sang job chuẩn hóa.<br>5. Hệ thống: đặt `pending_review` và thông báo admin. |
+| **Luồng thay thế** | 3a. Thiếu xác nhận hoặc ảnh không hợp lệ → 400. 3b. Hết hạn mức → 429. 3c. Đang có bản chờ → 409. 3d. Thiếu `HF_TOKEN` → nút bị tắt kèm giải thích (503 nếu gọi thẳng).<br>4a. Lỗi → `failed`, ghi `model.ai_failed` (câu dễ hiểu + nguyên văn đã che token); admin bấm "Tạo lại" (`POST /api/admin/models/:id/regenerate`) hoặc tải GLB lên. |
+| **Quy tắc nghiệp vụ** | • Một job chạy một lúc; chỉ tự thử lại 1 lần với lỗi chắc chắn tạm thời; hết lượt GPU và lỗi lạ không thử lại.<br>• Giới hạn cả hệ thống: `AI3D_MAX_JOBS_PER_HOUR` (3), `AI3D_MAX_JOBS_PER_DAY` (10, tính từ 00:00 giờ Việt Nam); lượt lỗi vẫn tính.<br>• Không lưu và không trả token. |
+
+#### UC-ADM-32 – Duyệt mô hình 3D
+
+| Mục | Nội dung |
+| --- | --- |
+| **Thông tin chung** | Nhóm: Quản trị · Ưu tiên: **Nên có** · Khách: ✘ · User: ✘ · Admin: ✔ · Nguồn: [ĐỀ XUẤT] |
+| **Mô tả** | Xem thử mô hình đã chuẩn hóa rồi duyệt, bỏ, chuẩn hóa lại hoặc tạo lại. Chỉ mô hình đã duyệt mới hiện cho khách. |
+| **Tiền điều kiện** | Mô hình `pending_review` (từ UC-ADM-13 hoặc UC-ADM-31). |
+| **Hậu điều kiện** | Duyệt: mô hình `ready` và là mô hình chính, mô hình cũ bị xóa, `has3dModel` bật. Bỏ: xóa bản ghi và tệp tạm. |
+| **Luồng chính** | 1. Admin: xem trình xem 3D (tệp tải qua `GET /api/admin/models/:id/preview`, có xác thực), so kích thước sau chuẩn hóa với kích thước thật, dung lượng, số tam giác, cảnh báo, ảnh đầu vào.<br>2. Admin: chọn bản "đã gỡ tấm sàn" hoặc "chưa gỡ" (nếu có), bấm Duyệt.<br>3. Hệ thống: chép 3 LOD ra kho public, tạo `media` + `model_files`, chụp ảnh chờ từ trình xem, thay mô hình cũ trong một transaction. |
+| **Luồng thay thế** | 2a. "Xoay 90°" hoặc đổi công tắc gỡ sàn → `POST /api/admin/models/:id/renormalize` (xử lý lại tệp thô, không gọi AI).<br>2b. "Bỏ" → `POST /api/admin/models/:id/reject`.<br>2c. "Tạo lại" (mô hình AI) → UC-ADM-31. |
+| **Ngoại lệ** | Thao tác sai trạng thái → 409 `INVALID_STATE`. |
+| **Quy tắc nghiệp vụ** | • Trước khi duyệt, tệp chỉ ở kho private; API công khai không trả mô hình, tệp hay thông tin quy trình.<br>• Vị trí đặt trong ảnh 360° được giữ và tự dùng mô hình chính mới. |
 
 #### UC-ADM-15 – Quản lý không gian mẫu và ảnh 360°
 
@@ -1901,15 +1933,20 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> uploading: Admin tạo mô hình (UC-ADM-13)
-    uploading --> processing: Đủ tệp, đưa job vào hàng đợi
-    processing --> ready: Worker xử lý xong
-    processing --> failed: Worker lỗi
-    failed --> processing: Admin xử lý lại
-    ready --> processing: Admin thay tệp, version tăng
+    [*] --> uploading: Admin tải tệp thẳng lên kho (UC-ADM-13)
+    [*] --> processing: Tải qua API hoặc tạo bằng AI (UC-ADM-31)
+    uploading --> processing: Xác nhận đã tải xong
+    processing --> pending_review: AI và chuẩn hóa xong
+    processing --> failed: AI hoặc chuẩn hóa lỗi
+    failed --> processing: Xử lý lại / chuẩn hóa lại
+    pending_review --> processing: Chuẩn hóa lại
+    pending_review --> ready: Admin duyệt (UC-ADM-32)
+    pending_review --> [*]: Bỏ hoặc Tạo lại
+    failed --> [*]: Bỏ hoặc Tạo lại
+    ready --> [*]: Bị thay bởi mô hình mới được duyệt, hoặc admin xóa
 ```
 
-Khi `ready`, DB trigger cập nhật `Product.has3dModel`.
+Chỉ `ready` được công khai; DB trigger cập nhật `Product.has3dModel`.
 
 
 ## 11. Tích hợp ngoài
@@ -2051,18 +2088,18 @@ Các thành phần đã có trong khung code nhưng **không thuộc danh sách 
 
 | Chỉ số | Giá trị |
 | --- | --- |
-| Tổng UC | 80 (trong đó 65 đang hoạt động; 4 UC Android, 6 UC AR và 5 UC gỡ khi rút gọn CSDL ngoài phạm vi, xem mục 1.4) |
+| Tổng UC | 82 (trong đó 67 đang hoạt động; 4 UC Android, 6 UC AR và 5 UC gỡ khi rút gọn CSDL ngoài phạm vi, xem mục 1.4) |
 | UC Khách vãng lai | 25 (tính trên 80 UC gốc, chưa trừ UC ngoài phạm vi) |
 | UC Người dùng (gồm kế thừa Khách) | 48 |
-| UC Quản trị viên | 59 |
+| UC Quản trị viên | 61 |
 | UC Tác nhân ngoài | 1 |
 | UC riêng của Khách (chỉ dành cho khách chưa đăng nhập) | 1 |
 | UC chung (mục 6) | 22 |
 | UC ứng dụng Android (mục 7.1) | 4 |
 | UC riêng của User (mục 8) | 22 |
-| UC Quản trị (mục 9) | 30 |
+| UC Quản trị (mục 9) | 32 |
 | Ưu tiên Bắt buộc | 29 |
-| Ưu tiên Nên có | 36 |
+| Ưu tiên Nên có | 38 |
 | Ưu tiên Mở rộng | 15 |
 | Model được ít nhất 1 UC sử dụng | 42/42 model chuẩn (đã bỏ 2 model AR); 17 model mở rộng chưa nằm trong ma trận UC gốc (xem 4.2 và mục 16) |
 

@@ -100,6 +100,15 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_SECRET: optional(z.string()),
   // Cổng thanh toán giả lập khi chưa có khóa VNPAY: checkout trả redirect tới trang thành công/thất bại của FE
   PAYMENT_SANDBOX_FAKE: bool.default('true'),
+
+  // Tạo mô hình 3D bằng AI (admin). Thiếu HF_TOKEN ⇒ nút AI bị tắt kèm giải thích; các luồng khác không ảnh hưởng.
+  HF_TOKEN: optional(z.string()),
+  AI3D_PROVIDER: z.enum(['huggingface', 'fake', 'off']).default('huggingface'),
+  AI3D_SPACE: z.string().default('trellis-community/TRELLIS'),
+  AI3D_FALLBACK_SPACE: z.string().default('tencent/Hunyuan3D-2.1'),
+  AI3D_TIMEOUT_SECONDS: z.coerce.number().int().min(30).max(840).default(480),
+  AI3D_MAX_JOBS_PER_HOUR: z.coerce.number().int().min(0).default(3),
+  AI3D_MAX_JOBS_PER_DAY: z.coerce.number().int().min(0).default(10),
 });
 
 const MINIO_REQUIRED = ['S3_ENDPOINT', 'S3_ACCESS_KEY', 'S3_SECRET_KEY'] as const;
@@ -127,6 +136,13 @@ const envSchemaChecked = envSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: [env.VNPAY_TMN_CODE ? 'VNPAY_HASH_SECRET' : 'VNPAY_TMN_CODE'],
       message: 'VNPAY_TMN_CODE và VNPAY_HASH_SECRET phải cùng có hoặc cùng để trống',
+    });
+  }
+  if (env.NODE_ENV === 'production' && env.AI3D_PROVIDER === 'fake') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['AI3D_PROVIDER'],
+      message: 'KHÔNG được dùng nhà cung cấp giả lập ở NODE_ENV=production.',
     });
   }
   if (env.NODE_ENV === 'production' && env.PAYMENT_SANDBOX_FAKE) {

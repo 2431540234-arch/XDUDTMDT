@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test';
+import { ensureModel } from './model-helpers';
 
 // UC-ADM-17 / UC-SPACE-04/05 (API thật): admin đặt mô hình 3D vào ảnh 360° của một không gian chưa có placement, khách thấy
 // mô hình (tải SAU khi ảnh 360° hiện, có trạng thái đang tải) và "Đổi món" thử mà KHÔNG lưu vào DB; không gian chưa đặt gì thì
@@ -55,6 +56,10 @@ test('admin đặt mô hình vào ảnh 360°, khách thấy mô hình và Đổ
     id: number;
     name: string;
   };
+  // seed không có mô hình: tạo mô hình đã duyệt cho sofa và một sofa khác (để "Đổi món" có lựa chọn)
+  const other = (await (await request.get(`${API}/api/products/sofa-luxury`)).json()).data as { id: number };
+  await ensureModel(request, sofa.id);
+  await ensureModel(request, other.id);
 
   // không gian chưa đặt gì: khách xem như cũ (không có phần tử mô hình, không có trạng thái đang tải)
   await page.goto(`/spaces/${space.slug}`);
@@ -145,7 +150,7 @@ test('admin đặt mô hình vào ảnh 360°, khách thấy mô hình và Đổ
   await request.delete(`${API}/api/admin/panoramas/${space.panoId}/placements/${pl.id}`, { headers: h });
 });
 
-test('không gian seed có mô hình đặt sẵn hiển thị mô hình; ảnh vẫn xem được khi mô hình lỗi tải', async ({
+test('vị trí đặt sẵn của seed tự hiện mô hình khi sản phẩm được duyệt; ảnh vẫn xem được khi mô hình lỗi tải', async ({
   page,
   request,
 }) => {
@@ -153,14 +158,18 @@ test('không gian seed có mô hình đặt sẵn hiển thị mô hình; ảnh 
     slug: string;
   }>;
   let slug = '';
+  let placedProduct = 0;
   for (const s of seeded) {
     const d = (await (await request.get(`${API}/api/spaces/${s.slug}`)).json()).data;
-    if (d.panoramas.some((p: { placements: unknown[] }) => p.placements.length > 0)) {
+    const start = d.panoramas.find((p: { isStart: boolean }) => p.isStart) ?? d.panoramas[0];
+    if (start?.placements.length) {
       slug = s.slug;
+      placedProduct = start.placements[0].productId;
       break;
     }
   }
   expect(slug).not.toBe('');
+  await ensureModel(request, placedProduct);
   // chặn mọi tệp GLB: ảnh 360° và trang vẫn dùng được, mô hình bị bỏ qua
   await page.route(/\.glb(\?|$)/, (r) => r.abort());
   await page.goto(`/spaces/${slug}`);

@@ -223,3 +223,13 @@ Tài khoản: `admin@aurelia.vn` / `admin123`, `khachhang@aurelia.vn` / `123456`
 **Chạy demo:** xem `docs/HUONG_DAN_DEMO.md` (khởi động, tài khoản, kịch bản từng bước).
 
 **Tài liệu chuẩn** (không tự sửa): `docs/CAU_TRUC_DB.md`, `DATABASE_SCHEMA.md`, `QUY_UOC_CODE_DB.md`, `CONG_NGHE.md`, `DAC_TA_CHUC_NANG_THEO_VAI_TRO.md`. Phần dự án giữ/làm thêm ngoài chuẩn và các chỗ lệch tạm thời: **`docs/CHUAN_MO_RONG.md`**.
+
+## Mô hình 3D (tạo bằng AI hoặc tải GLB)
+
+Dữ liệu mẫu **không có** mô hình 3D: nút 3D chỉ hiện ở sản phẩm có mô hình đã được admin duyệt.
+
+1. Tạo token Hugging Face quyền **read** tại https://huggingface.co/settings/tokens, thêm `HF_TOKEN=...` vào `.env` gốc (không commit), khởi động lại API.
+2. Admin → Sản phẩm → sửa → tab **Mô hình 3D** → chọn ảnh → xác nhận gửi ảnh cho bên thứ ba → **Tạo mô hình 3D bằng AI** (hoặc **Tải GLB lên**).
+3. Khi trạng thái **Chờ duyệt**: xem thử, so kích thước, chọn bản gỡ/chưa gỡ tấm sàn, rồi **Duyệt**, **Tạo lại** hoặc **Bỏ**.
+
+Giới hạn: tài khoản Hugging Face miễn phí chỉ có vài phút GPU mỗi ngày; space công cộng có thể ngủ, quá tải hoặc đổi API; mỗi lần gọi đều tốn lượt kể cả khi lỗi; mô hình AI chỉ có một bộ màu và phần khuất do AI suy đoán. Giấy phép của Hunyuan3D không áp dụng tại EU, Anh và Hàn Quốc. Chỉ gửi ảnh bạn có quyền sử dụng.

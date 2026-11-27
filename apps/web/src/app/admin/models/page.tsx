@@ -9,13 +9,13 @@ import DataTable, { type Column } from '@/components/admin/DataTable';
 import FilterBar, { PageHeader } from '@/components/admin/FilterBar';
 import MaterialVariantsModal from '@/components/admin/MaterialVariantsModal';
 import UploadDropzone from '@/components/admin/UploadDropzone';
-import Button from '@/components/ui/Button';
+import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
-import Input, { Select } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Input';
 import Modal from '@/components/ui/Modal';
 import StatusBadge from '@/components/ui/StatusBadge';
 import { useDebounced, useListState } from '@/hooks/useListState';
-import { formatDate } from '@/lib/format';
+import { formatDate, formatFileSize } from '@/lib/format';
 import { modelStatusInfo } from '@/lib/status';
 import { errorMessage } from '@/lib/validators';
 import { adminApi } from '@/services/admin.api';
@@ -57,9 +57,7 @@ function UploadModal({
   const qc = useQueryClient();
   const [files, setFiles] = useState<UploadItem[]>([]);
   const [productId, setProductId] = useState(defaultProductId ?? '');
-  const [scale, setScale] = useState('1');
-  const [unit, setUnit] = useState('mm');
-  const [createNew, setCreateNew] = useState(false);
+  const [removeFloor, setRemoveFloor] = useState(true);
   const [err, setErr] = useState<Record<string, string>>({});
   const seq = useRef(1);
   const products = useQuery({
@@ -71,7 +69,7 @@ function UploadModal({
   useEffect(() => {
     if (open) {
       setFiles([]);
-      setCreateNew(false);
+      setRemoveFloor(true);
       setErr({});
       setProductId(defaultProductId ?? '');
     }
@@ -96,7 +94,8 @@ function UploadModal({
         file: f,
       });
     }
-    setFiles((cur) => [...cur, ...ok]);
+    // mỗi sản phẩm chỉ một mô hình đang chờ duyệt ⇒ mỗi lần một tệp
+    if (ok.length) setFiles(ok.slice(-1));
   };
 
   const save = useMutation({
@@ -105,15 +104,13 @@ function UploadModal({
         await adminApi.models.upload(f.file, {
           productId: Number(productId),
           format: f.format,
-          scale: Number(scale) || 1,
-          unit,
-          createNew,
+          removeFloor,
           onProgress: (percent) =>
             setFiles((cur) => cur.map((x) => (x.id === f.id ? { ...x, progress: percent } : x))),
         });
     },
     onSuccess: () => {
-      toast.success('Đã nhận tệp. Mô hình 3D đang được xử lý nền, trạng thái sẽ tự cập nhật.');
+      toast.success('Đã nhận tệp. Sau khi chuẩn hóa xong, mô hình chờ bạn xem thử và duyệt.');
       qc.invalidateQueries({ queryKey: ['admin', 'models'] });
       qc.invalidateQueries({ queryKey: ['admin', 'products'] });
       onClose();
@@ -151,7 +148,6 @@ function UploadModal({
             label="Tệp mô hình"
             accept=".glb"
             maxMB={100}
-            multiple
             hint="Kéo thả hoặc click để chọn – chỉ GLB (tối đa 100MB)"
             onFiles={add}
             onError={toast.error}
@@ -208,33 +204,19 @@ function UploadModal({
               Xem trước trực tiếp từ tệp GLB đang chọn (tệp đầu tiên).
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Input
-              label="Tỉ lệ (scale)"
-              inputMode="decimal"
-              value={scale}
-              onChange={(e) => setScale(e.target.value)}
-            />
-            <Select
-              label="Đơn vị"
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              options={[
-                { value: 'mm', label: 'Milimet (mm)' },
-                { value: 'cm', label: 'Centimet (cm)' },
-                { value: 'm', label: 'Mét (m)' },
-              ]}
-            />
-          </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
             <input
               type="checkbox"
-              checked={createNew}
-              onChange={(e) => setCreateNew(e.target.checked)}
+              checked={removeFloor}
+              onChange={(e) => setRemoveFloor(e.target.checked)}
               className="h-4 w-4 accent-primary"
             />{' '}
-            Tạo mô hình mới (không thay thế mô hình chính hiện có)
+            Gỡ tấm sàn thừa nếu phát hiện
           </label>
+          <p className="text-xs text-muted">
+            Mô hình được co theo kích thước thật của sản phẩm, đặt đứng thẳng, rồi chờ bạn duyệt. Khách chỉ
+            thấy sau khi duyệt.
+          </p>
         </div>
       </div>
     </Modal>
@@ -335,7 +317,12 @@ function Content() {
         <StatusBadge label={r.format.toUpperCase()} tone={r.format === 'glb' ? 'blue' : 'purple'} />
       ),
     },
-    { key: 'size', header: 'Kích thước', sortKey: 'sizeMB', render: (r) => `${r.sizeMB} MB` },
+    {
+      key: 'size',
+      header: 'Dung lượng',
+      sortKey: 'sizeMB',
+      render: (r) => formatFileSize(r.sizeBytes ?? r.sizeMB * 1048576),
+    },
     { key: 'date', header: 'Ngày tải lên', sortKey: 'uploadedAt', render: (r) => formatDate(r.uploadedAt) },
     {
       key: 'status',
@@ -361,6 +348,11 @@ function Content() {
                 Xử lý lại
               </Button>
             </>
+          )}
+          {r.status === 'pending_review' && (
+            <LinkButton size="sm" variant="outline" href={`/admin/products/${r.productId}?tab=model`}>
+              Xem &amp; duyệt
+            </LinkButton>
           )}
           {r.status === 'ready' && !r.isPrimary && (
             <Button

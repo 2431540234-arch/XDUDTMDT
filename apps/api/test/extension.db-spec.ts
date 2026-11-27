@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
+import { createApprovedModel } from './model-helpers';
 import { AdminRolesService } from '../src/modules/admin-roles/admin-roles.service';
 
 describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
@@ -113,6 +114,12 @@ describe('Use case Mở rộng nhẹ (aurelia_test)', () => {
 
     it('dòng do interceptor ghi (changes.auto = true) có auto = true, khác dòng do service ghi', async () => {
       // PATCH đặt mô hình chính khi mô hình ĐÃ là chính: service bỏ qua nhật ký ⇒ interceptor ghi dòng chung
+      const target = await prisma.product.findFirstOrThrow({
+        where: { status: 'published', deletedAt: null, productVariants: { some: {} }, has3dModel: false },
+        orderBy: { id: 'desc' },
+      });
+      const adminToken = (await login('admin@aurelia.vn', 'admin123', true)).accessToken;
+      await createApprovedModel(http, prisma, adminToken, target.id);
       const model = await prisma.product3DModel.findFirstOrThrow({
         where: { isPrimary: true, status: 'ready' },
       });

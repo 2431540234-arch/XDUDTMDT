@@ -10,6 +10,10 @@ import type {
   FinanceReport,
   InventoryRow,
   Model3DAdminRow,
+  Ai3dRequest,
+  Ai3dStatus,
+  ModelReviewDetail,
+  ModelVariantKey,
   OrderView,
   ProductDetail,
   ProductListItem,
@@ -29,7 +33,7 @@ import type {
 } from '@/types/api';
 import { readAsDataUrl } from '@/components/admin/UploadDropzone';
 import type { PresignedUpload } from '@aurelia-living/shared-types';
-import { USE_MOCK, http, type Query } from './api-client';
+import { USE_MOCK, http, type Query, fetchBinary } from './api-client';
 import { getUploadMode, putToStorage } from './direct-upload';
 
 /** Một giao dịch trong danh sách GET /admin/payments (UC-ADM-24) */
@@ -131,9 +135,8 @@ export const adminApi = {
       meta: {
         productId: number;
         format: 'glb';
-        scale: number;
-        unit: string;
-        createNew?: boolean;
+        /** gỡ tấm sàn thừa nếu phát hiện */
+        removeFloor: boolean;
         /** phần trăm tải lên kho (chỉ có khi tải thẳng lên MinIO) */
         onProgress?: (percent: number) => void;
       },
@@ -144,7 +147,8 @@ export const adminApi = {
           fileName: file.name,
           sizeMB: Math.max(0.1, file.size / 1048576),
           format: meta.format,
-          scale: meta.scale,
+          removeFloor: meta.removeFloor,
+          fileUrl: URL.createObjectURL(file),
         });
       }
       // Kho MinIO/S3 (UC-ADM-13 bước 4–5): presign ⇒ PUT thẳng lên bucket PRIVATE ⇒ confirm (202, xử lý nền)
@@ -154,9 +158,7 @@ export const adminApi = {
           fileName: file.name,
           size: file.size,
           format: meta.format,
-          scale: meta.scale,
-          unit: meta.unit,
-          createNew: meta.createNew ?? false,
+          removeFloor: meta.removeFloor,
         });
         await putToStorage(p, file, meta.onProgress);
         return http.post<ModelProcessingAccepted>(`/admin/models/${p.modelId}/files/confirm`, {
@@ -168,11 +170,30 @@ export const adminApi = {
       const form = new FormData();
       form.append('file', file);
       form.append('productId', String(meta.productId));
-      form.append('scale', String(meta.scale));
-      form.append('unit', meta.unit);
-      if (meta.createNew) form.append('createNew', 'true');
+      form.append('removeFloor', String(meta.removeFloor));
       return http.post<ModelProcessingAccepted>('/admin/models/upload', form);
     },
+    /** Tạo mô hình bằng AI */
+    aiStatus: () => http.get<Ai3dStatus>('/admin/models/ai/status'),
+    aiCreate: (body: Ai3dRequest) => http.post<ModelProcessingAccepted>('/admin/models/ai', body),
+    aiRegenerate: (modelId: number, body: Omit<Ai3dRequest, 'productId'>) =>
+      http.post<ModelProcessingAccepted>(`/admin/models/${modelId}/regenerate`, body),
+    /** Màn duyệt */
+    detail: (modelId: number) => http.get<ModelReviewDetail>(`/admin/models/${modelId}`),
+    /** URL xem thử bản CHỜ DUYỆT (tệp private ⇒ tải có đăng nhập rồi tạo URL tạm; gọi xong nhớ revoke) */
+    previewUrl: async (detail: ModelReviewDetail, variant: ModelVariantKey) => {
+      if (USE_MOCK) return detail.mockPreviewUrl ?? '';
+      const blob = await fetchBinary(`/admin/models/${detail.id}/preview`, { variant, lod: 'medium' });
+      return URL.createObjectURL(blob);
+    },
+    approve: (modelId: number, body: { variant: ModelVariantKey; posterDataUrl?: string }) =>
+      http.post<{ modelId: number; productId: number; status: 'ready' }>(
+        `/admin/models/${modelId}/approve`,
+        body,
+      ),
+    reject: (modelId: number) => http.post<null>(`/admin/models/${modelId}/reject`),
+    renormalize: (modelId: number, body: { yawDeg?: number; removeFloor?: boolean }) =>
+      http.post<ModelProcessingAccepted>(`/admin/models/${modelId}/renormalize`, body),
     /** Xóa một tệp (dòng có fileId) */
     remove: (id: number) => http.delete(`/admin/models/${id}`),
     /** Xóa cả mô hình chưa có tệp (đang xử lý / lỗi) */

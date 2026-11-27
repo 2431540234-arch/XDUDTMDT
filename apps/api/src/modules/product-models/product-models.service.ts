@@ -10,6 +10,7 @@ import { AppConfig } from '../../config/app-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../storage/storage.service';
 import { JobsService } from '../jobs/jobs.service';
+import { readPipeline, withPipeline } from '../jobs/model-processing/model-pipeline';
 import { ONLY_GLB_MESSAGE } from './model-file-validator';
 import type { ConfirmModelFileDto, PresignModelFileDto } from './dto/model-file.dto';
 
@@ -37,9 +38,17 @@ export class ProductModelsService {
     return model;
   }
 
+  /** Chỉ mô hình đang chờ tải tệp mới nhận tệp: mô hình đã xử lý/đã duyệt không bị ghi đè */
+  private async requireUploading(id: number) {
+    const model = await this.requireModel(id);
+    if (model.status !== 'uploading')
+      throw new AppException(ErrorCode.INVALID_STATE, 'Mô hình này không còn chờ tải tệp lên.');
+    return model;
+  }
+
   async presignFile(modelId: number, dto: PresignModelFileDto): Promise<PresignedUpload> {
     if (dto.format !== 'glb') throw new AppException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ONLY_GLB_MESSAGE);
-    await this.requireModel(modelId);
+    await this.requireUploading(modelId);
     if (dto.size > this.maxBytes) {
       throw new AppException(ErrorCode.PAYLOAD_TOO_LARGE, `Tệp vượt quá ${this.maxBytes / 1024 / 1024} MB.`, {
         maxBytes: this.maxBytes,
@@ -63,7 +72,7 @@ export class ProductModelsService {
     adminId: number,
   ): Promise<ModelProcessingAccepted> {
     if (dto.format !== 'glb') throw new AppException(ErrorCode.UNSUPPORTED_MEDIA_TYPE, ONLY_GLB_MESSAGE);
-    await this.requireModel(modelId);
+    const model = await this.requireUploading(modelId);
     if (!dto.key.startsWith(`models/incoming/${modelId}/`) || dto.key.includes('..')) {
       throw new AppException(ErrorCode.BAD_REQUEST, 'Khóa tệp không hợp lệ.');
     }
@@ -76,7 +85,28 @@ export class ProductModelsService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.product3DModel.update({ where: { id: modelId }, data: { status: 'processing' } });
+      const pipeline = readPipeline(model.viewerConfig) ?? {
+        source: 'upload' as const,
+        stage: 'queued' as const,
+        createdAt: new Date().toISOString(),
+        createdBy: adminId,
+        fileName: dto.fileName,
+        options: { removeFloor: true, yawDeg: 0 },
+      };
+      const claimed = await tx.product3DModel.updateMany({
+        where: { id: modelId, status: 'uploading' },
+        data: {
+          status: 'processing',
+          viewerConfig: withPipeline(model.viewerConfig, {
+            ...pipeline,
+            fileName: dto.fileName,
+            rawKey: dto.key,
+            rawBytes: info.size,
+          }) as never,
+        },
+      });
+      if (!claimed.count)
+        throw new AppException(ErrorCode.INVALID_STATE, 'Mô hình này không còn chờ tải tệp lên.');
       // lưu khóa tệp gốc để có thể xử lý lại (POST /admin/models/:id/reprocess)
       await this.activity.log(
         {

@@ -208,3 +208,28 @@ export const http = {
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, { body }).then((r) => r.data),
   delete: <T = null>(path: string) => request<T>('DELETE', path).then((r) => r.data),
 };
+
+/** Tải tệp nhị phân cần đăng nhập (ví dụ bản mô hình chờ duyệt). 401 ⇒ làm mới phiên rồi thử lại 1 lần. */
+export async function fetchBinary(path: string, query?: Query, retried = false): Promise<Blob> {
+  await sessionReady();
+  const token = useAuthStore.getState().accessToken;
+  let res: Response;
+  try {
+    res = await fetch(`${apiClient.baseURL}${path}${buildQueryString(query)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    throw new ApiClientError('NETWORK_ERROR', 'Không kết nối được máy chủ. Vui lòng thử lại.', 0);
+  }
+  if (res.status === 401 && !retried && (await refreshSession())) return fetchBinary(path, query, true);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as ApiResult<unknown> | null;
+    const error = body && !body.success ? body.error : null;
+    throw new ApiClientError(
+      error?.code ?? 'NETWORK_ERROR',
+      error?.message ?? 'Không tải được tệp.',
+      res.status,
+    );
+  }
+  return res.blob();
+}

@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { ensureModel } from './model-helpers';
 
 // Use case Mở rộng nhẹ (API thật): UC-ADM-27 nhật ký hoạt động, UC-ADM-02 vai trò, UC-ACC-03 phiên đăng nhập,
 // UC-ACC-07 xóa tài khoản, UC-ADM-26 gửi thông báo. Mỗi test tự đăng ký khách riêng. Chạy: npm run test:e2e:real (nhóm ext-uc).
@@ -52,6 +53,9 @@ test('nhật ký hoạt động: lọc theo hành động; dòng do service ghi 
   expect(
     (await request.post(`${API}/api/admin/attributes/3/values`, { headers: h, data: { value } })).status(),
   ).toBe(201);
+  // seed không có mô hình: tạo một mô hình đã duyệt
+  const sofa = (await (await request.get(`${API}/api/products/sofa-nordic`)).json()).data as { id: number };
+  await ensureModel(request, sofa.id);
   // PATCH đặt mô hình chính khi mô hình ĐÃ là chính: service không ghi log ⇒ interceptor ghi dòng "Tự động"
   const models = (await (await request.get(`${API}/api/admin/models?pageSize=100`, { headers: h })).json())
     .data as Array<{

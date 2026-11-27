@@ -2812,7 +2812,7 @@
       },
       "post": {
         "operationId": "AdminModelsController_upload",
-        "summary": "Tải lên (JSON): { productId, fileName, format, fileData (data-URL), allowAr, scale, unit?, createNew? } ⇒ 202 { modelId, jobId, status: processing }",
+        "summary": "Tải lên (JSON): { productId, fileName, format, fileData (data-URL), placement?, removeFloor? } ⇒ 202 { modelId, jobId, status: processing }",
         "parameters": [],
         "responses": {
           "202": {
@@ -2832,7 +2832,7 @@
     "/api/admin/models/upload": {
       "post": {
         "operationId": "AdminModelsController_uploadFile",
-        "summary": "Tải lên tệp thật (multipart): file + productId, variantId?, allowAr?, scale?, unit?, placement?, createNew? ⇒ 202, xử lý nền",
+        "summary": "Tải lên tệp thật (multipart): file + productId, variantId?, placement?, removeFloor? ⇒ 202, chuẩn hóa nền rồi chờ duyệt",
         "parameters": [],
         "responses": {
           "202": {
@@ -2881,6 +2881,33 @@
     "/api/admin/models/{id}": {
       "delete": {
         "operationId": "AdminModelsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      },
+      "get": {
+        "operationId": "AdminModelsController_detail",
+        "summary": "Chi tiết mô hình cho màn duyệt: quy trình, thông số chuẩn hóa, các phiên bản",
         "parameters": [
           {
             "name": "id",
@@ -3059,6 +3086,122 @@
         ]
       }
     },
+    "/api/admin/models/{id}/preview": {
+      "get": {
+        "operationId": "AdminModelsController_preview",
+        "summary": "Tệp GLB của bản CHỜ DUYỆT (?variant=cleaned|original&lod=high|medium|low)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/models/{id}/approve": {
+      "post": {
+        "operationId": "AdminModelsController_approve",
+        "summary": "Duyệt { variant?, posterDataUrl? }: thay mô hình đang hiện",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/models/{id}/reject": {
+      "post": {
+        "operationId": "AdminModelsController_reject",
+        "summary": "Bỏ bản chờ duyệt / lỗi: xóa tệp tạm và bản ghi",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/models/{id}/renormalize": {
+      "post": {
+        "operationId": "AdminModelsController_renormalize",
+        "summary": "Chuẩn hóa lại { yawDeg?, removeFloor? } từ tệp gốc (không gọi AI)",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
     "/api/admin/models/{id}/materials": {
       "get": {
         "operationId": "AdminModelsController_materialNames",
@@ -3176,6 +3319,75 @@
         ],
         "responses": {
           "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/models/ai/status": {
+      "get": {
+        "operationId": "Ai3dController_status",
+        "summary": "Trạng thái tạo mô hình bằng AI: bật/tắt, space, hạn mức đã dùng, lỗi gần nhất",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/models/ai": {
+      "post": {
+        "operationId": "Ai3dController_create",
+        "summary": "Tạo mô hình bằng AI { productId, imageId, space?, removeFloor?, consent: true } ⇒ 202. Ảnh được gửi tới Hugging Face.",
+        "parameters": [],
+        "responses": {
+          "202": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Admin – models"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/admin/models/{id}/regenerate": {
+      "post": {
+        "operationId": "Ai3dController_regenerate",
+        "summary": "Tạo lại mô hình AI đang chờ duyệt hoặc lỗi { consent: true, space?, imageId? }",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
             "description": ""
           }
         },

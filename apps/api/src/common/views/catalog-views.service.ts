@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { STORAGE_SERVICE, type StorageService } from '../../storage/storage.service';
 import { serialize } from '../utils/serialize';
+import { publicViewerConfig, readPipeline } from '../../modules/jobs/model-processing/model-pipeline';
 
 export const PRODUCT_INCLUDE = {
   category: true,
@@ -175,8 +176,12 @@ export class CatalogViews {
       fileName: media.fileName,
       fileSize: media.fileSize,
     }));
+    // thông tin quy trình tạo/duyệt là nội bộ: chỉ đưa ra nguồn và màu mà mô hình thể hiện (để ghi chú cho khách)
+    const pipeline = readPipeline(base.viewerConfig);
     return {
-      ...serialize(base),
+      ...serialize({ ...base, viewerConfig: publicViewerConfig(base.viewerConfig) as never }),
+      source: pipeline?.source ?? null,
+      colorName: pipeline?.colorName ?? null,
       files,
       // glbUrl mặc định = LOD medium (UC-3D-01); danh sách đủ LOD nằm ở files
       glbUrl:

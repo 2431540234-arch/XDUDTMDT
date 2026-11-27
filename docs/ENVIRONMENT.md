@@ -81,6 +81,11 @@ Cột "Bắt buộc": **Có** = thiếu thì không khởi động; **Tùy chọ
 | `UPLOAD_MAX_MODEL_MB` | Tùy chọn | `100` | M12 | GLB (USDZ bị từ chối 415, AR đã loại bỏ theo D-P16) |
 | `PG_HOST` | Tùy chọn | `localhost` | Script | Chỉ cho `scripts/db-reset.mjs` và `scripts/e2e-real.mjs`. Đặt `PG_HOST=127.0.0.1` khi `localhost` phân giải sang IPv6 (`::1`) mà cổng Postgres của Docker chỉ nhận IPv4 (gặp trên Windows khi `wslrelay.exe` chiếm `::1:55432`: Prisma báo "Can't reach database server"). Với Jest dùng thêm `E2E_DATABASE_URL=…@127.0.0.1:55432/aurelia_test` và `REDIS_HOST=127.0.0.1` |
 | `MODEL_SERVE_MAX_MB` | Tùy chọn | `5` | M12 (job `model-processing`) | Ngưỡng cho mỗi tệp LOD dùng cho web (NFR02, D-N21, D-P10); vượt thì mô hình `failed`, ghi `activity_logs` và gửi thông báo admin. Đã có logic kiểm tra |
+| `HF_TOKEN` | Tùy chọn | trống | M12 (tạo 3D bằng AI) | Token Hugging Face quyền **read** (tạo tại https://huggingface.co/settings/tokens), đặt trong `.env` gốc. Trống ⇒ nút AI bị tắt. Không commit, không in log |
+| `AI3D_PROVIDER` | Tùy chọn | `huggingface` | M12 | `huggingface` \| `off` \| `fake` (chỉ cho test; bị cấm ở production) |
+| `AI3D_SPACE` / `AI3D_FALLBACK_SPACE` | Tùy chọn | `trellis-community/TRELLIS` / `tencent/Hunyuan3D-2.1` | M12 | Chỉ nhận space đã có adapter (`modules/ai3d/spaces.ts`). Dự phòng do admin tự chọn |
+| `AI3D_TIMEOUT_SECONDS` | Tùy chọn | `480` | M12 | 30–840 giây cho một lần tạo |
+| `AI3D_MAX_JOBS_PER_HOUR` / `AI3D_MAX_JOBS_PER_DAY` | Tùy chọn | `3` / `10` | M12 | Giới hạn cho CẢ hệ thống; ngày tính theo giờ Việt Nam. Tài khoản Hugging Face miễn phí chỉ có vài phút GPU mỗi ngày |
 
 ## 6. Email
 

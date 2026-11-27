@@ -3,7 +3,9 @@
 # API CONTRACT – Aurelia Living (Frontend ⇄ Backend)
 
 > **Nguồn sự thật:** lớp mock API của Frontend (`apps/web/src/mock-data/mockApi/*`) và lớp service (`apps/web/src/services/*.api.ts`). Tài liệu này được **trích xuất tự động** từ hai nơi đó (bảng endpoint ở mục 4) và từ `apps/web/src/types/api.ts` (kiểu response, Phụ lục A). Backend phải khớp: path, method, query, body, hình dạng response, mã lỗi. Lệch ⇒ sửa Backend, không sửa giao diện.
-> Cập nhật: 2026-11-06 (Giai đoạn 4). **Bảng endpoint ở mục 4 đã được đối chiếu lại với code ngày 2026-11-25** (152 route khớp 152 dòng `Mapped {…}` khi API khởi động; spec sinh từ code ở [api/openapi.json](api/openapi.json), cách xuất lại ở [api/README.md](api/README.md)). Phần Phụ lục A (kiểu response) vẫn trích từ FE và có thể lệch: khi lệch, **code và spec OpenAPI là nguồn đúng**.
+> Cập nhật: 2026-11-06 (Giai đoạn 4). **Bảng endpoint ở mục 4 đã được đối chiếu lại với code ngày 2026-11-25** (152 route lúc đó; ngày 2026-11-26 thêm 8 route mô hình 3D, spec hiện có 160 route khớp 160 dòng `Mapped {…}` khi API khởi động; spec sinh từ code ở [api/openapi.json](api/openapi.json), cách xuất lại ở [api/README.md](api/README.md)). Phần Phụ lục A (kiểu response) vẫn trích từ FE và có thể lệch: khi lệch, **code và spec OpenAPI là nguồn đúng**.
+
+> **2026-11-26 (3D):** mọi mô hình tải lên hoặc tạo bằng AI dừng ở `pending_review` cho tới khi duyệt; API công khai chỉ trả mô hình `ready`, kèm `source` (`ai`\|`upload`\|null) và `colorName`; `viewerConfig` công khai không có khóa `pipeline`. Trường `scale`/`unit`/`createNew` khi tải lên không còn tác dụng. Các ghi chú cũ nói "xử lý xong ⇒ ready" được thay bằng luồng này.
 
 ## 1. Quy ước chung
 
@@ -315,9 +317,9 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | GET | `/admin/models` | admin | `admin.list` | `format`, `productId`, `q`, `sort` |  |  |
-| POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, format:"glb", fileData (data-URL base64, BẮT BUỘC), scale, unit?, createNew? } | `202 { modelId, jobId, status:"processing" }` |
-| POST | `/admin/models/upload` | admin | `admin.upload` |  | multipart: `file` + `productId`, `variantId?`, `scale?`, `unit?`, `placement?`, `createNew?` | `202 { modelId, jobId, status:"processing" }` |
-| POST | `/admin/models/presign` | admin | `admin.upload` |  | { productId, fileName, size, format:"glb", scale, unit?, createNew? } | Chỉ khi driver minio/s3. `200 { modelId, key, uploadUrl, method:"PUT", headers, expiresIn }`: chọn/tạo mô hình đích (mới ở trạng thái `uploading`) và cấp URL PUT vào bucket PRIVATE `models/incoming/<modelId>/<uuid>.glb`. Sau khi PUT xong gọi `POST /admin/models/:id/files/confirm { key, format, fileName }` ⇒ `202 { modelId, jobId, status:"processing" }`. USDZ ⇒ `415`, > 100 MB ⇒ `413`; driver local ⇒ `400` |
+| POST | `/admin/models` | admin | `admin.upload` |  | { productId, fileName, format:"glb", fileData (data-URL base64, BẮT BUỘC), placement?, removeFloor? } | `202 { modelId, jobId, status:"processing" }` ⇒ sau xử lý: `pending_review` (chưa công khai). Sản phẩm đang có bản xử lý/chờ duyệt ⇒ `409` |
+| POST | `/admin/models/upload` | admin | `admin.upload` |  | multipart: `file` + `productId`, `variantId?`, `placement?`, `removeFloor?` | Như trên. `variantId` chọn kích thước dùng để chuẩn hóa (mặc định biến thể mặc định) |
+| POST | `/admin/models/presign` | admin | `admin.upload` |  | { productId, fileName, size, format:"glb", placement?, removeFloor? } | Chỉ khi driver minio/s3. `200 { modelId, key, uploadUrl, method:"PUT", headers, expiresIn }`: chọn/tạo mô hình đích (mới ở trạng thái `uploading`) và cấp URL PUT vào bucket PRIVATE `models/incoming/<modelId>/<uuid>.glb`. Sau khi PUT xong gọi `POST /admin/models/:id/files/confirm { key, format, fileName }` ⇒ `202 { modelId, jobId, status:"processing" }`. USDZ ⇒ `415`, > 100 MB ⇒ `413`; driver local ⇒ `400` |
 | POST | `/admin/models/:id/reprocess` | admin | `admin.reprocess` |  |  | `:id` = id MÔ HÌNH. `202 { modelId, jobId, status:"processing" }`; không phải `failed` ⇒ `409 INVALID_STATE`; mất tệp gốc ⇒ `409`; không có ⇒ `404` |
 | PATCH | `/admin/models/:id/primary` | admin | `admin.setPrimary` |  |  | `:id` = id MÔ HÌNH. `{ modelId, productId, isPrimary:true }`; chỉ khi `ready` (khác ⇒ `409 INVALID_STATE`), không có ⇒ `404` |
 | DELETE | `/admin/models/model/:modelId` | admin | `admin.removeModel` |  |  | Xóa cả mô hình (kể cả chưa có tệp: đang xử lý / lỗi) |
@@ -326,6 +328,14 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | GET | `/admin/models/:id/material-variants` | admin | `admin.listMaterialVariants` |  |  | `[{ id, modelId, variantId, materialName, config, updatedAt }]` |
 | PUT | `/admin/models/:id/material-variants/:variantId` | admin | `admin.setMaterialVariant` |  | { materialName, config: { baseColor?: "#RRGGBB", roughness?: 0–1, metalness?: 0–1 } } | Tạo hoặc thay thế (UNIQUE model+variant) ⇒ `200`. Biến thể không thuộc sản phẩm của mô hình, config sai, khóa lạ ⇒ `400`; mô hình không có ⇒ `404`. Ghi `model.material_create` / `model.material_update` |
 | DELETE | `/admin/models/:id/material-variants/:variantId` | admin | `admin.removeMaterialVariant` |  |  | `200`; chưa có cấu hình ⇒ `404`. Ghi `model.material_delete` |
+| GET | `/admin/models/ai/status` | admin (manage_products) | `admin.aiStatus` |  |  | `{ enabled, reason, provider, spaces:[{id,label,role,note}], usage:{usedLastHour,perHour,usedToday,perDay}, limitReached, lastError:{at,message,raw,space}\|null }`. Không bao giờ chứa token |
+| POST | `/admin/models/ai` | admin (manage_products) | — |  | { productId, imageId, space?, removeFloor?, consent:true } | `202`. Ảnh được gửi tới Hugging Face. `400` (thiếu consent, ảnh SVG/không thuộc sản phẩm, space lạ), `409`, `429` (hạn mức), `503` (thiếu `HF_TOKEN`) |
+| POST | `/admin/models/:id/regenerate` | admin (manage_products) | — |  | { consent:true, imageId?, space?, removeFloor? } | Bỏ bản AI chờ duyệt/lỗi rồi tạo mới. `202`; sai trạng thái ⇒ `409` |
+| GET | `/admin/models/:id` | admin (manage_products) | `admin.modelDetail` |  |  | Màn duyệt: `{ status, source, stage, space, colorName, sourceImageUrl, options, defaultVariant, variants:{cleaned?,original?:{report, files}}, normalization, error }` (không có khóa kho) |
+| GET | `/admin/models/:id/preview` | admin (manage_products) | — | `variant`, `lod` |  | Tệp GLB của bản CHỜ DUYỆT (`model/gltf-binary`, không cache). Không còn chờ ⇒ `404` |
+| POST | `/admin/models/:id/approve` | admin (manage_products) | `admin.approveModel` |  | { variant?, posterDataUrl? } | `200`; thay mô hình đang hiện (mô hình cũ bị xóa). Sai trạng thái ⇒ `409` |
+| POST | `/admin/models/:id/reject` | admin (manage_products) | `admin.rejectModel` |  |  | `200`; xóa bản chờ duyệt/lỗi và tệp tạm. Sai trạng thái ⇒ `409` |
+| POST | `/admin/models/:id/renormalize` | admin (manage_products) | `admin.renormalizeModel` |  | { yawDeg? (0\|90\|180\|270), removeFloor? } | `202`; chuẩn hóa lại từ tệp thô, không gọi AI |
 | POST | `/admin/models/:id/files/presign` | admin (manage_products) | — |  |  |  |
 | POST | `/admin/models/:id/files/confirm` | admin (manage_products) | — |  |  |  |
 

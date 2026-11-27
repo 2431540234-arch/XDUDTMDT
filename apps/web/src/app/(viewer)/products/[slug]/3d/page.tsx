@@ -14,6 +14,7 @@ import { useCartActions } from '@/hooks/useCart';
 import { useProduct } from '@/hooks/useProducts';
 import { formatCurrency } from '@/lib/format';
 import { toast } from '@/store/uiStore';
+import type { Model3DView } from '@/types/api';
 
 const ProductViewer3D = dynamic(() => import('@/components/viewer/ProductViewer3D'), {
   ssr: false,
@@ -21,6 +22,24 @@ const ProductViewer3D = dynamic(() => import('@/components/viewer/ProductViewer3
     <div className="flex min-h-[460px] items-center justify-center text-muted">Đang tải trình xem 3D…</div>
   ),
 });
+
+/** Nói rõ mô hình đang thể hiện gì, để khách không tưởng mô hình đổi theo màu đang chọn */
+function ModelColorNote({ model, selectedColor }: { model: Model3DView; selectedColor: string | null }) {
+  const recolors = Boolean(model.materialVariants?.length);
+  if (recolors && model.source !== 'ai') return null;
+  return (
+    <div role="note" data-testid="model-color-note" className="rounded-card bg-surface-muted p-3 text-xs">
+      <p className="font-semibold">
+        {model.colorName ? `Mô hình thể hiện màu ${model.colorName}.` : 'Mô hình giữ màu gốc của tệp 3D.'}
+        {selectedColor && selectedColor !== model.colorName ? ` Màu bạn đang chọn: ${selectedColor}.` : ''}
+      </p>
+      <p className="mt-1 text-muted">
+        {model.source === 'ai' ? 'Mô hình dựng bằng AI từ một ảnh, mang tính minh họa. ' : ''}
+        Đổi màu ở đây chỉ đổi phiên bản bạn đặt mua, không đổi màu mô hình.
+      </p>
+    </div>
+  );
+}
 
 export default function Viewer3DPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -40,7 +59,6 @@ export default function Viewer3DPage() {
 
   const variant =
     p?.variants.find((v) => (v.color?.name ?? null) === color && (v.size ?? null) === size) ?? null;
-  const hex = p?.colors.find((c) => c.name === color)?.hex ?? null;
 
   if (q.isLoading)
     return (
@@ -112,7 +130,6 @@ export default function Viewer3DPage() {
           <ProductViewer3D
             model={p.model}
             alt={`Mô hình 3D ${p.name}`}
-            tint={hex}
             variantId={variant?.id ?? null}
             fallbackImage={p.images[0]?.url ?? null}
           />
@@ -142,6 +159,7 @@ export default function Viewer3DPage() {
               </div>
             </div>
           )}
+          <ModelColorNote model={p.model} selectedColor={color} />
           {p.material && (
             <p className="text-sm">
               <span className="font-semibold">Chất liệu:</span>{' '}

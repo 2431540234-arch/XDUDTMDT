@@ -214,6 +214,11 @@ async function main() {
     MAIL_TRANSPORT: 'direct',
     PAYMENT_SANDBOX_FAKE: 'true',
     // e2e luôn chạy giả lập: không đọc khóa VNPAY thật trong .env (biến môi trường ưu tiên hơn tệp .env)
+    // e2e không gọi Hugging Face thật
+    HF_TOKEN: '',
+    AI3D_PROVIDER: 'fake',
+    AI3D_MAX_JOBS_PER_HOUR: '1000',
+    AI3D_MAX_JOBS_PER_DAY: '1000',
     VNPAY_TMN_CODE: '',
     VNPAY_HASH_SECRET: '',
     VNPAY_RETURN_URL: '',
