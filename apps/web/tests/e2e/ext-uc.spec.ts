@@ -99,6 +99,7 @@ test('nhật ký hoạt động: lọc theo hành động; dòng do service ghi 
 test('vai trò: trang xem chỉ đọc (2 vai trò, 6 quyền); gán rồi gỡ admin trong chi tiết khách hàng', async ({
   page,
   request,
+  browser,
 }) => {
   const c = await newCustomer(request, 'vaitro');
   await adminLogin(page);
@@ -107,8 +108,30 @@ test('vai trò: trang xem chỉ đọc (2 vai trò, 6 quyền); gán rồi gỡ 
   await expect(page.getByTestId('role-admin').getByText('manage_settings')).toBeVisible();
   await expect(page.getByTestId('role-admin').locator('li')).toHaveCount(6);
   await expect(page.getByTestId('role-user')).toContainText('Không có quyền quản trị nào');
-  await expect(page.getByRole('button')).toHaveCount(await page.getByRole('button').count()); // trang không có nút ghi
-  await expect(page.getByRole('button', { name: /Gán vai trò|Gỡ vai trò/ })).toHaveCount(0);
+  // trang chỉ xem, kể cả với admin: vùng nội dung chính (không tính menu/thanh trên) không có điều khiển ghi.
+  // Chỉ kiểm sau khi dữ liệu đã hiện (các khẳng định ở trên), nếu không khung chờ tải sẽ làm kiểm tra đạt rỗng.
+  const main = page.getByRole('main');
+  const writeName = /Thêm|Tạo|Sửa|Cập nhật|Xóa|Lưu|Gán|Gỡ/i;
+  await expect(main.getByRole('button', { name: writeName })).toHaveCount(0);
+  await expect(main.getByRole('link', { name: writeName })).toHaveCount(0);
+  // chặt hơn: không có nút (kể cả nút chỉ có biểu tượng) hay ô nhập nào
+  for (const role of ['button', 'textbox', 'checkbox', 'combobox', 'switch'] as const)
+    await expect(main.getByRole(role)).toHaveCount(0);
+
+  // tài khoản không có quyền (khách): bị đưa khỏi trang vai trò, API từ chối
+  const guestContext = await browser.newContext();
+  const guest = await guestContext.newPage();
+  await customerLogin(guest, c.email, c.password);
+  await guest.goto('/admin/roles');
+  await expect(guest).toHaveURL(/\/$/, { timeout: 30_000 });
+  await expect(guest.getByRole('heading', { name: 'Danh mục nổi bật' })).toBeVisible({ timeout: 30_000 });
+  await expect(guest.getByRole('heading', { name: 'Vai trò & quyền' })).toHaveCount(0);
+  await expect(guest.getByTestId('role-admin')).toHaveCount(0);
+  await guestContext.close();
+  const denied = await request.get(`${API}/api/admin/roles`, {
+    headers: { Authorization: `Bearer ${c.token}` },
+  });
+  expect(denied.status()).toBe(403);
 
   await page.goto(`/admin/customers/${c.id}`);
   const section = page.getByTestId('roles-section');
