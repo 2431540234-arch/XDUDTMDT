@@ -1696,6 +1696,7 @@ function saveCoupon(ctx: Ctx, c: Db['coupons'][number] | null, b: Body) {
         startsAt: at,
         endsAt: null,
         isActive: true,
+        isPublic: false,
         createdAt: at,
         updatedAt: at,
       };

@@ -96,6 +96,7 @@ export interface Coupon {
   startsAt: string;
   endsAt: string | null;
   isActive: boolean;
+  isPublic: boolean;
   createdAt: string;
   updatedAt: string;
 }

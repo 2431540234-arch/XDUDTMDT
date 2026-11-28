@@ -94,6 +94,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       startsAt: f.startsAt || today,
       endsAt: f.endsAt || null,
       isActive: f.isActive,
+      isPublic: false,
       createdAt: '',
       updatedAt: '',
       name: f.name || 'Tên chương trình khuyến mãi',

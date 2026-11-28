@@ -23,11 +23,14 @@ interface Def {
   start: string;
   end: string | null;
   active?: boolean;
+  /** hiện cho khách ở giỏ hàng và trang Mã giảm giá; không đặt = riêng tư */
+  isPublic?: boolean;
 }
 
 const defs: Def[] = [
   {
     code: 'WELCOME10',
+    isPublic: true,
     name: 'Chào bạn mới – giảm 10%',
     description: 'Dành cho đơn hàng đầu tiên của khách hàng mới.',
     kind: 'percent',
@@ -42,6 +45,7 @@ const defs: Def[] = [
   },
   {
     code: 'FREESHIP',
+    isPublic: true,
     name: 'Miễn phí vận chuyển',
     description: 'Miễn phí giao hàng toàn quốc cho đơn từ 1 triệu.',
     kind: 'freeship',
@@ -97,6 +101,7 @@ const defs: Def[] = [
   },
   {
     code: 'GIAM200K',
+    isPublic: true,
     name: 'Giảm 200.000đ',
     description: 'Giảm trực tiếp 200.000đ cho đơn từ 2 triệu.',
     kind: 'fixed',
@@ -110,6 +115,7 @@ const defs: Def[] = [
   },
   {
     code: 'GIAM500K',
+    isPublic: true,
     name: 'Giảm 500.000đ',
     description: 'Giảm 500.000đ cho đơn từ 6 triệu.',
     kind: 'fixed',
@@ -232,6 +238,7 @@ export const coupons: Coupon[] = defs.map((d, i) => ({
   startsAt: d.start,
   endsAt: d.end,
   isActive: d.active ?? true,
+  isPublic: d.isPublic ?? false,
   createdAt: '2026-01-02T08:00:00.000Z',
   updatedAt: '2026-01-02T08:00:00.000Z',
 }));

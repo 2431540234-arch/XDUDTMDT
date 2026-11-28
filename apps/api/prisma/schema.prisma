@@ -176,6 +176,8 @@ model Coupon {
   startsAt       DateTime      @default(now()) @map("starts_at") @db.Timestamptz(6)
   endsAt         DateTime?     @map("ends_at") @db.Timestamptz(6)
   isActive       Boolean       @default(true) @map("is_active")
+  /// Hiển thị công khai cho khách (giỏ hàng, trang Mã giảm giá). false = riêng tư, chỉ dùng được khi khách tự nhập
+  isPublic       Boolean       @default(false) @map("is_public")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime      @default(now()) @map("updated_at") @db.Timestamptz(6)
   couponUsages   CouponUsage[]
