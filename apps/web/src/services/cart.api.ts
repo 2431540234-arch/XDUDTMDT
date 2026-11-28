@@ -1,6 +1,6 @@
 // Service gọi API giỏ hàng, mã giảm giá, đặt hàng, thanh toán, đơn hàng
 import type { OrderStatus, PaymentMethod } from '@aurelia-living/shared-types';
-import type { CartView, OrderView, ReviewView, VnpayReturnStatus } from '@/types/api';
+import type { AvailableCoupon, CartView, OrderView, ReviewView, VnpayReturnStatus } from '@/types/api';
 import { http } from './api-client';
 
 export const cartApi = {
@@ -12,6 +12,8 @@ export const cartApi = {
   /** BE thật: POST /coupons/validate (chỉ xem trước, D-N16). Mock lưu mã vào giỏ để tính lại tổng. */
   applyCoupon: (code: string) => http.post<CartView>('/cart/coupon', { code }),
   removeCoupon: () => http.delete<CartView>('/cart/coupon'),
+  /** Mã công khai khách còn dùng được (popup ở giỏ hàng và trang Mã giảm giá) */
+  availableCoupons: () => http.get<AvailableCoupon[]>('/coupons/available'),
 };
 
 export interface CheckoutBody {

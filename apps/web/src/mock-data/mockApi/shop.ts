@@ -15,6 +15,7 @@ import {
   type Result,
 } from './http';
 import {
+  availableCoupons,
   cartLines,
   cartView,
   effectivePrice,
@@ -158,6 +159,8 @@ export function clearCart(ctx: Ctx): Result {
   delete ctx.db.cartCoupons[ctx.user!.id];
   return ok(cartView(ctx.db, ctx.user!.id));
 }
+
+export const listAvailableCoupons = (ctx: Ctx): Result => ok(availableCoupons(ctx.db, ctx.user!.id));
 
 export function applyCoupon(ctx: Ctx): Result {
   const code = String(ctx.body?.code ?? '').trim();

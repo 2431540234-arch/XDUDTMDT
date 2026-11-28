@@ -266,6 +266,25 @@ export interface CouponView extends Coupon {
   kind: 'percent' | 'fixed' | 'freeship'; // 'freeship' = coupon_type freeship (mã giảm phí vận chuyển)
 }
 
+/** GET /coupons/available: mã công khai khách còn dùng được, kèm tình trạng theo giỏ hiện tại */
+export interface AvailableCoupon {
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  type: CouponView['kind'];
+  value: number;
+  maxDiscount: number | null;
+  minOrderValue: number;
+  endsAt: string | null;
+  /** null = mã không giới hạn lượt mỗi khách */
+  remainingForUser: number | null;
+  eligible: boolean;
+  reason: string | null;
+  estimatedDiscount: number;
+  isApplied: boolean;
+}
+
 // ---------- Thông báo ----------
 export interface NotificationData {
   type: 'order' | 'promo' | 'system';

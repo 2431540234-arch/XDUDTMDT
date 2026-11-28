@@ -7,6 +7,7 @@ import type {
   CategoryNode,
   ColorOption,
   CouponView,
+  AvailableCoupon,
   Model3DView,
   NotificationView,
   OrderView,
@@ -344,34 +345,80 @@ export function couponView(db: Db, c: Db['coupons'][number]): CouponView {
   };
 }
 
+type CouponRow = Db['coupons'][number];
+const dong = (n: number) => n.toString().replace(/B(?=(d{3})+(?!d))/g, '.');
+
+/** Cùng quy tắc với couponBlocker của API thật: lý do mã không dùng được bất kể giỏ hàng; null = dùng được */
+function couponBlocker(db: Db, c: CouponRow, userId: number, t: Date): string | null {
+  if (!c.isActive) return 'Mã giảm giá đã bị vô hiệu hóa.';
+  if (new Date(c.startsAt) > t) return 'Mã giảm giá chưa đến thời gian áp dụng.';
+  if (c.endsAt && new Date(c.endsAt) < t) return 'Mã giảm giá đã hết hạn.';
+  if (c.usageLimit !== null && c.usedCount >= c.usageLimit) return 'Mã giảm giá đã hết lượt sử dụng.';
+  const usedByUser = db.couponUsages.filter((u) => u.couponId === c.id && u.userId === userId).length;
+  if (c.perUserLimit !== null && usedByUser >= c.perUserLimit)
+    return 'Bạn đã dùng hết lượt cho mã giảm giá này.';
+  return null;
+}
+
+function discountOf(db: Db, c: CouponRow, subtotal: number, shippingFee: number) {
+  const kind = db.couponExtras.find((e) => e.couponId === c.id)!.kind;
+  if (kind === 'percent') return Math.min(Math.floor((subtotal * c.value) / 100), c.maxDiscount ?? Infinity);
+  return kind === 'fixed' ? Math.min(c.value, subtotal) : Math.min(shippingFee, c.maxDiscount ?? Infinity);
+}
+
 /** Kiểm tra mã + tính số tiền giảm (D-N16: chỉ xem trước; đặt hàng sẽ kiểm tra lại) */
 export function evaluateCoupon(db: Db, code: string, userId: number, subtotal: number, shippingFee: number) {
   const c = db.coupons.find((x) => x.code.toLowerCase() === code.trim().toLowerCase());
   if (!c) throw new ApiFail('COUPON_INVALID', 'Mã giảm giá không tồn tại.');
   const ex = db.couponExtras.find((e) => e.couponId === c.id)!;
-  const t = now();
-  if (!c.isActive) throw new ApiFail('COUPON_INVALID', 'Mã giảm giá đã bị vô hiệu hóa.');
-  if (new Date(c.startsAt) > t)
-    throw new ApiFail('COUPON_INVALID', 'Mã giảm giá chưa đến thời gian áp dụng.');
-  if (c.endsAt && new Date(c.endsAt) < t) throw new ApiFail('COUPON_INVALID', 'Mã giảm giá đã hết hạn.');
-  if (c.usageLimit !== null && c.usedCount >= c.usageLimit)
-    throw new ApiFail('COUPON_INVALID', 'Mã giảm giá đã hết lượt sử dụng.');
-  const usedByUser = db.couponUsages.filter((u) => u.couponId === c.id && u.userId === userId).length;
-  if (c.perUserLimit !== null && usedByUser >= c.perUserLimit)
-    throw new ApiFail('COUPON_INVALID', 'Bạn đã dùng hết lượt cho mã giảm giá này.');
+  const blocker = couponBlocker(db, c, userId, now());
+  if (blocker) throw new ApiFail('COUPON_INVALID', blocker);
   if (subtotal < c.minOrderValue)
-    throw new ApiFail(
-      'COUPON_INVALID',
-      `Đơn hàng cần tối thiểu ${c.minOrderValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')}đ để dùng mã này.`,
+    throw new ApiFail('COUPON_INVALID', `Đơn hàng cần tối thiểu ${dong(c.minOrderValue)}đ để dùng mã này.`);
+  return { coupon: c, extra: ex, discount: discountOf(db, c, subtotal, shippingFee) };
+}
+
+/** GET /coupons/available: chỉ mã công khai còn dùng được, kèm tình trạng theo giỏ (cùng quy tắc với API thật) */
+export function availableCoupons(db: Db, userId: number): AvailableCoupon[] {
+  const cart = cartView(db, userId);
+  const t = now();
+  const end = (c: AvailableCoupon) => (c.endsAt ? new Date(c.endsAt).getTime() : Number.MAX_SAFE_INTEGER);
+  return db.coupons
+    .filter((c) => c.isPublic && couponBlocker(db, c, userId, t) === null)
+    .map((c): AvailableCoupon => {
+      const ex = db.couponExtras.find((e) => e.couponId === c.id)!;
+      const empty = cart.items.length === 0;
+      const shortfall = Math.max(0, c.minOrderValue - cart.subtotal);
+      const eligible = !empty && shortfall === 0;
+      const used = db.couponUsages.filter((u) => u.couponId === c.id && u.userId === userId).length;
+      return {
+        id: c.id,
+        code: c.code,
+        name: ex.name,
+        description: ex.description || null,
+        type: ex.kind,
+        value: c.value,
+        maxDiscount: c.maxDiscount,
+        minOrderValue: c.minOrderValue,
+        endsAt: c.endsAt,
+        remainingForUser: c.perUserLimit === null ? null : c.perUserLimit - used,
+        eligible,
+        reason: empty
+          ? 'Giỏ hàng đang trống'
+          : shortfall > 0
+            ? `Mua thêm ${dong(shortfall)}đ để dùng mã`
+            : null,
+        estimatedDiscount: eligible ? discountOf(db, c, cart.subtotal, cart.shippingFee) : 0,
+        isApplied: cart.coupon?.id === c.id,
+      };
+    })
+    .sort(
+      (a, b) =>
+        Number(b.eligible) - Number(a.eligible) ||
+        b.estimatedDiscount - a.estimatedDiscount ||
+        end(a) - end(b) ||
+        a.code.localeCompare(b.code),
     );
-  const base = subtotal;
-  const discount =
-    ex.kind === 'percent'
-      ? Math.min(Math.floor((base * c.value) / 100), c.maxDiscount ?? Infinity)
-      : ex.kind === 'fixed'
-        ? Math.min(c.value, base)
-        : shippingFee;
-  return { coupon: c, extra: ex, discount };
 }
 
 export function shippingFeeFor(db: Db, userId: number, subtotal: number, addressId?: number | null): number {
