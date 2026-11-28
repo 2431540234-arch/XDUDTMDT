@@ -1,6 +1,7 @@
 // UC-CART-04 (API thật): popup chọn mã ở giỏ hàng → áp mã → đặt hàng; trang Mã giảm giá trong tài khoản.
 // Chạy: npm run test:e2e:real (nhóm ma-giam-gia).
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { ensureCouponsUsable } from './helpers/coupons';
 import { test } from './helpers/test';
 import { visit } from './helpers/visit';
 
@@ -63,6 +64,7 @@ test('giỏ hàng: mở popup, mã chưa đủ điều kiện bị khóa, áp m�
   request,
 }) => {
   test.setTimeout(150_000);
+  await ensureCouponsUsable(request, ['GIAM200K', 'GIAM500K']);
   const before = await prepareCart(request);
   await login(page);
   await visit(page, '/cart', /Giỏ hàng của bạn \(1 sản phẩm\)/);
@@ -121,7 +123,9 @@ test('giỏ hàng: mở popup, mã chưa đủ điều kiện bị khóa, áp m�
 test('tài khoản: mục Mã giảm giá trong sidebar, danh sách mã công khai, sao chép mã, Dùng ngay sang giỏ hàng', async ({
   page,
   context,
+  request,
 }) => {
+  await ensureCouponsUsable(request, ['GIAM500K']);
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   await login(page);
   await visit(page, '/account/orders', 'Đơn hàng của tôi');

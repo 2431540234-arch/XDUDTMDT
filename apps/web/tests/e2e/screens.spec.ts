@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { ensureCouponsUsable } from './helpers/coupons';
 import { test } from './helpers/test';
 import { visit } from './helpers/visit';
 
@@ -143,8 +144,12 @@ test('trang 404', async ({ page }) => {
   await expect(page.getByText('Ôi! Không tìm thấy trang')).toBeVisible({ timeout: 30_000 });
 });
 
-test('khách hàng: đăng nhập → giỏ → mã giảm giá → đặt hàng → chi tiết đơn → đánh giá', async ({ page }) => {
+test('khách hàng: đăng nhập → giỏ → mã giảm giá → đặt hàng → chi tiết đơn → đánh giá', async ({
+  page,
+  request,
+}) => {
   test.setTimeout(300_000);
+  await ensureCouponsUsable(request, ['GIAM200K']);
   await page.goto('/login');
   await page.locator('input[name="email"]').fill('khachhang@aurelia.vn');
   await page.locator('input[name="password"]').fill('123456');
