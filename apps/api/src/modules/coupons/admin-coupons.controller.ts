@@ -25,16 +25,22 @@ export class AdminCouponsController {
   }
 
   @Post()
+  @ApiOperation({
+    summary:
+      'Tạo mã: { name, code, kind, value, maxDiscount?, minOrderValue?, usageLimit?, perUserLimit?, startsAt, endsAt, isActive?, isPublic?: boolean (mặc định false = riêng tư) }',
+  })
   create(@CurrentUser('id') adminId: number, @Body() body: unknown) {
     return this.coupons.create(adminId, body);
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Chi tiết mã, gồm isPublic' })
   get(@Param('id', ParseIntPipe) id: number) {
     return this.coupons.get(id);
   }
 
   @Patch(':id')
+  @ApiOperation({ summary: 'Sửa một phần, gồm cả isPublic (boolean); trường không gửi giữ nguyên' })
   update(@CurrentUser('id') adminId: number, @Param('id', ParseIntPipe) id: number, @Body() body: unknown) {
     return this.coupons.update(adminId, id, body);
   }

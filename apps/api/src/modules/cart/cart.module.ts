@@ -2,13 +2,13 @@
 // Module – UC-CART-01, 02, 03
 // Bảng: carts, cart_items
 // TRẠNG THÁI: đã cài đặt (module khai báo các controller/service thật bên dưới).
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { CartController } from './cart.controller';
 import { CouponsModule } from '../coupons/coupons.module';
 import { CartService } from './cart.service';
 
 @Module({
-  imports: [CouponsModule],
+  imports: [forwardRef(() => CouponsModule)],
   controllers: [CartController],
   providers: [CartService],
   exports: [CartService],
