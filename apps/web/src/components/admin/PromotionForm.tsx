@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import CouponCard from '@/components/account/CouponCard';
 import { PageHeader } from '@/components/admin/FilterBar';
 import Button, { LinkButton } from '@/components/ui/Button';
-import Input, { Select, Textarea } from '@/components/ui/Input';
+import Input, { Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
 import { toInputDate, toVnInputDate } from '@/lib/date';
@@ -45,8 +45,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
     value: '',
     maxDiscount: '',
     minOrderValue: '',
-    group: '',
-    channel: '',
     startsAt: today,
     endsAt: '',
     usageLimit: '',
@@ -67,8 +65,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       value: String(c.value || ''),
       maxDiscount: c.maxDiscount ? String(c.maxDiscount) : '',
       minOrderValue: c.minOrderValue ? String(c.minOrderValue) : '',
-      group: '',
-      channel: '',
       startsAt: toVnInputDate(c.startsAt),
       endsAt: c.endsAt ? toVnInputDate(c.endsAt) : '',
       usageLimit: c.usageLimit ? String(c.usageLimit) : '',
@@ -267,32 +263,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
                 inputMode="numeric"
                 value={f.minOrderValue}
                 onChange={(e) => set('minOrderValue', num(e.target.value))}
-              />
-            </div>
-          </section>
-
-          <section className="card space-y-4 p-5">
-            <h2 className="font-bold">Phạm vi áp dụng</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="Nhóm khách hàng"
-                value={f.group}
-                onChange={(e) => set('group', e.target.value)}
-                placeholder="Tất cả khách hàng"
-                options={[
-                  { value: 'new', label: 'Khách hàng mới' },
-                  { value: 'loyal', label: 'Khách hàng thân thiết' },
-                ]}
-              />
-              <Select
-                label="Kênh"
-                value={f.channel}
-                onChange={(e) => set('channel', e.target.value)}
-                placeholder="Tất cả kênh"
-                options={[
-                  { value: 'web', label: 'Website' },
-                  { value: 'app', label: 'Ứng dụng di động' },
-                ]}
               />
             </div>
           </section>
