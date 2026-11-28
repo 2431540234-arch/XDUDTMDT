@@ -52,6 +52,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
     usageLimit: '',
     perUserLimit: '',
     isActive: true,
+    isPublic: false,
   });
   const [errs, setErrs] = useState<Record<string, string>>({});
 
@@ -73,6 +74,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       usageLimit: c.usageLimit ? String(c.usageLimit) : '',
       perUserLimit: c.perUserLimit ? String(c.perUserLimit) : '',
       isActive: c.isActive,
+      isPublic: c.isPublic,
     });
   }, [cur.data]);
 
@@ -94,7 +96,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       startsAt: f.startsAt || today,
       endsAt: f.endsAt || null,
       isActive: f.isActive,
-      isPublic: false,
+      isPublic: f.isPublic,
       createdAt: '',
       updatedAt: '',
       name: f.name || 'Tên chương trình khuyến mãi',
@@ -119,6 +121,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
         usageLimit: Number(f.usageLimit) || null,
         perUserLimit: Number(f.perUserLimit) || null,
         isActive: f.isActive,
+        isPublic: f.isPublic,
       };
       return editing
         ? adminApi.coupons.update(couponId!, body as never)
@@ -338,6 +341,23 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
               />{' '}
               Kích hoạt
             </label>
+            <div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={f.isPublic}
+                  onChange={(e) => set('isPublic', e.target.checked)}
+                  aria-describedby="promo-public-hint"
+                  className="h-4 w-4 accent-primary"
+                />{' '}
+                Hiển thị công khai cho khách
+              </label>
+              <p id="promo-public-hint" className="mt-1 text-xs text-muted">
+                Mã công khai sẽ hiện trong giỏ hàng và trang Mã giảm giá của khách. Mã riêng tư chỉ dùng được
+                khi khách tự nhập.
+              </p>
+            </div>
           </section>
           <section>
             <h2 className="mb-2 font-bold">Xem trước</h2>
