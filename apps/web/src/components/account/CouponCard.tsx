@@ -52,7 +52,7 @@ export default function CouponCard({ coupon: c, onUse, expiryText, details, acti
             {expiryText ?? `HSD: ${c.endsAt ? formatDate(c.endsAt) : 'Không giới hạn'}`}
           </p>
         </div>
-        <div className="flex shrink-0 flex-row items-center gap-3 sm:flex-col sm:items-end">
+        <div className="flex shrink-0 flex-row flex-wrap items-center gap-3 sm:flex-col sm:items-end">
           {actions ? (
             actions
           ) : onUse ? (

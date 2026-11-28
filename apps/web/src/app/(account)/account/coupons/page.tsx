@@ -67,10 +67,15 @@ export default function MyCouponsPage() {
                 }
                 actions={
                   <>
-                    <Button variant="outline" size="sm" onClick={() => void copy(c)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="whitespace-nowrap"
+                      onClick={() => void copy(c)}
+                    >
                       Sao chép mã
                     </Button>
-                    <LinkButton href="/cart" size="sm">
+                    <LinkButton href="/cart" size="sm" className="whitespace-nowrap">
                       Dùng ngay
                     </LinkButton>
                   </>
