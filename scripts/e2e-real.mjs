@@ -52,6 +52,8 @@ const GROUPS = MINIO
       { name: 'phong-3d', files: ['tests/e2e/placements360.spec.ts'] },
       // use case Mở rộng nhẹ: nhật ký, vai trò, phiên đăng nhập, xóa tài khoản, gửi thông báo
       { name: 'ext-uc', files: ['tests/e2e/ext-uc.spec.ts'] },
+      // popup chọn mã giảm giá và trang Mã giảm giá (UC-CART-04)
+      { name: 'ma-giam-gia', files: ['tests/e2e/coupons.spec.ts'] },
     ];
 
 const log = (m) => console.log(`\n[e2e-real] ${m}`);
