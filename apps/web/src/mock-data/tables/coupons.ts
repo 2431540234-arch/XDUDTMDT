@@ -27,6 +27,17 @@ interface Def {
   isPublic?: boolean;
 }
 
+/**
+ * Hạn của các mã chạy dài hạn: 23:59 giờ Việt Nam, một năm kể từ ngày nạp dữ liệu mẫu (không ghi ngày cố định để mã
+ * mẫu không tự hết hạn). Mã đã kết thúc, sắp diễn ra hoặc theo đợt giữ ngày riêng để có đủ các trạng thái.
+ */
+const ONE_YEAR_AHEAD = (() => {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() + 1);
+  d.setUTCHours(16, 59, 0, 0);
+  return d.toISOString();
+})();
+
 const defs: Def[] = [
   {
     code: 'WELCOME10',
@@ -41,7 +52,7 @@ const defs: Def[] = [
     perUser: 1,
     used: 124,
     start: '2026-01-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'FREESHIP',
@@ -55,7 +66,7 @@ const defs: Def[] = [
     perUser: 5,
     used: 312,
     start: '2026-01-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'NOITHAT20',
@@ -111,7 +122,7 @@ const defs: Def[] = [
     perUser: 3,
     used: 211,
     start: '2026-03-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'GIAM500K',
@@ -125,7 +136,7 @@ const defs: Def[] = [
     perUser: 2,
     used: 96,
     start: '2026-04-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'SOFA12',
@@ -179,7 +190,7 @@ const defs: Def[] = [
     perUser: 2,
     used: 58,
     start: '2026-08-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'VIP20',
@@ -193,7 +204,7 @@ const defs: Def[] = [
     perUser: 3,
     used: 34,
     start: '2026-05-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'FLASH11',
@@ -220,7 +231,7 @@ const defs: Def[] = [
     perUser: 1,
     used: 12,
     start: '2026-02-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
     active: false,
   },
 ];
