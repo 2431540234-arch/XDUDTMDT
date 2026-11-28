@@ -32,7 +32,7 @@ const defs: Def[] = [
     code: 'WELCOME10',
     isPublic: true,
     name: 'Chào bạn mới – giảm 10%',
-    description: 'Dành cho đơn hàng đầu tiên của khách hàng mới.',
+    description: 'Giảm 10%, tối đa 200.000đ cho đơn từ 500.000đ. Mỗi khách dùng 1 lần.',
     kind: 'percent',
     value: 10,
     maxDiscount: 200_000,
