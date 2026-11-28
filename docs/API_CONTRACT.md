@@ -83,7 +83,7 @@
 
 - **Đơn hàng**: mã `ALV-YYYYMMDD-NNNNNN` (NNNNNN lấy từ sequence PostgreSQL `order_code_seq`). Luồng `pending → confirmed → processing → shipping → completed`; `cancelled` chỉ từ `pending|confirmed|processing`; **khách tự hủy khi `pending` hoặc `confirmed`** (FE hiện nút Hủy ở hai trạng thái này; admin hủy thêm được ở `processing`). Sai luồng ⇒ `409 INVALID_STATE` ("Không thể chuyển đơn từ "x" sang "y"."). Chuyển `shipping` tự tạo `shipment` (mã vận đơn); chuyển `completed` ⇒ shipment `delivered` + COD tự `paid`.
 - **Phí ship**: theo `settings.shippingZones` khớp `province` của địa chỉ (`fee`, `freeFrom`); `subtotal >= freeFrom` ⇒ 0.
-- **Coupon**: kiểm tra hạn, đơn tối thiểu, giảm tối đa (mã áp cho toàn giỏ), lượt dùng tổng/khách ⇒ lỗi `400 COUPON_INVALID` kèm lý do tiếng Việt. Loại `percent | fixed | freeship`.
+- **Coupon**: kiểm tra hạn, đơn tối thiểu, giảm tối đa (mã áp cho toàn giỏ), lượt dùng tổng/khách ⇒ lỗi `400 COUPON_INVALID` kèm lý do tiếng Việt. Loại `percent | fixed | freeship`. Mã **công khai** (`isPublic = true`) hiện trong giỏ hàng và trang Mã giảm giá; mã **riêng tư** (mặc định) chỉ dùng được khi khách tự nhập.
 - **Đánh giá**: chỉ sản phẩm thuộc đơn `completed` của chính khách (`403 PURCHASE_REQUIRED`), trùng (khách+sản phẩm+đơn) ⇒ `409 CONFLICT`; đánh giá mới ở trạng thái `pending`, admin duyệt `approved` mới hiện công khai và tính vào rating.
 - **Tồn kho**: thêm giỏ/đặt vượt tồn ⇒ `409 OUT_OF_STOCK` kèm `details:{ variantId, available }`.
 
@@ -190,6 +190,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | DELETE | `/cart/items/:id` | user | `cart.removeItem` |  |  |  |
 | POST | `/cart/coupon` | user | `cart.applyCoupon` |  | { code } | `COUPON_INVALID` |
 | DELETE | `/cart/coupon` | user | `cart.removeCoupon` |  |  |  |
+| GET | `/coupons/available` | user | `cart.availableCoupons` |  |  |  |
 
 ### 4. `orders`
 
@@ -344,7 +345,7 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 | Method | Path | Quyền | Service FE | Query | Body | Lỗi |
 |---|---|---|---|---|---|---|
 | GET | `/admin/coupons` | admin | `admin.list` | `kind`, `q`, `sort`, `tab` |  |  |
-| POST | `/admin/coupons` | admin | `admin.create` |  | CouponView (code, name, kind, value, maxDiscount?, minOrderValue, usageLimit?, perUserLimit?, startsAt, endsAt?, isActive; mã áp cho toàn giỏ) |  |
+| POST | `/admin/coupons` | admin | `admin.create` |  | CouponView (code, name, kind, value, maxDiscount?, minOrderValue, usageLimit?, perUserLimit?, startsAt, endsAt?, isActive, isPublic? (boolean, mặc định false; sai kiểu ⇒ `400`); mã áp cho toàn giỏ) |  |
 | GET | `/admin/coupons/:id` | admin | `admin.get` |  |  |  |
 | PATCH | `/admin/coupons/:id` | admin | `admin.` |  |  |  |
 | DELETE | `/admin/coupons/:id` | admin | `admin.remove` |  |  |  |
@@ -434,6 +435,8 @@ Quy ước cột: **Quyền** = `public` (không cần token) · `user` (Bearer 
 - **Đánh giá có kiểm duyệt**: `POST /products/:slug/reviews` và `PATCH /reviews/:id` ⇒ `status = pending`; danh sách công khai và điểm trung bình chỉ tính `approved`; `GET /reviews/me` trả mọi trạng thái. `PATCH /admin/reviews/:id/status` nhận `pending|approved|rejected` ("Ẩn" = `rejected`); duyệt ⇒ thông báo cho khách (Mốc 3). `content` không bắt buộc: nếu nhập thì 20–1000 ký tự (sai ⇒ `400`, lỗi theo trường `content`); để trống ⇒ lưu `null`.
 - `GET /admin/orders/:code/invoice` (thêm): `{ store, order, printedAt }` để in hóa đơn. Các route `/admin/orders/:id/*` nhận id số **hoặc** mã đơn.
 - `GET /admin/coupons`: `meta` ngoài phân trang còn có `all, active, upcoming, ended` (số lượng từng tab). Mã áp cho toàn giỏ: body tạo/sửa không còn `appliesTo`, `categoryIds`, `productIds`, `spaceIds`.
+- `GET /admin/coupons`, `GET /admin/coupons/:id` trả thêm `isPublic`; `PATCH` không gửi `isPublic` thì giữ nguyên.
+- `GET /coupons/available` (cần đăng nhập, chưa đăng nhập ⇒ `401`): trả mảng `AvailableCoupon` gồm **chỉ** mã `isPublic`, đang bật, trong thời hạn (`endsAt` trống = không hết hạn), còn lượt tổng và còn lượt của chính người gọi. `eligible`, `reason` ("Mua thêm 500.000đ để dùng mã" khi chưa đạt đơn tối thiểu; "Giỏ hàng đang trống"), `estimatedDiscount` (0 khi chưa đủ điều kiện) và `isApplied` tính theo giỏ hiện tại, phí ship theo địa chỉ mặc định. Thứ tự: dùng được trước (giảm nhiều trước), rồi chưa đủ điều kiện; bằng nhau thì hết hạn sớm trước. Áp và gỡ mã vẫn qua `POST` / `DELETE /cart/coupon`; đặt hàng kiểm tra lại mã. Như `GET /cart`, route này có thể tự gỡ khỏi giỏ một mã đã hết hiệu lực.
 - `POST|PATCH /admin/products`: mỗi biến thể có thể kèm `costPrice, minStock, lengthCm, widthCm, heightCm`; `stockQuantity` = tồn **có thể bán**. Ảnh là `{ url, isPrimary }` với `url` là data-URL hoặc URL đã nhận từ API (BE tái sử dụng bản ghi media).
 - Khóa tài khoản: mọi request của người bị khóa (kể cả token còn hạn) ⇒ `403 AUTH_ACCOUNT_LOCKED`.
 - `POST /admin/users`: mật khẩu tạm ngẫu nhiên gửi qua email (mock đặt `12345678`).
@@ -702,6 +705,23 @@ export interface CouponView extends Coupon {
   name: string;
   description: string | null;
   kind: 'percent' | 'fixed' | 'freeship'; // 'freeship' = coupon_type freeship (mã giảm phí vận chuyển)
+}
+
+export interface AvailableCoupon { // GET /coupons/available
+  id: number;
+  code: string;
+  name: string;
+  description: string | null;
+  type: 'percent' | 'fixed' | 'freeship';
+  value: number;
+  maxDiscount: number | null;
+  minOrderValue: number;
+  endsAt: string | null;
+  remainingForUser: number | null; // null = không giới hạn lượt mỗi khách
+  eligible: boolean;
+  reason: string | null;
+  estimatedDiscount: number;
+  isApplied: boolean;
 }
 
 

@@ -87,7 +87,7 @@
 
 ### 1.7 Sidebar tài khoản (`<AccountSidebar>`) — dùng ở các trang cá nhân
 - Avatar + tên + email + link "Chỉnh sửa hồ sơ".
-- Menu (bản đầy đủ): Thông tin cá nhân · Địa chỉ của tôi · Đơn hàng của tôi · **Đổi trả & hoàn tiền** · Sản phẩm yêu thích · Mã giảm giá của tôi · Đánh giá của tôi · **Thông báo** · Đổi mật khẩu · Đăng xuất. Item active nền be + chữ primary.
+- Menu (bản đầy đủ): Thông tin cá nhân · Địa chỉ của tôi · Đơn hàng của tôi · **Mã giảm giá** · **Đổi trả & hoàn tiền** · Sản phẩm yêu thích · Đánh giá của tôi · **Thông báo** · Đổi mật khẩu · Đăng xuất. Item active nền be + chữ primary.
 
 ---
 
@@ -134,7 +134,10 @@ Thứ tự section từ trên xuống:
 - Breadcrumb `Trang chủ > Giỏ hàng`. Tiêu đề "Giỏ hàng của bạn (3 sản phẩm)".
 - **Bảng trái:** cột Sản phẩm (ảnh + tên + "Màu: Be" + x1) · Đơn giá · Số lượng (stepper) · Thành tiền · Thao tác (🗑 xóa).
 - Link "← Tiếp tục mua sắm".
-- **Card phải "Tổng tiền giỏ hàng":** Tạm tính (3 sản phẩm) 14.000.000đ · Giảm giá −700.000đ (đỏ) · Phí vận chuyển 30.000đ · **Tổng cộng 13.330.000đ** · ô "Nhập mã giảm giá" + nút [Áp dụng] · nút lớn **"Thanh toán →"**.
+- **Card phải "Tổng tiền giỏ hàng":** Tạm tính (3 sản phẩm) 14.000.000đ · Giảm giá −700.000đ (đỏ) · Phí vận chuyển 30.000đ · **Tổng cộng 13.330.000đ** · ô "Nhập mã giảm giá" + nút [Áp dụng] (dùng được cả mã riêng tư) · liên kết **"Chọn mã giảm giá"** · nút lớn **"Thanh toán →"**.
+- **Popup "Chọn mã giảm giá"** (đóng bằng nút X, phím Esc hoặc bấm ra ngoài): mỗi mã công khai gồm tên, mức giảm ("Giảm 10%, tối đa 500.000đ" / "Giảm 200.000đ" / "Miễn phí vận chuyển"), đơn tối thiểu, hạn dùng, số tiền giảm dự kiến.
+  - Đủ điều kiện: nút **Áp dụng** (áp xong đóng popup; tiền giảm và tổng cộng cập nhật từ server). Chưa đủ: thẻ mờ, nút khóa, nêu lý do ("Mua thêm … để dùng mã"). Đang áp: nhãn **Đang áp dụng** + nút **Bỏ mã**.
+  - Có trạng thái đang tải, lỗi (nút Thử lại) và trống ("Hiện chưa có mã giảm giá nào").
 
 ### 2.5 Thanh toán — `wireframes/05-thanh-toan.png`
 - Breadcrumb `Trang chủ > Giỏ hàng > Thanh toán`. Tiêu đề "Thanh toán".
@@ -161,12 +164,13 @@ Thứ tự section từ trên xuống:
 - **Địa chỉ của tôi** + nút [+ Thêm địa chỉ mới]: các card địa chỉ chọn bằng radio — "Nhà riêng" (badge **Mặc định**, viền primary), "Văn phòng" (Sửa / Xóa). Mỗi card: tên, SĐT, địa chỉ đầy đủ.
 - **Đơn hàng gần đây** + "Xem tất cả →": bảng Mã đơn · Ngày đặt · Tổng tiền · Trạng thái (badge) · Thao tác [Xem chi tiết].
 
-### 2.9 Mã giảm giá của tôi (Coupon) — `wireframes/09-ma-giam-gia.png`
-- AccountSidebar (active: Mã giảm giá của tôi).
-- Tiêu đề "Mã giảm giá của tôi" + ô "Nhập mã giảm giá…" + nút [Áp dụng].
-- Tabs: **Tất cả (8)** · Chưa sử dụng (5) · Đã sử dụng (3) · Hết hạn (0).
-- **Coupon card dạng vé** (cạnh trái răng cưa nền be): bên trái "GIẢM 10%" / "GIẢM 200.000đ" + "Đơn tối thiểu …"; giữa: tên ưu đãi, HSD, "Áp dụng cho: …"; phải: badge trạng thái + nút **Sử dụng ngay** (disabled xám nếu đã dùng / hết hạn).
-- **Mã giảm giá gợi ý cho bạn** + "Xem tất cả →": 4 ô nhỏ (GIẢM 12%, GIẢM 150.000đ, GIẢM 20%, FREESHIP) mỗi ô nút **Lưu mã**.
+### 2.9 Mã giảm giá — `/account/coupons`
+> Ảnh `wireframes/09-ma-giam-gia.png` là bản thiết kế cũ (có ví mã). Hệ thống **không có chức năng lưu mã** (D-D10, D-D18): không có ô nhập mã, tab trạng thái, mục gợi ý hay nút "Lưu mã" như trong ảnh.
+- AccountSidebar (active: Mã giảm giá; mục đứng ngay sau "Đơn hàng của tôi").
+- Tiêu đề "Mã giảm giá". Danh sách các **mã công khai** khách còn dùng được, sắp hết hạn đứng trước.
+- **Thẻ dạng vé** (cạnh trái răng cưa nền be, "GIẢM 10%" / "GIẢM 200.000đ" / "FREESHIP" + đơn tối thiểu): tên, mức giảm, mô tả, số lượt còn lại của khách (nếu có giới hạn), mã, hạn dùng ("Còn 3 ngày" khi còn tối đa 7 ngày, ngược lại "HSD: dd/MM/yyyy").
+- Mỗi thẻ có **Sao chép mã** (thông báo "Đã sao chép mã …"; trình duyệt không cho thì hiện ô chứa mã để tự chép) và **Dùng ngay** (sang giỏ hàng).
+- Trang chỉ nêu điều kiện của mã, không xét theo giỏ hàng. Có trạng thái đang tải, lỗi và trống ("Hiện chưa có mã giảm giá nào dành cho bạn").
 
 ### 2.10 Đơn hàng của tôi — `wireframes/10-don-hang-cua-toi.png`
 - AccountSidebar (active: Đơn hàng của tôi).
@@ -285,7 +289,7 @@ Thứ tự section từ trên xuống:
 | `/login`, `/register` | Đăng nhập / Đăng ký |
 | `/account/profile` | Thông tin cá nhân (+ địa chỉ, đơn gần đây) |
 | `/account/orders` | Đơn hàng của tôi |
-| `/account/coupons` | Mã giảm giá của tôi |
+| `/account/coupons` | Mã giảm giá |
 | `/account/reviews` | Đánh giá của tôi |
 | `/account/wishlist` hoặc `/wishlist` | Sản phẩm yêu thích |
 | `/admin` | Tổng quan |
@@ -332,7 +336,7 @@ Thứ tự section từ trên xuống:
 - **Order**: code (`#ORD00125`), userId, items[], subtotal, discount, shippingFee, total, shippingAddress, paymentMethod (COD/Card/E-wallet: MoMo, ZaloPay, VNPAY), paymentStatus (Chưa TT/Đã TT/Hoàn tiền), status (Chờ xác nhận → Đang xử lý → Đang giao → Đã giao | Đã hủy), note, createdAt.
 - **Review**: productId, userId, orderId, rating (1–5), content, images[], status (Hiển thị/Ẩn), createdAt.
 - **Promotion / Coupon**: code, name, type (percent / fixed / freeship), value, minOrder, appliesTo (tất cả / theo danh mục), startAt, endAt, usageLimit, usedCount, status.
-- **UserCoupon**: userId, couponId, status (Chưa sử dụng / Đã sử dụng / Hết hạn).
+- ~~**UserCoupon**~~: đã bỏ (D-D10, không có ví mã). Coupon có thêm `isPublic` (D-D18).
 - **ActivityLog** (dashboard): actor, action, target, createdAt.
 - **ReturnRequest**: code (`#RT0012`), orderId, userId, items[] (productId, qty), type (refund/exchange), reason, description, images[], refundAmount, status (Chờ duyệt → Đang lấy hàng → Đang kiểm tra → Đã hoàn tiền / Đã đổi | Từ chối), adminNote.
 - **OrderStatusHistory**: orderId, status, note, actor (admin / hệ thống / khách hàng), createdAt (dùng cho timeline + lịch sử xử lý).

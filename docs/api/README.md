@@ -1,8 +1,8 @@
 # docs/api – đặc tả OpenAPI sinh từ code
 
-Cập nhật lần cuối: 2026-11-26 – nhánh `feat/ai-3d-models`.
+Cập nhật lần cuối: 2026-11-29 – nhánh `feat/coupon-picker-account-coupons`.
 
-[openapi.json](openapi.json) là spec OpenAPI 3.0 **xuất trực tiếp từ API đang chạy** (Swagger của NestJS, `apps/api/src/app.setup.ts`), không viết tay: 160 operation / 124 path, khớp đúng 160 dòng `Mapped {…}` khi API khởi động. Mô tả từng route nằm ở trường `summary` (tiếng Việt), quyền ở `security`.
+[openapi.json](openapi.json) là spec OpenAPI 3.0 **xuất trực tiếp từ API đang chạy** (Swagger của NestJS, `apps/api/src/app.setup.ts`), không viết tay: 161 operation / 125 path, khớp đúng 161 dòng `Mapped {…}` khi API khởi động. Mô tả từng route nằm ở trường `summary` (tiếng Việt), quyền ở `security`.
 
 **Giới hạn cần biết:** phần lớn `@Body()` khai báo kiểu `unknown` (kiểm tra thủ công bằng `FieldErrors`), nên spec **không có schema request/response chi tiết**; kiểu dữ liệu và quy tắc kiểm tra ở [API_CONTRACT.md](../API_CONTRACT.md) và [API_CONVENTIONS.md](../API_CONVENTIONS.md). Khi spec và tài liệu viết tay lệch nhau, code là nguồn đúng.
 

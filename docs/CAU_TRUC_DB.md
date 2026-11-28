@@ -56,7 +56,7 @@ Hệ thống gồm 32 bảng chia thành 7 nhóm chức năng. Cột chi tiết 
 | --- | --- | --- |
 | 20 | carts | Giỏ hàng của người dùng đã đăng nhập (user). Mỗi người dùng có một giỏ hàng. Khách vãng lai phải đăng ký hoặc đăng nhập mới thêm được sản phẩm vào giỏ. |
 | 21 | cart_items | Danh sách sản phẩm (theo biến thể) và số lượng trong giỏ hàng. |
-| 22 | coupons | Mã giảm giá theo phần trăm hoặc số tiền cố định. Lưu mức giảm tối đa, giá trị đơn hàng tối thiểu, tổng số lượt sử dụng, số lượt cho mỗi người dùng và thời gian hiệu lực. Chỉ người dùng đã đăng nhập mới được áp mã. |
+| 22 | coupons | Mã giảm giá theo phần trăm hoặc số tiền cố định. Lưu mức giảm tối đa, giá trị đơn hàng tối thiểu, tổng số lượt sử dụng, số lượt cho mỗi người dùng và thời gian hiệu lực. Chỉ người dùng đã đăng nhập mới được áp mã. Cột `is_public` cho biết mã công khai (hiện cho khách chọn) hay riêng tư (mặc định, khách phải tự nhập); thêm cột này không thêm bảng, hệ thống vẫn 32 bảng. |
 | 23 | coupon_usages | Ghi nhận mỗi lần sử dụng mã giảm giá (người dùng nào, đơn hàng nào) để kiểm soát giới hạn lượt dùng. Chỉ người dùng đã đăng nhập mới được áp mã. |
 | 24 | orders | Đơn hàng: mã đơn, trạng thái (chờ xác nhận, đã xác nhận, đang xử lý, đang giao, hoàn tất, đã hủy, hoàn tiền). Lưu thông tin người nhận tại thời điểm đặt hàng; tạm tính, giảm giá, phí vận chuyển và tổng tiền (hệ thống tự kiểm tra tổng tiền khớp); phương thức và trạng thái thanh toán; ghi chú và lý do hủy. |
 | 25 | order_items | Chi tiết từng sản phẩm trong đơn hàng. Lưu lại tên sản phẩm, mã SKU và đơn giá tại thời điểm mua để đơn hàng cũ không bị ảnh hưởng khi sản phẩm thay đổi giá hoặc bị xóa. Thành tiền được tính tự động. |
