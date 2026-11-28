@@ -23,13 +23,27 @@ interface Def {
   start: string;
   end: string | null;
   active?: boolean;
+  /** hiện cho khách ở giỏ hàng và trang Mã giảm giá; không đặt = riêng tư */
+  isPublic?: boolean;
 }
+
+/**
+ * Hạn của các mã chạy dài hạn: 23:59 giờ Việt Nam, một năm kể từ ngày nạp dữ liệu mẫu (không ghi ngày cố định để mã
+ * mẫu không tự hết hạn). Mã đã kết thúc, sắp diễn ra hoặc theo đợt giữ ngày riêng để có đủ các trạng thái.
+ */
+const ONE_YEAR_AHEAD = (() => {
+  const d = new Date();
+  d.setUTCFullYear(d.getUTCFullYear() + 1);
+  d.setUTCHours(16, 59, 0, 0);
+  return d.toISOString();
+})();
 
 const defs: Def[] = [
   {
     code: 'WELCOME10',
+    isPublic: true,
     name: 'Chào bạn mới – giảm 10%',
-    description: 'Dành cho đơn hàng đầu tiên của khách hàng mới.',
+    description: 'Giảm 10%, tối đa 200.000đ cho đơn từ 500.000đ. Mỗi khách dùng 1 lần.',
     kind: 'percent',
     value: 10,
     maxDiscount: 200_000,
@@ -38,10 +52,11 @@ const defs: Def[] = [
     perUser: 1,
     used: 124,
     start: '2026-01-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'FREESHIP',
+    isPublic: true,
     name: 'Miễn phí vận chuyển',
     description: 'Miễn phí giao hàng toàn quốc cho đơn từ 1 triệu.',
     kind: 'freeship',
@@ -51,7 +66,7 @@ const defs: Def[] = [
     perUser: 5,
     used: 312,
     start: '2026-01-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'NOITHAT20',
@@ -97,6 +112,7 @@ const defs: Def[] = [
   },
   {
     code: 'GIAM200K',
+    isPublic: true,
     name: 'Giảm 200.000đ',
     description: 'Giảm trực tiếp 200.000đ cho đơn từ 2 triệu.',
     kind: 'fixed',
@@ -106,10 +122,11 @@ const defs: Def[] = [
     perUser: 3,
     used: 211,
     start: '2026-03-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'GIAM500K',
+    isPublic: true,
     name: 'Giảm 500.000đ',
     description: 'Giảm 500.000đ cho đơn từ 6 triệu.',
     kind: 'fixed',
@@ -119,7 +136,7 @@ const defs: Def[] = [
     perUser: 2,
     used: 96,
     start: '2026-04-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'SOFA12',
@@ -173,7 +190,7 @@ const defs: Def[] = [
     perUser: 2,
     used: 58,
     start: '2026-08-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'VIP20',
@@ -187,7 +204,7 @@ const defs: Def[] = [
     perUser: 3,
     used: 34,
     start: '2026-05-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
   },
   {
     code: 'FLASH11',
@@ -214,7 +231,7 @@ const defs: Def[] = [
     perUser: 1,
     used: 12,
     start: '2026-02-01T00:00:00.000Z',
-    end: '2026-12-31T16:59:00.000Z',
+    end: ONE_YEAR_AHEAD,
     active: false,
   },
 ];
@@ -232,6 +249,7 @@ export const coupons: Coupon[] = defs.map((d, i) => ({
   startsAt: d.start,
   endsAt: d.end,
   isActive: d.active ?? true,
+  isPublic: d.isPublic ?? false,
   createdAt: '2026-01-02T08:00:00.000Z',
   updatedAt: '2026-01-02T08:00:00.000Z',
 }));

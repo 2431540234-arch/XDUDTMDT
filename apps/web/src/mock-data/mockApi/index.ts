@@ -61,6 +61,7 @@ const routes: Route[] = [
   ['POST', '/cart/items', 'user', shop.addCartItem],
   ['PATCH', '/cart/items/:id', 'user', shop.updateCartItem],
   ['DELETE', '/cart/items/:id', 'user', shop.removeCartItem],
+  ['GET', '/coupons/available', 'user', shop.listAvailableCoupons],
   ['POST', '/cart/coupon', 'user', shop.applyCoupon],
   ['DELETE', '/cart/coupon', 'user', shop.removeCoupon],
   ['POST', '/orders', 'user', shop.createOrder],

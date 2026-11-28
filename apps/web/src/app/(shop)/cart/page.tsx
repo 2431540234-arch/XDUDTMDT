@@ -4,6 +4,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import CouponPickerModal from '@/components/cart/CouponPickerModal';
 import Breadcrumb from '@/components/ui/Breadcrumb';
 import Button, { LinkButton } from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
@@ -86,6 +87,7 @@ export default function CartPage() {
   const { update, remove } = useCartActions();
   const [code, setCode] = useState('');
   const [codeErr, setCodeErr] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const apply = useMutation({
     mutationFn: () => cartApi.applyCoupon(code.trim()),
@@ -288,6 +290,23 @@ export default function CartPage() {
                     </p>
                   )}
                 </form>
+              )}
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline"
+              >
+                <Icon name="tag" size={16} /> Chọn mã giảm giá
+              </button>
+              {pickerOpen && (
+                <CouponPickerModal
+                  cart={cart}
+                  onClose={() => setPickerOpen(false)}
+                  onChanged={() => {
+                    setCode('');
+                    setCodeErr('');
+                  }}
+                />
               )}
               <LinkButton href="/checkout" size="lg" block>
                 Thanh toán <Icon name="arrowRight" size={16} />

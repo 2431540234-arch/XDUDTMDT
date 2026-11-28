@@ -16,6 +16,7 @@ const items: Array<{ href: string; label: string; icon: IconName; match?: (p: st
     icon: 'receipt',
     match: (p) => p.startsWith('/account/orders'),
   },
+  { href: '/account/coupons', label: 'Mã giảm giá', icon: 'tag' },
   { href: '/wishlist', label: 'Sản phẩm yêu thích', icon: 'heart' },
   { href: '/account/reviews', label: 'Đánh giá của tôi', icon: 'star' },
   { href: '/account/notifications', label: 'Thông báo', icon: 'bell' },

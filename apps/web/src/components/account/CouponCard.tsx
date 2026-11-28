@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { CouponView } from '@/types/api';
 
@@ -10,8 +11,19 @@ export function couponHeadline(c: Pick<CouponView, 'kind' | 'value'>): string {
   return 'FREESHIP';
 }
 
-/** Coupon dạng vé (cạnh trái răng cưa nền be) – dùng để xem trước khi admin tạo khuyến mãi */
-export default function CouponCard({ coupon: c, onUse }: { coupon?: CouponView; onUse?: () => void }) {
+interface Props {
+  coupon?: Pick<CouponView, 'code' | 'name' | 'kind' | 'value' | 'minOrderValue' | 'endsAt'>;
+  onUse?: () => void;
+  /** chữ thay cho dòng "HSD: …" mặc định, ví dụ "Còn 3 ngày" */
+  expiryText?: string;
+  /** dòng bổ sung dưới tên (mức giảm, mô tả, số lượt còn lại) */
+  details?: ReactNode;
+  /** thay nút "Sử dụng ngay" mặc định */
+  actions?: ReactNode;
+}
+
+/** Coupon dạng vé (cạnh trái răng cưa nền be) – trang Mã giảm giá của khách và xem trước khi admin tạo khuyến mãi */
+export default function CouponCard({ coupon: c, onUse, expiryText, details, actions }: Props) {
   if (!c) return null;
   return (
     <div className="flex overflow-hidden rounded-card border border-line bg-white shadow-card">
@@ -32,13 +44,18 @@ export default function CouponCard({ coupon: c, onUse }: { coupon?: CouponView; 
       <div className="flex min-w-0 flex-1 flex-col justify-between gap-2 p-4 sm:flex-row sm:items-center">
         <div className="min-w-0">
           <p className="truncate font-bold">{c.name}</p>
+          {details}
           <p className="mt-0.5 text-xs text-muted">
             Mã: <span className="font-mono font-semibold text-ink">{c.code}</span>
           </p>
-          <p className="text-xs text-muted">HSD: {c.endsAt ? formatDate(c.endsAt) : 'Không giới hạn'}</p>
+          <p className="text-xs text-muted">
+            {expiryText ?? `HSD: ${c.endsAt ? formatDate(c.endsAt) : 'Không giới hạn'}`}
+          </p>
         </div>
-        <div className="flex shrink-0 flex-row items-center gap-3 sm:flex-col sm:items-end">
-          {onUse ? (
+        <div className="flex shrink-0 flex-row flex-wrap items-center gap-3 sm:flex-col sm:items-end">
+          {actions ? (
+            actions
+          ) : onUse ? (
             <button
               type="button"
               onClick={onUse}

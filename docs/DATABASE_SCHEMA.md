@@ -562,6 +562,7 @@ Mã giảm giá theo phần trăm hoặc số tiền cố định; chỉ user đ
 | `starts_at` | timestamptz | NOT NULL<br>DEFAULT now() | Bắt đầu hiệu lực |
 | `ends_at` | timestamptz | — | Hết hiệu lực; NULL = không hết hạn |
 | `is_active` | boolean | NOT NULL<br>DEFAULT true | Bật/tắt mã |
+| `is_public` | boolean | NOT NULL<br>DEFAULT false | Hiển thị công khai cho khách (giỏ hàng, trang Mã giảm giá); `false` = riêng tư, chỉ dùng được khi khách tự nhập. Thêm ở migration `20261128165149_coupon_is_public` (D-D18); tổng số bảng vẫn là **32** |
 | `created_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm tạo |
 | `updated_at` | timestamptz | NOT NULL<br>DEFAULT now() | Thời điểm cập nhật cuối |
 

@@ -76,6 +76,13 @@ export default function AdminPromotionsPage() {
       render: (c) => `${c.usedCount}/${c.usageLimit ?? '∞'}`,
     },
     { key: 'status', header: 'Trạng thái', render: (c) => <StatusBadge info={couponStatus(c)} /> },
+    {
+      key: 'visibility',
+      header: 'Hiển thị',
+      render: (c) => (
+        <StatusBadge label={c.isPublic ? 'Công khai' : 'Riêng tư'} tone={c.isPublic ? 'blue' : 'gray'} />
+      ),
+    },
   ];
   return (
     <div>

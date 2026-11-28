@@ -1672,6 +1672,8 @@ function validateCoupon(ctx: Ctx, b: Body, selfId?: number) {
   if (!b.endsAt) errs.endsAt = 'Vui lòng chọn ngày kết thúc.';
   else if (b.startsAt && new Date(b.endsAt) < new Date(b.startsAt))
     errs.endsAt = 'Ngày kết thúc phải sau ngày bắt đầu.';
+  if (b.isPublic !== undefined && typeof b.isPublic !== 'boolean')
+    errs.isPublic = 'Giá trị hiển thị công khai phải là true hoặc false.';
   if (Object.keys(errs).length) throw validation(errs);
   return code;
 }
@@ -1696,6 +1698,7 @@ function saveCoupon(ctx: Ctx, c: Db['coupons'][number] | null, b: Body) {
         startsAt: at,
         endsAt: null,
         isActive: true,
+        isPublic: false,
         createdAt: at,
         updatedAt: at,
       };
@@ -1713,6 +1716,7 @@ function saveCoupon(ctx: Ctx, c: Db['coupons'][number] | null, b: Body) {
     startsAt: new Date(b.startsAt).toISOString(),
     endsAt: new Date(b.endsAt).toISOString(),
     isActive: b.isActive !== false,
+    isPublic: b.isPublic === true,
     updatedAt: at,
   });
   const extra = {

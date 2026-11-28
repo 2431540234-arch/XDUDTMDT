@@ -8,7 +8,7 @@ import { useEffect, useMemo, useState } from 'react';
 import CouponCard from '@/components/account/CouponCard';
 import { PageHeader } from '@/components/admin/FilterBar';
 import Button, { LinkButton } from '@/components/ui/Button';
-import Input, { Select, Textarea } from '@/components/ui/Input';
+import Input, { Textarea } from '@/components/ui/Input';
 import { ErrorState, PageSkeleton } from '@/components/ui/States';
 import { cn } from '@/lib/cn';
 import { toInputDate, toVnInputDate } from '@/lib/date';
@@ -45,13 +45,12 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
     value: '',
     maxDiscount: '',
     minOrderValue: '',
-    group: '',
-    channel: '',
     startsAt: today,
     endsAt: '',
     usageLimit: '',
     perUserLimit: '',
     isActive: true,
+    isPublic: false,
   });
   const [errs, setErrs] = useState<Record<string, string>>({});
 
@@ -66,13 +65,12 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       value: String(c.value || ''),
       maxDiscount: c.maxDiscount ? String(c.maxDiscount) : '',
       minOrderValue: c.minOrderValue ? String(c.minOrderValue) : '',
-      group: '',
-      channel: '',
       startsAt: toVnInputDate(c.startsAt),
       endsAt: c.endsAt ? toVnInputDate(c.endsAt) : '',
       usageLimit: c.usageLimit ? String(c.usageLimit) : '',
       perUserLimit: c.perUserLimit ? String(c.perUserLimit) : '',
       isActive: c.isActive,
+      isPublic: c.isPublic,
     });
   }, [cur.data]);
 
@@ -94,6 +92,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
       startsAt: f.startsAt || today,
       endsAt: f.endsAt || null,
       isActive: f.isActive,
+      isPublic: f.isPublic,
       createdAt: '',
       updatedAt: '',
       name: f.name || 'Tên chương trình khuyến mãi',
@@ -118,6 +117,7 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
         usageLimit: Number(f.usageLimit) || null,
         perUserLimit: Number(f.perUserLimit) || null,
         isActive: f.isActive,
+        isPublic: f.isPublic,
       };
       return editing
         ? adminApi.coupons.update(couponId!, body as never)
@@ -266,32 +266,6 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
               />
             </div>
           </section>
-
-          <section className="card space-y-4 p-5">
-            <h2 className="font-bold">Phạm vi áp dụng</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="Nhóm khách hàng"
-                value={f.group}
-                onChange={(e) => set('group', e.target.value)}
-                placeholder="Tất cả khách hàng"
-                options={[
-                  { value: 'new', label: 'Khách hàng mới' },
-                  { value: 'loyal', label: 'Khách hàng thân thiết' },
-                ]}
-              />
-              <Select
-                label="Kênh"
-                value={f.channel}
-                onChange={(e) => set('channel', e.target.value)}
-                placeholder="Tất cả kênh"
-                options={[
-                  { value: 'web', label: 'Website' },
-                  { value: 'app', label: 'Ứng dụng di động' },
-                ]}
-              />
-            </div>
-          </section>
         </div>
 
         <div className="space-y-5">
@@ -337,6 +311,23 @@ export default function PromotionForm({ couponId }: { couponId?: number }) {
               />{' '}
               Kích hoạt
             </label>
+            <div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={f.isPublic}
+                  onChange={(e) => set('isPublic', e.target.checked)}
+                  aria-describedby="promo-public-hint"
+                  className="h-4 w-4 accent-primary"
+                />{' '}
+                Hiển thị công khai cho khách
+              </label>
+              <p id="promo-public-hint" className="mt-1 text-xs text-muted">
+                Mã công khai sẽ hiện trong giỏ hàng và trang Mã giảm giá của khách. Mã riêng tư chỉ dùng được
+                khi khách tự nhập.
+              </p>
+            </div>
           </section>
           <section>
             <h2 className="mb-2 font-bold">Xem trước</h2>

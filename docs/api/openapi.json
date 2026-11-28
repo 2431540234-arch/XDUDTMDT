@@ -1555,6 +1555,7 @@
       },
       "post": {
         "operationId": "AdminCouponsController_create",
+        "summary": "Tạo mã: { name, code, kind, value, maxDiscount?, minOrderValue?, usageLimit?, perUserLimit?, startsAt, endsAt, isActive?, isPublic?: boolean (mặc định false = riêng tư) }",
         "parameters": [],
         "responses": {
           "201": {
@@ -1574,6 +1575,7 @@
     "/api/admin/coupons/{id}": {
       "get": {
         "operationId": "AdminCouponsController_get",
+        "summary": "Chi tiết mã, gồm isPublic",
         "parameters": [
           {
             "name": "id",
@@ -1600,6 +1602,7 @@
       },
       "patch": {
         "operationId": "AdminCouponsController_update",
+        "summary": "Sửa một phần, gồm cả isPublic (boolean); trường không gửi giữ nguyên",
         "parameters": [
           {
             "name": "id",
@@ -1643,6 +1646,26 @@
         },
         "tags": [
           "Admin – coupons"
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ]
+      }
+    },
+    "/api/coupons/available": {
+      "get": {
+        "operationId": "CouponsController_available",
+        "summary": "Mã giảm giá công khai khách còn dùng được, kèm eligible/reason/estimatedDiscount/isApplied theo giỏ hiện tại",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "coupons"
         ],
         "security": [
           {

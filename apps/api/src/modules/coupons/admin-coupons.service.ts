@@ -111,6 +111,8 @@ export class AdminCouponsService {
     }
     if (given(b.perUserLimit) && !(Number(b.perUserLimit) >= 1))
       errs.add('perUserLimit', 'Giới hạn lượt mỗi khách phải từ 1 trở lên.');
+    if (b.isPublic !== undefined && typeof b.isPublic !== 'boolean')
+      errs.add('isPublic', 'Giá trị hiển thị công khai phải là true hoặc false.');
     errs.throwIfAny();
     if (duplicate) throw conflictError('code', 'Mã khuyến mãi đã tồn tại.');
     return code;
@@ -138,6 +140,8 @@ export class AdminCouponsService {
       startsAt: parseVnDate(str(b.startsAt), 'start'),
       endsAt: parseVnDate(str(b.endsAt), 'end'),
       isActive: b.isActive !== false,
+      // mặc định riêng tư; khi sửa một phần, update() đã trộn giá trị hiện tại
+      isPublic: b.isPublic === true,
       name: str(b.name).trim(),
       description: str(b.description) || null,
     };
